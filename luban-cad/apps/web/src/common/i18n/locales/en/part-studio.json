@@ -1161,7 +1161,7 @@
       "prompt": "Click a sketch entity to trim between the nearest intersections; Esc to finish",
       "notOpen": "Enter sketch editing first",
       "invalidPoint": "Cannot locate the click on the sketch plane",
-      "unsupported": "This curve type cannot be trimmed yet (lines/circles/arcs only)",
+      "unsupported": "This curve type cannot be trimmed yet (lines/circles/arcs/cubic Bézier splines only)",
       "failed": "Trim commit failed"
     },
     "extend": {

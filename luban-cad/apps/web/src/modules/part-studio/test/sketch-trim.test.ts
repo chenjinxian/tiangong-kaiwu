@@ -67,14 +67,73 @@ describe('trimSketchAt — 线段', () => {
     expect(point(lines[0]!)).toEqual({ x: -10, y: 0 });
   });
 
-  it('spline → unsupported（不静默改数据）', () => {
-    const spline: SketchEntityDto = {
-      kind: 'spline', id: 3, controlPoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 0 }, { x: 3, y: 1 }],
+  it('非四次贝塞尔/周期样条 → unsupported（不静默改数据）', () => {
+    const quintic: SketchEntityDto = {
+      kind: 'spline', id: 3,
+      controlPoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 0 }, { x: 3, y: 1 }, { x: 4, y: 0 }],
     };
-    const result = trimSketchAt([spline], [], 3, { x: 1, y: 1 });
-    expect(result.ok).toBe(false);
-    expect(result.reason).toBe('unsupported');
-    expect(result.entities).toEqual([spline]);
+    expect(trimSketchAt([quintic], [], 3, { x: 1, y: 1 }).reason).toBe('unsupported');
+    const periodic: SketchEntityDto = {
+      kind: 'spline', id: 4, periodic: true,
+      controlPoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 0 }, { x: 3, y: 1 }],
+    };
+    expect(trimSketchAt([periodic], [], 4, { x: 1, y: 1 }).reason).toBe('unsupported');
+    const projected: SketchEntityDto = {
+      kind: 'spline', id: 5,
+      controlPoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 0 }, { x: 3, y: 1 }],
+      projected: { kind: 'projected', source: { kind: 'sketchEntity', sketchId: 's', entityId: 1 } },
+    };
+    expect(trimSketchAt([projected], [], 5, { x: 1, y: 1 }).reason).toBe('unsupported');
+  });
+});
+
+describe('trimSketchAt — 三次贝塞尔样条（Onshape Trim 支持 Bezier）', () => {
+  // 共线控制点 0/3/6/9 → x(t)=9t，便于断言 de Casteljau 分裂点。
+  const straightSpline = (id = 3): SketchEntityDto => ({
+    kind: 'spline', id, controlPoints: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 6, y: 0 }, { x: 9, y: 0 }],
+  });
+  const controlPoint = (entity: SketchEntityDto | undefined, index: number): { x: number; y: number } | undefined =>
+    entity?.kind === 'spline' ? entity.controlPoints[index] : undefined;
+
+  it('两条切割线之间：中间段移除，两侧保留（原 id + 新 id，控制点精确分裂）', () => {
+    const spline = straightSpline();
+    const result = trimSketchAt([spline, V_LEFT, V_RIGHT], [], 3, { x: 5, y: 0 });
+    expect(result.ok).toBe(true);
+    const pieces = result.entities.filter((entity) => entity.kind === 'spline');
+    expect(pieces.map((piece) => piece.id)).toEqual([3, 14]);
+    expect(controlPoint(pieces[0], 0)).toEqual({ x: 0, y: 0 });
+    expect(controlPoint(pieces[0], 3)!.x).toBeCloseTo(2, 6);
+    expect(controlPoint(pieces[1], 0)!.x).toBeCloseTo(8, 6);
+    expect(controlPoint(pieces[1], 3)!.x).toBeCloseTo(9, 6);
+    expect(result.constraints).toEqual([]);
+  });
+
+  it('点击首段 → 移除起点到第一交点，保留其余；引用样条的约束移除、其它保留', () => {
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'fixed', id: 1, refs: [3] },
+      { kind: 'horizontal', id: 2, refs: [12] },
+    ];
+    const result = trimSketchAt([straightSpline(), V_LEFT, V_RIGHT], constraints, 3, { x: 1, y: 0 });
+    const pieces = result.entities.filter((entity) => entity.kind === 'spline');
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0]!.id).toBe(3);
+    expect(controlPoint(pieces[0], 0)!.x).toBeCloseTo(2, 6);
+    expect(controlPoint(pieces[0], 3)!.x).toBeCloseTo(9, 6);
+    expect(result.constraints.map((constraint) => constraint.id)).toEqual([2]);
+  });
+
+  it('无交点 → 整删样条；圆作为切割边 → 样条与圆均可修剪', () => {
+    expect(trimSketchAt([straightSpline()], [], 3, { x: 4.5, y: 0 }).removedEntityIds).toEqual([3]);
+
+    const circle: SketchEntityDto = { kind: 'circle', id: 21, center: { x: 4.5, y: 0 }, radius: 1 };
+    const splineTrim = trimSketchAt([straightSpline(), circle], [], 3, { x: 4.5, y: 0 });
+    expect(splineTrim.entities.filter((entity) => entity.kind === 'spline')).toHaveLength(2);
+
+    // 圆被样条切割：点击上方 → 保留下方圆弧。
+    const circleTrim = trimSketchAt([straightSpline(), circle], [], 21, { x: 4.5, y: 1 });
+    const arcs = circleTrim.entities.filter((entity) => entity.kind === 'arc');
+    expect(arcs).toHaveLength(1);
+    expect(circleTrim.removedEntityIds).toEqual([]);
   });
 });
 

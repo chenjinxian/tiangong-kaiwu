@@ -134,3 +134,87 @@ test.describe('草图修剪（Onshape 对拍）', () => {
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
   });
 });
+
+test.describe('草图修剪 — 三次贝塞尔样条（Onshape Trim 支持 Bezier）', () => {
+  test('两条截断线之间的样条中段移除 → 两段保留（de Casteljau 精确分裂）', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    const openWithRetry = async () => {
+      try {
+        return await openSeedImodelEditor(page, seed);
+      } catch {
+        await page.reload();
+        return await openSeedImodelEditor(page, seed);
+      }
+    };
+    let ctx = await openWithRetry();
+
+    // 共线控制点 [-10, -3.333, 3.333, 10] → x(t)=-10+20t；两条竖线切于 ±3。
+    const entities: SketchEntityDto[] = [
+      {
+        kind: 'spline', id: 31,
+        controlPoints: [{ x: -10, y: 0 }, { x: -10 / 3, y: 0 }, { x: 10 / 3, y: 0 }, { x: 10, y: 0 }],
+      },
+      { kind: 'line', id: 32, p1: { x: -3, y: -5 }, p2: { x: -3, y: 5 } },
+      { kind: 'line', id: 33, p1: { x: 3, y: -5 }, p2: { x: 3, y: 5 } },
+    ];
+    const lease = await borrowWriteLease(ctx, token, 'sketch-trim-spline');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch', entities, constraints: [], plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openWithRetry();
+    const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(sketchRow).toBeVisible({ timeout: 60_000 });
+    await sketchRow.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    const middle = await page.evaluate((worldPoint) => {
+      const vp = (window as unknown as {
+        __lubanE2E?: { coreFrontend: { IModelApp: { viewManager: { selectedView: { worldToView: (p: { x: number; y: number; z: number }) => { x: number; y: number } } } | undefined } } };
+      }).__lubanE2E?.coreFrontend?.IModelApp?.viewManager?.selectedView;
+      if (!vp) return null;
+      const v = vp.worldToView(worldPoint);
+      return { x: v.x, y: v.y };
+    }, { x: 0, y: 0, z: 0 });
+    expect(middle).not.toBeNull();
+
+    await page.getByRole('button', { name: '修剪', exact: true }).click();
+    await page.mouse.click(box!.x + middle!.x, box!.y + middle!.y);
+
+    const pieces = async (): Promise<Array<{ id: number; firstX: number; lastX: number }>> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      return (sketch?.entities ?? [])
+        .filter((entity) => entity.kind === 'spline')
+        .map((entity) => {
+          const controls = entity.kind === 'spline' ? entity.controlPoints : [];
+          return { id: entity.id, firstX: controls[0]?.x ?? Number.NaN, lastX: controls.at(-1)?.x ?? Number.NaN };
+        })
+        .sort((a, b) => a.firstX - b.firstX);
+    };
+    await expect.poll(async () => (await pieces()).length, {
+      timeout: 40_000,
+      intervals: [600, 1000, 2000, 3000],
+    }).toBe(2);
+    const trimmed = await pieces();
+    expect(trimmed[0]!.firstX).toBeCloseTo(-10, 4);
+    expect(trimmed[0]!.lastX).toBeCloseTo(-3, 4);
+    expect(trimmed[1]!.firstX).toBeCloseTo(3, 4);
+    expect(trimmed[1]!.lastX).toBeCloseTo(10, 4);
+    // 切割线不动。
+    const after = await getSketchRpc(ctx, sketchId, token);
+    expect(after?.entities.filter((entity) => entity.id === 32 || entity.id === 33)).toHaveLength(2);
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
+  });
+});

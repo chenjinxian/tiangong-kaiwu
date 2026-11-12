@@ -3,8 +3,10 @@
  * Licensed under the MIT License.
  *
  * 草图修剪纯逻辑（Onshape「修剪」首切片）：点击曲线 → 移除「最近交点之间」的
- * 段落；无交点的实体整体删除（Onshape 帮助语义）。支持 line/circle/arc；
- * spline 等暂不支持（诚实 reason，不静默 no-op）。
+ * 段落；无交点的实体整体删除（Onshape 帮助语义）。支持 line/circle/arc 与
+ * 三次贝塞尔样条（controlPoints 恰 4：Onshape Trim 帮助明确支持 Bezier；切除用
+ * de Casteljau 精确分裂，交点检测用折线细分近似——档内登记）；periodic/非四次
+ * 控制点/投影样条诚实 reason=unsupported，不静默 no-op。
  *
  * 约束语义（首切片诚实登记）：被修剪实体的 id 会保留在一段剩余几何上，但原实体
  * 的端点/圆心位置已变化，故**移除引用该实体的约束**（与删除实体同口径），
@@ -26,10 +28,13 @@ export interface SketchTrimResult {
 interface LineGeom { kind: 'line'; a: TrimPoint; b: TrimPoint }
 interface CircleGeom { kind: 'circle'; c: TrimPoint; r: number }
 interface ArcGeom { kind: 'arc'; c: TrimPoint; r: number; start: number; sweep: number }
-type Geom = LineGeom | CircleGeom | ArcGeom;
+interface SplineGeom { kind: 'spline'; p: readonly [TrimPoint, TrimPoint, TrimPoint, TrimPoint] }
+type Geom = LineGeom | CircleGeom | ArcGeom | SplineGeom;
 
 const TAU = Math.PI * 2;
 const EPS = 1e-9;
+/** 贝塞尔交点检测的折线细分数（分裂本身用 de Casteljau 精确解，不受此影响）。 */
+const SPLINE_SEGMENTS = 128;
 
 const isPoint = (value: unknown): value is TrimPoint =>
   !!value && typeof value === 'object'
@@ -62,9 +67,100 @@ function geometryOf(entity: SketchEntityDto, points: ReadonlyMap<number, TrimPoi
         return undefined;
       return { kind: 'arc', c, r: entity.radius, start: entity.startAngle, sweep: entity.sweepAngle };
     }
+    case 'spline': {
+      const controls = entity.controlPoints;
+      if (!Array.isArray(controls) || controls.length !== 4 || controls.some((control) => !isPoint(control)))
+        return undefined;
+      return { kind: 'spline', p: controls as [TrimPoint, TrimPoint, TrimPoint, TrimPoint] };
+    }
     default:
       return undefined;
   }
+}
+
+/** 三次贝塞尔参数点。 */
+function cubicPoint(p: readonly [TrimPoint, TrimPoint, TrimPoint, TrimPoint], t: number): TrimPoint {
+  const mt = 1 - t;
+  const a = mt * mt * mt;
+  const b = 3 * mt * mt * t;
+  const c = 3 * mt * t * t;
+  const d = t * t * t;
+  return {
+    x: a * p[0].x + b * p[1].x + c * p[2].x + d * p[3].x,
+    y: a * p[0].y + b * p[1].y + c * p[2].y + d * p[3].y,
+  };
+}
+
+/** 三次贝塞尔折线细分（用于交点检测与点击参数反解）。 */
+function tessellateSpline(p: readonly [TrimPoint, TrimPoint, TrimPoint, TrimPoint]): TrimPoint[] {
+  const out: TrimPoint[] = [];
+  for (let i = 0; i <= SPLINE_SEGMENTS; i++)
+    out.push(cubicPoint(p, i / SPLINE_SEGMENTS));
+  return out;
+}
+
+const lerp = (a: TrimPoint, b: TrimPoint, t: number): TrimPoint => ({
+  x: a.x + (b.x - a.x) * t,
+  y: a.y + (b.y - a.y) * t,
+});
+
+/** de Casteljau 在 t 处分裂三次贝塞尔（返回左右两段控制点；精确保持三次）。 */
+function splitCubic(
+  p: readonly [TrimPoint, TrimPoint, TrimPoint, TrimPoint],
+  t: number,
+): [TrimPoint[], TrimPoint[]] {
+  const p01 = lerp(p[0], p[1], t);
+  const p12 = lerp(p[1], p[2], t);
+  const p23 = lerp(p[2], p[3], t);
+  const p012 = lerp(p01, p12, t);
+  const p123 = lerp(p12, p23, t);
+  const mid = lerp(p012, p123, t);
+  return [
+    [p[0], p01, p012, mid],
+    [mid, p123, p23, p[3]],
+  ];
+}
+
+/** 取贝塞尔参数区间 [a,b] 的子曲线控制点（a/b 已夹取到 [0,1]）。 */
+function subCubic(
+  p: readonly [TrimPoint, TrimPoint, TrimPoint, TrimPoint],
+  a: number,
+  b: number,
+): TrimPoint[] {
+  let start = Math.max(0, Math.min(1, a));
+  let end = Math.max(0, Math.min(1, b));
+  if (end < start) [start, end] = [end, start];
+  if (start <= 1e-12)
+    return splitCubic(p, end)[0];
+  if (end >= 1 - 1e-12)
+    return splitCubic(p, start)[1];
+  const right = splitCubic(p, start)[1] as [TrimPoint, TrimPoint, TrimPoint, TrimPoint];
+  const local = (end - start) / (1 - start);
+  return splitCubic(right, local)[0];
+}
+
+/** 点在折线上的最近参数（含端点夹取；用于点击/交点参数反解）。 */
+function nearestSplineParam(point: TrimPoint, p: readonly [TrimPoint, TrimPoint, TrimPoint, TrimPoint]): number {
+  const polyline = tessellateSpline(p);
+  let bestT = 0;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = polyline[i]!;
+    const b = polyline[i + 1]!;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSq = dx * dx + dy * dy;
+    const raw = lengthSq < EPS ? 0 : ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq;
+    const t = Math.max(0, Math.min(1, raw));
+    const px = a.x + dx * t;
+    const py = a.y + dy * t;
+    const d = (point.x - px) ** 2 + (point.y - py) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      bestT = (i + t) / SPLINE_SEGMENTS;
+    }
+  }
+  return bestT;
 }
 
 const normalizeAngle = (angle: number): number => {
@@ -165,9 +261,56 @@ function circleCircle(c1: TrimPoint, r1: number, c2: TrimPoint, r2: number): Tri
   return [{ x: mx + ox, y: my + oy }, { x: mx - ox, y: my - oy }];
 }
 
+/** 曲线段上的点是否落在折线容差内（样条交点由折线细分产生，容差取 1e-6 米）。 */
+function onSpline(point: TrimPoint, spline: SplineGeom): boolean {
+  const polyline = tessellateSpline(spline.p);
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = polyline[i]!;
+    const b = polyline[i + 1]!;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSq = dx * dx + dy * dy;
+    const t = lengthSq < EPS ? 0 : Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSq));
+    const px = a.x + dx * t;
+    const py = a.y + dy * t;
+    if (Math.hypot(point.x - px, point.y - py) <= 1e-6)
+      return true;
+  }
+  return false;
+}
+
+function segmentPairs(spline: SplineGeom): LineGeom[] {
+  const polyline = tessellateSpline(spline.p);
+  const segments: LineGeom[] = [];
+  for (let i = 0; i < polyline.length - 1; i++)
+    segments.push({ kind: 'line', a: polyline[i]!, b: polyline[i + 1]! });
+  return segments;
+}
+
+/** 样条参与的交点：把样条边折线化后与对方（线/圆/弧/样条）逐段求交。 */
+function splineIntersections(target: Geom, other: Geom): TrimPoint[] {
+  const out: TrimPoint[] = [];
+  if (target.kind === 'spline') {
+    for (const segment of segmentPairs(target)) {
+      if (other.kind === 'spline') {
+        for (const otherSegment of segmentPairs(other))
+          out.push(...lineLine(segment, otherSegment));
+      } else {
+        out.push(...rawIntersections(segment, other));
+      }
+    }
+  } else {
+    for (const segment of segmentPairs(other as SplineGeom))
+      out.push(...rawIntersections(target, segment));
+  }
+  return out;
+}
+
 function rawIntersections(target: Geom, other: Geom): TrimPoint[] {
+  if (target.kind === 'spline' || other.kind === 'spline')
+    return splineIntersections(target, other);
   const circleOf = (geom: Geom): { c: TrimPoint; r: number } | undefined =>
-    geom.kind === 'line' ? undefined : { c: geom.c, r: geom.r };
+    geom.kind === 'line' || geom.kind === 'spline' ? undefined : { c: geom.c, r: geom.r };
   if (target.kind === 'line' && other.kind === 'line')
     return lineLine(target, other);
   if (target.kind === 'line') {
@@ -183,6 +326,8 @@ function rawIntersections(target: Geom, other: Geom): TrimPoint[] {
 function onGeom(point: TrimPoint, geom: Geom): boolean {
   if (geom.kind === 'line')
     return segmentParam(point, geom) !== undefined;
+  if (geom.kind === 'spline')
+    return onSpline(point, geom);
   const angle = Math.atan2(point.y - geom.c.y, point.x - geom.c.x);
   if (geom.kind === 'arc')
     return angleOnArc(angle, geom.start, geom.sweep);
@@ -231,8 +376,14 @@ export function trimSketchAt(
   const targetEntity = targetIndex >= 0 ? entities[targetIndex] : undefined;
   if (!targetEntity)
     return { ok: false, reason: 'not-found', entities: [...entities], constraints: [...constraints], removedEntityIds: [] };
-  if (targetEntity.kind !== 'line' && targetEntity.kind !== 'circle' && targetEntity.kind !== 'arc')
+  if (targetEntity.kind !== 'line' && targetEntity.kind !== 'circle' && targetEntity.kind !== 'arc' && targetEntity.kind !== 'spline')
     return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints], removedEntityIds: [] };
+  if (targetEntity.kind === 'spline') {
+    const controls = targetEntity.controlPoints;
+    const cubic = Array.isArray(controls) && controls.length === 4 && controls.every((control) => isPoint(control));
+    if (!cubic || targetEntity.periodic === true || targetEntity.projected !== undefined)
+      return { ok: false, reason: 'unsupported', entities: [...entities], constraints: [...constraints], removedEntityIds: [] };
+  }
   const target = geometryOf(targetEntity, points);
   if (!target)
     return { ok: false, reason: 'not-found', entities: [...entities], constraints: [...constraints], removedEntityIds: [] };
@@ -253,6 +404,12 @@ export function trimSketchAt(
     id,
     p1: { x: a.x, y: a.y },
     p2: { x: b.x, y: b.y },
+    ...(construction ? { construction: true } : {}),
+  });
+  const buildSpline = (controls: readonly TrimPoint[], id: number, construction: boolean): SketchEntityDto => ({
+    kind: 'spline',
+    id,
+    controlPoints: controls.map((control) => ({ x: control.x, y: control.y })),
     ...(construction ? { construction: true } : {}),
   });
   const construction = (targetEntity as { construction?: boolean }).construction === true;
@@ -316,7 +473,7 @@ export function trimSketchAt(
         } as SketchEntityDto);
       }
     }
-  } else {
+  } else if (target.kind === 'arc') {
     const clickAngle = normalizeAngle(Math.atan2(click.y - target.c.y, click.x - target.c.x));
     const clickParam = arcParam(clickAngle, target.start, target.sweep) ?? 0;
     const params = intersections
@@ -348,6 +505,31 @@ export function trimSketchAt(
           sweepAngle: target.sweep * (1 - hi),
           ...(construction ? { construction: true } : {}),
         } as SketchEntityDto);
+      if (replacements.length === 0)
+        removedWhole = true;
+    }
+  } else {
+    // 三次贝塞尔样条：参数域 [0,1]；交点参数由折线细分反解（容差 1e-5），
+    // 保留段用 de Casteljau 精确分裂（次数/控制点语义保持，fitPoints 丢弃）。
+    const clickParam = nearestSplineParam(click, target.p);
+    const params = intersections
+      .map((point) => nearestSplineParam(point, target.p))
+      .filter((value) => value > 1e-6 && value < 1 - 1e-6)
+      .sort((a, b) => a - b)
+      .filter((value, index, list) => index === 0 || value - list[index - 1]! > 1e-5);
+    if (params.length === 0) {
+      removedWhole = true;
+    } else {
+      const lo = Math.max(0, ...params.filter((value) => value < clickParam));
+      const hi = Math.min(1, ...params.filter((value) => value > clickParam));
+      if (lo > 1e-6)
+        replacements.push(buildSpline(subCubic(target.p, 0, lo), targetId, construction));
+      if (1 - hi > 1e-6)
+        replacements.push(buildSpline(
+          subCubic(target.p, hi, 1),
+          replacements.length === 0 ? targetId : nextId++,
+          construction,
+        ));
       if (replacements.length === 0)
         removedWhole = true;
     }

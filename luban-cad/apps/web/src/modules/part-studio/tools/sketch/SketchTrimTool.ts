@@ -7,8 +7,9 @@
  * 交互：点击草图曲线 → 移除点击处「最近交点之间」的段落；无交点的曲线整体删除
  * （Onshape 帮助语义）。工具保持存活可连续修剪；Esc/右键结束。
  *
- * 几何/约束展开全在 `internal/sketch-trim.ts` 纯逻辑（line/circle/arc；spline
- * 诚实提示不支持）；命中沿用 picker 的屏幕距离算法（曲线 ≤5px，控制点不参与），
+ * 几何/约束展开全在 `internal/sketch-trim.ts` 纯逻辑（line/circle/arc + 三次
+ * 贝塞尔样条；periodic/非四次控制点/投影样条诚实提示不支持）；命中沿用 picker
+ * 的屏幕距离算法（曲线 ≤5px，控制点不参与），
  * 点击点经相机 NPC 射线与草图平面求交反解局部 (u,v)；提交走 `applyUpdate`
  * 乐观整体覆写（可撤销）。
  */
