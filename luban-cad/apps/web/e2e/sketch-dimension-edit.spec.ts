@@ -176,4 +176,67 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
       .toEqual(['horizontal', 'length']);
     await expect(page.getByTestId('sketch-dimension-label')).toHaveCount(1);
   });
+
+  test('直径尺寸双击改值（后端 v1.69 同期白名单）', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 240_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    const openWithRetry = async () => {
+      try {
+        return await openSeedImodelEditor(page, seed);
+      } catch {
+        await page.reload();
+        return openSeedImodelEditor(page, seed);
+      }
+    };
+    let ctx = await openWithRetry();
+
+    const lease = await borrowWriteLease(ctx, token, 'sketch-dimension-diameter');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'circle', id: 2, center: 1, radius: 5 },
+      ],
+      constraints: [{ kind: 'diameter', id: 4, refs: [2], value: 10 }],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '直径草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openWithRetry();
+    const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(sketchRow).toBeVisible({ timeout: 60_000 });
+    await sketchRow.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+    const marker = page.locator('[data-testid="sketch-dimension-label"][data-constraint-id="4"]');
+    await expect(marker).toBeAttached({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    const center = await marker.getAttribute('data-center');
+    expect(center).not.toBeNull();
+    const parts = center!.split(',').map(Number);
+    const x = box!.x + (parts[0] ?? 0);
+    const y = box!.y + (parts[1] ?? 0);
+
+    await page.mouse.dblclick(x, y);
+    const input = page.getByTestId('sketch-dimension-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('30');
+    await input.press('Enter');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const circle = sketch?.entities.find((entity) => entity.kind === 'circle');
+      return circle && circle.kind === 'circle' && typeof circle.radius === 'number'
+        ? Math.abs(circle.radius - 15)
+        : 999;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeLessThan(0.001);
+    const sketch = await getSketchRpc(ctx, sketchId, token);
+    expect(sketch?.constraints.find((constraint) => constraint.id === 4)?.value).toBe(30);
+  });
 });

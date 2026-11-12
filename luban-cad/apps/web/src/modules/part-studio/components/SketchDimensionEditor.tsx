@@ -8,8 +8,8 @@
  * 非尺寸约束）保留输入框并标注错误。标签命中区由 viewer 布局纯函数给出
  *（与绘制同源，不复制堆叠避让逻辑）。
  *
- * 仅 distance/radius/length 可改值（后端 updateSketchConstraint 白名单）；
- * 直径/角度等双击时诚实提示未支持，不弹假编辑框。
+ * 仅 distance/radius/diameter/length 可改值（后端 updateSketchConstraint 白名单）；
+ * 角度等双击时诚实提示未支持，不弹假编辑框。
  */
 import React from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
@@ -47,7 +47,7 @@ interface EditorState {
 }
 
 /** 后端 updateSketchConstraint 白名单（FeatureService.precomputeSketchConstraint）。 */
-const EDITABLE_CONSTRAINT_KINDS = new Set<SketchConstraintDto['kind']>(['distance', 'radius', 'length']);
+const EDITABLE_CONSTRAINT_KINDS = new Set<SketchConstraintDto['kind']>(['distance', 'radius', 'diameter', 'length']);
 
 export function SketchDimensionEditor({
   viewport,
