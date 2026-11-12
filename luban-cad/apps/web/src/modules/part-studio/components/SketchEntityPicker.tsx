@@ -141,6 +141,10 @@ export function SketchEntityPicker({
   hitTestRef.current = hitTest;
   const onSelectionChangeRef = React.useRef(onSelectionChange);
   onSelectionChangeRef.current = onSelectionChange;
+  const onCopyRef = React.useRef(onCopy);
+  onCopyRef.current = onCopy;
+  const onPasteRef = React.useRef(onPaste);
+  onPasteRef.current = onPaste;
   const sketchRef = React.useRef(sketch);
   sketchRef.current = sketch;
   const canEditRef = React.useRef(canEdit);
@@ -324,6 +328,21 @@ export function SketchEntityPicker({
         event.preventDefault();
         event.stopPropagation();
         void onDeleteRef.current(selectedRef.current);
+        return;
+      }
+      // Onshape 标准快捷键：Ctrl/Cmd+C 复制选中、Ctrl/Cmd+V 原位粘贴。
+      const chord = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
+      if (!chord || isEditableTarget(event.target))
+        return;
+      const key = event.key.toLowerCase();
+      if (key === 'c' && selectedRef.current.length > 0 && onCopyRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        onCopyRef.current(selectedRef.current);
+      } else if (key === 'v' && hasSketchClipboard() && onPasteRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        onPasteRef.current();
       }
     };
     window.addEventListener('pointerdown', onDown, true);

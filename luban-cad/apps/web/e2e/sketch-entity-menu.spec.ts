@@ -308,5 +308,16 @@ test.describe('草图图元右键菜单（Onshape 对拍）', () => {
         && JSON.stringify(newLine.p2) === JSON.stringify({ x: 10, y: 0 })
         && newHorizontal !== undefined;
     }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
+
+    // Onshape 标准快捷键：Ctrl+C/Ctrl+V 再粘贴一份（粘贴后副本已选中）。
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Control+C');
+    await page.keyboard.press('Control+V');
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      const lines = (sketch?.entities ?? []).filter((entity) => entity.kind === 'line');
+      const horizontals = (sketch?.constraints ?? []).filter((constraint) => constraint.kind === 'horizontal');
+      return lines.length === 3 && horizontals.length === 3;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
   });
 });
