@@ -830,10 +830,9 @@ export function PartStudioCanvas({
         />
       )}
       {/* ADR-0018 S1e：双击尺寸数值 → 内联改值（updateSketchConstraint）。
-          圆角工具保持激活时尺寸仍可见/可编辑（Onshape live：生成 R 后立即改值）。 */}
-      {sketchActiveForDecorations && sketchSystem?.activeSketch
-        && (activeToolIdForSketchPicker == null || activeToolIdForSketchPicker === 'sketchFillet')
-        && canEdit && showConstraintsForSketch && (
+          尺寸标注在草图工具激活期间仍可见/可编辑（Onshape live：圆角工具生成 R
+          后立即改值；非标签区域的点击不拦截，照常交给当前工具）。 */}
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && canEdit && showConstraintsForSketch && (
         <SketchDimensionEditor
           viewport={viewport}
           annotations={sketchAnnotations}

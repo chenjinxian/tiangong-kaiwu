@@ -27,6 +27,9 @@ const XY_PLANE: SketchPlaneDto = {
 const ENTITIES: SketchEntityDto[] = [
   { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
 ];
+const CONSTRAINTS = [
+  { kind: 'length' as const, id: 21, refs: [11], value: 10 },
+];
 
 test.describe('草图工具退出收口（Onshape 对拍）', () => {
   test('修剪 Esc 退出 → ribbon 激活态清空 → 草图实体可再次单击选中', async ({ page, request }) => {
@@ -44,7 +47,7 @@ test.describe('草图工具退出收口（Onshape 对拍）', () => {
     let ctx = await openWithRetry();
     const lease = await borrowWriteLease(ctx, token, 'sketch-tool-activation');
     const created = await applyFeatureOpRpc(ctx, {
-      kind: 'insertSketch', entities: ENTITIES, constraints: [], plane: XY_PLANE,
+      kind: 'insertSketch', entities: ENTITIES, constraints: CONSTRAINTS, plane: XY_PLANE,
     }, lease, token);
     assertFeatureOpOk(created, '草图');
     const sketchId = created.featureId!;
@@ -72,6 +75,10 @@ test.describe('草图工具退出收口（Onshape 对拍）', () => {
     // 修剪工具（ribbon 主钮）→ Esc 退出。
     await page.getByRole('button', { name: '修剪', exact: true }).click();
     await page.waitForTimeout(500);
+    // Onshape：草图工具激活期间尺寸标注仍可见（可编辑）。
+    await expect(page.locator(
+      '[data-testid="sketch-dimension-label"][data-constraint-id="21"]',
+    )).toBeAttached({ timeout: 10_000 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(800);
 
