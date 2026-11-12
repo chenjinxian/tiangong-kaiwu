@@ -56,6 +56,10 @@ export interface SketchEntityPickerProps {
   onFitToSketch?: () => void;
   /** 右键菜单「放大选定对象」（该实体范围）。 */
   onZoomToEntity?: (entityId: number) => void;
+  /** 右键菜单「拉伸…」：Onshape 退出草图并打开拉伸特征对话框。 */
+  onExtrude?: () => void;
+  /** 右键菜单「旋转…」：Onshape 退出草图并打开旋转特征对话框。 */
+  onRevolve?: () => void;
   /** 当前实体是否已是构造线（菜单标签依据）。 */
   isConstruction?: (entityId: number) => boolean;
   /**
@@ -84,6 +88,8 @@ export function SketchEntityPicker({
   onViewNormalToPlane,
   onFitToSketch,
   onZoomToEntity,
+  onExtrude,
+  onRevolve,
   isConstruction,
   isOverlayPoint,
 }: SketchEntityPickerProps): React.JSX.Element | null {
@@ -473,10 +479,28 @@ export function SketchEntityPicker({
               {t('partStudio.sketch.entityMenuTransform')}
             </button>
             <div className="part-studio-tree-menu__separator" role="separator" />
-            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-extrude"
+              onClick={() => {
+                setMenu(null);
+                onExtrude?.();
+              }}
+            >
               {t('partStudio.sketch.entityMenuExtrude')}
             </button>
-            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-revolve"
+              onClick={() => {
+                setMenu(null);
+                onRevolve?.();
+              }}
+            >
               {t('partStudio.sketch.entityMenuRevolve')}
             </button>
             <div className="part-studio-tree-menu__separator" role="separator" />

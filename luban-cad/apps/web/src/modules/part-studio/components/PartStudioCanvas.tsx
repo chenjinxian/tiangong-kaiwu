@@ -356,6 +356,14 @@ export function PartStudioCanvas({
     if (viewport && sketch)
       orientCameraToSketchPlane(viewport, sketch.plane);
   }, [viewport, sketchSystem?.activeSketch]);
+  // Onshape live 2026-11-12：草图图元右键「拉伸…/旋转…」退出草图编辑并打开
+  // 对应特征对话框（对话框自动选最近草图；草图已逐次 updateSketch 持久化）。
+  const openFeatureFromSketch = React.useCallback((featureType: 'extrude' | 'revolve') => {
+    const store = usePartStudioStore.getState();
+    store.exitSketch();
+    store.openFeatureDialog({ mode: 'new', featureType });
+  }, []);
+
   const zoomToSketchEntity = React.useCallback((entityId: number) => {
     const sketch = sketchSystem?.activeSketch;
     if (!viewport || !sketch)
@@ -799,6 +807,8 @@ export function PartStudioCanvas({
           onViewNormalToPlane={viewNormalToSketch}
           onFitToSketch={fitSketchEntities}
           onZoomToEntity={zoomToSketchEntity}
+          onExtrude={() => openFeatureFromSketch('extrude')}
+          onRevolve={() => openFeatureFromSketch('revolve')}
           isConstruction={isSketchEntityConstruction}
           isOverlayPoint={(point) => sketchOverlayHitRef.current?.(point) ?? false}
           onSelectionChange={(entries) => {
