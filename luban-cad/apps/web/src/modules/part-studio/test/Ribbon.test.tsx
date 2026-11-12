@@ -48,6 +48,7 @@ function resetStore(): void {
     tool: { activeToolId: null },
     dialog: { active: null },
     canvas: { selection: [], hiddenIds: [] },
+    sketch: { ...usePartStudioStore.getState().sketch, isActive: false, pattern: null },
   });
 }
 
@@ -241,6 +242,21 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     await user.click(screen.getByRole('button', { name: '拔模' }));
     expect(mocks.toolsRun).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
+  });
+
+  it('草图文本/圆锥曲线：占位改 gated——点击开真实原因引导，不静默 no-op', async () => {
+    const user = userEvent.setup();
+    usePartStudioStore.setState({ sketch: { ...usePartStudioStore.getState().sketch, isActive: true } });
+    render(<Ribbon />);
+    await user.click(screen.getByRole('button', { name: '文本' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: '草图文本（未支持）' })).toBeDefined();
+    // 关闭后打开样条飞菜单 → 圆锥曲线。
+    await user.click(screen.getByRole('button', { name: '知道了' }));
+    await user.click(screen.getByRole('button', { name: '样条 ▾' }));
+    await user.click(screen.getByRole('menuitem', { name: '圆锥曲线' }));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: '圆锥曲线（未支持）' })).toBeDefined();
   });
 });
 

@@ -1607,6 +1607,14 @@
     "userFeatures": {
       "title": "Add custom feature (planned)",
       "message": "Custom FeatureScript features are out of scope for this version (examples are registered as excluded-custom-feature) and will be handled by a separate project."
+    },
+    "sketchText": {
+      "title": "Sketch text (not supported)",
+      "message": "The Onshape text dialog (font/bold/italic/mirror, 250 chars max) has been captured, but generating text outlines requires a font-outline engine and a new sketch entity type (shared/solver/backend contract). Not implemented in this version; clicking writes nothing."
+    },
+    "sketchConic": {
+      "title": "Conic (not supported)",
+      "message": "Onshape sketch conics require a new conic entity type with solver/backend support; the current sketch contract only has line/circle/arc/spline. Clicking writes nothing."
     }
   },
   "viewCube": {

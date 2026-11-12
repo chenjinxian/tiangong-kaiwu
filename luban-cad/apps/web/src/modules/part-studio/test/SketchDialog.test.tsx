@@ -148,9 +148,10 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
 
   it('capability 已入册；工具与飞菜单子项 labelKey 在 zh/en 词库存在', () => {
     for (const tool of SKETCH_RIBBON_TOOLS) {
-      expect(['sketch', 'extrude', 'revolve']).toContain(tool.capability);
+      expect(['sketch', 'extrude', 'revolve', 'sketchText']).toContain(tool.capability);
       expect(TOOL_CAPABILITIES[tool.capability]).toBeDefined();
       for (const command of [tool, ...(tool.dropdownItems ?? [])]) {
+        expect(['sketch', 'extrude', 'revolve', 'sketchText', 'sketchConic']).toContain(command.capability);
         expect(command.labelKey.startsWith('partStudio.ribbon.')).toBe(true);
         const localPath = command.labelKey.replace(/^partStudio\./, '');
         const zh = lookup(zhPartStudio, localPath);

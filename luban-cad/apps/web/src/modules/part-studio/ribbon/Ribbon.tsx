@@ -78,7 +78,7 @@ export function useToolActivation(canEdit = true): ToolActivation {
     // P2.4 A 只读/权限只读总门：所有写工具/特征对话框入口不响应（gated 能力
     // 引导属纯信息面，仍放行到下方 isGated 分支）。
     if (!canEdit) {
-      const command = findRibbonCommand(id);
+      const command = findCommand(id);
       if (!isGated(command?.capability ?? id)) return;
     }
     // 2026-11-02：Onshape 草图工具栏里尚未实现的按钮/变体——保留 UI，点击无行为。
@@ -286,7 +286,7 @@ export function useToolActivation(canEdit = true): ToolActivation {
       usePartStudioStore.getState().toggleSketchConstruction();
       return;
     }
-    const command = findRibbonCommand(id);
+    const command = findCommand(id);
     const capability = command?.capability ?? id;
     if (isGated(capability)) {
       setGatedCapability(capability);
@@ -459,6 +459,17 @@ export interface RibbonProps {
 const RIBBON_SHORTCUTS: ReadonlyMap<string, string> = new Map(
   RIBBON_TOOLS.flatMap((tool) => (tool.shortcut ? [[tool.shortcut.toLowerCase(), tool.id] as const] : [])),
 );
+
+/**
+ * 命令解析：特征 ribbon + 草图 ribbon（含飞菜单子项）。草图工具不在
+ * RIBBON_TOOLS 中（findRibbonCommand 取不到），gated 能力必须按条目登记的
+ * capability 解析（如 Sketch.Conic → sketchConic），不能用原始 id 兜底。
+ */
+function findCommand(id: string) {
+  return findRibbonCommand(id)
+    ?? SKETCH_RIBBON_TOOLS.find((tool) => tool.id === id)
+    ?? SKETCH_RIBBON_TOOLS.flatMap((tool) => tool.dropdownItems ?? []).find((item) => item.id === id);
+}
 
 export function Ribbon({
   canEdit = true,

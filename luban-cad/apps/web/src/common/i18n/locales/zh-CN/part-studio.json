@@ -1607,6 +1607,14 @@
     "userFeatures": {
       "title": "添加自定义特征（规划中）",
       "message": "自定义 FeatureScript 特征不在当前版本支持范围内（示例复刻按 excluded-custom-feature 登记），后续独立立项。"
+    },
+    "sketchText": {
+      "title": "草图文本（未支持）",
+      "message": "Onshape 文本对话框（字体/粗体/斜体/镜像/最多 250 字）已采集，但生成文本轮廓需要字体轮廓引擎与新草图实体类型（shared/求解器/后端契约），当前版本未实现；点击不会写入数据。"
+    },
+    "sketchConic": {
+      "title": "圆锥曲线（未支持）",
+      "message": "Onshape 草图圆锥曲线需要新的 conic 实体类型及求解器/后端支持，当前草图契约只含线/圆/弧/样条；点击不会写入数据。"
     }
   },
   "viewCube": {

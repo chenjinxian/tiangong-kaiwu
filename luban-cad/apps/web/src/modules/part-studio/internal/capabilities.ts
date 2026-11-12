@@ -45,6 +45,10 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   transform: 'full', // 变换（ADR-0010 UI 面：XYZ 平动/世界轴旋转/均匀缩放 + 复制；converter 未接）
   wrap: 'gated', // 包覆（无工具/后端面——W1.2b 续审计诚实 gated）
   decal: 'gated', // 印花（非几何显示特征，无工具面——W1.2b 续审计）
+  // 2026-11-13：草图文本/圆锥曲线占位改 gated（有 live/帮助证据，缺字体轮廓
+  // 引擎与新实体类型；点击开引导而非静默 no-op）。
+  sketchText: 'gated', // 草图文本（字体轮廓引擎 + 新实体类型未实现）
+  sketchConic: 'gated', // 草图圆锥曲线（conic 实体/求解器未实现）
   deleteBodies: 'gated', // 删除零件（无后端 FeatureOp——W1.2b 诚实 gated）
   modifyFillet: 'gated', // 修改圆角（无工具/后端面——W1.2b 续审计诚实 gated）
   deleteFace: 'gated', // 删除面（内核 DeleteSubEntity 0 回包——blocked-kernel）
@@ -145,4 +149,7 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   decal: guidanceFor('decal'),
   modifyFillet: guidanceFor('modifyFillet'),
   userFeatures: guidanceFor('userFeatures'),
+  // 2026-11-13：草图占位改 gated 引导。
+  sketchText: guidanceFor('sketchText'),
+  sketchConic: guidanceFor('sketchConic'),
 };

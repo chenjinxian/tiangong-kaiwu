@@ -64,11 +64,12 @@ export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
   'sketchConstraint',
 ];
 
-/** 尚未实现的 Onshape 草图工具/变体：保留 UI，点击无行为。 */
-export const SKETCH_PLACEHOLDER_IDS: ReadonlySet<string> = new Set([
-  'Sketch.Conic',
-  'sketchText',
-]);
+/**
+ * 尚未实现的 Onshape 草图工具/变体：保留 UI，点击无行为。
+ * 2026-11-13：`Sketch.Conic` / `sketchText` 移出占位，改登记 gated 能力
+ * （点击开能力引导，说明真实原因），避免“点了无反应”。
+ */
+export const SKETCH_PLACEHOLDER_IDS: ReadonlySet<string> = new Set<string>();
 
 /** 20 个可见草图工具（Onshape live 1:1 顺序 + 飞菜单内容）。 */
 export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
@@ -95,10 +96,10 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
   ]),
   tool('Sketch.Spline', 'partStudio.ribbon.sketchTools.spline.label', 'sketchDraw', 'sketch', [
     menuItem('Sketch.Bezier', 'partStudio.ribbon.sketchTools.splineBezier.label'),
-    menuItem('Sketch.Conic', 'partStudio.ribbon.sketchTools.splineConic.label'),
+    menuItem('Sketch.Conic', 'partStudio.ribbon.sketchTools.splineConic.label', 'sketchConic'),
   ]),
   tool('Sketch.Point', 'partStudio.ribbon.sketchTools.point.label', 'sketchDraw'),
-  tool('sketchText', 'partStudio.ribbon.sketchTools.text.label', 'sketchDraw'),
+  tool('sketchText', 'partStudio.ribbon.sketchTools.text.label', 'sketchDraw', 'sketchText'),
   tool('sketchUse', 'partStudio.ribbon.sketchTools.use.label', 'sketchDraw', 'sketch', []),
   tool('sketchConstruction', 'partStudio.ribbon.sketchTools.construction.label', 'sketchDraw'),
 

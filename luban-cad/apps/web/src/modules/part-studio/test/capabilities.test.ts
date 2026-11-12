@@ -61,10 +61,12 @@ const EXPECTED_GATED_IDS = [
   'decal', // 印花（W1.2b 续审计：非几何显示特征，无工具面）
   'modifyFillet', // 修改圆角（W1.2b 续审计：无工具/后端面）
   'userFeatures', // 添加自定义特征（W1.2b 续审计：FeatureScript 不在本版本）
+  'sketchText', // 草图文本（2026-11-13：占位改 gated；字体轮廓引擎/新实体类型未实现）
+  'sketchConic', // 草图圆锥曲线（2026-11-13：占位改 gated；conic 实体/求解器未实现）
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + moveFace/transform/splitPart 已翻 full（共 32，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 gated + moveFace/transform/splitPart 已翻 full（共 34，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();
