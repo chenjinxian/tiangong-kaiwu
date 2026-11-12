@@ -134,9 +134,10 @@ test.describe('特征树交互对拍（S2）', () => {
     for (const name of ['属性…', '编辑外观…', '隐藏实体', '隐藏其他零件', '隐藏所有零件', '放大选定对象']) {
       await expect(menu.getByRole('menuitem', { name })).toBeEnabled();
     }
-    // v1.70：零件重命名已接（renameBody RPC）；删除零件仍无后端 FeatureOp。
+    // v1.70：零件重命名已接（renameBody RPC）；2026-11-13 起 NEW-body 驱动的
+    // 零件删除可用（删驱动特征，HITL；其它源仍禁用）。
     await expect(menu.getByRole('menuitem', { name: '重命名' })).toBeEnabled();
-    await expect(menu.getByRole('menuitem', { name: '删除…' })).toBeDisabled();
+    await expect(menu.getByTestId('tree-menu-delete-part')).toBeEnabled();
 
     // ---- 3. 属性… → 只读对话框（体积来自质量属性读面） ----
     await menu.getByTestId('tree-menu-properties').click();

@@ -280,6 +280,28 @@ describe('v1.70 树内联重命名（Sidebar 接线）', () => {
     await waitFor(() => expect(lastToast()).toMatchObject({ priority: 1, briefMessage: '已重命名为 Housing' }));
   });
 
+  it('零件删除：HITL → applyOp deleteFeature（source feature + targetBodyId）', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    const entries: FeatureTreeEntry[] = [
+      { id: 'ex1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: { operation: 'new' } },
+    ];
+    renderSidebar({ applyOp, entries });
+    fireEvent.contextMenu(screen.getByTestId('tree-row-0x15'));
+    const del = screen.getByTestId('tree-menu-delete-part') as HTMLButtonElement;
+    expect(del.disabled).toBe(false);
+    await user.click(del);
+    await user.click(screen.getByTestId('part-delete-confirm'));
+    await waitFor(() =>
+      expect(applyOp).toHaveBeenCalledWith({
+        kind: 'deleteFeature',
+        featureId: 'ex1',
+        targetBodyId: '0x15',
+      }),
+    );
+    await waitFor(() => expect(lastToast()).toMatchObject({ priority: 1, briefMessage: '已删除零件 Base' }));
+  });
+
   it('零件重命名：renameBody(bodyKey,name) + 失败 Error toast（不静默）', async () => {
     const user = userEvent.setup();
     const renameBody = vi

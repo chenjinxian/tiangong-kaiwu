@@ -142,6 +142,35 @@ export function PartStudioSidebar({
    * 成功/失败 toast，不乐观改树（refresh 归 RPC 成功后的读面刷新与
    * txns.onCommitted）。只读/未接线诚实拒收。
    */
+  /**
+   * 2026-11-13：零件删除（HITL 后）——删除驱动该零件的 NEW-body 特征，并以其
+   * bodyKey 作为 deleteFeature.targetBodyId；成功/失败 toast，不乐观改树。
+   */
+  const handleDeletePart = React.useCallback(
+    async (node: TreeNode, featureId: string, bodyKey: string): Promise<void> => {
+      if (!canEdit)
+        return;
+      if (!applyOp) {
+        notify(OutputMessagePriority.Error, t('partStudio.tree.deletePartFailed', { message: t('partStudio.tree.unsupported') }));
+        return;
+      }
+      try {
+        const result = await applyOp({ kind: 'deleteFeature', featureId, targetBodyId: bodyKey });
+        if (result.ok) {
+          notify(OutputMessagePriority.Success, t('partStudio.tree.deletePartSuccess', { name: node.name }));
+        } else {
+          notify(OutputMessagePriority.Error, t('partStudio.tree.deletePartFailed', { message: result.error }));
+        }
+      } catch (err) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.tree.deletePartFailed', { message: err instanceof Error ? err.message : String(err) }),
+        );
+      }
+    },
+    [applyOp, canEdit, notify, t],
+  );
+
   const handleRename = React.useCallback(
     async (node: TreeNode, name: string): Promise<void> => {
       if (!canEdit) {
@@ -258,6 +287,7 @@ export function PartStudioSidebar({
         onDelete={handleDelete}
         onSuppress={handleSuppress}
         onRename={handleRename}
+        onDeletePart={handleDeletePart}
         canEdit={canEdit}
         bodyTransparency={bodyTransparency}
         onBodyTransparencyChange={onBodyTransparencyChange}

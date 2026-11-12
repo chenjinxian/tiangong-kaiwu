@@ -150,6 +150,11 @@ export interface FeatureTreeProps {
   /** 2026-11-13：逐 body 透明度会话态（0..1；零件菜单「使之透明…」滑块）。 */
   bodyTransparency?: Readonly<Record<string, number>>;
   onBodyTransparencyChange?: (bodyKey: string, transparency: number) => void;
+  /**
+   * 2026-11-13：零件删除（HITL 确认后）——删除驱动该零件的 NEW-body 特征
+   * （featureId）并以 bodyKey 作 deleteFeature.targetBodyId。
+   */
+  onDeletePart?: (node: PartNode, featureId: string, bodyKey: string) => void;
 }
 
 interface MenuState {
@@ -295,6 +300,38 @@ export function deleteTargetBodyIdForFeature(
   )?.bodyKey;
 }
 
+/**
+ * 2026-11-13：零件「删除…」可用的驱动特征（onDeletePart 载荷）。
+ *
+ * 仅当 body 的当前唯一驱动源是 **NEW-body** 插入特征（extrude/revolve
+ * operation='new' 或 newBody=true）时开放——删除该特征会连带移除该 body
+ * （planDelete 的 consumeBody 资格）。后续被 fillet/hole 等改写的 body 的
+ * sourceFeatureId 是链尾改写特征，删除它只会回退几何而非删零件，故不提供
+ * （诚实禁用；完整 Onshape Delete Part 特征另行切片）。
+ */
+export function deletePartFeatureId(
+  bodies: readonly BodyInfo[] | undefined,
+  entries: readonly FeatureTreeEntry[] | undefined,
+  bodyKey: string,
+): string | undefined {
+  if (!bodies || !entries) return undefined;
+  const body = bodies.find(
+    (candidate) => candidate.bodyKey === bodyKey && candidate.active && candidate.authored !== false,
+  );
+  const source = body?.sourceFeatureId;
+  if (!source) return undefined;
+  const entry = entries.find((candidate) => candidate.id === source && !candidate.suppressed);
+  if (!entry)
+    return undefined;
+  const params = entry.params as { newBody?: unknown; operation?: unknown } | undefined;
+  const newBody = params?.newBody === true || params?.operation === 'new';
+  if (!newBody)
+    return undefined;
+  // 链尾校验由后端 planDelete 完成（该特征必须仍唯一驱动本 body）；此处只做
+  // 前端可判定的“NEW-body 源”资格，后端拒收照常 toast。
+  return source;
+}
+
 /** 段内加载骨架行（loading 态的统一呈现）。 */
 function SkeletonRows(): React.JSX.Element {
   return (
@@ -324,6 +361,7 @@ export function FeatureTree({
   canEdit = true,
   bodyTransparency,
   onBodyTransparencyChange,
+  onDeletePart,
 }: FeatureTreeProps): React.JSX.Element {
   const { t } = useTranslation();
   const [filterInput, setFilterInput] = React.useState('');
@@ -473,6 +511,7 @@ export function FeatureTree({
   // 仅逐 body 透明度，展开/零部件控制等未做——如实登记）。
   const [transparencyNode, setTransparencyNode] = React.useState<PartNode | null>(null);
   const [transparencyPercent, setTransparencyPercent] = React.useState(0);
+  const [pendingDeletePart, setPendingDeletePart] = React.useState<{ node: PartNode; featureId: string } | null>(null);
   const setDockTab = usePartStudioStore((s) => s.setDockTab);
   const openDock = usePartStudioStore((s) => s.openDock);
   const handleOpenAppearances = React.useCallback(() => {
@@ -1206,8 +1245,20 @@ export function FeatureTree({
             type="button"
             role="menuitem"
             className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
-            disabled
-            title={t('partStudio.tree.unsupported')}
+            data-testid="tree-menu-delete-part"
+            disabled={!canEdit || deletePartFeatureId(bodies, entries, menuNode.id) === undefined}
+            title={!canEdit
+              ? t('partStudio.tree.readonlyHint')
+              : deletePartFeatureId(bodies, entries, menuNode.id) === undefined
+                ? t('partStudio.tree.deletePartUnavailable')
+                : undefined}
+            onClick={() => {
+              const featureId = deletePartFeatureId(bodies, entries, menuNode.id);
+              if (!canEdit || featureId === undefined)
+                return;
+              setMenu(null);
+              setPendingDeletePart({ node: menuNode, featureId });
+            }}
           >
             {t('partStudio.tree.menuDeletePart')}
           </button>
@@ -1253,6 +1304,48 @@ export function FeatureTree({
                   } else {
                     console.warn(`[part-studio] 删除 ${node.name}（onDelete 未接线）`);
                   }
+                }}
+              >
+                {t('partStudio.tree.confirmDelete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2026-11-13：零件删除 HITL（删除驱动该零件的 NEW-body 特征；可撤销）。 */}
+      {pendingDeletePart && (
+        <div className="part-studio-dialog-backdrop">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('partStudio.tree.deletePartTitle', { name: pendingDeletePart.node.name })}
+            className="part-studio-capability-dialog"
+          >
+            <h2 className="part-studio-capability-dialog__title">
+              {t('partStudio.tree.deletePartTitle', { name: pendingDeletePart.node.name })}
+            </h2>
+            <p className="part-studio-capability-dialog__message">
+              {t('partStudio.tree.deletePartMessage', { name: pendingDeletePart.node.name })}
+            </p>
+            <div className="part-studio-capability-dialog__actions part-studio-capability-dialog__actions--split">
+              <button
+                type="button"
+                className="part-studio-capability-dialog__secondary"
+                onClick={() => setPendingDeletePart(null)}
+              >
+                {t('partStudio.tree.cancel')}
+              </button>
+              <button
+                type="button"
+                className="part-studio-capability-dialog__danger"
+                data-testid="part-delete-confirm"
+                onClick={() => {
+                  const pending = pendingDeletePart;
+                  setPendingDeletePart(null);
+                  if (!canEdit)
+                    return;
+                  onDeletePart?.(pending.node, pending.featureId, pending.node.id);
                 }}
               >
                 {t('partStudio.tree.confirmDelete')}

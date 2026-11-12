@@ -75,7 +75,7 @@ vi.mock('@itwin/core-frontend', () => ({
 import { ColorDef, FeatureOverrideType } from '@itwin/core-common';
 import { usePartStudioStore } from '../index.js';
 import { matchFeature, matchPart, parseTreeFilter } from '../tree/TreeFilter.js';
-import { activeBodyParts, deleteTargetBodyIdForFeature, FeatureTree } from '../tree/FeatureTree.js';
+import { activeBodyParts, deletePartFeatureId, deleteTargetBodyIdForFeature, FeatureTree } from '../tree/FeatureTree.js';
 import { TreeRow } from '../tree/TreeRow.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 
@@ -923,6 +923,35 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     await user.click(screen.getByRole('menuitem', { name: '使之透明…' }));
     await user.click(within(screen.getByTestId('part-transparency-dialog')).getByRole('button', { name: '恢复不透明' }));
     expect(onChange).toHaveBeenCalledWith('0x15', 0);
+  });
+
+  it('零件删除：NEW-body 驱动特征可用 → HITL 确认 → onDeletePart；fillet 驱动诚实禁用', async () => {
+    const user = userEvent.setup();
+    const onDeletePart = vi.fn();
+    const entries: FeatureTreeEntry[] = [
+      { id: 'nb1', featureType: 'extrude', orderKey: 1, suppressed: false, status: 0, params: { operation: 'new' } },
+      { id: 'fl1', featureType: 'fillet', orderKey: 2, suppressed: false, status: 0, params: { radius: 5 } },
+    ];
+    const bodies: BodyInfo[] = [
+      { bodyKey: '0x30', name: 'Body N', active: true, authored: true, sourceFeatureId: 'nb1' },
+      { bodyKey: '0x31', name: 'Body F', active: true, authored: true, sourceFeatureId: 'fl1' },
+    ];
+    expect(deletePartFeatureId(bodies, entries, '0x30')).toBe('nb1');
+    expect(deletePartFeatureId(bodies, entries, '0x31')).toBeUndefined();
+    expect(deletePartFeatureId(undefined, entries, '0x30')).toBeUndefined();
+
+    render(<FeatureTree entries={entries} bodies={bodies} onDeletePart={onDeletePart} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-0x30'));
+    const deleteItem = screen.getByRole('menuitem', { name: '删除…' }) as HTMLButtonElement;
+    expect(deleteItem.disabled).toBe(false);
+    await user.click(deleteItem);
+    await user.click(screen.getByTestId('part-delete-confirm'));
+    expect(onDeletePart).toHaveBeenCalledWith(expect.objectContaining({ id: '0x30' }), 'nb1', '0x30');
+
+    fireEventContextMenu(screen.getByTestId('tree-row-0x31'));
+    const blocked = screen.getByRole('menuitem', { name: '删除…' }) as HTMLButtonElement;
+    expect(blocked.disabled).toBe(true);
+    expect(blocked.getAttribute('title')).toContain('NEW-body');
   });
 
   it('v1.70 自定义特征名优先于「类型 + 序号」派生名', () => {
