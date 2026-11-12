@@ -48,7 +48,7 @@ function sketchWith(lineEnd: number): SketchDto {
 
 beforeEach(() => {
   usePartStudioStore.setState({
-    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null, orientCameraOnEnter: false },
   });
 });
 
@@ -57,7 +57,7 @@ describe('useSketchCamera', () => {
     const { viewport, setRotation, lookAtVolume } = makeViewport();
     act(() => {
       usePartStudioStore.setState({
-        sketch: { isActive: true, activeSketchId: 's1', activeSketchPlane: FRONT },
+        sketch: { isActive: true, activeSketchId: 's1', activeSketchPlane: FRONT, orientCameraOnEnter: true },
       });
     });
 
@@ -74,7 +74,7 @@ describe('useSketchCamera', () => {
 
     act(() => {
       usePartStudioStore.setState({
-        sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
+        sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null, orientCameraOnEnter: false },
       });
     });
     rerender({ sketch: undefined });
@@ -86,7 +86,7 @@ describe('useSketchCamera', () => {
     const { viewport, setRotation, lookAtVolume } = makeViewport();
     act(() => {
       usePartStudioStore.setState({
-        sketch: { isActive: true, activeSketchId: 's1', activeSketchPlane: FRONT },
+        sketch: { isActive: true, activeSketchId: 's1', activeSketchPlane: FRONT, orientCameraOnEnter: true },
       });
     });
 
@@ -105,7 +105,7 @@ describe('useSketchCamera', () => {
     const { viewport, lookAtVolume } = makeViewport();
     act(() => {
       usePartStudioStore.setState({
-        sketch: { isActive: true, activeSketchId: 's1', activeSketchPlane: FRONT },
+        sketch: { isActive: true, activeSketchId: 's1', activeSketchPlane: FRONT, orientCameraOnEnter: true },
       });
     });
     const empty: SketchDto = { ...sketchWith(0), entities: [] };
@@ -118,5 +118,28 @@ describe('useSketchCamera', () => {
     // 用户画下第一笔：不得触发 fit（否则鼠标流坐标系中途跳变）。
     rerender({ sketch: sketchWith(40) });
     expect(lookAtVolume).not.toHaveBeenCalled();
+  });
+
+  it('editing an existing sketch keeps the camera (no orient/fit/restore)', () => {
+    const { viewport, setRotation, lookAtVolume } = makeViewport();
+    const { rerender } = renderHook(
+      ({ sketch }) => useSketchCamera(viewport, sketch),
+      { initialProps: { sketch: sketchWith(40) as SketchDto | undefined } },
+    );
+    act(() => {
+      usePartStudioStore.setState({
+        sketch: { isActive: true, activeSketchId: 's1', activeSketchPlane: FRONT, orientCameraOnEnter: false },
+      });
+    });
+    rerender({ sketch: sketchWith(40) });
+    expect(setRotation).not.toHaveBeenCalled();
+    expect(lookAtVolume).not.toHaveBeenCalled();
+    act(() => {
+      usePartStudioStore.setState({
+        sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null, orientCameraOnEnter: false },
+      });
+    });
+    rerender({ sketch: undefined });
+    expect(setRotation).not.toHaveBeenCalled();
   });
 });

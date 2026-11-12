@@ -32,11 +32,12 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { SvgCheckmark, SvgClock, SvgClose, SvgFitToView } from '@itwin/itwinui-icons-react';
+import { Svg2D, SvgCheckmark, SvgClock, SvgClose, SvgFitToView } from '@itwin/itwinui-icons-react';
 import { IModelApp } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult, SketchPlaneDto } from '@luban-cad/shared';
 import { fitViewToModelRanges } from '@luban-cad/viewer';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import { orientCameraToSketchPlane } from '../canvas/sketch-camera.js';
 import './SketchDialog.css';
 
 /** 平面选项（下拉项寻址单位）。`plane`（v1.29）：cPlane 等自定义平面的世界快照；
@@ -110,6 +111,11 @@ export interface SketchDialogProps {
   onConfirm?: (result: SketchDialogResult) => void;
   /** ✗取消出口（exitSketch 之后调用）。 */
   onCancel?: () => void;
+  /**
+   * 适合窗口（ADR-0018 S1f）：编辑态由宿主按草图实体范围取景（Onshape 语义）；
+   * 缺省回退全局模型取景。
+   */
+  onFitToView?: () => void;
 }
 
 /** 缺省基准面 id（datun plane 寻址；RPC 接线后由真实平面数据替换）。 */
@@ -134,10 +140,12 @@ export function SketchDialog({
   canEdit = true,
   onConfirm,
   onCancel,
+  onFitToView,
 }: SketchDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
   const exitSketch = usePartStudioStore((s) => s.exitSketch);
+  const activeSketchPlane = usePartStudioStore((s) => s.sketch.activeSketchPlane);
 
   // 平面选项：props 注入优先；缺省基准面 label 走词库（占位串在渲染前替换）。
   const planeOptions: readonly SketchPlaneOption[] = React.useMemo(
@@ -182,9 +190,18 @@ export function SketchDialog({
 
   // Onshape live：草图对话框底栏左钮 = 缩放到合适大小（真实 fit，不做假历史）。
   const handleFitToView = React.useCallback(() => {
+    if (onFitToView) {
+      onFitToView();
+      return;
+    }
     const viewport = IModelApp.viewManager?.selectedView;
     if (viewport) void fitViewToModelRanges(viewport);
-  }, []);
+  }, [onFitToView]);
+  // ADR-0018 S1f：编辑既有草图不自动转正（live），改为显式「正视草图平面」。
+  const handleViewNormal = React.useCallback(() => {
+    const viewport = IModelApp.viewManager?.selectedView;
+    if (viewport) orientCameraToSketchPlane(viewport, activeSketchPlane);
+  }, [activeSketchPlane]);
 
   const selectedOption = planeOptions.find((option) => option.id === plane);
   /** v1.29：选中项自带 plane（cPlane）优先；三基准面回退旧映射。 */
@@ -219,7 +236,8 @@ export function SketchDialog({
       return;
     }
     if (!applyOp) {
-      enterSketch(sketchId ?? 'sketch-active');
+      // ADR-0018 S1f：新建草图按平面定向；编辑既有草图不抢相机（live 保持 iso）。
+      enterSketch(sketchId ?? 'sketch-active', { orientCamera: true });
       onConfirm?.(buildResult());
       return;
     }
@@ -244,7 +262,7 @@ export function SketchDialog({
       if (result.ok) {
         // 真 sketchId 入 store（废 'sketch-active' 占位串）；featureId 缺省=
         // 契约外兜底（insertSketch 后端恒返回 featureId），回退壳期寻址。
-        enterSketch(result.featureId ?? sketchId ?? 'sketch-active');
+        enterSketch(result.featureId ?? sketchId ?? 'sketch-active', { orientCamera: true });
         onConfirm?.(buildResult());
       } else {
         setError(result.error);
@@ -453,6 +471,18 @@ export function SketchDialog({
       </div>
       {/* Onshape live：草图对话框底栏=左侧「缩放到合适大小」图标 + 右侧 ?。 */}
       <footer className="part-studio-sketch-dialog__footer">
+        {editing && (
+          <button
+            type="button"
+            aria-label={t('partStudio.sketchDialog.viewNormalToPlane')}
+            title={t('partStudio.sketchDialog.viewNormalToPlane')}
+            className="part-studio-sketch-dialog__history"
+            data-testid="sketch-view-normal"
+            onClick={handleViewNormal}
+          >
+            <Svg2D />
+          </button>
+        )}
         <button
           type="button"
           aria-label={t('partStudio.sketchDialog.fitToView')}

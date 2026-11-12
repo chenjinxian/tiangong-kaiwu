@@ -51,7 +51,8 @@ export interface PartStudioActions {
   // tool 切片
   setActiveTool: (toolId: string | null) => void;
   // sketch 切片
-  enterSketch: (sketchId: string) => void;
+  /** ADR-0018 S1f：orientCamera=true 仅新建草图（编辑既有草图保持相机）。 */
+  enterSketch: (sketchId: string, options?: { orientCamera?: boolean }) => void;
   exitSketch: () => void;
   /** M6-a T5：活动草图平面下发（SketchDialog 确认链 → 宿主 onConfirm 消费面调用）。 */
   setActiveSketchPlane: (plane: SketchPlaneDto | null) => void;
@@ -123,6 +124,8 @@ const initialSketch: PartStudioSketchState = {
   // M6-a T5：平面缺省 null=契约缺省 XY@z=0（见 types.ts 注）。
   activeSketchPlane: null,
   constructionMode: false,
+  // ADR-0018 S1f：缺省编辑语义（不抢相机）；新建由 SketchDialog 显式置 true。
+  orientCameraOnEnter: false,
 };
 
 const initialCommandPalette: PartStudioCommandPaletteState = {
@@ -192,7 +195,15 @@ function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketch
     sketch: initialSketch,
     // 进草图恒先归零平面（防上一草图会话的平面残留串场）；新建路径的平面随后由
     // SketchDialog onConfirm 链 setActiveSketchPlane 下发（M6-a T5）。
-    enterSketch: (sketchId) => set({ sketch: { isActive: true, activeSketchId: sketchId, activeSketchPlane: null, constructionMode: false } }),
+    enterSketch: (sketchId, options) => set({
+      sketch: {
+        isActive: true,
+        activeSketchId: sketchId,
+        activeSketchPlane: null,
+        constructionMode: false,
+        orientCameraOnEnter: options?.orientCamera === true,
+      },
+    }),
     exitSketch: () => set({ sketch: { ...initialSketch } }),
     // 平面单设一跳（不并入 enterSketch）：T4 收口的 SketchDialog 内部先
     // enterSketch(真 sketchId)、再经 onConfirm 回调把平面选项带出——宿主

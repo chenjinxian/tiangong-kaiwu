@@ -923,6 +923,7 @@
     },
     "history": "History",
     "fitToView": "Fit to view",
+    "viewNormalToPlane": "View normal to sketch plane",
     "help": "Help",
     "helpText": "Pick a sketch plane to start sketching; the toggles control imprint/constraints/expressions/error display.",
     "readonlyHint": "Read-only permission; cannot create a sketch",

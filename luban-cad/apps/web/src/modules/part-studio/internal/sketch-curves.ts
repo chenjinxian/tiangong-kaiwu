@@ -11,7 +11,7 @@
  * 避免与草图工具自身高亮重复。
  */
 import { Point3d } from '@itwin/core-geometry';
-import type { FeatureTreeEntry, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
+import type { FeatureTreeEntry, SketchEntityDto, SketchPlaneDto, SketchRegionDto } from '@luban-cad/shared';
 import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
 
 export interface SketchCurvePolyline {
@@ -251,4 +251,38 @@ export function sketchEntriesToWorldPolylines(entries: readonly FeatureTreeEntry
     }
   }
   return polylines;
+}
+
+
+/**
+ * 活动草图面域填充（ADR-0018 S1f；Onshape live 像素 rgb(228,230,233)）：
+ * 直接使用后端 getSketch().regions 的采样边界（局部 2D，闭合、首尾不重复），
+ * 经草图平面刚体变换到世界系。只做显示投影（不参与拾取，不写 params）。
+ */
+export interface SketchRegionFillWorld {
+  outer: Point3d[];
+  holes: Point3d[][];
+}
+
+export function sketchRegionFillsToWorld(
+  regions: readonly SketchRegionDto[] | undefined,
+  plane: SketchPlaneDto | undefined,
+): SketchRegionFillWorld[] {
+  if (!regions || regions.length === 0)
+    return [];
+  const frame = sketchPlaneFrameFrom(plane);
+  const toWorld = (points: readonly LocalPoint[]): Point3d[] =>
+    points.map((point) => frame.toWorld({ u: point.x, v: point.y }));
+  const fills: SketchRegionFillWorld[] = [];
+  for (const region of regions) {
+    if (!region.outerBoundary || region.outerBoundary.length < 3)
+      continue;
+    fills.push({
+      outer: toWorld(region.outerBoundary),
+      holes: (region.holeBoundaries ?? [])
+        .filter((hole) => hole.length >= 3)
+        .map((hole) => toWorld(hole)),
+    });
+  }
+  return fills;
 }

@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { FeatureTreeEntry, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
-import { sketchControlPointsToWorld, sketchEntriesToWorldPolylines } from '../internal/sketch-curves.js';
+import { sketchControlPointsToWorld, sketchEntriesToWorldPolylines, sketchRegionFillsToWorld } from '../internal/sketch-curves.js';
 
 const XY_PLANE: SketchPlaneDto = {
   origin: { x: 0, y: 0, z: 0 },
@@ -120,5 +120,40 @@ describe('sketchControlPointsToWorld', () => {
     };
     const points = sketchControlPointsToWorld([{ kind: 'point', id: 1, x: 2, y: 3 }], plane);
     expect(points[0]!.position.toJSON()).toEqual([3, 0, -3]);
+  });
+});
+
+describe('sketchRegionFillsToWorld', () => {
+  const square = [{ x: -1, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }];
+  const hole = [{ x: -0.5, y: -0.5 }, { x: 0.5, y: -0.5 }, { x: 0.5, y: 0.5 }];
+
+  it('外环 + 孔环 → 世界折线（XY 平面）', () => {
+    const fills = sketchRegionFillsToWorld([
+      { area: 4, outerEntityIds: [], holeEntityIds: [2], outerBoundary: square, holeBoundaries: [hole] },
+    ], XY_PLANE);
+    expect(fills).toHaveLength(1);
+    expect(fills[0]!.outer.map((p) => p.toJSON())).toEqual([
+      [-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0],
+    ]);
+    expect(fills[0]!.holes).toHaveLength(1);
+    expect(fills[0]!.holes[0]!.map((p) => p.toJSON())).toEqual([
+      [-0.5, -0.5, 0], [0.5, -0.5, 0], [0.5, 0.5, 0],
+    ]);
+  });
+
+  it('非 XY 平面走刚体变换；退化边界/缺省 regions 跳过', () => {
+    const front: SketchPlaneDto = {
+      origin: { x: 1, y: 0, z: 0 },
+      normal: { x: 0, y: 1, z: 0 },
+      xDir: { x: 1, y: 0, z: 0 },
+    };
+    const fills = sketchRegionFillsToWorld([
+      { area: 4, outerEntityIds: [], outerBoundary: square },
+      { area: 0, outerEntityIds: [], outerBoundary: [{ x: 0, y: 0 }, { x: 1, y: 0 }] },
+    ], front);
+    expect(fills).toHaveLength(1);
+    expect(fills[0]!.outer[1]!.toJSON()).toEqual([2, 0, 1]);
+    expect(fills[0]!.holes).toEqual([]);
+    expect(sketchRegionFillsToWorld(undefined, XY_PLANE)).toEqual([]);
   });
 });

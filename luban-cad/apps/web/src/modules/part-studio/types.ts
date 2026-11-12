@@ -153,6 +153,12 @@ export interface PartStudioSketchState {
   activeSketchPlane: SketchPlaneDto | null;
   /** v1.23（ADR-0004）：构造模式——新绘制曲线带 construction=true，不参与面域。 */
   constructionMode?: boolean;
+  /**
+   * ADR-0018 S1f：进入草图的相机意图。true=新建草图（按平面法向定向并快照，
+   * 退出恢复）；false/缺省=编辑既有草图（Onshape live：不转正、不取景、退出不
+   * 回放），显式“正视草图平面”由草图对话框按钮承担。
+   */
+  orientCameraOnEnter?: boolean;
 }
 
 /** commandPalette 切片——命令搜索面板（alt+/）开关 + 查询词 + ribbon 亮显。 */

@@ -43,6 +43,7 @@ export {
   type SketchControlPointGeometry,
   type SketchCurveGeometry,
   type SketchCurveOptions,
+  type SketchRegionFillGeometry,
 } from './viewport/decorations/sketch-curves-decoration.js';
 // 2026-11-02：活动草图尺寸标注（Onshape live：尺寸线/箭头/数值）。
 // 2026-11-12（ADR-0018 S1e）：布局/标签纯函数供双击改值拾取层共用。

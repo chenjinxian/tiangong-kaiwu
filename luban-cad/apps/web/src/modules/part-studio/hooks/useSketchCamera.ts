@@ -29,6 +29,9 @@ export function useSketchCamera(
   const isActive = usePartStudioStore((s) => s.sketch.isActive);
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
   const activePlane = usePartStudioStore((s) => s.sketch.activeSketchPlane);
+  // ADR-0018 S1f：仅新建草图定向/取景/退出回放；编辑既有草图保持进入前相机
+  //（Onshape live：双击树进草图不转正、不缩放）。
+  const orientOnEnter = usePartStudioStore((s) => s.sketch.orientCameraOnEnter === true);
   const snapshotRef = useRef<SketchCameraSnapshot | null>(null);
   const planeKeyRef = useRef<string | null>(null);
   // 每次进入/切平面只取景一次；后续编辑不抢相机（避免画到一半镜头跳）。
@@ -37,6 +40,8 @@ export function useSketchCamera(
   useEffect(() => {
     if (!viewport) return;
     if (isActive) {
+      if (!orientOnEnter)
+        return;
       if (!snapshotRef.current)
         snapshotRef.current = captureSketchCamera(viewport) ?? null;
       const key = planeKey(activePlane);
@@ -60,5 +65,5 @@ export function useSketchCamera(
       planeKeyRef.current = null;
       fittedKeyRef.current = null;
     }
-  }, [viewport, isActive, activeSketchId, activePlane, activeSketch]);
+  }, [viewport, isActive, activeSketchId, activePlane, activeSketch, orientOnEnter]);
 }

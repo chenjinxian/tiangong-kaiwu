@@ -12,11 +12,12 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import type { FeatureTreeEntry, SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import { SketchCurvesDecoration } from '@luban-cad/viewer';
-import type { SketchConstraintState, SketchControlPointGeometry, SketchCurveGeometry } from '@luban-cad/viewer';
+import type { SketchConstraintState, SketchControlPointGeometry, SketchCurveGeometry, SketchRegionFillGeometry } from '@luban-cad/viewer';
 import {
   sketchControlPointsToWorld,
   sketchEntitiesToWorldPolylines,
   sketchEntriesToWorldPolylines,
+  sketchRegionFillsToWorld,
 } from '../internal/sketch-curves.js';
 
 function constraintStateOf(sketch: SketchDto | null | undefined): SketchConstraintState {
@@ -76,6 +77,14 @@ export function useSketchCurveDecorations(
 
   const constraintState = useMemo(() => constraintStateOf(activeSketchForId), [activeSketchForId]);
 
+  // ADR-0018 S1f：活动草图封闭面域浅灰填充（后端 regions 采样边界）；拖拽预览
+  // 期间隐藏（预览只覆盖曲线，面域边界仍是旧解，避免填充与曲线错位）。
+  const regionFills = useMemo<readonly SketchRegionFillGeometry[]>(() => {
+    if (!activeSketchForId || previewEntities)
+      return [];
+    return sketchRegionFillsToWorld(activeSketchForId.regions, activeSketchForId.plane);
+  }, [activeSketchForId, previewEntities]);
+
   const decorationRef = useRef<SketchCurvesDecoration | null>(null);
 
   useEffect(() => {
@@ -83,6 +92,7 @@ export function useSketchCurveDecorations(
     const decoration = new SketchCurvesDecoration(viewport, polylines, activeId, {
       constraintState,
       controlPoints,
+      regionFills,
     });
     decorationRef.current = decoration;
     return () => {
@@ -93,6 +103,6 @@ export function useSketchCurveDecorations(
   }, [viewport]);
 
   useEffect(() => {
-    decorationRef.current?.setPolylines(polylines, activeId, { constraintState, controlPoints });
-  }, [polylines, activeId, constraintState, controlPoints]);
+    decorationRef.current?.setPolylines(polylines, activeId, { constraintState, controlPoints, regionFills });
+  }, [polylines, activeId, constraintState, controlPoints, regionFills]);
 }

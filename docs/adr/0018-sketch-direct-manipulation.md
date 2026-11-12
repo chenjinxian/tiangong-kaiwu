@@ -40,10 +40,16 @@ Delete 删除选中实体/约束 = `updateSketch`：移除选中曲线并级联�
 撤销语义：`onAfterUndoRedo` 也刷新活动草图（撤/重做不发 `onCommitted`）。注意自动保存（ADR-0017 Stage F）推送会开启新 changeset 会话，原生 undo 只覆盖**推送前**窗口；S1c 真栈在推送前点击撤销验证（`sketch-entity-drag.spec.ts`）。该窗口与 Stage F 已登记限制同源，不新增第二套撤销状态机（P0-01/P0-05）。
 
 ### D5. 相机
-不在进入草图时强制正视（与 live 一致）；提供显式“正视草图平面”命令（后续切片），不改变默认相机权威（iModel 视图）。
+- 编辑既有草图（树双击/编辑入口）：**不**强制正视、**不**按实体范围取景、退出**不**回放相机（live：保持进入前 iso）。`store.sketch.orientCameraOnEnter` 只在新建草图确认时置 true。
+- 新建草图仍按所选平面法向定向（既有创建语义），退出回放快照。
+- 显式“正视草图平面”= 草图对话框底栏按钮（`orientCameraToSketchPlane`，标准 ViewState 旋转），不新增相机权威。
+- 草图对话框底栏“缩放到合适大小”在编辑态按**草图实体范围**取景（Onshape 语义），非全局模型范围。
 
 ### D6. 非目标
 文字/投影实体边/线性阵列/DXF/圆锥曲线/多段样条/3D 草图/表达式由独立切片立项；本 ADR 不改变后端 schema/RPC。
+
+### D7. 面域填充
+活动草图按 `getSketch().regions` 的采样边界（`outerBoundary`/`holeBoundaries`，局部 2D）经平面刚体变换后画浅灰填充 `rgb(228,230,233)`（live 像素采样），孔环按 evenodd 处理；直接使用后端面域集，不自行推导区域/不做第二几何事实源。只显示不拾取；拖拽预览期间隐藏（边界仍是旧解）。
 
 ## 3. 备选方案
 
@@ -59,4 +65,4 @@ Delete 删除选中实体/约束 = `updateSketch`：移除选中曲线并级联�
 
 ## 5. 实施切片
 
-S1a 着色+控制点（已实现）→ S1b 选择（已实现，`sketch-entity-select.spec.ts`）→ S1c 拖拽（已实现：曲线本体/控制点/圆弧端点、Escape 取消、撤销刷新，`sketch-entity-drag.spec.ts` 真栈）→ S1d Delete（已实现：曲线删除+约束级联+撤销恢复，`sketch-entity-delete.spec.ts` 真栈）→ S1e 尺寸改值（已实现：半径/长度双击内联编辑，`sketch-dimension-edit.spec.ts` 真栈）→ S1f 面域填充/正视命令；S2 特征树交互对拍；S3 缺失功能（BRepCore 就绪优先）。
+S1a 着色+控制点（已实现）→ S1b 选择（已实现，`sketch-entity-select.spec.ts`）→ S1c 拖拽（已实现：曲线本体/控制点/圆弧端点、Escape 取消、撤销刷新，`sketch-entity-drag.spec.ts` 真栈）→ S1d Delete（已实现：曲线删除+约束级联+撤销恢复，`sketch-entity-delete.spec.ts` 真栈）→ S1e 尺寸改值（已实现：半径/长度双击内联编辑，`sketch-dimension-edit.spec.ts` 真栈）→ S1f 面域填充/正视命令/编辑不抢相机（已实现：`sketch-region-fill.spec.ts`、`sketch-camera-parity.spec.ts` 真栈；填充像素 PIL 核对 rgb(228,230,233)）；S2 特征树交互对拍；S3 缺失功能（BRepCore 就绪优先）。

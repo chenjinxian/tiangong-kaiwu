@@ -26,6 +26,8 @@ const ACTIVE_ERROR_STYLE = '#c0392b';
 /** 控制点：蓝色小圆点（Onshape live：端点/圆心/弧起止中点/样条控制点）。 */
 const CONTROL_POINT_STYLE = '#1a1acc';
 const CONTROL_POINT_RADIUS = 2.4;
+/** 封闭面域填充：Onshape live 像素采样 rgb(228,230,233)。 */
+const REGION_FILL_STYLE = 'rgb(228, 230, 233)';
 
 export type SketchConstraintState = 'underconstrained' | 'constrained' | 'error';
 
@@ -43,11 +45,22 @@ export interface SketchControlPointGeometry {
   sketchId?: string;
 }
 
+/**
+ * 活动草图封闭面域填充（ADR-0018 S1f；Onshape live 像素 rgb(228,230,233)）：
+ * 外环+孔环世界折线，evenodd 填充；只画活动草图。
+ */
+export interface SketchRegionFillGeometry {
+  outer: readonly Point3d[];
+  holes?: readonly (readonly Point3d[])[];
+}
+
 export interface SketchCurveOptions {
   /** 活动草图求解状态（缺省 underconstrained——旧调用的历史行为按蓝色）。 */
   constraintState?: SketchConstraintState;
   /** 活动草图控制点。 */
   controlPoints?: readonly SketchControlPointGeometry[];
+  /** 活动草图封闭面域填充。 */
+  regionFills?: readonly SketchRegionFillGeometry[];
 }
 
 function activeStrokeStyle(state: SketchConstraintState): string {
@@ -67,6 +80,7 @@ export class SketchCurvesDecoration {
   private _activeSketchId?: string;
   private _constraintState: SketchConstraintState = 'underconstrained';
   private _controlPoints: readonly SketchControlPointGeometry[] = [];
+  private _regionFills: readonly SketchRegionFillGeometry[] = [];
   private readonly _removeListener?: () => void;
 
   public constructor(
@@ -80,6 +94,7 @@ export class SketchCurvesDecoration {
     this._activeSketchId = activeSketchId;
     this._constraintState = options?.constraintState ?? 'underconstrained';
     this._controlPoints = options?.controlPoints ?? [];
+    this._regionFills = options?.regionFills ?? [];
     this._removeListener = IModelApp.viewManager.addDecorator(this);
   }
 
@@ -92,6 +107,7 @@ export class SketchCurvesDecoration {
     this._activeSketchId = activeSketchId;
     this._constraintState = options?.constraintState ?? 'underconstrained';
     this._controlPoints = options?.controlPoints ?? [];
+    this._regionFills = options?.regionFills ?? [];
     this._viewport.invalidateScene();
   }
 
@@ -103,11 +119,51 @@ export class SketchCurvesDecoration {
     const vp = context.viewport;
     if (!vp.view.isSpatialView())
       return;
-    if (this._polylines.length === 0 && this._controlPoints.length === 0)
+    if (this._polylines.length === 0 && this._controlPoints.length === 0 && this._regionFills.length === 0)
       return;
 
     context.addCanvasDecoration({
       drawDecoration: (ctx) => {
+        // ADR-0018 S1f：先铺封闭面域浅灰填充（evenodd 让孔环镂空），再画曲线/控制点。
+        if (this._activeSketchId !== undefined && this._regionFills.length > 0) {
+          ctx.setLineDash([]);
+          ctx.fillStyle = REGION_FILL_STYLE;
+          for (const fill of this._regionFills) {
+            ctx.beginPath();
+            let started = false;
+            for (const world of fill.outer) {
+              const view = vp.worldToView(world);
+              if (!Number.isFinite(view.x) || !Number.isFinite(view.y))
+                continue;
+              if (started)
+                ctx.lineTo(view.x, view.y);
+              else {
+                ctx.moveTo(view.x, view.y);
+                started = true;
+              }
+            }
+            if (!started)
+              continue;
+            ctx.closePath();
+            for (const hole of fill.holes ?? []) {
+              let holeStarted = false;
+              for (const world of hole) {
+                const view = vp.worldToView(world);
+                if (!Number.isFinite(view.x) || !Number.isFinite(view.y))
+                  continue;
+                if (holeStarted)
+                  ctx.lineTo(view.x, view.y);
+                else {
+                  ctx.moveTo(view.x, view.y);
+                  holeStarted = true;
+                }
+              }
+              if (holeStarted)
+                ctx.closePath();
+            }
+            ctx.fill('evenodd');
+          }
+        }
         for (const polyline of this._polylines) {
           if (polyline.points.length < 2)
             continue;

@@ -169,7 +169,7 @@ function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
-    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false },
+    sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false },
     dialog: { active: null },
     tool: { activeToolId: null },
     commandPalette: { isOpen: false, query: '', highlightEnabled: true },
@@ -373,7 +373,7 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     await choosePlane(user);
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-7', activeSketchPlane: null, constructionMode: false });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-7', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: true });
   });
 
   it('✗取消 → onCancel + exitSketch 复位（进行中草图退出）', async () => {
@@ -382,7 +382,7 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: '取消' }));
     expect(onCancel).toHaveBeenCalled();
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false });
   });
 
   it('Escape = 取消（Onshape 草图工具退出语义；焦点在画布也生效）', () => {
@@ -440,7 +440,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     });
     // 成功 → 真 sketchId 入 store（enterSketch 真 id 断言）+ onConfirm 载荷照常。
     await waitFor(() =>
-      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-42', activeSketchPlane: null, constructionMode: false }),
+      expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sk-42', activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: true }),
     );
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -464,7 +464,7 @@ describe('M6-a T4：insertSketch RPC 接线（F1）', () => {
     await user.click(screen.getByRole('button', { name: '确认' }));
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('约束求解失败');
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, orientCameraOnEnter: false });
     expect(onConfirm).not.toHaveBeenCalled();
     // 对话框仍在场（不关框）。
     expect(screen.getByRole('dialog', { name: /^草图( 1)?$/ })).toBeDefined();
@@ -627,6 +627,7 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
         activeSketchId: 'sk-real-1',
         activeSketchPlane: sketchPlaneFromOption('front'),
         constructionMode: false,
+        orientCameraOnEnter: true,
       }),
     );
     // Onshape：创建后同一草图对话框保持打开（编辑态）；再次 ✓ 完成退出。

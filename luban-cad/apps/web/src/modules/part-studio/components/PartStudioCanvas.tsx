@@ -83,6 +83,7 @@ import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
 import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
 import { applyCanvasSelection } from '../internal/selection-authority.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
+import { fitCameraToSketch } from '../canvas/sketch-camera.js';
 import { ViewCube } from './ViewCube.js';
 import { readViewCubeMode } from '../internal/viewcube-mode.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
@@ -92,6 +93,7 @@ import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
+import { fitViewToModelRanges } from '@luban-cad/viewer';
 
 /**
  * 官方 iTwin ViewCube 按需加载：默认模式只加载官方组件 chunk；
@@ -692,6 +694,16 @@ export function PartStudioCanvas({
           }}
         />
       )}
+      {/* ADR-0018 S1f：活动草图面域填充观测面（e2e；绘制在 SketchCurvesDecoration）。 */}
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && (
+        <span
+          data-testid="sketch-region-fills"
+          data-count={(sketchSystem.activeSketch.regions ?? [])
+            .filter((region) => (region.outerBoundary?.length ?? 0) >= 3).length}
+          className="part-studio-plane-picker__marker"
+          aria-hidden="true"
+        />
+      )}
       {/* ADR-0018 S1e：双击尺寸数值 → 内联改值（updateSketchConstraint）。 */}
       {sketchActiveForDecorations && sketchSystem?.activeSketch && activeToolIdForSketchPicker == null && canEdit && (
         <SketchDimensionEditor
@@ -995,6 +1007,15 @@ export function PartStudioCanvas({
           canEdit={canEdit}
           onConfirm={handleSketchConfirm}
           onCancel={handleSketchDialogCancel}
+          onFitToView={viewport ? () => {
+            // ADR-0018 S1f：草图编辑态适合窗口=草图实体范围（Onshape），不是全局模型。
+            const sketch = sketchSystem?.activeSketch;
+            if (sketch) {
+              fitCameraToSketch(viewport, sketch.plane, sketch.entities);
+              return;
+            }
+            void fitViewToModelRanges(viewport);
+          } : undefined}
         />
       )}
     </div>
