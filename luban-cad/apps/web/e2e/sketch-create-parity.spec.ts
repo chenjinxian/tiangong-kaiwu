@@ -106,6 +106,10 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveText('草图');
+    await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveCSS('font-size', '16px');
+    // Onshape live：平面字段没有下拉选择；创建态也没有「正视草图平面」按钮。
+    await expect(dialog.getByRole('listbox')).toHaveCount(0);
+    await expect(dialog.getByTestId('sketch-view-normal')).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: '确认' })).toBeDisabled();
     await expect(dialog.getByTestId('sketch-analysis-tools')).toBeVisible();
     await expect(dialog.getByTestId('sketch-finish')).toHaveCount(0);
@@ -141,6 +145,22 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     await expect(dialog.locator('.part-studio-sketch-dialog__plane-clear')).toBeVisible();
     await expect(dialog.getByTestId('sketch-finish')).toHaveCount(0);
     await expect.poll(() => frameAlphaPixels(page), { timeout: 20_000 }).toBeGreaterThan(500);
+    // 2026-11-13 用户复核：选面后视口须同步显示平面框**和草图名文字**。
+    const pickerMarker = page.getByTestId('sketch-plane-picker');
+    await expect(pickerMarker).toHaveAttribute('data-frame-plane', 'true');
+    await expect(pickerMarker).toHaveAttribute('data-frame-label', /^草图 2$/);
+    // live computedStyles 字号：字段值/开关行 13.3333px，字段小标签 12px。
+    const fonts = await page.evaluate(() => {
+      const chip = document.querySelector('[data-testid="sketch-plane-chip"]') as HTMLElement;
+      const label = document.querySelector('.part-studio-sketch-dialog__plane-field-label') as HTMLElement;
+      const toggle = document.querySelector('.part-studio-sketch-dialog__toggle') as HTMLElement;
+      return {
+        chip: getComputedStyle(chip).fontSize,
+        label: getComputedStyle(label).fontSize,
+        toggle: getComputedStyle(toggle).fontSize,
+      };
+    });
+    expect(fonts).toEqual({ chip: '13.3333px', label: '12px', toggle: '13.3333px' });
     const selectedField = await page.evaluate(() => {
       const el = document.querySelector('[data-testid="sketch-plane-field"]') as HTMLElement;
       const s = getComputedStyle(el);
@@ -151,6 +171,17 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
       bg: 'rgb(251, 253, 254)',
       border: 'rgb(149, 149, 149)',
     });
+
+    // ── 2b) 字段 × 清除：删 pending 草壳但**不关闭对话框**（用户复核）────
+    await dialog.getByRole('button', { name: '清除草图平面' }).click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId('sketch-plane-chip')).toHaveCount(0);
+    await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveText('草图');
+    await expect.poll(sketchCount, { timeout: 60_000, intervals: [1000, 2000, 5000] }).toBe(1);
+    // 重新选 Front → 再次自动创建 pending 草图（对话框仍在）。
+    await page.getByRole('button', { name: 'Front', exact: true }).click();
+    await expect.poll(sketchCount, { timeout: 60_000, intervals: [1000, 2000, 5000] }).toBe(2);
+    await expect(dialog.getByTestId('sketch-plane-chip')).toHaveText('Front 平面');
 
     // ── 3) ✗ 取消 → pending 草图删除 ─────────────────────────────────────
     await dialog.getByRole('button', { name: '取消' }).click();
@@ -163,7 +194,12 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     await expect(dialog).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
     await expect(dialog.getByTestId('sketch-finish')).toHaveText('成品');
-    await expect(dialog.getByRole('combobox', { name: '草图平面' })).toBeDisabled();
+    // 编辑既有草图：平面字段只读（无下拉），× 禁用。
+    await expect(dialog.getByTestId('sketch-plane-chip')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '清除草图平面' })).toBeDisabled();
+    // 对话框不再有「正视草图平面」按钮（视图命令在 ViewCube 相机菜单）。
+    await expect(dialog.getByTestId('sketch-view-normal')).toHaveCount(0);
+    await expect(dialog.getByRole('listbox')).toHaveCount(0);
 
     // ── 5) 草图工具栏飞菜单全部变体带 sprite 图标 ────────────────────────
     await page.getByRole('button', { name: '三点圆弧 ▾' }).click();

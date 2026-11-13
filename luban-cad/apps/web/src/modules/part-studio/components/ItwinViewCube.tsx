@@ -33,6 +33,8 @@ export interface ItwinViewCubeProps {
   onOpenGraphicsPreferences?: () => void;
   /** 2026-11-13：Onshape 语义「缩放到合适大小」（可见内容取景）宿主出口。 */
   onFitVisibleContent?: () => void;
+  /** 2026-11-13：草图编辑态「正视草图平面」宿主出口（Onshape 视图菜单命令）。 */
+  onViewNormalToSketch?: () => void;
 }
 
 /**
@@ -55,6 +57,7 @@ export function ItwinViewCube({
   displaySettings,
   onOpenGraphicsPreferences,
   onFitVisibleContent,
+  onViewNormalToSketch,
 }: ItwinViewCubeProps): React.ReactElement | null {
   const [labelsReady, setLabelsReady] = React.useState(UiIModelComponents.initialized);
   const history = useViewCubeHistory(viewport);
@@ -134,6 +137,7 @@ export function ItwinViewCube({
         displaySettings={displaySettings}
         onOpenGraphicsPreferences={onOpenGraphicsPreferences}
         onFitVisibleContent={onFitVisibleContent}
+        onViewNormalToSketch={onViewNormalToSketch}
         history={history}
         commitView={commitView}
       />

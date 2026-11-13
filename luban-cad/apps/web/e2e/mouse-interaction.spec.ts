@@ -166,7 +166,8 @@ test.describe('Onshape 草图框选', () => {
     expect(cameraDelta(camBeforeRotate, await readCamera(page)), '草图态右键拖拽应旋转').toBeGreaterThan(1);
     await expect(page.getByRole('menu', { name: '画布菜单' })).toHaveCount(0);
 
-    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-view-normal-to-sketch').click();
     await page.waitForTimeout(300);
     await page.getByTestId('viewcube-menu-trigger').click();
     await page.getByTestId('viewcube-menu-zoom-fit').click();

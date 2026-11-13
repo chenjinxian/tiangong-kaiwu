@@ -81,24 +81,51 @@
 ## 测试
 
 - 单测：`SketchDialog.test.tsx`（41 passed：布局/字段两态/成品/取消删除/
-  删除失败不关框/编辑不删/字段 × 清 pending）、`sketch-plane-frame.test.ts`
-  （4 组纯几何）、`FeatureDialog.test.tsx`（✗ 透明底 CSS 契约）；web 全量
-  **139 files / 1847 passed**；tsc（src/e2e）/eslint 绿。
-- 真栈：新增 `e2e/sketch-create-parity.spec.ts`（创建态计算样式/平面框像素/
-  取消删除/编辑成品/飞菜单 5+15 项图标全在场）；受影响
-  `sketch-edit`、`sketch-camera-parity`、`sketch-camera-fit`、
-  `sketch-region-fill` 共 **7 passed（1.6 min）**。
+  删除失败不关框/编辑不删/字段 × 清 pending 且不关框/无下拉）、
+  `sketch-plane-frame.test.ts`（4 组纯几何）、`FeatureDialog.test.tsx`、
+  `ViewCube.test.tsx`（相机菜单「正视草图平面」命令）；web 全量
+  **139 files / 1848 passed**；tsc（src/e2e）/eslint 绿。
+- 真栈：`e2e/sketch-create-parity.spec.ts` **1 passed**（创建态计算样式/
+  字号 16/12/13.3333px/平面框像素+`data-frame-label`/取消删除/编辑成品/
+  飞菜单 5+15 项图标）；`sketch-edit`、`sketch-camera-parity`、
+  `sketch-camera-fit`、`sketch-region-fill`、`sketch-chamfer`、
+  `cplane-point` **9 passed**（含 cPlane 树选中桥 4000 mm³ 真栈）；
+  `autosave-version`/`ui-parity`/`sketch-extrude`（T1）在迁移批次通过；
+  `sketch-face-plane` **2 passed**（新 dev server；旧 HMR 长跑进程下拾取
+  偶发空选择，已加 viewport-ready/多候选点稳定窗）；`intro-to-cad`
+  `EXAMPLE_RESET=1` **2 passed**（cPlane 树选中→背面草图整链）。
 - **真栈选择器迁移**：底栏「缩放到合适大小」按 live 移除后，13 个既有草图
   spec 的 18 处 `getByRole('button', {name:'缩放到合适大小'})` 改走
-  ViewCube 相机菜单（`viewcube-menu-trigger` → `viewcube-menu-zoom-fit`）。
-  「正视草图平面」按 live 属工具栏动作，但本仓保留编辑态底栏显式入口
-  （`sketch-view-normal`，18 处既有用例依赖；创建态不显示）。
+  ViewCube 相机菜单（`viewcube-menu-trigger` → `viewcube-menu-zoom-fit`）；
+  「正视草图平面」从对话框移除后，18 处改为 `viewcube-menu-trigger` →
+  `viewcube-menu-view-normal-to-sketch`；平面下拉移除后，7 个 spec 的
+  combobox/option 用法改为树行选中（基准面/cPlane）或 store 驱动，5 处
+  combobox 文本断言改为 `sketch-plane-chip`。
+
+## 二次复核（2026-11-13 用户反馈，已修正上一轮偏差）
+
+1. **对话框无「正视草图平面」按钮**（live f4/f5 确认）：移除底栏入口；新增
+   ViewCube 相机菜单命令 `viewcube-menu-view-normal-to-sketch`（草图激活时
+   出现，label「正视草图平面」），18 处真栈选择器迁移。
+2. **平面字段无下拉选择**（live 确认）：移除 combobox/listbox 与字段菜单；
+   平面只来自视口拾取（基准面/模型面）与特征树（基准面/cPlane）。cPlane 经
+   新桥选取：`store.tree.selectedNodeIds` 单选 + 该节点是带世界平面的 cPlane
+   选项 → 草稿平面（PartStudioCanvas effect）。全部 e2e/单测迁移到树选中或
+   store 驱动。
+3. **× 清除不退出对话框**：若本框已自动创建 pending 草壳 → 先标准
+   `deleteSketch` 删除并退出草图模式，再把字段清空、**对话框保持打开**等待
+   重新选面；无草壳时纯本地清除。编辑既有草图的 × 禁用。
+4. **字号统一为 live computedStyles**：标题 16px；字段小标签 12px；字段值、
+   开关行、提示 13.3333px（上一轮 chip 16px/开关 12px 与 live 不符）。
+5. **选面后视口同步显示平面框 + 草图名文字**：`SketchPlanePicker` 新增
+   `frameLabel`（草图名沿框顶边外侧绘制，与边框同步）；marker 暴露
+   `data-frame-plane`/`data-frame-label` 供真栈断言。
 
 ## 已知边界 / 后续
 
 - 草图分析工具未实现 → 按钮禁用+title 诚实说明（不伪造打开）。
-- 「正视草图平面」在 live 属工具栏动作；本仓暂保留编辑态底栏左端显式入口
-  （既有 18 处真栈用例依赖），创建态不显示。
+- 「正视草图平面」在 live 属视图菜单命令（非对话框）；本仓落在 ViewCube
+  相机菜单，草图激活时可用。
 - 平面框为 2D overlay（与既有 SketchPlanePicker 选中描边同层），不做模型遮挡
   深度裁剪；若后续要求与 live 完全一致的遮挡效果，再上 3D WorldDecoration。
 - 平面框尺寸系数 1.5 来自两例 live 比例（1.5–2×），非契约值。

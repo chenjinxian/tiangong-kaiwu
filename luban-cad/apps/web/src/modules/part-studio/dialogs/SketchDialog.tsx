@@ -2,41 +2,36 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * SketchDialog（M3 Task 6）：草图对话框（对齐 os-30）——
+ * SketchDialog（M3 Task 6）：草图对话框（对齐 Onshape live f4/f5）——
  * - 非模态内联面板（同 Extrude 对话框位：画布区左上角，aria-modal=false +
  *   无 backdrop）；
- * - 草图平面选择：下拉（缺省基准面 上视/前视/右视 + 占位项）+ 快速拾取
- *   （仅 `kind='face'` 的 useCanvasSelection 主选择成动态选项并选中；part/
- *   edge/vertex/feature 主选择不是平面——不添选项、不改当前所选，防选中桥
- *   新写入的 body 选择被误当草图平面）；
- * - 四开关勾选组（os-30）：禁用压印/显示约束/显示表达式/显示错误——Onshape
+ * - 草图平面字段为**只读显示**（2026-11-13 用户复核：Onshape 没有下拉选择）：
+ *   平面只来自视口拾取（基准面/模型面）与特征树（基准面/cPlane）；字段显示
+ *   12px 标签 + 13.3333px 值 + ×。× = 清除平面（若已自动创建 pending 草图则
+ *   标准 deleteSketch 删除草壳）但**对话框保持打开**、可重新选面；
+ * - 四开关勾选组（13.3333px 行）：禁用压印/显示约束/显示表达式/显示错误——
  *   live 默认显示约束/显示表达式/显示错误勾选（禁用压印不勾）；
- * - ✓确认/✗取消 + 缩放到合适大小 + ? 帮助（展开文案）。
+ * - ✓/✗（Onshape sprite 图标）+ 底栏草图分析工具（诚实禁用）/成品（编辑既有）/?；
+ *   「正视草图平面」不在对话框（live）——见 ViewCube 相机菜单命令。
  *
  * store 联动（os-30 草图模式变身的数据源）：✓ → enterSketch + onConfirm 载荷；
- * ✗ → exitSketch + onCancel。底栏左钮=缩放到合适大小（真实视图取景）。
+ * ✗ → exitSketch + onCancel；新建 pending 草图的 ✗ = deleteSketch 删除草壳。
  *
  * M6-a T4（insertSketch RPC 接线，F1）：applyOp 在场时 ✓ →
  * `{kind:'insertSketch', entities:[], constraints:[], plane?}`（空草图先建壳）
- * → 成功（{ok:true,featureId}）→ enterSketch(真 sketchId——废 'sketch-active'
- * 占位串)+onConfirm；失败（{ok:false,error}）→ 就地 Alert，不进草图模式、
- * 不关框。plane=平面映射（sketchPlaneFromOption——基准面三向量随 op 下发；
- * 快速拾取面 id 无几何可解析 → 省略 plane 键，契约缺省 XY@z=0 保持 M3-b
- * 语义，拾取面→平面解析归后续单裁）。applyOp 未接线（壳期/纯展示）回退 M3
- * 纯回调语义（同 FeatureDialog 未接线回退）。只读写门禁（B2 同款）：
- * canEdit=false → ✓ 禁用+只读提示，不发起 applyOp（hook 层 useFeatureSystem
- * readonly 前置拒收为第二道防御）。提交中禁重入（✓ 禁用+aria-busy）；卸载
- * 守卫同 FeatureDialog aliveRef。成功不发 toast——进草图模式（ribbon 变身+
- * 覆盖层）即成功反馈（FeatureDialog toast 系关框后树节点不可见的补偿）。
+ * → 成功（{ok:true,featureId}）→ enterSketch(真 sketchId)+onConfirm；失败 →
+ * 就地 Alert，不进草图模式、不关框。外部平面变化（视口/树/模型面/cPlane）会
+ * 自动触发同一创建链（Onshape 选面即进入草图）。applyOp 未接线回退 M3 纯
+ * 回调语义。只读写门禁：canEdit=false → ✓ 禁用+只读提示。提交中禁重入
+ *（✓ 禁用+aria-busy）；卸载守卫同 FeatureDialog aliveRef。
  */
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Svg2D, SvgClock } from '@itwin/itwinui-icons-react';
+import { SvgClock } from '@itwin/itwinui-icons-react';
 import { IModelApp } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult, SketchPlaneDto } from '@luban-cad/shared';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
-import { orientCameraToSketchPlane } from '../canvas/sketch-camera.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import './SketchDialog.css';
 
@@ -147,9 +142,10 @@ export function SketchDialog({
   const { t } = useTranslation();
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
   const exitSketch = usePartStudioStore((s) => s.exitSketch);
-  const activeSketchPlane = usePartStudioStore((s) => s.sketch.activeSketchPlane);
 
   // 平面选项：props 注入优先；缺省基准面 label 走词库（占位串在渲染前替换）。
+  // 2026-11-13 用户复核（Onshape live）：草图平面字段**没有下拉选择**——平面上
+  // 的选择只来自视口拾取（基准面/模型面）与特征树（基准面/cPlane）。
   const planeOptions: readonly SketchPlaneOption[] = React.useMemo(
     () =>
       planes ??
@@ -162,14 +158,10 @@ export function SketchDialog({
 
   const [internalPlane, setInternalPlane] = React.useState('');
   const plane = planeId !== undefined ? (planeId ?? '') : internalPlane;
-  /** 下拉选择来源标记：下拉选平面仍走 ✓（既有语义）；视口/树拾取直接进草图。 */
-  const dropdownPlaneRef = React.useRef<string | null>(null);
   const setPlane = React.useCallback((next: string) => {
-    dropdownPlaneRef.current = next;
     setInternalPlane(next);
     onPlaneChange?.(next || null);
   }, [onPlaneChange]);
-  const [planeMenuOpen, setPlaneMenuOpen] = React.useState(false);
   const [disableImprint, setDisableImprint] = React.useState(false);
   // Onshape live（2026-11-12 截图）：显示约束/显示表达式/显示错误默认勾选，
   // 仅「禁用压印」默认不勾。
@@ -200,14 +192,6 @@ export function SketchDialog({
     };
   }, []);
 
-  // Onshape live f4/f5：底栏 = 草图分析工具 + 成品（编辑既有草图）+ ?；
-  // 「正视草图平面」在 live 属工具栏动作，本仓保留既有显式入口（编辑态底栏
-  // 左端，18 个真栈用例依赖；创建态不显示，保持 f4 布局一致）。
-  const handleViewNormal = React.useCallback(() => {
-    const viewport = IModelApp.viewManager?.selectedView;
-    if (viewport)
-      orientCameraToSketchPlane(viewport, activeSketchPlane);
-  }, [activeSketchPlane]);
   const selectedOption = planeOptions.find((option) => option.id === plane);
   /** v1.29：选中项自带 plane（cPlane）优先；三基准面回退旧映射。 */
   const resolvedPlane = React.useCallback(
@@ -282,8 +266,8 @@ export function SketchDialog({
   }, [submitting, canEdit, editing, applyOp, enterSketch, sketchId, onConfirm, buildResult, plane, resolvedPlane]);
 
   // 2026-11-13（用户反馈）：新建草图时**选平面即进入编辑**（Onshape 流程）——
-  // 视口拾取/特征树基准面点击（外部 planeId 变化）直接创建并进入草图编辑，
-  // 不再需要额外 ✓。下拉选择保留 ✓（既有语义/测试口径；dropdownPlaneRef 标记）。
+  // 视口/特征树拾取平面（外部 planeId 变化）直接创建并进入草图编辑；本对话框
+  // 无下拉选择（Onshape live），因此任何平面变化都是拾取来源。
   // 初始即带平面（如先选模型面再点草图）= 已确认过的选择，不自动再创建。
   const confirmRef = React.useRef(handleConfirm);
   confirmRef.current = handleConfirm;
@@ -293,10 +277,6 @@ export function SketchDialog({
     lastAutoPlaneRef.current = plane;
     if (previous === plane) return;
     if (editing || submitting || !canEdit || plane === '') return;
-    if (dropdownPlaneRef.current === plane) {
-      dropdownPlaneRef.current = null; // 下拉选择：等待显式 ✓
-      return;
-    }
     confirmRef.current();
   }, [plane, editing, submitting, canEdit]);
 
@@ -334,6 +314,44 @@ export function SketchDialog({
     exitSketch();
     onCancel?.();
   }, [submitting, applyOp, canEdit, exitSketch, onCancel]);
+
+  /**
+   * 平面字段 ×（2026-11-13 用户复核）：**只清除平面、对话框保持打开**（不得
+   * 退出对话框）。若本对话框已自动创建 pending 草图，先经标准 `deleteSketch`
+   * 删除该草壳并退出草图模式，再把字段清空等待重新选面——避免「字段已清空
+   * 但草图/草图模式仍在」的假状态。编辑既有草图时 × 禁用（updateSketch 无
+   * plane 键）。
+   */
+  const handleClearPlane = React.useCallback(() => {
+    if (submitting)
+      return;
+    const createdId = createdSketchIdRef.current;
+    if (createdId === undefined || !applyOp || !canEdit) {
+      setPlane('');
+      return;
+    }
+    setError(undefined);
+    setSubmitting(true);
+    void (async () => {
+      let result: FeatureOpResult;
+      try {
+        result = await applyOp({ kind: 'deleteSketch', sketchId: createdId });
+      } catch (err) {
+        result = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+      if (!aliveRef.current)
+        return;
+      setSubmitting(false);
+      if (result.ok) {
+        createdSketchIdRef.current = undefined;
+        setNewlyCreated(false);
+        exitSketch();
+        setPlane('');
+      } else {
+        setError(result.error);
+      }
+    })();
+  }, [submitting, applyOp, canEdit, exitSketch, setPlane]);
 
   // ADR-0017 Stage D：Onshape Escape = 取消草图工具（红 X 同义）。非模态面板，
   // 焦点可在画布上——监听 window；提交中不取消（等待落位，防半提交）。
@@ -443,27 +461,19 @@ export function SketchDialog({
           </p>
         )}
 
-        {/* 草图平面字段（Onshape live f4/f5：字段为**堆叠**布局——小号「草图平面」
-            标签 + 值/×；空态浅蓝高亮引导选面，已选=白底灰边。字段点击提供可访问
-            的基准面列表兜底，主场选择仍是视口/特征树点击平面）。 */}
+        {/* 草图平面字段（Onshape live f4/f5：**堆叠**布局——12px「草图平面」标签
+            + 13.33px 值/×；空态浅蓝高亮引导选面，已选=白底灰边）。字段**没有
+            下拉选择**；平面来源只有视口拾取（基准面/模型面）与特征树（基准面/
+            cPlane）。× = 清除平面并保持对话框打开（见 handleClearPlane）。 */}
         <div className="part-studio-sketch-dialog__plane-row">
           <div
             className="part-studio-sketch-dialog__plane-field"
             data-state={plane === '' ? 'empty' : 'selected'}
             data-testid="sketch-plane-field"
           >
-            <button
-              type="button"
-              role="combobox"
-              aria-label={t('partStudio.sketchDialog.planeLabel')}
-              aria-expanded={planeMenuOpen}
-              aria-controls="part-studio-sketch-plane-menu"
+            <div
               className="part-studio-sketch-dialog__plane-value"
               data-testid="sketch-plane-field-button"
-              disabled={!isNewSketchSession}
-              onClick={() => {
-                if (isNewSketchSession) setPlaneMenuOpen((open) => !open);
-              }}
             >
               <span className="part-studio-sketch-dialog__plane-field-label">
                 {t('partStudio.sketchDialog.planeLabel')}
@@ -473,55 +483,18 @@ export function SketchDialog({
                   {planeText}
                 </span>
               )}
-            </button>
-            {plane !== '' && (
+            </div>
+            {(plane !== '' || editing) && (
               <button
                 type="button"
                 className="part-studio-sketch-dialog__plane-clear"
                 aria-label={t('partStudio.sketchDialog.clearPlane')}
                 title={t('partStudio.sketchDialog.clearPlane')}
-                disabled={!isNewSketchSession}
-                onClick={() => {
-                  if (!isNewSketchSession)
-                    return;
-                  // 已自动创建的 pending 草图无法原地换平面（updateSketch 无 plane
-                  // 键）：清除 = 取消该草壳（同 ✗，标准 deleteSketch），避免留下
-                  // 「字段已清空但草图仍在/再选平面不生效」的假交互。仅下拉选面
-                  // 尚未创建时是纯本地清除。
-                  if (newlyCreated) {
-                    handleCancel();
-                    return;
-                  }
-                  setPlane('');
-                  setPlaneMenuOpen(false);
-                }}
+                disabled={!isNewSketchSession || submitting}
+                onClick={handleClearPlane}
               >
                 ×
               </button>
-            )}
-            {isNewSketchSession && planeMenuOpen && (
-              <ul
-                id="part-studio-sketch-plane-menu"
-                role="listbox"
-                aria-label={t('partStudio.sketchDialog.planeLabel')}
-                className="part-studio-sketch-dialog__plane-menu"
-              >
-                {planeOptions.map((option) => (
-                  <li key={option.id} role="none">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={option.id === plane}
-                      onClick={() => {
-                        setPlane(option.id);
-                        setPlaneMenuOpen(false);
-                      }}
-                    >
-                      {option.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
             )}
           </div>
           {/* Onshape live f4/f5：历史时钟在字段右侧、字段框之外（创建/编辑均显示；
@@ -577,18 +550,6 @@ export function SketchDialog({
       {/* Onshape live f4/f5 底栏（右对齐）：草图分析工具图标 +「成品」（编辑既有
           草图）+ ?。分析工具尚未实现 → 禁用并诚实提示（不伪造打开动作）。 */}
       <footer className="part-studio-sketch-dialog__footer">
-        {editing && (
-          <button
-            type="button"
-            aria-label={t('partStudio.sketchDialog.viewNormalToPlane')}
-            title={t('partStudio.sketchDialog.viewNormalToPlane')}
-            className="part-studio-sketch-dialog__view-normal"
-            data-testid="sketch-view-normal"
-            onClick={handleViewNormal}
-          >
-            <Svg2D />
-          </button>
-        )}
         <button
           type="button"
           aria-label={t('partStudio.sketchDialog.analysisTools')}

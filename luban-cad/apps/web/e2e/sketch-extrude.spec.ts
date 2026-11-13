@@ -213,9 +213,9 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await page.getByRole('button', { name: '草图', exact: true }).click();
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
-  await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
- await page.getByRole('option', { name: 'Top' }).click();
-  await sketchDialog.getByRole('button', { name: '确认' }).click();
+  // 2026-11-13：平面字段无下拉——树内基准面点击即选面并自动创建草图。
+  await page.getByTestId('part-studio-feature-list')
+    .getByRole('button', { name: 'Top', exact: true }).click();
 
   // 提交窗（60s）：applyOp 链=写租约获取→insertSketch→saveChanges→onCommitted→
   // 树刷新；冷会话首笔含 RPC 通道/租约建立（FEATURE_OP_TIMEOUT_MS 15s + 陈旧

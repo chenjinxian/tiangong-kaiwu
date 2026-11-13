@@ -110,7 +110,7 @@ test.describe('编辑器状态/渲染刷新回归（2026-11-13）', () => {
     await chooseSketchPlaneInViewport(page, 'front');
     // 不点确认：选平面后应已进入草图编辑（草图工具栏变身）。
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
-    await expect(dialog.getByRole('combobox', { name: '草图平面' })).toContainText('Front');
+    await expect(dialog.getByTestId('sketch-plane-chip')).toContainText('Front');
     // 草图节点已创建（insertSketch 已提交）。
     await finishSketch(page);
     await expect(page.getByTestId('part-studio-feature-list').getByRole('button', { name: /草图/ }).first())

@@ -224,9 +224,9 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   await page.getByRole('button', { name: '草图', exact: true }).click();
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
-  await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
- await page.getByRole('option', { name: 'Top' }).click();
-  await sketchDialog.getByRole('button', { name: '确认' }).click();
+  // 2026-11-13：平面字段无下拉——树内基准面点击即选面并自动创建草图。
+  await page.getByTestId('part-studio-feature-list')
+    .getByRole('button', { name: 'Top', exact: true }).click();
   // 提交双通道：成功=草图工具条变身（同一草图对话框保持打开）；拒收=对话框 alert。
   await expect(
     page.getByRole('toolbar', { name: '草图工具' })

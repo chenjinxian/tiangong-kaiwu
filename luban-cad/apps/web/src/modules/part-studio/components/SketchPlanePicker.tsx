@@ -37,6 +37,8 @@ export interface SketchPlanePickerProps {
   framePlane?: SketchPlaneDto | null;
   /** 草图实体世界范围（框尺寸按草图 ∪ 模型自适应；缺省查询模型范围）。 */
   sketchRange?: Range3d;
+  /** 平面框文字（草图名「草图 N」；沿框顶边外侧绘制，随边框同步显示）。 */
+  frameLabel?: string;
 }
 
 // Onshape live（2026-11-12 像素采样）：选中平面不加填充（内部仍 #f6f8fa），
@@ -49,6 +51,39 @@ const SELECTED_STROKE = 'rgba(168, 212, 240, 0.95)';
 const PENDING_LABEL_COLOR = 'rgba(150, 200, 238, 0.95)';
 const PENDING_LABEL_FONT = '600 16px "Segoe UI", "Microsoft YaHei", sans-serif';
 
+/** 沿屏幕最上方边、向外偏移 10px 书写平面标签（随透视旋转；不倒置）。 */
+function drawTopEdgeLabel(ctx: CanvasRenderingContext2D, points2d: ScreenPoint[], text: string): void {
+  let topEdge = 0;
+  let topMidY = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < points2d.length; i++) {
+    const a = points2d[i]!;
+    const b = points2d[(i + 1) % points2d.length]!;
+    const midY = (a.y + b.y) / 2;
+    if (midY < topMidY) {
+      topMidY = midY;
+      topEdge = i;
+    }
+  }
+  let a = points2d[topEdge]!;
+  let b = points2d[(topEdge + 1) % points2d.length]!;
+  let angle = Math.atan2(b.y - a.y, b.x - a.x);
+  if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+    const swap = a; a = b; b = swap;
+    angle += Math.PI;
+  }
+  const cx = points2d.reduce((sum, point) => sum + point.x, 0) / points2d.length;
+  const cy = points2d.reduce((sum, point) => sum + point.y, 0) / points2d.length;
+  const outward = Math.hypot(a.x - cx, a.y - cy) || 1;
+  ctx.save();
+  ctx.translate(a.x + ((a.x - cx) / outward) * 10, a.y + ((a.y - cy) / outward) * 10);
+  ctx.rotate(angle);
+  ctx.font = PENDING_LABEL_FONT;
+  ctx.fillStyle = PENDING_LABEL_COLOR;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, 4, 0);
+  ctx.restore();
+}
+
 export function SketchPlanePicker({
   viewport,
   selected,
@@ -56,6 +91,7 @@ export function SketchPlanePicker({
   pendingSketchName,
   framePlane,
   sketchRange,
+  frameLabel,
 }: SketchPlanePickerProps): React.JSX.Element | null {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = React.useState<DatumPlaneId | null>(null);
@@ -164,6 +200,9 @@ export function SketchPlanePicker({
         ctx.strokeStyle = 'rgb(182, 200, 223)';
         ctx.lineWidth = 2;
         ctx.stroke();
+        // 2026-11-13 用户复核：选面后视口需同步显示平面框**和草图名文字**。
+        if (frameLabel)
+          drawTopEdgeLabel(ctx, pts, frameLabel);
       }
     }
     for (const geometry of datumPlaneGeometries(viewport)) {
@@ -222,7 +261,7 @@ export function SketchPlanePicker({
         ctx.restore();
       }
     }
-  }, [viewport, hover, selected, pendingSketchName, framePlane, sketchRange, modelFrameHalfSize]);
+  }, [viewport, hover, selected, pendingSketchName, framePlane, sketchRange, frameLabel, modelFrameHalfSize]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {
@@ -250,6 +289,8 @@ export function SketchPlanePicker({
         data-plane-points={JSON.stringify(points)}
         data-hover={hover ?? ''}
         data-selected={selected ?? ''}
+        data-frame-plane={framePlane !== null && framePlane !== undefined ? 'true' : 'false'}
+        data-frame-label={frameLabel ?? ''}
         aria-hidden="true"
       />
     </React.Fragment>

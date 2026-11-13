@@ -1862,7 +1862,8 @@
       "left": "左",
       "right": "右"
     },
-    "homeView": "回到等轴测"
+    "homeView": "回到等轴测",
+    "viewNormalToSketch": "正视草图平面"
   },
   "holeDialog": {
     "units": "单位",

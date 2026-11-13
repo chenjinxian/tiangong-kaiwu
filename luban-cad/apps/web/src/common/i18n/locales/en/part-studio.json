@@ -1862,7 +1862,8 @@
       "left": "LEFT",
       "right": "RIGHT"
     },
-    "homeView": "Home view"
+    "homeView": "Home view",
+    "viewNormalToSketch": "View normal to sketch plane"
   },
   "holeDialog": {
     "units": "Units",

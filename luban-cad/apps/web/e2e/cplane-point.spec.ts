@@ -53,10 +53,10 @@ test.describe('v1.31 cPlane plane point', () => {
     await page.getByRole('button', { name: '草图', exact: true }).click();
     const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(sketchDialog).toBeVisible({ timeout: 30_000 });
-    await sketchDialog.getByRole('combobox', { name: '草图平面' }).click();
-    await sketchDialog.getByRole('option', { name: /平面 1/ }).click();
-    await sketchDialog.getByRole('button', { name: '确认' }).click();
-    await expect(sketchDialog.getByTestId('sketch-plane-field-button')).toBeDisabled({ timeout: 60_000 });
+    // 2026-11-13：平面字段无下拉——树内 cPlane 行选中即成为草图平面（并自动创建）。
+    await page.getByTestId('part-studio-feature-list')
+      .getByRole('button', { name: /平面 1/ }).click();
+    await expect(sketchDialog.getByTestId('sketch-plane-chip')).toHaveText(/平面 1/, { timeout: 60_000 });
 
     tree = await getFeatureTreeRpc(ctx, token);
     const sketch = tree.filter((row) => row.featureType === 'sketch').at(-1)!;

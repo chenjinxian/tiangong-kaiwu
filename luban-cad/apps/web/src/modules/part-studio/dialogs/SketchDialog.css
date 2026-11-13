@@ -131,7 +131,7 @@
   border-radius: var(--iui-border-radius-1);
   background: var(--iui-color-background-backdrop, var(--iui-color-background-hover));
   color: var(--iui-color-text-muted);
-  font-size: var(--iui-font-size-0);
+  font-size: 13.3333px;
   line-height: 1.5;
 }
 
@@ -278,7 +278,9 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  font-size: 12px;
+  /* Onshape live computedStyles（2026-11-13）：行正文 13.3333px；标题 16px
+     （见 __title 覆盖），字段小标签 12px（见 __plane-field-label）。 */
+  font-size: 13.3333px;
   line-height: 16px;
   box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
   overflow: hidden;
@@ -343,8 +345,8 @@
 .part-studio-sketch-dialog__hint {
   padding: 2px 4px;
   border-radius: 0;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 13.3333px;
+  line-height: 18px;
 }
 
 /* Onshape live f4/f5（2026-11-13 像素采样）：字段堆叠——小号「草图平面」标签 +
@@ -410,16 +412,11 @@
   color: #333333;
   font: inherit;
   text-align: start;
-  cursor: pointer;
 }
 
 /* Onshape f4 创建态（无值）：标签在字段内垂直居中，而不是贴顶。 */
 .part-studio-sketch-dialog__plane-field[data-state='empty'] .part-studio-sketch-dialog__plane-value {
   justify-content: center;
-}
-
-.part-studio-sketch-dialog__plane-value:disabled {
-  cursor: default;
 }
 
 .part-studio-sketch-dialog__plane-field-label {
@@ -432,8 +429,9 @@
   max-inline-size: 100%;
   overflow: hidden;
   color: #333333;
-  font-size: 16px;
-  line-height: 22px;
+  /* live computedStyles：字段值行 13.3333px（旧 16px 过大）。 */
+  font-size: 13.3333px;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -461,19 +459,6 @@
   cursor: default;
 }
 
-.part-studio-sketch-dialog__plane-menu {
-  position: absolute;
-  inset-block-start: 100%;
-  inset-inline: 0;
-  z-index: 2;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  background: #ffffff;
-  border: 1px solid #c9c9c9;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
 .part-studio-sketch-dialog__toggles {
   display: flex;
   flex-direction: column;
@@ -486,7 +471,8 @@
   align-items: center;
   min-block-size: 27px;
   gap: 4px;
-  font-size: 12px;
+  /* live computedStyles：开关行 13.3333px（旧 12px 不一致）。 */
+  font-size: 13.3333px;
 }
 
 /* Onshape live f4/f5：底栏右侧 = 草图分析工具 + 成品（编辑既有草图）+ ?。 */
@@ -497,30 +483,6 @@
   gap: 6px;
   min-block-size: 34px;
   padding: 0 3px;
-}
-
-/* 既有显式入口（编辑态底栏左端；live 属工具栏动作，见 AIRR 已知边界）。 */
-.part-studio-sketch-dialog__view-normal {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 26px;
-  block-size: 26px;
-  margin-inline-end: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #555555;
-  cursor: pointer;
-}
-
-.part-studio-sketch-dialog__view-normal:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.part-studio-sketch-dialog__view-normal svg {
-  inline-size: 18px;
-  block-size: 18px;
 }
 
 .part-studio-sketch-dialog__analysis {

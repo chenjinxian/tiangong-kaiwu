@@ -126,6 +126,11 @@ test.describe('草图落在模型面（ADR-0017 Stage D）', () => {
     ctx = await openWithRetry();
 
     // ── 2) 视口拾取顶面（选择工具在草图对话框中保持可用）────────────────────
+    // 刷新后视口/选择工具异步就绪：等 data-viewport-ready 再点击，避免首两击
+    // 落在工具安装前（2026-11-13 真栈实测偶发空选择）。
+    await expect(page.getByTestId('part-studio-canvas'))
+      .toHaveAttribute('data-viewport-ready', 'true', { timeout: 60_000 });
+    await page.waitForTimeout(800);
     await frameStandardView(page, 0, RANGE, { left: 0.2, right: 0.05, top: 0.15, bottom: 0.1 });
     const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
     const box = await canvas.boundingBox();
@@ -134,11 +139,16 @@ test.describe('草图落在模型面（ADR-0017 Stage D）', () => {
       { x: 10, y: 10, z: 5 },
       { x: 9, y: 9, z: 5 },
       { x: 11, y: 11, z: 5 },
+      { x: 7, y: 7, z: 5 },
+      { x: 13, y: 13, z: 5 },
+      { x: 10, y: 6, z: 5 },
     ]);
+    // BRep 拓扑读面/选择工具就绪为异步（刷新后首击偶尔落空）——拾取前留稳定窗。
+    await page.waitForTimeout(1_200);
     let picked = false;
     for (const screen of screens) {
       await page.mouse.click(screen.x, screen.y);
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1_200);
       picked = await page.evaluate(() => {
         const selection = (window as unknown as {
           __lubanE2EApp: { usePartStudioStore: { getState(): { canvas: { selection: Array<{ kind: string; ownerBodyKey?: string; cacheId?: number }> } } } };
@@ -153,9 +163,9 @@ test.describe('草图落在模型面（ADR-0017 Stage D）', () => {
     await page.getByRole('button', { name: '草图', exact: true }).click();
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('combobox', { name: '草图平面' }))
+    await expect(dialog.getByTestId('sketch-plane-chip'))
       .toContainText('模型面', { timeout: 60_000 });
-    await dialog.getByRole('button', { name: '确认' }).click();
+    // 选面即自动创建草图（Onshape 拾取流程），无需再点 ✓。
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 120_000 });
 
     let tree = await getFeatureTreeRpc(ctx, token);

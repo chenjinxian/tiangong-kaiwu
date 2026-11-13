@@ -217,6 +217,18 @@ describe('ViewCube', () => {
     expect(screen.getByTestId('viewcube-menu-previous-view').getAttribute('aria-disabled')).toBe('true');
   });
 
+  it('草图激活时相机菜单提供「正视草图平面」命令（Onshape 视图菜单，非草图对话框）', async () => {
+    const user = userEvent.setup();
+    const onViewNormalToSketch = vi.fn();
+    render(<ViewCube viewport={fakeViewport().viewport} onViewNormalToSketch={onViewNormalToSketch} />);
+    await user.click(screen.getByTestId('viewcube-menu-trigger'));
+    const item = screen.getByTestId('viewcube-menu-view-normal-to-sketch');
+    expect(item.textContent).toContain('正视草图平面');
+    await user.click(item);
+    expect(onViewNormalToSketch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('viewcube-menu')).toBeNull();
+  });
+
   it('closes on outside pointer-down and Escape returns focus to the trigger', async () => {
     const user = userEvent.setup();
     render(<ViewCube viewport={fakeViewport().viewport} />);

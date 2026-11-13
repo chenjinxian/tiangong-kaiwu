@@ -164,6 +164,11 @@ export interface ViewCubeCameraMenuProps {
    * 活动草图）+ 基准面空场景兜底。缺省回退模型范围取景（壳期/测试）。
    */
   onFitVisibleContent?: () => void;
+  /**
+   * 2026-11-13：草图编辑态「正视草图平面」宿主出口。Onshape 不在草图对话框
+   * 放该按钮（live f4/f5），视图命令统一在相机/视图菜单。
+   */
+  onViewNormalToSketch?: () => void;
   className?: string;
 }
 
@@ -174,6 +179,7 @@ export function ViewCubeCameraMenu({
   history,
   commitView,
   onFitVisibleContent,
+  onViewNormalToSketch,
   className,
 }: ViewCubeCameraMenuProps): React.JSX.Element {
   const { t } = useTranslation();
@@ -342,6 +348,13 @@ export function ViewCubeCameraMenu({
             label={t('partStudio.viewCube.zoomWindow')}
             onClick={() => { void IModelApp.tools.run('View.WindowArea'); closeMenu(true); }}
           />
+          {onViewNormalToSketch && (
+            <ViewCubeMenuItem
+              testId="viewcube-menu-view-normal-to-sketch"
+              label={t('partStudio.viewCube.viewNormalToSketch')}
+              onClick={() => { onViewNormalToSketch(); closeMenu(true); }}
+            />
+          )}
           {settings && update && (
             <ViewCubeMenuItem
               testId="viewcube-menu-perspective"

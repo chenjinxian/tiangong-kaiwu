@@ -2,7 +2,8 @@
  * ADR-0018 S1f 真栈验收：草图相机语义（Onshape 对拍）。
  *
  * 覆盖：双击树行编辑既有草图 → 相机旋转保持不变（live：不强制转正/不取景）；
- * 点击草图对话框「正视草图平面」→ 视图 Z 轴与草图平面法向一致。
+ * ViewCube 相机菜单「正视草图平面」→ 视图 Z 轴与草图平面法向一致（Onshape
+ * 不在草图对话框放该按钮，2026-11-13 用户复核）。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -93,7 +94,8 @@ test.describe('草图相机语义（ADR-0018 S1f）', () => {
     expect(afterEnter!.z).toBeCloseTo(before!.z, 6);
 
     // 显式「正视草图平面」→ 视图 Z 轴 = 平面法向（+Y）。
-    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-view-normal-to-sketch').click();
     await expect.poll(async () => {
       const normal = await readViewNormal(page);
       return normal ? Math.hypot(normal.x - FRONT.normal.x, normal.y - FRONT.normal.y, normal.z - FRONT.normal.z) : 999;

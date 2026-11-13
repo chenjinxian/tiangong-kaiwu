@@ -796,6 +796,23 @@ export function PartStudioCanvas({
     };
   }, [dialog.active, sketchActiveForDialog, canvasSelectionForSketchPlane, connection, selectDatum, t]);
 
+  // 2026-11-13（用户复核）：草图平面字段无下拉选择（Onshape live）。cPlane 作为
+  // 草图平面改由**特征树选中**驱动：对话框新建态 + 单选 + 该节点是带世界平面的
+  // cPlane 选项 → 设为草稿平面（与 Top/Front/Right 树选中同源语义）。
+  const selectedNodeIds = usePartStudioStore((s) => s.tree.selectedNodeIds);
+  React.useEffect(() => {
+    if (dialog.active !== 'sketch' || sketchActiveForDialog)
+      return;
+    if (selectedNodeIds.length !== 1)
+      return;
+    const option = sketchPlaneOptions.find((entry) => entry.id === selectedNodeIds[0]);
+    if (!option || !('plane' in option) || !option.plane)
+      return;
+    setSketchDraftPlane(option.id);
+    setSketchFacePlane(null);
+    selectDatum(null);
+  }, [dialog.active, sketchActiveForDialog, selectedNodeIds, sketchPlaneOptions, selectDatum]);
+
   // 编辑既有草图（树双击/菜单）时：按落库平面回显到对话框字段。
   // v1.29：自定义平面的来源指针（sourceFeatureId）命中现存 cPlane 选项时显示「平面 N」，
   // 不再一律显示「自定义平面」；来源已删除/不在列表 → 保持自定义平面（诚实降级）。
@@ -986,6 +1003,7 @@ export function PartStudioCanvas({
             displaySettings={displaySettings}
             onOpenGraphicsPreferences={() => setGraphicsPreferencesOpen(true)}
             onFitVisibleContent={fitVisible}
+            onViewNormalToSketch={sketchActiveForDialog ? viewNormalToSketch : undefined}
           />
         </React.Suspense>
       ) : (
@@ -994,6 +1012,7 @@ export function PartStudioCanvas({
           displaySettings={displaySettings}
           onOpenGraphicsPreferences={() => setGraphicsPreferencesOpen(true)}
           onFitVisibleContent={fitVisible}
+          onViewNormalToSketch={sketchActiveForDialog ? viewNormalToSketch : undefined}
         />
       )}
       {graphicsPreferencesOpen && displaySettings && (
@@ -1015,6 +1034,7 @@ export function PartStudioCanvas({
           pendingSketchName={sketchActiveForDialog ? undefined : sketchDialogName}
           framePlane={sketchPlaneFrame}
           sketchRange={sketchFrameRange}
+          frameLabel={sketchActiveForDialog ? sketchDialogName : undefined}
         />
       )}
       {/* ADR-0018 S1b：草图编辑态（无绘制工具激活）实体/控制点拾取与选中强调。 */}

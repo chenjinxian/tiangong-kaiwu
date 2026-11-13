@@ -180,18 +180,23 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 - **草图创建对话框/平面框/取消删除/对话框图标/飞菜单图标（2026-11-13，纯前端）**：
   Onshape live f4/f5 像素复核——标题 500 16px #333；平面字段堆叠两态（空态
-  #e2f0fa/2px rgb(40,80,170)，选中 #fbfdfe/rgb(149,149,149)，42px）；时钟外置；
-  底栏=草图分析工具（禁用诚实）+ 成品（编辑既有）+ ?（正视草图平面保留编辑态
-  底栏显式入口）；✓/✗ 全 9 个对话框统一 sprite（✗ 透明底红 X；✓ 实心
-  #419228/禁用 #d9e9d4）；选中/活动草图平面渲染浅蓝自适应平面框（基准面/
-  cPlane/模型面，尺寸=草图或模型范围 ×1.5）；✗/Esc 取消新建 = `deleteSketch`
-  删除 pending 草壳（标准事务可撤销；失败不关框；编辑既有草图不删）；18 个
-  草图飞菜单 id 补 live sprite，16 个 symbol 抽取。验证：web **1847/1847**、
-  真栈 `sketch-create-parity` **1 passed**（布局/平面框像素/取消删除/编辑成品/
-  5+15 项图标）+ `sketch-edit`/`sketch-camera-parity`/`sketch-camera-fit`/
-  `sketch-region-fill` **7 passed**、`sketch-chamfer`/`sketch-fillet`/
-  `sketch-split`/`mouse-interaction` **10 passed**（底栏 fit 移除后 13 个 spec
-  18 处选择器迁移到 ViewCube 相机菜单）；`tsc`（src/e2e）/lint 绿。
+  #e2f0fa/2px rgb(40,80,170)，选中 #fbfdfe/rgb(149,149,149)，42px；label 12px、
+  值/开关行 13.3333px）；时钟外置；底栏=草图分析工具（禁用诚实）+ 成品（编辑
+  既有）+ ?；**二次复核修正**：对话框无「正视草图平面」按钮（改 ViewCube 相机
+  菜单命令 `viewcube-menu-view-normal-to-sketch`，草图激活时出现）、平面字段
+  无下拉（只读显示；cPlane 经特征树选中桥 `tree.selectedNodeIds`）、× 清除
+  仅删 pending 草壳并保持对话框打开可重选；✓/✗ 全 9 个对话框统一 sprite
+  （✗ 透明底红 X；✓ 实心 #419228/禁用 #d9e9d4）；选中/活动草图平面渲染浅蓝
+  自适应平面框 + 草图名文字（基准面/cPlane/模型面，尺寸=草图或模型范围 ×1.5）；
+  ✗/Esc 取消新建 = `deleteSketch` 删除 pending 草壳（标准事务可撤销；失败不
+  关框；编辑既有草图不删）；18 个草图飞菜单 id 补 live sprite，16 个 symbol
+  抽取。验证：web **1848/1848**、真栈 `sketch-create-parity` **1 passed**
+  （布局/字号/平面框边框+文字/取消删除/编辑成品/5+15 项图标）+
+  `sketch-edit`/`sketch-camera-parity`/`sketch-camera-fit`/`sketch-region-fill`
+  **7 passed**、`sketch-chamfer`/`sketch-fillet`/`sketch-split`/`mouse-interaction`
+  **10 passed**、`cplane-point` **1 passed**、`autosave-version`/`ui-parity`
+  通过（fit/正视 选择器迁移到 ViewCube 相机菜单；cPlane 树选中桥由
+  `cplane-point` 真栈验证）；`tsc`（src/e2e）/lint 绿。
 - **特征树直接删除草图/特征（2026-11-13，纯前端）**：Onshape live——树内删除
   草图/特征不弹确认框，直接删除。`FeatureTree` 删除菜单项直接调 `onDelete`
   （Sidebar 路由 `deleteSketch`/`deleteFeature`，标准 FeatureOp 事务、Ctrl+Z

@@ -90,9 +90,9 @@ test.describe('编辑既有草图（Stage D）', () => {
 
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible({ timeout: 30_000 });
-    const planeField = dialog.getByRole('combobox', { name: '草图平面' });
-    await expect(planeField).toBeDisabled();
-    await expect(planeField).toContainText('Top');
+    // 2026-11-13：平面字段是只读显示（无下拉）；编辑既有草图的 × 禁用。
+    await expect(dialog.getByTestId('sketch-plane-chip')).toContainText('Top');
+    await expect(dialog.getByRole('button', { name: '清除草图平面' })).toBeDisabled();
     await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled();
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
 

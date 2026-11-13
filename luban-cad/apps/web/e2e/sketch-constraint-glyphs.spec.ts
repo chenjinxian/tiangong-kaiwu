@@ -71,7 +71,8 @@ test.describe('草图非尺寸约束 glyph（Onshape 对拍）', () => {
     // 正视草图并取景（glyph 屏幕位置依赖相机；点击坐标从观测面实时读取）。
     await page.getByTestId('viewcube-menu-trigger').click();
     await page.getByTestId('viewcube-menu-zoom-fit').click();
-    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-view-normal-to-sketch').click();
     await page.waitForTimeout(600);
 
     const glyph = page.locator('[data-testid="sketch-constraint-glyph"][data-constraint-id="101"]').first();

@@ -75,7 +75,8 @@ test.describe('草图角度尺寸（Onshape 对拍）', () => {
       await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
       await page.getByTestId('viewcube-menu-trigger').click();
       await page.getByTestId('viewcube-menu-zoom-fit').click();
-      await page.getByRole('button', { name: '正视草图平面' }).click();
+      await page.getByTestId('viewcube-menu-trigger').click();
+      await page.getByTestId('viewcube-menu-view-normal-to-sketch').click();
       await page.waitForTimeout(600);
     };
     await enterSketch();

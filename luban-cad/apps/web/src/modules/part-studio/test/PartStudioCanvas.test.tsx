@@ -250,8 +250,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect(usePartStudioStore.getState().dialog.active).toBeNull();
   });
 
-  it('ADR-0017 Stage D：草图对话框期间拾取单个面 → 「模型面」平面选项；✓ 携带平面快照', async () => {
-    const user = userEvent.setup();
+  it('ADR-0017 Stage D：草图对话框期间拾取单个面 → 「模型面」平面选项；选面即携带平面快照创建', async () => {
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-face' }));
     readBrepFaceHandleMock.mockResolvedValue({
       bodyKey: 'body-1',
@@ -277,8 +276,8 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
       expect(readBrepFaceHandleMock).toHaveBeenCalledWith('briefcase-key', 'body-1', 6));
     const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
     await waitFor(() =>
-      expect(within(dialog).getByRole('combobox', { name: '草图平面' }).textContent).toContain('模型面'));
-    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+      expect(within(dialog).getByTestId('sketch-plane-chip').textContent).toContain('模型面'));
+    // 选面即自动创建（Onshape 拾取流程；字段无下拉）。
     await waitFor(() =>
       expect(applyOp).toHaveBeenCalledWith({
         kind: 'insertSketch',
@@ -306,8 +305,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     await waitFor(() => expect(readBrepFaceHandleMock).toHaveBeenCalled());
     await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalled());
     const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
-    expect((within(dialog).getByRole('combobox', { name: '草图平面' }) as HTMLButtonElement).textContent)
-      .not.toContain('模型面');
+    expect(within(dialog).queryByTestId('sketch-plane-chip')).toBeNull();
     expect((within(dialog).getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -319,10 +317,10 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
       usePartStudioStore.getState().openSketchDialog();
     });
     const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
-    // Onshape：必须先选平面（视口/树/字段菜单），未选时 ✓ 禁用。
-    await user.click(within(dialog).getByRole('combobox', { name: '草图平面' }));
-    await user.click(screen.getByRole('option', { name: 'Top' }));
-    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    // Onshape：平面来自视口/特征树拾取（字段无下拉）；选中即自动创建。
+    act(() => {
+      usePartStudioStore.getState().selectDatum('top');
+    });
     await waitFor(() =>
       expect(applyOp).toHaveBeenCalledWith({
         kind: 'insertSketch',
@@ -356,18 +354,16 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
   });
 
-  it('M6-a T5：sketch 确认链平面下发——选「前视」确认 → activeSketchPlane=前视 XZ 面三向量', async () => {
-    const user = userEvent.setup();
+  it('M6-a T5：sketch 平面下发——树选「前视」即自动创建 → activeSketchPlane=前视 XZ 面三向量', async () => {
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'sk-front-1' }));
     renderCanvas(applyOp);
     act(() => {
       usePartStudioStore.getState().openSketchDialog();
     });
-    const dialog = withinDialog().getByTestId('part-studio-sketch-dialog');
-    // 选基准面「前视」（字段菜单 → sketchPlaneFromOption 的判别域）。
-    await user.click(within(dialog).getByRole('combobox', { name: '草图平面' }));
-    await user.click(screen.getByRole('option', { name: 'Front' }));
-    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    // 选基准面「前视」（树选中桥 → sketchPlaneFromOption 的判别域；字段无下拉）。
+    act(() => {
+      usePartStudioStore.getState().selectDatum('front');
+    });
     await waitFor(() =>
       expect(usePartStudioStore.getState().sketch).toEqual({
         isActive: true,

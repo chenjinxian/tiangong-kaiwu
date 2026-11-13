@@ -701,10 +701,11 @@ describe('对话框锚点（os-31/os-30/os-33/os-24）', () => {
     for (const label of ['禁用压印', '显示约束', '显示表达式', '显示错误']) {
       expect(within(dialog).getByRole('checkbox', { name: label })).toBeDefined();
     }
-    // Onshape：平面字段（视口/树/菜单）——未选平面不得确认。
-    await user.click(within(dialog).getByRole('combobox', { name: '草图平面' }));
-    await user.click(screen.getByRole('option', { name: 'Top' }));
-    await user.click(within(dialog).getByRole('button', { name: '确认' }));
+    // Onshape：平面字段无下拉——树/视口选面（此处置 store datum）即自动创建。
+    await act(async () => {
+      usePartStudioStore.getState().selectDatum('top');
+    });
+    await waitFor(() => expect(usePartStudioStore.getState().sketch.isActive).toBe(true));
     // 草图模式变身：草图工具组 ribbon + 约束覆盖层 + 搜索禁用；完成钮在草图面板。
     const ribbon = screen.getByTestId('part-studio-ribbon');
     expect(within(ribbon).getByRole('toolbar', { name: '草图工具' })).toBeDefined();

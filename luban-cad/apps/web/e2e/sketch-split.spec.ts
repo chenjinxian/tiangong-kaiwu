@@ -184,7 +184,8 @@ test.describe('草图分割 — 闭合曲线（圆）', () => {
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
     // 闭合曲线两点分割对角度敏感：先正视草图平面并放大到 R10 视野。
-    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-view-normal-to-sketch').click();
     await page.waitForTimeout(300);
     await page.getByTestId('viewcube-menu-trigger').click();
     await page.getByTestId('viewcube-menu-zoom-fit').click();

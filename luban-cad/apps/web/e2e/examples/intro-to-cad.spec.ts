@@ -138,15 +138,15 @@ async function createSketch2OnPlane1ViaUi(page: Parameters<typeof demoShot>[0]):
   await page.getByRole('button', { name: '草图', exact: true }).click();
   const dialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(dialog).toBeVisible({ timeout: 30_000 });
-  await dialog.getByRole('combobox', { name: '草图平面' }).click();
-  await dialog.getByRole('option', { name: '平面 1' }).click();
+  // 2026-11-13：平面字段无下拉——树内 cPlane 行选中即成为草图平面（并自动创建）。
+  await page.getByTestId('part-studio-feature-list')
+    .getByRole('button', { name: /平面 1/ }).click();
   await demoShot(page, {
     dir: DEMO_DIR, index: 6, slug: 'sketch-on-plane',
     title: '6. 草图落在自定义平面', detail: '草图平面 = Plane 1（cPlane 特征引用）。',
   });
-  await dialog.getByRole('button', { name: '确认' }).click();
-  // 创建成功后同一对话框切编辑态：平面字段只读。
-  await expect(dialog.getByTestId('sketch-plane-field-button')).toBeDisabled({ timeout: 60_000 });
+  // 同一对话框保持打开（pending 编辑）：平面字段显示来源平面，× 可清除后重选。
+  await expect(dialog.getByTestId('sketch-plane-chip')).toHaveText(/平面 1/, { timeout: 60_000 });
 }
 
 test.describe('示例 iModel：Intro to CAD 1.2-1.4', () => {

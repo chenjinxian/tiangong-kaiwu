@@ -165,9 +165,9 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
     await page.getByRole('button', { name: '草图', exact: true }).click();
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
-    await dialog.getByRole('combobox', { name: '草图平面' }).click();
-    await page.getByRole('option', { name: 'Front' }).click();
-    await dialog.getByRole('button', { name: '确认' }).click();
+    // 2026-11-13：平面字段无下拉——树内基准面点击即选面并自动创建草图。
+    await page.getByTestId('part-studio-feature-list')
+      .getByRole('button', { name: 'Front', exact: true }).click();
     await expect(
       page.getByRole('toolbar', { name: '草图工具' })
         .or(dialog.getByTestId('part-studio-sketch-dialog-error')),
