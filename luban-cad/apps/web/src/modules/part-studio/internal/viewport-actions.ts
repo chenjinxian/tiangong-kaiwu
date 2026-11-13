@@ -33,7 +33,11 @@ function selectedView(): ViewportLike | undefined {
   return IModelApp.viewManager?.selectedView as ViewportLike | undefined;
 }
 
-/** 适应视图：全模型取景（旧应用 Editor.tsx handleFitView 同口径）。 */
+/**
+ * 壳期/测试回退：core `computeFitRange`（tile 树并集，空集回落 projectExtents）。
+ * 生产「适应视图/缩放到合适大小」已改走 `internal/fit-visible.ts` 的可见内容
+ * 取景（模型 ∪ 活动草图；空场景基准面；永不 projectExtents，2026-11-13 live）。
+ */
 export function fitView(): void {
   const viewport = selectedView();
   if (!viewport) return;

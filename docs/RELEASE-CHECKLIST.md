@@ -52,7 +52,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
       第 2 节产物完整性硬检查通过。**
 - [ ] Onshape UI 对齐门：`npx playwright test e2e/ui-parity.spec.ts`——ViewCube
       在场/朝向同步/面点击、默认几何图元与眼睛开关、ViewCube 下拉显示设置
-      持久化、草图相机平面定向与退出恢复。
+      持久化、草图相机零副作用（进入/退出不改相机）与可见内容取景（模型∪活动草图，空场景基准面，永不 projectExtents）。
 - [ ] Tutorial 2 逐工具回归：`npx playwright test e2e/tutorial2-tools.spec.ts`
       （绘制/约束/标注/偏移 4 用例，实跑约 2.3 min；与严格复刻门同一真实
       ribbon + canvas 管道，每用例独立重置 B 种子）。

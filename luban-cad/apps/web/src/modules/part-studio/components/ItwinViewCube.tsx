@@ -31,6 +31,8 @@ export interface ItwinViewCubeProps {
   displaySettings?: UseDisplaySettingsResult;
   /** 打开 Onshape 式「图形首选项」左侧对话框（宿主渲染）。 */
   onOpenGraphicsPreferences?: () => void;
+  /** 2026-11-13：Onshape 语义「缩放到合适大小」（可见内容取景）宿主出口。 */
+  onFitVisibleContent?: () => void;
 }
 
 /**
@@ -52,6 +54,7 @@ export function ItwinViewCube({
   connection,
   displaySettings,
   onOpenGraphicsPreferences,
+  onFitVisibleContent,
 }: ItwinViewCubeProps): React.ReactElement | null {
   const [labelsReady, setLabelsReady] = React.useState(UiIModelComponents.initialized);
   const history = useViewCubeHistory(viewport);
@@ -130,6 +133,7 @@ export function ItwinViewCube({
         viewport={viewport}
         displaySettings={displaySettings}
         onOpenGraphicsPreferences={onOpenGraphicsPreferences}
+        onFitVisibleContent={onFitVisibleContent}
         history={history}
         commitView={commitView}
       />

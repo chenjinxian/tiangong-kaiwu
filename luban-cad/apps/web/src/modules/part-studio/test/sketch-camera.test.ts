@@ -2,18 +2,16 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 草图相机纯函数测试（2026-11-02）：按真实 SketchPlaneDto frame 定向、
- * 正交/透视快照恢复、partial 视口 no-op。
+ * 草图相机纯函数测试（2026-11-13 修订）：显式「正视草图平面」定向、
+ * 草图范围/实体取景、partial 视口 no-op；进入/退出草图不再有任何相机副作用。
  */
 import { describe, expect, it, vi } from 'vitest';
-import { Angle, Matrix3d, Point3d, Vector3d } from '@itwin/core-geometry';
+import { Matrix3d, Point3d, Vector3d } from '@itwin/core-geometry';
 import type { Viewport } from '@itwin/core-frontend';
 import type { SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
 import {
-  captureSketchCamera,
   fitCameraToSketch,
   orientCameraToSketchPlane,
-  restoreSketchCamera,
   sketchWorldRange,
 } from '../canvas/sketch-camera.js';
 
@@ -76,59 +74,9 @@ describe('sketch-camera', () => {
     expect(raiseViewChanged).toHaveBeenCalledTimes(1);
   });
 
-  it('captures ortho rotation and restores it', () => {
-    const rotation = Matrix3d.createRotationAroundAxisIndex(2, Angle.createDegrees(30));
-    const { viewport } = orthoViewport(rotation);
-    const snapshot = captureSketchCamera(viewport);
-    expect(snapshot).toBeDefined();
-    expect(snapshot!.cameraOn).toBe(false);
-    expect(snapshot!.origin?.isExactEqual(Point3d.create(10, 20, 30))).toBe(true);
-    expect(snapshot!.extents?.isExactEqual(Vector3d.create(100, 200, 300))).toBe(true);
-    const target = orthoViewport(Matrix3d.createIdentity());
-    restoreSketchCamera(target.viewport, snapshot);
-    const restored = target.setRotation.mock.calls[0]![0] as Matrix3d;
-    expect(restored.isExactEqual(snapshot!.rotation)).toBe(true);
-    // 退出草图必须恢复取景（否则会停在草图缩放/裁切）。
-    expect(target.setOrigin).toHaveBeenCalledTimes(1);
-    expect(target.setExtents).toHaveBeenCalledTimes(1);
-    expect(target.synch).toHaveBeenCalledWith({});
-    expect(target.raiseViewChanged).toHaveBeenCalledTimes(1);
-  });
-
-  it('captures and restores perspective eye/center/up via lookAt', () => {
-    const eye = Point3d.create(10, 20, 30);
-    const center = Point3d.create(1, 2, 3);
-    const rotation = Matrix3d.createIdentity();
-    const lookAt = vi.fn();
-    const view = {
-      getRotation: () => rotation,
-      setRotation: vi.fn(),
-      is3d: () => true,
-      isCameraOn: true,
-      getEyePoint: () => eye,
-      getCenter: () => center,
-      lookAt,
-    };
-    const viewport = { view, synchWithView: vi.fn() } as unknown as Viewport;
-    const snapshot = captureSketchCamera(viewport);
-    expect(snapshot?.cameraOn).toBe(true);
-    expect(snapshot?.eye?.isExactEqual(eye)).toBe(true);
-    expect(snapshot?.center?.isExactEqual(center)).toBe(true);
-    expect(snapshot?.up?.isExactEqual(Vector3d.unitY())).toBe(true);
-    restoreSketchCamera(viewport, snapshot);
-    expect(lookAt).toHaveBeenCalledWith({
-      eyePoint: eye,
-      targetPoint: center,
-      upVector: expect.anything(),
-    });
-  });
-
   it('is no-op without a camera-capable viewport', () => {
-    expect(captureSketchCamera(undefined)).toBeUndefined();
     expect(() => orientCameraToSketchPlane(undefined, FRONT)).not.toThrow();
-    expect(() => restoreSketchCamera(undefined, undefined)).not.toThrow();
     const partial = { view: {}, synchWithView: vi.fn() } as unknown as Viewport;
-    expect(captureSketchCamera(partial)).toBeUndefined();
     expect(() => orientCameraToSketchPlane(partial, FRONT)).not.toThrow();
   });
 

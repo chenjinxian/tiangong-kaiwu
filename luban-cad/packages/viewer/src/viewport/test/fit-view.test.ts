@@ -7,7 +7,12 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { ScreenViewport } from '@itwin/core-frontend';
-import { fitViewToModelRanges, queryAllPhysicalModelIds } from '../fit-view.js';
+import { Range3d } from '@itwin/core-geometry';
+import {
+  fitViewToModelRanges,
+  fitViewToVisibleContent,
+  queryAllPhysicalModelIds,
+} from '../fit-view.js';
 
 function makeViewport(ranges: unknown, modelRows: string[] = ['0x1']): {
   viewport: ScreenViewport;
@@ -103,5 +108,79 @@ describe('fitViewToModelRanges', () => {
     await expect(queryAllPhysicalModelIds(ok)).resolves.toEqual([]);
     const bad = { createQueryReader() { throw new Error('x'); } } as never;
     await expect(queryAllPhysicalModelIds(bad)).resolves.toBeUndefined();
+  });
+});
+
+describe('fitViewToVisibleContent（Onshape 语义，2026-11-13）', () => {
+  const sketchRange = Range3d.createXYZXYZ(-50, -50, 0, 50, 50, 0);
+
+  it('模型范围 ∪ 活动草图；不改旋转，仅 lookAtVolume', async () => {
+    const { viewport, lookAt, synch, queryModelRanges } = makeViewport([RANGE]);
+    await expect(fitViewToVisibleContent(viewport, {
+      modelIds: ['0x10'],
+      sketchRange,
+      paddingPercent: { left: 0.22, right: 0.05, top: 0.08, bottom: 0.08 },
+    })).resolves.toBe(true);
+    expect(queryModelRanges).toHaveBeenCalledWith(['0x10']);
+    expect(lookAt).toHaveBeenCalledTimes(1);
+    const call = lookAt.mock.calls[0];
+    expect(call?.[1]).toBe(1.5);
+    expect(call?.[2]).toEqual({
+      paddingPercent: { left: 0.22, right: 0.05, top: 0.08, bottom: 0.08 },
+    });
+    expect(synch).toHaveBeenCalledWith({});
+  });
+
+  it('无模型但有草图（草图编辑）→ 只取景草图，基准面不并入', async () => {
+    const { viewport, lookAt } = makeViewport([]);
+    await expect(fitViewToVisibleContent(viewport, {
+      modelIds: [],
+      sketchRange,
+      datumPlanesVisible: true,
+    })).resolves.toBe(true);
+    const volume = lookAt.mock.calls[0]?.[0] as Range3d;
+    expect(volume.low.x).toBe(-50);
+    expect(volume.high.x).toBe(50);
+  });
+
+  it('空场景 + 基准面可见 → 基准面范围兜底（不是 projectExtents）', async () => {
+    const { viewport, lookAt } = makeViewport([]);
+    await expect(fitViewToVisibleContent(viewport, {
+      modelIds: [],
+      datumPlanesVisible: true,
+    })).resolves.toBe(true);
+    const volume = lookAt.mock.calls[0]?.[0] as Range3d;
+    expect(volume.low.x).toBe(-150);
+    expect(volume.high.z).toBe(150);
+  });
+
+  it('无任何可见内容 → no-op（相机保持不动）', async () => {
+    const { viewport, lookAt } = makeViewport([]);
+    await expect(fitViewToVisibleContent(viewport, {
+      modelIds: [],
+      datumPlanesVisible: false,
+    })).resolves.toBe(false);
+    expect(lookAt).not.toHaveBeenCalled();
+  });
+
+  it('模型范围查询失败仍可用草图取景', async () => {
+    const { viewport, lookAt, queryModelRanges } = makeViewport([RANGE]);
+    queryModelRanges.mockRejectedValueOnce(new Error('backend down'));
+    await expect(fitViewToVisibleContent(viewport, {
+      modelIds: ['0x10'],
+      sketchRange,
+    })).resolves.toBe(true);
+    expect(lookAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('晚到守卫：查询返回后不落相机', async () => {
+    const { viewport, lookAt } = makeViewport([RANGE]);
+    const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(false);
+    await expect(fitViewToVisibleContent(viewport, {
+      modelIds: ['0x10'],
+      sketchRange,
+      isCurrent,
+    })).resolves.toBe(false);
+    expect(lookAt).not.toHaveBeenCalled();
   });
 });

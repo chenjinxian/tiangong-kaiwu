@@ -39,11 +39,19 @@
 Delete 删除选中实体/约束 = `updateSketch`：移除选中曲线并级联移除引用它的约束（Onshape 删除图元带走附着约束）；单击尺寸数值把约束并入同一选择权威（`sketchConstraint`），Delete 移除该约束（实体/其余约束不动，与实体选择互斥）；**非尺寸约束 glyph（S1g，live `ui-evidence/sketch-constraint-glyphs-20261112`）**：活动草图按约束绘制 18px 屏幕方块（水平 —、竖直 |、⊥、∥、=、中点 —•—、重合 X、镜像双形+虚线轴；tangent/concentric/fixed/offset 本次未采到独立 live glyph，采用通用符号并登记为待复核视觉项），锚点取点位/线中点/实体代表点平均，重叠时向右成排避让（Onshape 实测 86 约束的 ⊥/∥/=/—/|/中点/重合/镜像成排聚在实体附近）；单击 glyph 选中同一 `sketchConstraint` 条目（浅蓝高亮 `#c7e2fa`，live 截图口径），Delete 删除该约束；glyph 常叠在实体线上，实体拾取层（`SketchEntityPicker`）经覆盖层命中通道让位——不拾取线条、不清约束选择（pointerdown/pointerup 双向抑制）；草图对话框「显示约束」（live 默认勾选）是唯一显隐开关：关闭时 non-dimension glyph 与尺寸标注**同时**隐藏并停用其选中/双击改值拾取（live `20/21-show-constraints-*.png`），状态存 `store.sketch.showConstraints` 并在 enterSketch 会话内延续；覆盖层命中时主动 blur 对话框控件（复选框/输入框），否则 preventDefault 令焦点滞留输入控件、Delete 被「输入框不吃键」守卫吞掉；选中点实体仍被未删除实体引用时整单拒收并提示（不产生悬挂引用），后端另有拒收兜底；尺寸双击改值 = `updateSketchConstraint`（既有 API）：双击数值标签弹出原位输入框（标签屏幕位置由 viewer 布局纯函数与绘制同源给出），Enter 提交、Escape/点击别处取消、失败保留输入框；仅 `distance/radius/diameter/length/angle` 可改（后端 updateSketchConstraint 白名单；直径与角度 2026-11-12 同期扩展）；角度标注按 Onshape 显示为度（弧 + 两端箭头 + `90°` 文本，viewer `angular` 布局），双击输入度、提交前换算回 shared 契约弧度（`sketch-dimension-value.ts` 单一转换；≥360°/≤0 拒收），`sketch-angle-dimension.spec.ts` 真栈 90°→45° 并重开持久。延伸（Onshape Extend，官方帮助：与修剪同一按钮下拉，快捷键 X）= `Sketch.Extend`，按帮助两相：第一击选**线/弧**（记录点击侧端点），第二击命中边界曲线→延伸到该边界最近交点（线/圆/弧段内），命中空白→投影到延伸射线（线）/圆周（弧）上止于点击位置（帮助：没有边界时止于点击点）；线源移动端点、弧源保持另一端不动增长扫角；圆/样条作为源诚实提示不支持；无边界/反方向保持原样并提示。与 Trim 共用 `sketch-screen.ts` 的屏幕→草图局部反解，本轮经官方 `viewport.viewToNpc` 修正了 view→NPC 的 y 轴镜像（旧实现手工除 viewRect 把上下翻转，水平线修剪因只用 x 而未暴露）。
 撤销语义：`onAfterUndoRedo` 也刷新活动草图（撤/重做不发 `onCommitted`）。注意自动保存（ADR-0017 Stage F）推送会开启新 changeset 会话，原生 undo 只覆盖**推送前**窗口（默认 20s 防抖，与 ADR-0017 计划 20–30s 对齐）；S1c 真栈在推送前点击撤销验证（`sketch-entity-drag.spec.ts`）。该窗口与 Stage F 已登记限制同源，不新增第二套撤销状态机（P0-01/P0-05）。
 
-### D5. 相机
-- 编辑既有草图（树双击/编辑入口）：**不**强制正视、**不**按实体范围取景、退出**不**回放相机（live：保持进入前 iso）。`store.sketch.orientCameraOnEnter` 只在新建草图确认时置 true。
-- 新建草图仍按所选平面法向定向（既有创建语义），退出回放快照。
-- 显式“正视草图平面”= 草图对话框底栏按钮（`orientCameraToSketchPlane`，标准 ViewState 旋转），不新增相机权威。
-- 草图对话框底栏“缩放到合适大小”在编辑态按**草图实体范围**取景（Onshape 语义），非全局模型范围。
+### D5. 相机（2026-11-13 Onshape live 修订，取代 2026-11-02 版本）
+- 进入/退出草图（新建或编辑）**不改相机**：不转正、不自动取景、不快照回放
+  （live：选 Front 平面后仍是等轴测视角；私有
+  `ui-evidence/sketch-camera-fit-20261113`）。删除 `store.sketch.orientCameraOnEnter`
+  与 `useSketchCamera`；相机交给用户。
+- 显式“正视草图平面”= 草图对话框底栏按钮（`orientCameraToSketchPlane`，标准
+  ViewState 旋转），不新增相机权威。
+- 全局「缩放到合适大小」= **可见内容取景**：当前可见模型 ∪ 活动草图；空场景才用
+  基准面装饰范围兜底；永不 projectExtents、不改旋转（viewer
+  `fitViewToVisibleContent`，应用出口 `internal/fit-visible.ts`）。
+- 草图实体右键「缩放到合适大小」仍是显式**实体范围**取景
+  （`fitCameraToSketch`，选择驱动的独立动作）。
+- 详见 AIRR `superpowers/specs/2026-11-13-sketch-camera-fit-airr.md`。
 
 ### D6. 非目标
 文字/投影实体边/线性阵列/DXF/圆锥曲线/多段样条/3D 草图/表达式由独立切片立项；本 ADR 不改变后端 schema/RPC。

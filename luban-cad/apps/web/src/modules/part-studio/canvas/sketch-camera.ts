@@ -2,65 +2,26 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 草图相机行为（M6-a 后补，2026-11-02；旧实现见 Git 历史
- * `f9bff06bce:luban-cad/apps/web/features/sketch/view/sketchModeView.ts`）：
- * - 进入草图：按真实 SketchPlaneDto 坐标架把视口旋转到平面法向（screen right =
- *   frame.xDir、screen up = frame.yDir），关透视相机；不把 `front` 直接映射到
- *   StandardViewId.Front——本模型 Front 帧 normal=+Y、yDir=-Z，标准 Front 矩阵
- *   是镜像的 Back 朝向。
- * - 退出草图：恢复进入前的旋转（透视时恢复 eye/center/up 位姿）。
+ * 草图相机**显式**命令（2026-11-13 Onshape live 修订）：
+ * - 进入/退出草图不改相机（不定向、不自动取景、不快照回放）——live 证据
+ *   `ui-evidence/sketch-camera-fit-20261113`：选平面后相机保持原样；
+ * - 保留两个显式入口：「正视草图平面」（orientCameraToSketchPlane）与草图
+ *   实体右键「缩放到合适大小」（fitCameraToSketch，仅该显式动作按实体范围）；
+ * - 全局「缩放到合适大小」走可见内容取景（viewer fitViewToVisibleContent）。
  *
- * 无 viewport/2D 视图时 no-op；capture 只读，不改变现场。
+ * 不把 `front` 直接映射到 StandardViewId.Front——本模型 Front 帧 normal=+Y、
+ * yDir=-Z，标准 Front 矩阵是镜像的 Back 朝向。无 viewport/2D 视图时 no-op。
  */
-import { Matrix3d, Point3d, Range3d, Vector3d } from '@itwin/core-geometry';
+import { Matrix3d, Point3d, Range3d } from '@itwin/core-geometry';
 import type { Viewport } from '@itwin/core-frontend';
 import type { SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
 import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
-
-export interface SketchCameraSnapshot {
-  rotation: Matrix3d;
-  cameraOn: boolean;
-  /** 正交相机取景（origin/extents 一并恢复，否则退出草图会停在草图缩放）。 */
-  origin?: Point3d;
-  extents?: Vector3d;
-  eye?: Point3d;
-  center?: Point3d;
-  up?: Vector3d;
-}
 
 /** 程序化相机变更后通知订阅者（ViewCube 等）；core 的 setRotation/synch
  *  不保证触发 onViewChanged（2026-11-02 实测）。 */
 function notifyViewChanged(viewport: Viewport): void {
   const event = (viewport as unknown as { onViewChanged?: { raiseEvent?: () => void } }).onViewChanged;
   if (event && typeof event.raiseEvent === 'function') event.raiseEvent();
-}
-
-/** 捕获进入草图前的视口相机（矩阵/点位均克隆，独立于后续变化）。 */
-export function captureSketchCamera(viewport: Viewport | undefined): SketchCameraSnapshot | undefined {
-  if (!viewport) return undefined;
-  const view = viewport.view;
-  // 结构测试的 partial 视口替身可能没有相机 API——无相机语义时 no-op。
-  if (typeof view.getRotation !== 'function') return undefined;
-  const rotation = view.getRotation();
-  if (!rotation) return undefined;
-  const snapshot: SketchCameraSnapshot = {
-    rotation: rotation.clone(),
-    cameraOn: false,
-  };
-  if (typeof view.getOrigin === 'function' && typeof view.getExtents === 'function') {
-    snapshot.origin = view.getOrigin().clone();
-    snapshot.extents = view.getExtents().clone();
-  }
-  if (typeof view.is3d === 'function' && view.is3d()) {
-    snapshot.cameraOn = Boolean(view.isCameraOn);
-    if (view.isCameraOn && typeof view.getEyePoint === 'function'
-      && typeof view.getCenter === 'function') {
-      snapshot.eye = view.getEyePoint().clone();
-      snapshot.center = view.getCenter().clone();
-      snapshot.up = rotation.rowY().clone();
-    }
-  }
-  return snapshot;
 }
 
 /**
@@ -161,29 +122,6 @@ export function orientCameraToSketchPlane(
   view.setRotation(rotation);
   if (typeof view.is3d === 'function' && view.is3d() && typeof view.turnCameraOff === 'function')
     view.turnCameraOff();
-  viewport.synchWithView?.({});
-  notifyViewChanged(viewport);
-}
-
-/** 恢复进入草图前的相机（相机开 → lookAt 回放完整位姿；否则只回旋转）。 */
-export function restoreSketchCamera(
-  viewport: Viewport | undefined,
-  snapshot: SketchCameraSnapshot | undefined,
-): void {
-  if (!viewport || !snapshot) return;
-  const view = viewport.view;
-  if (snapshot.cameraOn && typeof view.is3d === 'function' && view.is3d()
-    && typeof view.lookAt === 'function' && snapshot.eye && snapshot.center && snapshot.up) {
-    view.lookAt({
-      eyePoint: snapshot.eye,
-      targetPoint: snapshot.center,
-      upVector: snapshot.up,
-    });
-  } else {
-    if (typeof view.setRotation === 'function') view.setRotation(snapshot.rotation);
-    if (snapshot.origin && typeof view.setOrigin === 'function') view.setOrigin(snapshot.origin);
-    if (snapshot.extents && typeof view.setExtents === 'function') view.setExtents(snapshot.extents);
-  }
   viewport.synchWithView?.({});
   notifyViewChanged(viewport);
 }

@@ -249,8 +249,8 @@ export function SketchDialog({
       return;
     }
     if (!applyOp) {
-      // ADR-0018 S1f：新建草图按平面定向；编辑既有草图不抢相机（live 保持 iso）。
-      enterSketch(sketchId ?? 'sketch-active', { orientCamera: true });
+      // 2026-11-13 Onshape live：进入草图不改相机（用户可随时用「正视草图平面」）。
+      enterSketch(sketchId ?? 'sketch-active');
       onConfirm?.(buildResult());
       return;
     }
@@ -275,7 +275,7 @@ export function SketchDialog({
       if (result.ok) {
         // 真 sketchId 入 store（废 'sketch-active' 占位串）；featureId 缺省=
         // 契约外兜底（insertSketch 后端恒返回 featureId），回退壳期寻址。
-        enterSketch(result.featureId ?? sketchId ?? 'sketch-active', { orientCamera: true });
+        enterSketch(result.featureId ?? sketchId ?? 'sketch-active');
         onConfirm?.(buildResult());
       } else {
         setError(result.error);

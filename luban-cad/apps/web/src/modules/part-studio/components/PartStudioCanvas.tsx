@@ -89,6 +89,7 @@ import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../int
 import { applyCanvasSelection } from '../internal/selection-authority.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
 import { fitCameraToSketch, orientCameraToSketchPlane } from '../canvas/sketch-camera.js';
+import { fitVisibleContent } from '../internal/fit-visible.js';
 import { sketchEntitiesToWorldPolylines } from '../internal/sketch-curves.js';
 import { Range3d } from '@itwin/core-geometry';
 import { ViewCube } from './ViewCube.js';
@@ -102,7 +103,6 @@ import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
-import { fitViewToModelRanges } from '@luban-cad/viewer';
 
 /**
  * 官方 iTwin ViewCube 按需加载：默认模式只加载官方组件 chunk；
@@ -362,6 +362,12 @@ export function PartStudioCanvas({
     const sketch = sketchSystem?.activeSketch;
     if (viewport && sketch)
       fitCameraToSketch(viewport, sketch.plane, sketch.entities);
+  }, [viewport, sketchSystem?.activeSketch]);
+  // 2026-11-13 Onshape live：「缩放到合适大小」= 可见内容取景（模型 ∪ 活动
+  // 草图；空场景基准面兜底），不改旋转、不用 projectExtents。草图对话框/
+  // ViewCube 菜单/画布右键/页签条共用本出口。
+  const fitVisible = React.useCallback((): void => {
+    void fitVisibleContent(viewport, sketchSystem?.activeSketch);
   }, [viewport, sketchSystem?.activeSketch]);
   const viewNormalToSketch = React.useCallback(() => {
     const sketch = sketchSystem?.activeSketch;
@@ -922,6 +928,7 @@ export function PartStudioCanvas({
             connection={connection}
             displaySettings={displaySettings}
             onOpenGraphicsPreferences={() => setGraphicsPreferencesOpen(true)}
+            onFitVisibleContent={fitVisible}
           />
         </React.Suspense>
       ) : (
@@ -929,6 +936,7 @@ export function PartStudioCanvas({
           viewport={viewport}
           displaySettings={displaySettings}
           onOpenGraphicsPreferences={() => setGraphicsPreferencesOpen(true)}
+          onFitVisibleContent={fitVisible}
         />
       )}
       {graphicsPreferencesOpen && displaySettings && (
@@ -1151,6 +1159,7 @@ export function PartStudioCanvas({
         onSelectOwner={handleSelectOwner}
         canEdit={canEdit}
         connection={connection}
+        onFitView={fitVisible}
       />
 
       {/* T6 内联非模态对话框（os-30/os-31：画布左上角，不遮罩画布）。
@@ -1346,15 +1355,9 @@ export function PartStudioCanvas({
           onShowConstraintsChange={setShowConstraints}
           onConfirm={handleSketchConfirm}
           onCancel={handleSketchDialogCancel}
-          onFitToView={viewport ? () => {
-            // ADR-0018 S1f：草图编辑态适合窗口=草图实体范围（Onshape），不是全局模型。
-            const sketch = sketchSystem?.activeSketch;
-            if (sketch) {
-              fitCameraToSketch(viewport, sketch.plane, sketch.entities);
-              return;
-            }
-            void fitViewToModelRanges(viewport);
-          } : undefined}
+          // 2026-11-13 Onshape live：草图对话框的「缩放到合适大小」与全局同义
+          //（可见内容：模型 ∪ 活动草图；空场景基准面），不是只取草图包围盒。
+          onFitToView={viewport ? fitVisible : undefined}
         />
       )}
     </div>

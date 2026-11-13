@@ -6,8 +6,9 @@
  * 1) ViewCube 在场、朝向同步、面点击换标准视图；
  * 2) 默认几何图元（Origin/Top/Front/Right）+ 眼睛开关；
  * 3) ViewCube 下拉显示模式（渲染设置；持久化写穿）；
- * 4) 进入草图按平面 frame 定向，退出恢复完整相机（实体范围取景由
- *    useSketchCamera 单测 + tutorial2 真实鼠标流覆盖）。
+ * 4) 进入/退出草图**不改相机**（Onshape live 2026-11-13：不转正、不自动取景、
+ *    不回放；相机交给用户；「缩放到合适大小」= 可见内容取景，见
+ *    e2e/sketch-camera-fit.spec.ts）。
  *
  * 每轮重置 B 种子（tutorial2 同款隔离纪律），不依赖历史 scope 内容。
  */
@@ -47,13 +48,13 @@ async function readStoredDisplaySettings(page: Page): Promise<Record<string, unk
   });
 }
 
-function row(matrix: number[][], index: number): [number, number, number] {
-  const value = matrix[index]!;
-  return [value[0]!, value[1]!, value[2]!];
-}
-
-function dot(a: [number, number, number], b: [number, number, number]): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+function expectCameraUnchanged(a: CameraSnapshot, b: CameraSnapshot): void {
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++)
+      expect(b.rotation[i]![j]!, `rotation[${i}][${j}] 不得变化`).toBeCloseTo(a.rotation[i]![j]!, 9);
+    expect(b.origin[i]!, `origin[${i}] 不得变化`).toBeCloseTo(a.origin[i]!, 9);
+    expect(b.extents[i]!, `extents[${i}] 不得变化`).toBeCloseTo(a.extents[i]!, 9);
+  }
 }
 
 test.describe('Onshape UI 对齐（2026-11-02）', () => {
@@ -159,13 +160,13 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
       (window as any).__lubanE2EApp.usePartStudioStore.getState().datum.visibility.top,
     )).toBe(initialTop);
 
-    // ── 4) 草图相机：平面定向 + 草图范围取景 + 退出恢复 ─────────────────
+    // ── 4) 草图相机：进入/退出均不改相机（Onshape live 2026-11-13）─────────
     const before = await readCamera(page);
     await page.getByRole('button', { name: '草图', exact: true }).click();
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByRole('combobox', { name: '草图平面' }).click();
- await page.getByRole('option', { name: 'Front' }).click();
+    await page.getByRole('option', { name: 'Front' }).click();
     await dialog.getByRole('button', { name: '确认' }).click();
     await expect(
       page.getByRole('toolbar', { name: '草图工具' })
@@ -177,29 +178,14 @@ test.describe('Onshape UI 对齐（2026-11-02）', () => {
     await expect.poll(() => page.evaluate(() =>
       (window as any).__lubanE2EApp.usePartStudioStore.getState().sketch.activeSketchPlane !== null,
     )).toBe(true);
-    const plane = await page.evaluate(() =>
-      (window as any).__lubanE2EApp.usePartStudioStore.getState().sketch.activeSketchPlane);
-    await expect.poll(async () => {
-      const cam = await readCamera(page);
-      return Math.abs(dot(row(cam.rotation, 2), [plane.normal.x, plane.normal.y, plane.normal.z]));
-    }).toBeCloseTo(1, 3);
-    const inSketch = await readCamera(page);
-    expect(Math.abs(dot(row(inSketch.rotation, 0), [plane.xDir.x, plane.xDir.y, plane.xDir.z])))
-      .toBeCloseTo(1, 3);
+    // Onshape live：选平面/进入草图编辑不转正、不缩放、不回放相机。
+    await page.waitForTimeout(600);
+    expectCameraUnchanged(before, await readCamera(page));
 
-    // 退出：完整恢复进入前的 rotation/origin/extents（草图对话框绿色 ✓）。
+    // 退出（绿色 ✓）：同样不改相机（无需也禁止「恢复快照」）。
     await dialog.getByRole('button', { name: '确认' }).click();
     await expect(dialog).toBeHidden({ timeout: 30_000 });
-    await expect.poll(async () => {
-      const after = await readCamera(page);
-      return after.rotation.every((r, i) => r.every((v, j) => Math.abs(v - before.rotation[i]![j]!) < 1e-6));
-    }).toBe(true);
-    const restored = await readCamera(page);
-    expect(restored.origin[0]).toBeCloseTo(before.origin[0]!, 4);
-    expect(restored.origin[1]).toBeCloseTo(before.origin[1]!, 4);
-    expect(restored.origin[2]).toBeCloseTo(before.origin[2]!, 4);
-    expect(restored.extents[0]).toBeCloseTo(before.extents[0]!, 4);
-    expect(restored.extents[1]).toBeCloseTo(before.extents[1]!, 4);
-    expect(restored.extents[2]).toBeCloseTo(before.extents[2]!, 4);
+    await page.waitForTimeout(400);
+    expectCameraUnchanged(before, await readCamera(page));
   });
 });

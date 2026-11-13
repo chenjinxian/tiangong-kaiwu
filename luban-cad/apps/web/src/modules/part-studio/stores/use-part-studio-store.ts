@@ -51,8 +51,8 @@ export interface PartStudioActions {
   // tool 切片
   setActiveTool: (toolId: string | null) => void;
   // sketch 切片
-  /** ADR-0018 S1f：orientCamera=true 仅新建草图（编辑既有草图保持相机）。 */
-  enterSketch: (sketchId: string, options?: { orientCamera?: boolean }) => void;
+  /** 2026-11-13 Onshape live：进入草图不改相机（无 orientCamera 选项）。 */
+  enterSketch: (sketchId: string) => void;
   exitSketch: () => void;
   /** M6-a T5：活动草图平面下发（SketchDialog 确认链 → 宿主 onConfirm 消费面调用）。 */
   setActiveSketchPlane: (plane: SketchPlaneDto | null) => void;
@@ -130,8 +130,6 @@ const initialSketch: PartStudioSketchState = {
   // M6-a T5：平面缺省 null=契约缺省 XY@z=0（见 types.ts 注）。
   activeSketchPlane: null,
   constructionMode: false,
-  // ADR-0018 S1f：缺省编辑语义（不抢相机）；新建由 SketchDialog 显式置 true。
-  orientCameraOnEnter: false,
   // ADR-0018 S1g：Onshape live 草图对话框默认勾选「显示约束」。
   showConstraints: true,
   // AIRR 2026-11-12：草图阵列会话缺省未激活。
@@ -205,13 +203,12 @@ function createSketchSlice([set, get]: SliceCreator): { sketch: PartStudioSketch
     sketch: initialSketch,
     // 进草图恒先归零平面（防上一草图会话的平面残留串场）；新建路径的平面随后由
     // SketchDialog onConfirm 链 setActiveSketchPlane 下发（M6-a T5）。
-    enterSketch: (sketchId, options) => set({
+    enterSketch: (sketchId) => set({
       sketch: {
         isActive: true,
         activeSketchId: sketchId,
         activeSketchPlane: null,
         constructionMode: false,
-        orientCameraOnEnter: options?.orientCamera === true,
         // 显示开关跨草图会话保留（Onshape 会话内复选框状态延续）；缺省勾选。
         showConstraints: get().sketch.showConstraints ?? true,
         pattern: null,

@@ -159,6 +159,11 @@ export interface ViewCubeCameraMenuProps {
   history: ViewCubeHistory;
   /** 宿主相机提交方式；缺省 180ms animateFrustumChange。 */
   commitView?: () => void;
+  /**
+   * 2026-11-13：Onshape 语义「缩放到合适大小」宿主出口——可见内容（模型 ∪
+   * 活动草图）+ 基准面空场景兜底。缺省回退模型范围取景（壳期/测试）。
+   */
+  onFitVisibleContent?: () => void;
   className?: string;
 }
 
@@ -168,6 +173,7 @@ export function ViewCubeCameraMenu({
   onOpenGraphicsPreferences,
   history,
   commitView,
+  onFitVisibleContent,
   className,
 }: ViewCubeCameraMenuProps): React.JSX.Element {
   const { t } = useTranslation();
@@ -233,12 +239,17 @@ export function ViewCubeCameraMenu({
 
   const fitAll = React.useCallback((): void => {
     if (!viewport) return;
-    // 与页签条「适应视图」/特征后自动取景同源：按模型联合范围 + 留白取景。
+    // 2026-11-13：宿主统一「可见内容取景」（模型 ∪ 活动草图；空场景基准面）；
+    // 缺省回退模型范围（壳期/测试）。
+    if (onFitVisibleContent) {
+      onFitVisibleContent();
+      return;
+    }
     const models = viewport.view.isSpatialView()
       ? [...viewport.view.modelSelector.models]
       : [];
     void fitViewToModelRanges(viewport, models.length > 0 ? models : undefined);
-  }, [viewport]);
+  }, [viewport, onFitVisibleContent]);
 
   const settings = displaySettings?.settings;
   const update = displaySettings?.update;

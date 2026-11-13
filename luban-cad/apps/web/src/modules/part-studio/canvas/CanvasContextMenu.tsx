@@ -278,6 +278,12 @@ export interface CanvasContextMenuProps {
    *（测试/壳期）；生产宿主传 connection，使 selectionSet 同步清空。
    */
   connection?: BriefcaseConnection;
+  /**
+   * 2026-11-13：「适应视图」出口——Onshape 语义可见内容取景（模型 ∪ 活动
+   * 草图；空场景基准面），不由本组件自取 computeFitRange/projectExtents。
+   * 缺省回退模块级 fitView（测试/壳期）。
+   */
+  onFitView?: () => void;
 }
 
 /** 选中实体显示名（label 缺省回退 id）。 */
@@ -293,6 +299,7 @@ export function CanvasContextMenu({
   onSelectOwner,
   canEdit = true,
   connection,
+  onFitView,
 }: CanvasContextMenuProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const selection = usePartStudioStore((s) => s.canvas.selection);
@@ -359,7 +366,7 @@ export function CanvasContextMenu({
       }
       switch (action.kind) {
         case 'fit-view':
-          runAndClose(fitView);
+          runAndClose(onFitView ?? fitView);
           return;
         case 'standard-view':
           runAndClose(() => standardView(action.view));

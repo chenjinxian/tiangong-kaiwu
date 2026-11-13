@@ -187,7 +187,6 @@ import {
 } from './hooks/usePartStudioScope.js';
 import { usePermissions } from './hooks/usePermissions.js';
 import { useSketchSystem, registerSketchSystemAccessor } from './hooks/useSketchSystem.js';
-import { useSketchCamera } from './hooks/useSketchCamera.js';
 import { useDisplaySettings } from './hooks/useDisplaySettings.js';
 import { useBodyAppearanceOverrides } from './hooks/useBodyAppearanceOverrides.js';
 import { useDatumVisibility } from './hooks/useDatumVisibility.js';
@@ -196,7 +195,7 @@ import { usePartStudioStore } from './stores/use-part-studio-store.js';
 import { BODY_PRODUCING_FEATURE_TYPES } from './types.js';
 import { bodiesForDisplay } from './internal/body-display.js';
 import { clearActiveOnshapeHighlight } from './internal/onshape-selection-runtime.js';
-import { fitView } from './internal/viewport-actions.js';
+import { fitVisibleContent } from './internal/fit-visible.js';
 import './PartStudioPage.css';
 
 export function PartStudioPage(): React.JSX.Element {
@@ -689,9 +688,12 @@ function PartStudioSession({
     usePartStudioStore.getState().clearDatumVisibilityOverrides();
   }, [connection, iModelId, activeModelId]);
 
-  // 草图相机（2026-11-02）：进入草图按真实平面 frame 定向，实体就位后按
-  // 草图范围取景（左侧面板 padding），退出恢复。单点挂载（Session）。
-  useSketchCamera(viewport, sketchSystem.activeSketch);
+  // 2026-11-13 Onshape live：进入/退出草图**不改相机**（不转正、不自动取景、
+  // 不回放快照）——相机完全交给用户；「正视草图平面」仍是显式按钮。
+  // 「缩放到合适大小」= 可见内容取景（见 internal/fit-visible.ts）。
+  const fitVisible = useCallback((): void => {
+    void fitVisibleContent(viewport, sketchSystem.activeSketch);
+  }, [viewport, sketchSystem.activeSketch]);
 
   // P2.4 F5：文档/scope 切换或离开编辑器时复位模块级草图 store——旧
   // activeSketchId 不得带进新文档/新 scope（防解析前 legacy getSketch 与
@@ -1295,7 +1297,7 @@ function PartStudioSession({
             briefcaseLoading={connectionLoading}
             briefcaseError={connectionErrorMessage}
             viewportError={viewportError}
-            onFitView={fitView}
+            onFitView={fitVisible}
           />
         </div>
       </div>

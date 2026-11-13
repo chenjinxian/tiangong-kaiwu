@@ -11,9 +11,14 @@ export type { UseViewportOptions, UseViewportResult, ViewportPhase } from './vie
 // 2026-11-02：内容感知取景公开出口（特征提交后自动 fit / 页签条适应视图）。
 export {
   fitViewToModelRanges,
+  fitViewToVisibleContent,
   queryAllPhysicalModelIds,
 } from './viewport/fit-view.js';
-export type { FitViewToModelRangesOptions } from './viewport/fit-view.js';
+export type {
+  FitViewToModelRangesOptions,
+  FitVisibleContentOptions,
+  FitVisibleContentPadding,
+} from './viewport/fit-view.js';
 // M4 Task 2：Onshape 式视口底色（纯应用函数；data-theme 的 MutationObserver
 // 接线在消费侧 apps/web PartStudioPage）。
 export { applyViewportBackground } from './viewport/theme-background.js';

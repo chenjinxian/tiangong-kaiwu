@@ -161,12 +161,7 @@ export interface PartStudioSketchState {
   activeSketchPlane: SketchPlaneDto | null;
   /** v1.23（ADR-0004）：构造模式——新绘制曲线带 construction=true，不参与面域。 */
   constructionMode?: boolean;
-  /**
-   * ADR-0018 S1f：进入草图的相机意图。true=新建草图（按平面法向定向并快照，
-   * 退出恢复）；false/缺省=编辑既有草图（Onshape live：不转正、不取景、退出不
-   * 回放），显式“正视草图平面”由草图对话框按钮承担。
-   */
-  orientCameraOnEnter?: boolean;
+  /** 2026-11-13 Onshape live：进入/退出草图不改相机（无相机意图字段）。 */
   /**
    * ADR-0018 S1g：草图对话框「显示约束」开关（Onshape live 默认勾选）。
    * false 时隐藏约束 glyph 与尺寸标注覆盖层（live 实测两者同时消失），

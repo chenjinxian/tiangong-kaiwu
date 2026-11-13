@@ -43,6 +43,8 @@ export interface ViewCubeProps {
   displaySettings?: UseDisplaySettingsResult;
   /** v2026-11-05：打开 Onshape 式「图形首选项」左侧对话框（宿主渲染）。 */
   onOpenGraphicsPreferences?: () => void;
+  /** 2026-11-13：Onshape 语义「缩放到合适大小」（可见内容取景）宿主出口。 */
+  onFitVisibleContent?: () => void;
 }
 
 type FaceId = 'front' | 'back' | 'right' | 'left' | 'top' | 'bottom';
@@ -235,7 +237,7 @@ function hitTargetAt(x: number, y: number, cube: ScreenCube): HitTarget | null {
   return null;
 }
 
-export function ViewCube({ viewport, displaySettings, onOpenGraphicsPreferences }: ViewCubeProps): React.JSX.Element {
+export function ViewCube({ viewport, displaySettings, onOpenGraphicsPreferences, onFitVisibleContent }: ViewCubeProps): React.JSX.Element {
   const { t } = useTranslation();
   const [rotation, setRotation] = React.useState(() => Matrix3d.createIdentity());
   const [hoverTarget, setHoverTarget] = React.useState<HitTarget | null>(null);
@@ -575,6 +577,7 @@ export function ViewCube({ viewport, displaySettings, onOpenGraphicsPreferences 
           viewport={viewport}
           displaySettings={displaySettings}
           onOpenGraphicsPreferences={onOpenGraphicsPreferences}
+          onFitVisibleContent={onFitVisibleContent}
           history={history}
           commitView={commitView}
         />
