@@ -24,7 +24,7 @@
  *   变化均按最新并集重算；并集空时 clearHiddenElements 恢复可见。视口由 Session
  *   显式下传并作为 effect 依赖（I3：viewport 晚于 getBodies 创建/重建时重跑）；
  *   无 viewport 静默跳过（壳期/测试）；read surface 不可用时不接管 neverDrawn；
- * - 删除 HITL 回调第二参 = deleteFeature.targetBodyId（getBodies.sourceFeatureId
+ * - 删除回调（2026-11-13 Onshape live：直接删除，无确认框）第二参 = deleteFeature.targetBodyId（getBodies.sourceFeatureId
  *   反查唯一源；无映射 undefined）。B6 M-A5 T2 起 PartStudioSidebar 以
  *   applyOp 接线真删除/抑制（成功后 toast 归 Sidebar；树不乐观改，刷新走
  *   applyOp 内 onCommitted）；canEdit=false 时删除/抑制菜单项禁用+可见 title，
@@ -37,7 +37,7 @@
  *   §视口交互最小通道；后续特征灰显挂账）；
  * - 行（TreeRow）：名称 + 错误红显 + 抑制斜体 + 隐藏淡显；行点击选中（树→画布
  *   emphasize 联动的数据源），行右键菜单（os-15 子集：重命名/编辑…/抑制/
- *   删除 HITL，每项左置图标——os-15 V20，M4-T8 D5 收口）；
+ *   删除（直接执行，可 Ctrl+Z），每项左置图标——os-15 V20，M4-T8 D5 收口）；
  * - 特征段头三工具钮（os-11 段头形态；M4-T8 D3 收口）：插入元素/暂停重建/
  *   特征历史——完整 UI 面铁律（照常渲染可点），均无后端面，登记 gated →
  *   能力引导对话框（capabilities.ts 单一真源；full 翻转后接真实路由）；
@@ -142,7 +142,8 @@ export interface FeatureTreeProps {
   /** 抑制/取消抑制（特征段专属菜单项）。 */
   onSuppress?: (node: FeatureNode, suppressed: boolean) => void;
   /**
-   * 删除提交（HITL 确认后调用）。第二参=deleteFeature.targetBodyId 契约值：
+   * 删除提交（菜单项直接调用，无确认框；标准 FeatureOp 事务，Ctrl+Z 可撤销）。
+   * 第二参=deleteFeature.targetBodyId 契约值：
    * 由 `deleteTargetBodyIdForFeature`（getBodies.sourceFeatureId 反查）得出；
    * 无唯一源映射时为 undefined（N>1 时后端诚实拒收，绝不猜测目标）。宿主接线
    * 删除 op 时必须原样透传（B6 M-A5 T2 起 PartStudioSidebar 实现真 op 载荷）。
@@ -559,7 +560,6 @@ export function FeatureTree({
   // 在行位于屏幕下半区时不得溢出视口（真栈实测 click 不可达）。
   const [menuShift, setMenuShift] = React.useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
   const menuElementRef = React.useRef<HTMLDivElement | null>(null);
-  const [pendingDelete, setPendingDelete] = React.useState<TreeNode | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   // 段头三钮的 gated 引导对话框（D3：能力注册表路由的对话框状态）。
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
@@ -1083,8 +1083,16 @@ export function FeatureTree({
             title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
             onClick={() => {
               if (!canEdit) return;
-              setPendingDelete(menuNode);
+              // Onshape live 2026-11-13：特征树删除草图/特征=直接删除（无确认框）；
+              // 删除仍走 deleteSketch/deleteFeature 标准事务，Ctrl+Z 可撤销（P0-10）。
               setMenu(null);
+              if (onDelete) {
+                // B6 M-A3.2a：第二参=deleteFeature.targetBodyId（getBodies.sourceFeatureId
+                // 反查；无唯一源映射=undefined，N>1 由后端诚实拒收）。
+                onDelete(menuNode, deleteTargetBodyIdForFeature(bodies, menuNode.id));
+              } else {
+                console.warn(`[part-studio] 删除 ${menuNode.name}（onDelete 未接线）`);
+              }
             }}
           >
             <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDelete /></span>
@@ -1299,55 +1307,8 @@ export function FeatureTree({
         </div>
       ))}
 
-      {/* 删除 HITL 确认（预览=目标具名提示；确认后才提交 onDelete）。 */}
-      {pendingDelete && (
-        <div className="part-studio-dialog-backdrop">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('partStudio.tree.deleteTitle', { name: pendingDelete.name })}
-            className="part-studio-capability-dialog"
-          >
-            <h2 className="part-studio-capability-dialog__title">
-              {t('partStudio.tree.deleteTitle', { name: pendingDelete.name })}
-            </h2>
-            <p className="part-studio-capability-dialog__message">
-              {t('partStudio.tree.deleteMessage', { name: pendingDelete.name })}
-            </p>
-            <div className="part-studio-capability-dialog__actions part-studio-capability-dialog__actions--split">
-              <button
-                type="button"
-                className="part-studio-capability-dialog__secondary"
-                onClick={() => setPendingDelete(null)}
-              >
-                {t('partStudio.tree.cancel')}
-              </button>
-              <button
-                type="button"
-                className="part-studio-capability-dialog__danger"
-                onClick={() => {
-                  const node = pendingDelete;
-                  setPendingDelete(null);
-                  // B6 M-A5 T2：canEdit=false 防御性拒收（菜单项已禁用，此处兜底
-                  // 程序化/竞态路径——绝不发起删除回调）。
-                  if (!canEdit) return;
-                  if (onDelete) {
-                    // B6 M-A3.2a：第二参=deleteFeature.targetBodyId（getBodies.sourceFeatureId
-                    // 反查；无唯一源映射=undefined，N>1 由后端诚实拒收）。
-                    onDelete(node, deleteTargetBodyIdForFeature(bodies, node.id));
-                  } else {
-                    console.warn(`[part-studio] 删除 ${node.name}（onDelete 未接线）`);
-                  }
-                }}
-              >
-                {t('partStudio.tree.confirmDelete')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2026-11-13：零件删除 HITL（删除驱动该零件的 NEW-body 特征；可撤销）。 */}
+      {/* 2026-11-13：零件删除 HITL（删除驱动该零件的 NEW-body 特征；可撤销）。
+          草图/特征行删除无确认框（Onshape live：直接删除，可 Ctrl+Z）。 */}
       {pendingDeletePart && (
         <div className="part-studio-dialog-backdrop">
           <div

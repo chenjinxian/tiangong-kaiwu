@@ -108,7 +108,7 @@ test('多体基线：tree/edit/fit/FPS/tile（opt-in）', async ({ page, request
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   await expect(menu).toBeVisible();
   const fitStart = Date.now();
-  await menu.getByRole('menuitem', { name: '适应视图' }).click();
+  await menu.getByRole('menuitem', { name: '缩放到合适大小' }).click();
   await expect(menu).toBeHidden();
   await page.evaluate(() => new Promise<void>((resolve) =>
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));

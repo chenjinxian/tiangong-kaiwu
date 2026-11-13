@@ -350,7 +350,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   const solidMenu = page.getByRole('menu', { name: '画布菜单' });
   await expect(solidMenu).toBeVisible();
-  await solidMenu.getByRole('menuitem', { name: '适应视图' }).click();
+  await solidMenu.getByRole('menuitem', { name: '缩放到合适大小' }).click();
   await expect(solidMenu).toBeHidden();
   const solidRegion = {
     x0: box.x + box.width * 0.2,

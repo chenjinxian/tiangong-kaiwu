@@ -15,7 +15,7 @@
  *   → Onshape 统一选择（2026-11-03）：无模式直接拾取面/边/点、空白清除、
  *     跨 body 普通单击替换、Ctrl 多选/再点取消、面 owner 菜单（选中所属/
  *     隐藏/删除）
- *   → 树删除 UI（B6 M-A5 T2）：newBody 特征行右键「删除」→ HITL 确认 →
+ *   → 树删除 UI（B6 M-A5 T2）：newBody 特征行右键「删除」→ 直接删除（Onshape live：无确认框）→
  *     body2 consumed、树一行、几何 hide → 原生 undo → 两体恢复、hide 清除
  *   → 首个 delete 的原生 redo → body2 再消费 → undo 恢复两体基线
  *     （#45 修复后可达；见下）
@@ -240,7 +240,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(canvasMenu).toBeHidden();
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   await expect(canvasMenu).toBeVisible();
-  await canvasMenu.getByRole('menuitem', { name: '适应视图' }).click();
+  await canvasMenu.getByRole('menuitem', { name: '缩放到合适大小' }).click();
   await expect(canvasMenu).toBeHidden();
 
   type SelectionLike = { kind: string; id: string; ownerBodyKey?: string };
@@ -431,21 +431,15 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect.poll(async () => (await currentSelection()).length).toBe(0);
   console.log('[newbody] Onshape 统一选择 → 面/边/点直接拾取 + owner 菜单 OK');
 
-  // ── 树删除 UI（T2）：特征行右键「删除」→ HITL 确认（dialog 作用域） ──
+  // ── 树删除 UI（T2）：特征行右键「删除」= 直接删除（Onshape live：无确认框） ──
   const featureMenu = page.getByRole('menu', { name: '特征菜单' });
   const newBodyRow = page.getByTestId(`tree-row-${newBodyFeatureId}`);
-  // 单点删除通道：右键特征行 → 「特征菜单」删除 → HITL 在 dialog 作用域确认。
+  // 单点删除通道：右键特征行 → 「特征菜单」删除 = 直接删除（Onshape live：无确认框）。
   const deleteFeatureViaTree = async (featureId: string): Promise<void> => {
     const row = page.getByTestId(`tree-row-${featureId}`);
-    const name = ((await row.textContent()) ?? '').trim();
     await row.click({ button: 'right' });
     await expect(featureMenu).toBeVisible();
     await featureMenu.getByRole('menuitem', { name: '删除', exact: true }).click();
-    // dialog 作用域点「删除」——避免命中菜单同名项（菜单已收合，收窄仍是纪律）。
-    const dialog = page.getByRole('dialog', { name: `删除 ${name}` });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: '删除', exact: true }).click();
-    await expect(dialog).toBeHidden();
   };
   await deleteFeatureViaTree(newBodyFeatureId);
 
@@ -496,7 +490,7 @@ test('真栈：extrude newBody 两体 → eye/选择桥 → 树删除 undo/redo 
   await expect(canvasMenu).toBeHidden();
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   await expect(canvasMenu).toBeVisible();
-  await canvasMenu.getByRole('menuitem', { name: '适应视图' }).click();
+  await canvasMenu.getByRole('menuitem', { name: '缩放到合适大小' }).click();
   await expect(canvasMenu).toBeHidden();
 
   // 世界点（body2 盒 [4,6]×[0,2]×[0,2] 的竖边/顶边中点）投影后 boresite 点击。

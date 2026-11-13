@@ -1,7 +1,7 @@
 // src/modules/part-studio/test/PartStudioSidebar.test.tsx
 //
 // B6 M-A5 Task 2（brief Step 9）：侧栏树变异接线验收层——
-//  1) 特征删除：HITL 确认后 applyOp 精确载荷（deleteFeature + 可选
+//  1) 特征删除：直接删除（Onshape live）后 applyOp 精确载荷（deleteFeature + 可选
 //     targetBodyId——getBodies.sourceFeatureId 反查），成功/失败/异常 toast
 //     同 IModelApp.notifications 管道；
 //  2) 特征抑制：applyOp setFeatureSuppressed（suppressed 翻转）+ toast；
@@ -99,16 +99,14 @@ function renderSidebar(opts?: {
   );
 }
 
-/** 树上删除 HITL 链：右键行 → 删除菜单项 → 确认。 */
-async function confirmTreeDelete(
+/** 树上删除（Onshape live 2026-11-13：直接删除，无确认框）：右键行 → 删除菜单项。 */
+async function deleteViaTree(
   user: ReturnType<typeof userEvent.setup>,
   rowTestId: string,
-  dialogName: string,
 ): Promise<void> {
   fireEvent.contextMenu(screen.getByTestId(rowTestId));
   await user.click(screen.getByRole('menuitem', { name: '删除' }));
-  const dialog = screen.getByRole('dialog', { name: dialogName });
-  await user.click(within(dialog).getByRole('button', { name: '删除' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
 }
 
 function lastToast(): { priority: number; briefMessage: string } {
@@ -121,11 +119,11 @@ beforeEach(() => {
 });
 
 describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
-  it('特征删除：HITL 确认 → applyOp deleteFeature（含 targetBodyId 源映射）+ Success toast', async () => {
+  it('特征删除：直接删除 → applyOp deleteFeature（含 targetBodyId 源映射）+ Success toast', async () => {
     const user = userEvent.setup();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
     renderSidebar({ applyOp });
-    await confirmTreeDelete(user, 'tree-row-ex1', '删除 拉伸 1');
+    await deleteViaTree(user, 'tree-row-ex1');
     await waitFor(() =>
       expect(applyOp).toHaveBeenCalledWith({
         kind: 'deleteFeature',
@@ -140,14 +138,14 @@ describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
     );
   });
 
-  it('草图删除：HITL 确认 → applyOp deleteSketch（sketchId=行 id，不带 targetBodyId）', async () => {
+  it('草图删除：直接删除 → applyOp deleteSketch（sketchId=行 id，不带 targetBodyId）', async () => {
     const user = userEvent.setup();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
     renderSidebar({
       applyOp,
       entries: [{ id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} }],
     });
-    await confirmTreeDelete(user, 'tree-row-sk1', '删除 草图 1');
+    await deleteViaTree(user, 'tree-row-sk1');
     expect(applyOp).toHaveBeenCalledTimes(1);
     expect(applyOp.mock.calls[0]![0]).toEqual({ kind: 'deleteSketch', sketchId: 'sk1' });
     expect(lastToast()).toMatchObject({ priority: 1, briefMessage: '已删除 草图 1' });
@@ -163,7 +161,7 @@ describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
       applyOp,
       entries: [{ id: 'sk1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} }],
     });
-    await confirmTreeDelete(user, 'tree-row-sk1', '删除 草图 1');
+    await deleteViaTree(user, 'tree-row-sk1');
     expect(lastToast()).toMatchObject({ priority: 10 });
     expect(lastToast().briefMessage).toContain('草图被特征引用');
   });
@@ -172,7 +170,7 @@ describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
     const user = userEvent.setup();
     const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
     renderSidebar({ applyOp });
-    await confirmTreeDelete(user, 'tree-row-ch1', '删除 倒角 1');
+    await deleteViaTree(user, 'tree-row-ch1');
     await waitFor(() =>
       expect(applyOp).toHaveBeenCalledWith({ kind: 'deleteFeature', featureId: 'ch1' }),
     );
@@ -188,10 +186,10 @@ describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
       .mockResolvedValueOnce({ ok: false, error: 'feature locked' })
       .mockRejectedValueOnce(new Error('rpc boom'));
     renderSidebar({ applyOp });
-    await confirmTreeDelete(user, 'tree-row-ex1', '删除 拉伸 1');
+    await deleteViaTree(user, 'tree-row-ex1');
     await waitFor(() => expect(lastToast().priority).toBe(10));
     expect(lastToast().briefMessage).toContain('feature locked');
-    await confirmTreeDelete(user, 'tree-row-ex2', '删除 拉伸 2');
+    await deleteViaTree(user, 'tree-row-ex2');
     await waitFor(() => expect(lastToast().briefMessage).toContain('rpc boom'));
     expect(lastToast().priority).toBe(10);
   });

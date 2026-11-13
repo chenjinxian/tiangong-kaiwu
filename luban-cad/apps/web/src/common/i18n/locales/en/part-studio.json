@@ -1464,8 +1464,6 @@
     "suppress": "Suppress",
     "unsuppress": "Unsuppress",
     "delete": "Delete",
-    "deleteTitle": "Delete {{name}}",
-    "deleteMessage": "{{name}} will be deleted from the model. This cannot be undone once committed.",
     "cancel": "Cancel",
     "confirmDelete": "Delete",
     "loadFailed": "Failed to load: {{message}}",

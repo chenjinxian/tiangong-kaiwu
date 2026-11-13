@@ -5,7 +5,7 @@
  * spacing=6（16240；count 含原件，后端只补 count−1 份增量）。
  *   右键「抑制」→ 源凸台仍在 = 16080，行 data-suppressed=true；
  *   「取消抑制」→ 16240；
- *   「删除」→ HITL 确认 → 树剩 sketch/extrude/sketch/extrude；**body 不再生**
+ *   「删除」→ 直接删除（Onshape live：无确认框）→ 树剩 sketch/extrude/sketch/extrude；**body 不再生**
  *     （后端 M1 deleteFeature 语义：ChamferFlow.test.ts「10. 删除链尾」钉；
  *     live/冷重开读均 16240）。push + 重开后树形一致。
  * 删除后 body 不更新是已登记的 M1 缺口（RW2-T9 backlog）；第二用例以
@@ -150,16 +150,12 @@ test.describe('featurePattern 树行抑制/删除（W2.10）', () => {
     await expect.poll(mass, { timeout: 90_000, intervals: [2000, 5000, 10_000] }).toBeCloseTo(16240, 0);
     await expect(row).not.toHaveAttribute('data-suppressed', 'true', { timeout: 90_000 });
 
-    // 删除（HITL 确认）：树行移除。**会话内 body 保持旧几何**——后端 M1
-    // deleteFeature 语义（不触发再生；ChamferFlow.test.ts「10. 删除链尾」钉），
-    // 因此 live 读仍为 16240；冷重建（push+重开）后才回 16080。
+    // 删除（Onshape live：直接删除，无确认框）：树行移除。**会话内 body 保持旧
+    // 几何**——后端 M1 deleteFeature 语义（不触发再生；ChamferFlow.test.ts
+    // 「10. 删除链尾」钉），因此 live 读仍为 16240；冷重建（push+重开）后才回 16080。
     await row.click({ button: 'right' });
     await expect(featureMenu).toBeVisible();
     await featureMenu.getByRole('menuitem', { name: '删除', exact: true }).click();
-    const confirmDialog = page.getByRole('dialog', { name: /删除 特征阵列/ });
-    await expect(confirmDialog).toBeVisible({ timeout: 15_000 });
-    await confirmDialog.getByRole('button', { name: '删除', exact: true }).click();
-    await expect(confirmDialog).toBeHidden();
     await expect.poll(async () => (await getFeatureTreeRpc(ctx, token)).map((r) => r.featureType), {
       timeout: 90_000,
       intervals: [2000, 5000, 10_000],

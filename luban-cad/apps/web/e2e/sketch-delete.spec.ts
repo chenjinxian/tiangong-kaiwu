@@ -5,9 +5,9 @@
  *（非 LubanCAD.Feature），后端报「特征不存在」。现 Sidebar 按节点类型路由：
  * 草图 → `deleteSketch`（后端存在性 + 被特征引用守卫）；其余 → `deleteFeature`。
  *
- * 覆盖：
- * 1) 未引用草图：树右键删除 → HITL 确认 → Success toast + 行消失 + RPC/冷开仍无；
- * 2) 被拉伸引用的草图：HITL 确认后后端诚实拒收（Error toast 含「草图被特征引用」），
+ * 覆盖（2026-11-13 Onshape live：树删除草图/特征无确认框，直接删除）：
+ * 1) 未引用草图：树右键删除 → 直接删除 → Success toast + 行消失 + RPC/冷开仍无；
+ * 2) 被拉伸引用的草图：直接删除被后端诚实拒收（Error toast 含「草图被特征引用」），
  *    草图行保留（不伪造成功）。
  */
 import { expect, test } from '@playwright/test';
@@ -61,7 +61,7 @@ function rectangleSketch(width: number, height: number): { entities: SketchEntit
 }
 
 test.describe('草图删除（deleteSketch 路由）', () => {
-  test('未引用草图：树删除 → HITL → 行消失 + 冷开仍无', async ({ page, request }) => {
+  test('未引用草图：树删除（直接）→ 行消失 + 冷开仍无', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
@@ -90,12 +90,9 @@ test.describe('草图删除（deleteSketch 路由）', () => {
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
 
-    // 树右键 → 删除 → HITL 确认（Sidebar 路由 shared deleteSketch）。
+    // 树右键 → 删除 = 直接删除（Onshape live：无确认框；Sidebar 路由 shared deleteSketch）。
     await row.click({ button: 'right' });
     await page.getByRole('menuitem', { name: '删除' }).click();
-    const dialog = page.getByRole('dialog', { name: /^删除 草图/ });
-    await expect(dialog).toBeVisible({ timeout: 30_000 });
-    await dialog.getByRole('button', { name: '删除' }).click();
 
     await expect(page.getByText(/^已删除 /).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toHaveCount(0, { timeout: 60_000 });
@@ -144,9 +141,6 @@ test.describe('草图删除（deleteSketch 路由）', () => {
 
     await row.click({ button: 'right' });
     await page.getByRole('menuitem', { name: '删除' }).click();
-    const dialog = page.getByRole('dialog', { name: /^删除 草图/ });
-    await expect(dialog).toBeVisible({ timeout: 30_000 });
-    await dialog.getByRole('button', { name: '删除' }).click();
 
     // 诚实负路径：后端 checkSketchDeletable 拒收 → Error toast；树不乐观改。
     await expect(page.getByText(/草图被特征引用/).first()).toBeVisible({ timeout: 30_000 });

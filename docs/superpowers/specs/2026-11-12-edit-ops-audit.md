@@ -24,7 +24,7 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 
 | 对象 | 增 | 删 | 改 | 备注 |
 |---|---|---|---|---|
-| 挤压/旋转/放样/扫掠等 | ✅ 对话框 | ✅ 树右键删除（HITL） | ✅ 双击编辑（updateParams）；多截面 loft 已接 | 特征重排 blocked：`reorderFeature` 契约在，但线性 prev 边让真实特征重排全部被依赖序守卫拒收（2026-11-12 实测：两个 newBody 拉伸之间仍有 feature→feature 边；Onshape live 允许拖动并重算、把依赖破坏行标红）。需 ADR 重定义 reorder 的链重建/依赖校验，不能以拖动 UI 假装可用 |
+| 挤压/旋转/放样/扫掠等 | ✅ 对话框 | ✅ 树右键删除（直接删除，Onshape live 2026-11-13：无确认框，可 Ctrl+Z） | ✅ 双击编辑（updateParams）；多截面 loft 已接 | 特征重排 blocked：`reorderFeature` 契约在，但线性 prev 边让真实特征重排全部被依赖序守卫拒收（2026-11-12 实测：两个 newBody 拉伸之间仍有 feature→feature 边；Onshape live 允许拖动并重算、把依赖破坏行标红）。需 ADR 重定义 reorder 的链重建/依赖校验，不能以拖动 UI 假装可用 |
 | 圆角/倒角/抽壳/孔/移动面/变换/分割/布尔/阵列/镜像 | ✅ | ✅ | ✅（按能力，部分只读项例外） | 见 luban-cad 能力矩阵 |
 | 抑制 | — | — | ✅ 右键抑制/取消 | — |
 | 重命名 | — | — | ✅ 树内联，特征行与**草图行**同路径（v1.70：`renameFeature` RPC → `jsonProperties.luban.feature.name`，`getFeatureTree[].name` 读面；后端按 def/phys model 解析 scope；真栈 rename+push 冷重开） | 只改显示元数据，不建历史特征/不动 params；tree-interactions/part-rename 真栈 |
@@ -42,8 +42,9 @@ undo 窗口终止（默认防抖 20s，见 useAutoPush）。
 
 ## 交叉删除语义
 
-- 删除特征：HITL 确认，targetBodyId 由 sourceFeatureId 反查；无源不多猜。
-- 删除草图：被特征引用拒收（后端文案）；引用解除后可删。
+- 删除特征：直接删除（Onshape live 2026-11-13：无确认框；标准事务可撤销），
+  targetBodyId 由 sourceFeatureId 反查；无源不多猜。
+- 删除草图：直接删除；被特征引用拒收（后端文案）；引用解除后可删。
 - 删除草图实体：引用它的约束级联移除；点实体仍被引用时整单拒收。
 - 删除尺寸：只移除该约束，实体/其它约束不动（sketch-dimension-edit 真栈）。
 

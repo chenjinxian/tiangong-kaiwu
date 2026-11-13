@@ -178,6 +178,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **特征树直接删除草图/特征（2026-11-13，纯前端）**：Onshape live——树内删除
+  草图/特征不弹确认框，直接删除。`FeatureTree` 删除菜单项直接调 `onDelete`
+  （Sidebar 路由 `deleteSketch`/`deleteFeature`，标准 FeatureOp 事务、Ctrl+Z
+  可撤销），树删除 HITL 对话框移除；零件行「删除…」HITL 与画布 body 删除 HITL
+  保留。验证：web **1834/1834**、真栈 `sketch-delete` **2 passed**、
+  `editor-state-refresh` **4 passed**、`feature-pattern-tree-ops` **3 passed**；
+  `tsc`/lint 绿。
 - **画布右键菜单状态对齐（2026-11-13，纯前端）**：Onshape live
   `context-menus-20261113`——特征空白态=全部显示/选择/创建选定内容/缩放到合适
   大小/等轴测；特征对话框打开前置 确认 <特征>/取消（新 `internal/dialog-commands`

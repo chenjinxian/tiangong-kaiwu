@@ -1464,8 +1464,6 @@
     "suppress": "抑制",
     "unsuppress": "取消抑制",
     "delete": "删除",
-    "deleteTitle": "删除 {{name}}",
-    "deleteMessage": "将从模型中删除 {{name}}。该操作提交后不可撤销。",
     "cancel": "取消",
     "confirmDelete": "删除",
     "loadFailed": "加载失败: {{message}}",

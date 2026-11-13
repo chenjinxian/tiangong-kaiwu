@@ -351,14 +351,13 @@ describe('B6 M-A3.2a delete target 映射（getBodies.sourceFeatureId 契约）'
     expect(deleteTargetBodyIdForFeature(undefined, 'ex1')).toBeUndefined();
   });
 
-  it('HITL 删除回调第二参携带 targetBodyId（无映射时 undefined——N>1 由后端诚实拒收）', async () => {
+  it('删除回调（直接删除，无确认框）第二参携带 targetBodyId（无映射时 undefined——N>1 由后端诚实拒收）', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     render(<FeatureTree entries={ENTRIES} bodies={BODIES} onDelete={onDelete} />);
     fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
     await user.click(screen.getByRole('menuitem', { name: '删除' }));
-    const dialog = screen.getByRole('dialog', { name: '删除 拉伸 1' });
-    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex1' }), '0x15');
   });
 });
@@ -540,25 +539,18 @@ describe('树上右键菜单（对齐 os-15 子集：重命名/编辑/抑制/删
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'ch1' }));
   });
 
-  it('删除 → HITL 确认（确认路 onDelete / 取消路不触发）', async () => {
+  it('删除 → 直接 onDelete（Onshape：无确认框）', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     render(<FeatureTree entries={ENTRIES} onDelete={onDelete} />);
     fireEventContextMenu(screen.getByTestId('tree-row-ex2'));
     await user.click(screen.getByRole('menuitem', { name: '删除' }));
-    let dialog = screen.getByRole('dialog', { name: '删除 拉伸 2' });
-    await user.click(within(dialog).getByRole('button', { name: '取消' }));
-    expect(onDelete).not.toHaveBeenCalled();
-    // 确认路。
-    fireEventContextMenu(screen.getByTestId('tree-row-ex2'));
-    await user.click(screen.getByRole('menuitem', { name: '删除' }));
-    dialog = screen.getByRole('dialog', { name: '删除 拉伸 2' });
-    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     // B6 M-A3.2a：无 body 读面 → 第二参 undefined（N≤1 legacy 不需 target）。
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'ex2' }), undefined);
   });
 
-  it('草图行删除可用：HITL 确认 → onDelete(sketch 节点)（Sidebar 路由 deleteSketch）', async () => {
+  it('草图行删除：直接 onDelete(sketch 节点)（Sidebar 路由 deleteSketch）', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     const sketches: FeatureTreeEntry[] = [
@@ -569,8 +561,7 @@ describe('树上右键菜单（对齐 os-15 子集：重命名/编辑/抑制/删
     const del = screen.getByRole('menuitem', { name: '删除' }) as HTMLButtonElement;
     expect(del.disabled).toBe(false);
     await user.click(del);
-    const dialog = screen.getByRole('dialog', { name: '删除 草图 1' });
-    await user.click(within(dialog).getByRole('button', { name: '删除' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'sk1', type: 'sketch' }), undefined);
   });
 
@@ -1016,7 +1007,7 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(usePartStudioStore.getState().canvas.hiddenIds).not.toContain('0x15');
   });
 
-  it('canEdit=false：删除/抑制保持渲染但 disabled（title 提示），HITL 不打开、不回调；隐藏/显示仍可用', async () => {
+  it('canEdit=false：删除/抑制保持渲染但 disabled（title 提示），不回调；隐藏/显示仍可用', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     const onSuppress = vi.fn();
@@ -1058,19 +1049,6 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
   });
 
-  it('删除 HITL 确认遇 canEdit 竞态翻转 → 防御性拒收（不回调）', async () => {
-    const user = userEvent.setup();
-    const onDelete = vi.fn();
-    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} onDelete={onDelete} />);
-    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
-    await user.click(screen.getByRole('menuitem', { name: '删除' }));
-    expect(screen.getByRole('dialog', { name: '删除 拉伸 1' })).toBeDefined();
-    // 对话框在场时权限翻转（canEdit=false）→ 确认按钮兜底拒收。
-    rerender(<FeatureTree entries={ENTRIES} bodies={BODIES} onDelete={onDelete} canEdit={false} />);
-    const dialog = screen.getByRole('dialog', { name: '删除 拉伸 1' });
-    await user.click(within(dialog).getByRole('button', { name: '删除' }));
-    expect(onDelete).not.toHaveBeenCalled();
-  });
 });
 
 // ── B6 M-A4.2a：booleanBodies 特征树标签（词库入册，非回退原始串）────────────

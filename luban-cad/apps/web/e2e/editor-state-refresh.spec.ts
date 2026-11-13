@@ -141,7 +141,6 @@ test.describe('编辑器状态/渲染刷新回归（2026-11-13）', () => {
     // 删除拉伸：consumed body 隐藏（neverDrawn 含 bodyKey），零件数归零。
     await page.getByTestId(`tree-row-${extrudeId}`).click({ button: 'right' });
     await page.getByRole('menuitem', { name: '删除', exact: true }).click();
-    await page.getByRole('dialog', { name: /删除/ }).getByRole('button', { name: '删除', exact: true }).click();
     await expect(page.getByTestId(`tree-row-${extrudeId}`)).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId('part-studio-part-count')).toHaveText('(0)', { timeout: 30_000 });
     await expect.poll(async () => (await viewInfo(page)).neverDrawn, {
@@ -152,7 +151,6 @@ test.describe('编辑器状态/渲染刷新回归（2026-11-13）', () => {
     // 删除草图：树行移除，渲染不再有可见体。
     await page.getByTestId(`tree-row-${sketchId}`).click({ button: 'right' });
     await page.getByRole('menuitem', { name: '删除', exact: true }).click();
-    await page.getByRole('dialog', { name: /删除/ }).getByRole('button', { name: '删除', exact: true }).click();
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId('part-studio-feature-count')).toHaveText('(4)', { timeout: 30_000 });
   });
