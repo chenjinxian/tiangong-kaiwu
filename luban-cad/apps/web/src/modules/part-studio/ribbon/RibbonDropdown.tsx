@@ -65,6 +65,9 @@ export function RibbonDropdown({
 }: RibbonDropdownProps): React.JSX.Element {
   const { t } = useTranslation();
   const label = t(tool.labelKey);
+  /** 飞菜单父行文案（live 2026-11-13：圆弧/圆角/多边形/使用的工具栏与菜单文案不同）。 */
+  const menuLabel = tool.menuLabelKey ? t(tool.menuLabelKey) : label;
+  const mainTitle = tool.tooltipKey ? t(tool.tooltipKey) : label;
   const MainIcon = tool.icon;
   const mainOnshapeIcon = onshapeIconFor(tool.id);
 
@@ -85,7 +88,7 @@ export function RibbonDropdown({
     const parentRow: MenuRow = {
       key: `parent-${tool.id}`,
       id: tool.id,
-      label,
+      label: menuLabel,
       icon: mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />,
       ...(tool.shortcut ? { shortcut: tool.shortcut } : {}),
       disabled,
@@ -99,12 +102,13 @@ export function RibbonDropdown({
         id: item.id,
         label: t(item.labelKey),
         icon: itemOnshapeIcon ? <OnshapeIcon name={itemOnshapeIcon} size={20} /> : <ItemIcon />,
+        ...(item.shortcut ? { shortcut: item.shortcut } : {}),
         disabled: readOnly && !isGated(item.capability),
         parent: false,
       };
     });
     return [parentRow, ...children];
-  }, [tool, label, mainOnshapeIcon, MainIcon, disabled, readOnly, t]);
+  }, [tool, menuLabel, mainOnshapeIcon, MainIcon, disabled, readOnly, t]);
 
   const placeMenu = React.useCallback((): void => {
     const rect = groupRef.current?.getBoundingClientRect();
@@ -189,7 +193,7 @@ export function RibbonDropdown({
       <button
         type="button"
         aria-label={label}
-        title={tool.shortcut ? `${label} (${tool.shortcut})` : label}
+        title={tool.shortcut ? `${mainTitle} (${tool.shortcut})` : mainTitle}
         aria-pressed={active}
         className={toolClass}
         disabled={disabled}
@@ -217,7 +221,7 @@ export function RibbonDropdown({
           ref={menuRef}
           className="part-studio-ribbon__menu"
           role="menu"
-          aria-label={label}
+          aria-label={menuLabel}
           style={{ left: position.left, top: position.top }}
           data-testid={`part-studio-ribbon-menu-${tool.id}`}
         >

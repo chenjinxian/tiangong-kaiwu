@@ -64,7 +64,7 @@ test.describe('正多边形工具（5 边）', () => {
     const seed = await resetBModelSeed(request, token);
     const ctx = await openSeedImodelEditor(page, seed);
 
-    await enterSketchAndDrawPolygon(page, '内切多边形');
+    await enterSketchAndDrawPolygon(page, '内接多边形');
 
     const after = await latestSketch(ctx, token);
     const lines = after.entities.filter((e): e is LineEntity => e.kind === 'line');
@@ -96,7 +96,7 @@ test.describe('正多边形工具（5 边）', () => {
     const seed = await resetBModelSeed(request, token);
     const ctx = await openSeedImodelEditor(page, seed);
 
-    await enterSketchAndDrawPolygon(page, '外切多边形');
+    await enterSketchAndDrawPolygon(page, '外接多边形');
     const after = await latestSketch(ctx, token);
     const lines = after.entities.filter((e): e is LineEntity => e.kind === 'line');
     expect(lines).toHaveLength(5);

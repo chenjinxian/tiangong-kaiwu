@@ -122,7 +122,7 @@ test.describe('草图镜像工具（Sketch.Mirror）', () => {
     expect(withCircle.constraints.filter((c) => c.kind === 'equal')).toHaveLength(1);
 
     // 圆弧镜像（v1.61）：圆心/起/终点反射 + mirror(arc,arc,axis)；扫角符号翻转。
-    await activate(page, '中心圆弧');
+    await activate(page, '圆心圆弧');
     await clickWorld(page, hub, P(10, 25));
     await clickWorld(page, hub, P(10, 30));
     await clickWorld(page, hub, P(15, 25));

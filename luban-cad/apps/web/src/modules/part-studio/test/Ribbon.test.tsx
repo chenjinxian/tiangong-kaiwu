@@ -253,7 +253,7 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     expect(screen.getByRole('dialog', { name: '草图文本（未支持）' })).toBeDefined();
     // 关闭后打开圆弧飞菜单 → 圆锥（live：圆锥在圆弧飞菜单，不在样条飞菜单）。
     await user.click(screen.getByRole('button', { name: '知道了' }));
-    await user.click(screen.getByRole('button', { name: '3 点圆弧 ▾' }));
+    await user.click(screen.getByRole('button', { name: '三点圆弧 ▾' }));
     await user.click(screen.getByRole('menuitem', { name: '圆锥' }));
     expect(mocks.toolsRun).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: '圆锥曲线（未支持）' })).toBeDefined();

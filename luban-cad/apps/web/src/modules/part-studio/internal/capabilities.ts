@@ -58,6 +58,21 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sketchSlot: 'gated', // 槽（工具未实现）
   sketchChamfer: 'full', // 草图倒角（2026-11-13 首切片：角点点击 + 距离尺寸，真栈绿）
   sketchInsertImage: 'gated', // 插入图像（图像实体/渲染未实现）
+  // 2026-11-13 工具栏 live 全量对拍：草图约束飞菜单补齐 live 全 14 变体；
+  // 求解器/拾取未接的六项登记 gated（诚实引导，不静默 no-op）。
+  sketchConcentric: 'gated', // 同心（求解器有类型、前端拾取通道未接）
+  sketchNormal: 'gated', // 法向
+  sketchPierce: 'gated', // 穿透
+  sketchSymmetric: 'gated', // 对称
+  sketchCurvature: 'gated', // 曲率
+  sketchFlow: 'gated', // 草图流
+  // 平面▾ 飞菜单里的装配/参考工具（live 同列）：
+  mateConnector: 'gated', // 配合连接器（ctrl+m）
+  derived: 'gated', // 派生
+  variable: 'gated', // 变量
+  queryVariable: 'gated', // 查询变量
+  compositePart: 'gated', // 复合零件
+  tag: 'gated', // 标记
   deleteBodies: 'gated', // 删除零件（无后端 FeatureOp——W1.2b 诚实 gated）
   modifyFillet: 'gated', // 修改圆角（无工具/后端面——W1.2b 续审计诚实 gated）
   deleteFace: 'gated', // 删除面（内核 DeleteSubEntity 0 回包——blocked-kernel）
@@ -169,4 +184,17 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   sketchIntersection: guidanceFor('sketchIntersection'),
   sketchSlot: guidanceFor('sketchSlot'),
   sketchInsertImage: guidanceFor('sketchInsertImage'),
+  // 2026-11-13 工具栏 live 全量对拍新增 gated。
+  sketchConcentric: guidanceFor('sketchConcentric'),
+  sketchNormal: guidanceFor('sketchNormal'),
+  sketchPierce: guidanceFor('sketchPierce'),
+  sketchSymmetric: guidanceFor('sketchSymmetric'),
+  sketchCurvature: guidanceFor('sketchCurvature'),
+  sketchFlow: guidanceFor('sketchFlow'),
+  mateConnector: guidanceFor('mateConnector'),
+  derived: guidanceFor('derived'),
+  variable: guidanceFor('variable'),
+  queryVariable: guidanceFor('queryVariable'),
+  compositePart: guidanceFor('compositePart'),
+  tag: guidanceFor('tag'),
 };

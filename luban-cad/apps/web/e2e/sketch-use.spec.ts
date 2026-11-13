@@ -99,7 +99,7 @@ async function openUseSketch(
     return { x: box!.x + view!.x, y: box!.y + view!.y };
   };
 
-  await page.getByRole('button', { name: '使用', exact: true }).click();
+  await page.getByRole('button', { name: '使用（投影/转换）', exact: true }).click();
   await expect(page.getByTestId('sketch-use-prompt')).toContainText('使用', { timeout: 30_000 });
   return { ctx, sourceId: source.featureId!, consumerId: consumer.featureId!, token, project };
 }

@@ -271,7 +271,8 @@
         "label": "Select vertex"
       },
       "sketch": {
-        "label": "Sketch"
+        "label": "Sketch",
+        "tooltip": "Create sketch"
       },
       "extrude": {
         "label": "Extrude"
@@ -407,9 +408,6 @@
       "smBend": {
         "label": "Bend"
       },
-      "smJog": {
-        "label": "SMJog"
-      },
       "forming": {
         "label": "Forming"
       },
@@ -427,12 +425,6 @@
       },
       "endSheetMetal": {
         "label": "End sheet metal model"
-      },
-      "pcbFlexModel": {
-        "label": "PCBFlexModel"
-      },
-      "pcbEndFlexModel": {
-        "label": "PCBEndFlexModel"
       },
       "surfacePlane": {
         "label": "Plane"
@@ -465,7 +457,7 @@
         "label": "Fit spline 3D"
       },
       "projectCurve": {
-        "label": "Project"
+        "label": "Project curve"
       },
       "bridgeCurve": {
         "label": "Bridge curve"
@@ -474,10 +466,10 @@
         "label": "Composite curve"
       },
       "intersectionCurve": {
-        "label": "Intersection"
+        "label": "Intersection curve"
       },
       "trimCurve": {
-        "label": "Trim"
+        "label": "Trim curve"
       },
       "isoline": {
         "label": "Isoline"
@@ -493,6 +485,27 @@
       },
       "routeCurve": {
         "label": "Route curve"
+      },
+      "mateConnector": {
+        "label": "Mate connector"
+      },
+      "derived": {
+        "label": "Derived"
+      },
+      "variable": {
+        "label": "Variable"
+      },
+      "queryVariable": {
+        "label": "Query variable"
+      },
+      "compositePart": {
+        "label": "Composite part"
+      },
+      "tag": {
+        "label": "Tag"
+      },
+      "corner": {
+        "label": "Corner"
       }
     },
     "sketchTools": {
@@ -512,7 +525,7 @@
         "label": "Spline"
       },
       "fillet": {
-        "label": "Fillet"
+        "label": "Sketch fillet"
       },
       "trim": {
         "label": "Trim"
@@ -575,7 +588,7 @@
         "label": "Point"
       },
       "use": {
-        "label": "Use"
+        "label": "Use (project/convert)"
       },
       "construction": {
         "label": "Construction"
@@ -596,16 +609,16 @@
         "label": "Dimension"
       },
       "rectangleCenter": {
-        "label": "Center rectangle"
+        "label": "Center point rectangle"
       },
       "rectangleAligned": {
         "label": "Aligned rectangle"
       },
       "circlePerimeter": {
-        "label": "Perimeter circle"
+        "label": "3 point circle"
       },
       "arcCenter": {
-        "label": "Center arc"
+        "label": "Center point arc"
       },
       "arcTangent": {
         "label": "Tangent arc"
@@ -645,8 +658,40 @@
       },
       "insertImage": {
         "label": "Insert image"
+      },
+      "arcMenu": {
+        "label": "3 point arc"
+      },
+      "filletMenu": {
+        "label": "Fillet"
+      },
+      "polygonMenu": {
+        "label": "Inscribed polygon"
+      },
+      "useMenu": {
+        "label": "Use"
+      },
+      "concentric": {
+        "label": "Concentric"
+      },
+      "normal": {
+        "label": "Normal"
+      },
+      "pierce": {
+        "label": "Pierce"
+      },
+      "symmetric": {
+        "label": "Symmetric"
+      },
+      "curvature": {
+        "label": "Curvature"
+      },
+      "sketchFlow": {
+        "label": "Sketch flow"
       }
-    }
+    },
+    "undoShortcut": "cmd+z/ctrl+z",
+    "redoShortcut": "ctrl+y/shift+cmd+z"
   },
   "featureDialog": {
     "confirm": "Confirm",
@@ -1695,6 +1740,54 @@
     "sketchInsertImage": {
       "title": "Insert image (not supported)",
       "message": "Sketch images require an image entity and rendering support; not implemented in this version. Clicking writes nothing."
+    },
+    "sketchConcentric": {
+      "title": "Concentric constraint",
+      "message": "Sketch concentric constraints are not wired yet (solver support lands in a later slice)."
+    },
+    "sketchNormal": {
+      "title": "Normal constraint",
+      "message": "Sketch normal constraints are not implemented yet."
+    },
+    "sketchPierce": {
+      "title": "Pierce constraint",
+      "message": "Sketch pierce constraints are not implemented yet."
+    },
+    "sketchSymmetric": {
+      "title": "Symmetric constraint",
+      "message": "Sketch symmetric constraints are not implemented yet (sketch mirror tool is available)."
+    },
+    "sketchCurvature": {
+      "title": "Curvature constraint",
+      "message": "Sketch curvature (G2/G3) constraints are not implemented yet."
+    },
+    "sketchFlow": {
+      "title": "Sketch flow",
+      "message": "Sketch flow constraints are not implemented yet."
+    },
+    "mateConnector": {
+      "title": "Mate connector",
+      "message": "Mate connectors are not wired into the assembly/feature pipeline yet."
+    },
+    "derived": {
+      "title": "Derived",
+      "message": "Derived features across Part Studios are not implemented yet."
+    },
+    "variable": {
+      "title": "Variable",
+      "message": "Variables and the expression engine are not implemented yet."
+    },
+    "queryVariable": {
+      "title": "Query variable",
+      "message": "Query variables are not implemented yet."
+    },
+    "compositePart": {
+      "title": "Composite part",
+      "message": "Composite parts are not implemented yet."
+    },
+    "tag": {
+      "title": "Tag",
+      "message": "Tag metadata is not implemented yet."
     }
   },
   "viewCube": {

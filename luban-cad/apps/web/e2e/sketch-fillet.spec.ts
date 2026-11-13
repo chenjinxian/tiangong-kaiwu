@@ -104,7 +104,7 @@ test.describe('草图圆角（Onshape 对拍）', () => {
     };
 
     // 草图 ribbon「圆角」（Onshape 点击角点立即生成）。
-    await page.getByRole('button', { name: '圆角', exact: true }).click();
+    await page.getByRole('button', { name: '草图圆角', exact: true }).click();
     const corner = await project({ x: 0, y: 0 });
     await page.mouse.click(corner.x, corner.y);
 
@@ -220,7 +220,7 @@ test.describe('草图圆角（Onshape 对拍）', () => {
     };
 
     // 两线不相连：依次点两条直线（无共享角点），在延长交点 (0,0) 倒角。
-    await page.getByRole('button', { name: '圆角', exact: true }).click();
+    await page.getByRole('button', { name: '草图圆角', exact: true }).click();
     const firstLine = await project({ x: 5, y: 0 });
     await page.mouse.click(firstLine.x, firstLine.y);
     const secondLine = await project({ x: 0, y: 6 });
@@ -312,7 +312,7 @@ test.describe('草图圆角（Onshape 对拍）', () => {
       return { x: box!.x + view!.x, y: box!.y + view!.y };
     };
 
-    await page.getByRole('button', { name: '圆角', exact: true }).click();
+    await page.getByRole('button', { name: '草图圆角', exact: true }).click();
     const corner = await project({ x: 0, y: 0 });
     await page.mouse.click(corner.x, corner.y);
 
@@ -404,7 +404,7 @@ test.describe('草图圆角（Onshape 对拍）', () => {
       return { x: box!.x + view!.x, y: box!.y + view!.y };
     };
 
-    await page.getByRole('button', { name: '圆角', exact: true }).click();
+    await page.getByRole('button', { name: '草图圆角', exact: true }).click();
     const corner = await project({ x: 0, y: 0 });
     await page.mouse.click(corner.x, corner.y);
 

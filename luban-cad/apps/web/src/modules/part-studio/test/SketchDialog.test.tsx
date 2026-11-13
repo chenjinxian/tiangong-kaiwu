@@ -121,17 +121,18 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
         .map((tool) => lookup(zhPartStudio, tool.labelKey.replace(/^partStudio\./, '')) as string);
     expect(labelsOf('sketchFeature')).toEqual(['拉伸', '旋转']);
     expect(labelsOf('sketchDraw')).toEqual([
-      '线', '拐角矩形', '中心点圆', '3 点圆弧', '内切多边形', '样条', '点', '文本', '使用', '构造',
+      '线', '拐角矩形', '中心点圆', '三点圆弧', '内接多边形', '样条', '点', '文本', '使用（投影/转换）', '构造',
     ]);
     expect(labelsOf('sketchEdit')).toEqual([
-      '圆角', '修剪', '偏移', '镜像', '线性阵列', '插入 DXF 或 DWG',
+      '草图圆角', '修剪', '偏移', '镜像', '线性阵列', '插入 DXF 或 DWG',
     ]);
     expect(labelsOf('sketchDimension')).toEqual(['尺寸']);
     expect(labelsOf('sketchConstraint')).toEqual(['重合']);
     // 飞菜单子项仍在册（约束 8 + 尺寸 2 + 绘制变体），名称可寻址。
     const constraint = SKETCH_RIBBON_TOOLS.find((t) => t.id === 'Sketch.Constraint.Coincident');
     expect(constraint?.dropdownItems?.map((item) => lookup(zhPartStudio, item.labelKey.replace(/^partStudio\./, '')))).toEqual([
-      '水平', '竖直', '平行', '垂直', '相等', '中点', '相切', '固定',
+      '同心', '平行', '相切', '水平', '竖直', '垂直', '等长', '中点',
+      '法向', '穿透', '对称', '固定', '曲率', '草图流',
     ]);
     // Onshape live：只有一个「尺寸」按钮——长度/半径/距离由同一工具按拾取
     // 动态推断，不再有长度/半径下拉（2026-11-02）。
@@ -155,6 +156,8 @@ describe('SKETCH_RIBBON_TOOLS 草图工具注册表（os-30）', () => {
           'sketch', 'extrude', 'revolve', 'sketchText', 'sketchConic',
           'sketchMidline', 'sketchEllipse', 'sketchEllipseArc', 'sketchSplineControlPoints',
           'sketchIntersection', 'sketchSlot', 'sketchChamfer', 'sketchInsertImage',
+          'sketchConcentric', 'sketchNormal', 'sketchPierce', 'sketchSymmetric',
+          'sketchCurvature', 'sketchFlow',
         ]).toContain(command.capability);
         expect(command.labelKey.startsWith('partStudio.ribbon.')).toBe(true);
         const localPath = command.labelKey.replace(/^partStudio\./, '');
@@ -411,6 +414,16 @@ describe('确认/取消 ↔ store.sketch 联动', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(usePartStudioStore.getState().sketch.isActive).toBe(false);
   });
+
+  it('已被飞菜单消费的 Escape 不再退出草图（defaultPrevented 守卫）', () => {
+    usePartStudioStore.getState().enterSketch('sketch-9');
+    const { onCancel } = renderDialog();
+    const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+    event.preventDefault();
+    window.dispatchEvent(event);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(true);
+  });
 });
 
 // M6-a T4（F1）：insertSketch RPC 接线——applyOp 在场时 ✓ → 空草图先建壳
@@ -546,8 +559,8 @@ describe('草图模式全 UI 变身（store.sketch 驱动）', () => {
     // 草图绘制工具在场（os-30 组：线/矩形/圆…）；M6-b T5 标注组按工具展开
     //（约束 6 + 尺寸 2 真 toolId，原「尺寸/约束」两占位钮已除名）。
     for (const name of [
-      '线', '拐角矩形', '中心点圆', '3 点圆弧', '内切多边形', '样条', '点', '文本',
-      '使用', '构造', '圆角', '修剪', '偏移', '镜像', '线性阵列', '插入 DXF 或 DWG',
+      '线', '拐角矩形', '中心点圆', '三点圆弧', '内接多边形', '样条', '点', '文本',
+      '使用（投影/转换）', '构造', '草图圆角', '修剪', '偏移', '镜像', '线性阵列', '插入 DXF 或 DWG',
       '尺寸', '重合', '拉伸', '旋转',
     ]) {
       expect(screen.getByRole('button', { name })).toBeDefined();

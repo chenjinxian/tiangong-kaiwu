@@ -238,7 +238,7 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   const sketchToolbar = page.getByRole('toolbar', { name: '草图工具' });
   await expect(sketchDialog).toBeVisible({ timeout: 15_000 });
   const lineButton = sketchToolbar.getByRole('button', { name: '线', exact: true });
-  const arcButton = sketchToolbar.getByRole('button', { name: '3 点圆弧', exact: true });
+  const arcButton = sketchToolbar.getByRole('button', { name: '三点圆弧', exact: true });
   // 首笔 op 预算放宽（60s）：applyOp 链=写租约获取→insertSketch→saveChanges→
   // onCommitted→树刷新，冷会话首笔含 RPC 通道/租约建立（FEATURE_OP_TIMEOUT_MS
   // 15s + 陈旧租约 35s 自愈预算都在链上），5s 级断言会吃假红。

@@ -182,7 +182,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     await expectCounts(ctx, token, 6, 10, '自由线');
 
     // 三点圆弧：起点/终点/弧上点。
-    await activate(page, '3 点圆弧');
+    await activate(page, '三点圆弧');
     await clickWorld(page, hub, P(40, 20));
     await clickWorld(page, hub, P(70, 20));
     await clickWorld(page, hub, P(55, 35));
@@ -281,7 +281,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     sk = await expectCounts(ctx, token, 7, 10, '线 B');
 
     // 弧起点落在线上 → auto-weld（与 Onshape 推断吸附同构）。
-    await activate(page, '3 点圆弧');
+    await activate(page, '三点圆弧');
     await clickWorld(page, hub, P(75, 45));
     await clickWorld(page, hub, P(90, 35));
     await clickWorld(page, hub, P(88, 42));
@@ -346,7 +346,7 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     await page.waitForTimeout(1_200);
     sk = await expectCounts(ctx, token, 6, 10, '基准线');
 
-    await activate(page, '3 点圆弧');
+    await activate(page, '三点圆弧');
     await clickWorld(page, hub, P(60, 10));
     await clickWorld(page, hub, P(75, 0));
     await clickWorld(page, hub, P(72, 7));

@@ -53,7 +53,7 @@ test.describe('中心点圆弧工具（Sketch.CenterArc）', () => {
     });
     await disableSnap(page);
 
-    await activate(page, '中心圆弧');
+    await activate(page, '圆心圆弧');
     await clickWorld(page, hub, P(0, 0));
     await clickWorld(page, hub, P(10, 0));
     await clickWorld(page, hub, P(0, 10));

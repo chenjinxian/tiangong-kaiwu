@@ -3,17 +3,17 @@
  * Licensed under the MIT License.
  *
  * part-studio 工具 ribbon 注册表（M3 Task 4）——ribbon 渲染层与命令搜索
- * 的唯一数据源（os-11/os-20 采集对齐；M6-c T5 分组序权威升级）：
- * - 28 工具按 Onshape 主工具栏分组序在册——**分组序权威 = diag-tools.json
- *  （2026-10-23 Tutorial 2 实测采集）：撤消重做｜草图｜拉伸 旋转 扫掠 放样
+ * 的唯一数据源。2026-11-13 live 全量对拍（私有
+ * `ui-evidence/toolbar-audit-20261113/`：按钮序/tooltip/快捷键/9 个飞菜单）：
+ * - 27 工具按 Onshape 主工具栏分组序在册——撤消重做｜草图｜拉伸 旋转 扫掠 放样
  *   加厚▾｜圆角▾ 倒角 拔模▾ 筋 抽壳 孔 外部螺纹｜线性阵列▾ 镜像｜布尔运算
  *   分割 变换▾ 删除零件｜修改圆角 删除面 移动面 替换面｜平面▾｜框架▾｜
- *   钣金模型▾｜添加自定义特征**。两处刻意缺席（工具集不变裁决）：①撤消/重做
- *   归顶栏操作簇（本仓 M4-T4 装配，不入 ribbon）；②筋（Rib）未注册（未接线
- *   占位不入册）。surfaceCurve 组=本仓扩充（UI-INVENTORY §2.2 曲面/曲线大全，
- *   Onshape 主工具栏无此独立组），钉在末位。8 个下拉飞菜单（加厚/圆角/拔模/
- *   线性阵列/变换/框架/钣金模型/曲面曲线组）携全量子项（os-20 txt 证据逐项
- *   对账）；
+ *   钣金模型▾｜添加自定义特征。飞菜单**父行=主工具**（RibbonDropdown 自动
+ *   前置），子项=live 逐字（加厚/圆角/拔模/线性阵列/变换/平面/框架/钣金）：
+ *   平面▾ 25 项把曲面/曲线/装配参考全量收入（此前自创的独立 surfaceCurve
+ *   组已删除，Onshape 无该组）；钣金▾ 11 项无 SMJog/PCB 项、含角点。
+ *   custom 主钮在 Onshape 是文档自定义特征（FeatureScript）名，本仓无该运行时，
+ *   保留「添加自定义特征」主钮并 gated；
  * - id 校准原则（T2 挂账「gated toolId 暂定命名待 T4 校准」收口）：已有
  *   真实 iTwin 工具的 6 项沿用旧应用 toolId（CadToolbar.tsx 取证：
  *   SweepFaces/RoundEdges/ChamferEdges/HollowFaces/MirrorElements/LinearPattern）
@@ -48,8 +48,7 @@ export type RibbonGroup =
   | 'reference'
   | 'frames'
   | 'sheetMetal'
-  | 'custom'
-  | 'surfaceCurve';
+  | 'custom';
 
 /** 图标字形组件（无 props 依赖的纯 SVG）。 */
 export type RibbonIcon = React.ComponentType;
@@ -63,6 +62,8 @@ export interface RibbonDropdownItem {
   labelKey: string;
   /** 能力键（internal/capabilities 注册表寻址）。 */
   capability: string;
+  /** 快捷键（live 飞菜单右对齐 keycap；2026-11-13 对拍）。 */
+  shortcut?: string;
 }
 
 /** ribbon 工具条目。 */
@@ -72,6 +73,16 @@ export interface RibbonTool {
   icon: RibbonIcon;
   /** i18n 键（partStudio.ribbon.tools.*.label）。 */
   labelKey: string;
+  /**
+   * 悬停 tooltip 文案键（2026-11-13 live 对拍）：缺省用 labelKey。live 里
+   * 「草图」主钮 tooltip=创建新草图（可见标签仍是草图）。
+   */
+  tooltipKey?: string;
+  /**
+   * 飞菜单父行文案键（缺省 labelKey）：草图的圆弧/圆角/多边形/使用四项在
+   * live 里工具栏 tooltip 与菜单父行文案不同（如工具栏「三点圆弧」、菜单「3 点圆弧」）。
+   */
+  menuLabelKey?: string;
   /** 快捷键（os-11 title 属性钉死：shift+s/shift+e/shift+w/shift+f）。 */
   shortcut?: string;
   /** 主钮显示文字标签（Onshape 仅草图等主命令带 label）。 */
@@ -320,8 +331,7 @@ const SurfaceCurveIcon = icon(
 // ── 注册表（Onshape 主工具栏分组序——diag-tools.json 权威，见文件头；
 //    group 切换即分隔条）──────────────────────────────────────────────────
 
-/** 分组渲染顺序（os-11 toolset-seperator 切分序 = diag-tools.json 组界序；
- *  surfaceCurve 为本仓扩充组钉末位）。 */
+/** 分组渲染顺序（os-11 toolset-seperator 切分序 = live 2026-11-13 组界序）。 */
 export const RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
   'sketch',
   'create',
@@ -333,14 +343,11 @@ export const RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
   'frames',
   'sheetMetal',
   'custom',
-  'surfaceCurve',
 ];
 
 /**
- * Onshape 主工具栏可见分组序（2026-11-02 live 对齐）：surfaceCurve 为本仓扩充
- * 的曲面/曲线大全，在 Onshape 主工具栏无对应组——本阶段只从工具栏隐去，
- * 注册表/命令搜索仍保留，功能不删。2026-11-03：显式选择模式（selection 组）
- * 已由默认 OnshapeSelectTool 取代并从注册表移除。
+ * Onshape 主工具栏可见分组序（2026-11-13 live 全量对拍；无自创分组）。
+ * 2026-11-03：显式选择模式（selection 组）已由默认 OnshapeSelectTool 取代。
  */
 export const ONSHAPE_RIBBON_GROUP_ORDER: readonly RibbonGroup[] = [
   'sketch',
@@ -467,6 +474,7 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     id: 'newSketch',
     icon: SketchIcon,
     labelKey: 'partStudio.ribbon.tools.sketch.label',
+    tooltipKey: 'partStudio.ribbon.tools.sketch.tooltip',
     shortcut: 'shift+s',
     showLabel: true,
     capability: 'sketch',
@@ -657,8 +665,35 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     labelKey: 'partStudio.ribbon.tools.cPlane.label',
     capability: 'cPlane',
     group: 'reference',
-    // Onshape live: 平面主钮带 ▾（本阶段保留箭头 UI，变体未实现）。
-    dropdownItems: [],
+    // 2026-11-13 live 对拍：平面主钮飞菜单 25 项（曲面/曲线/装配参考全量，
+    // 顺序逐字对齐 Onshape；此前这些项目被自创为独立「曲面/曲线」组）。
+    dropdownItems: [
+      { id: 'offsetSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.offsetSurface.label', capability: 'surfaces' },
+      { id: 'boundarySurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.boundarySurface.label', capability: 'surfaces' },
+      { id: 'fillSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.fillSurface.label', capability: 'surfaces' },
+      { id: 'moveBoundary', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.moveBoundary.label', capability: 'surfaces' },
+      { id: 'ruledSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.ruledSurface.label', capability: 'surfaces' },
+      { id: 'mutualTrim', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.mutualTrim.label', capability: 'surfaces' },
+      { id: 'constraintSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.constraintSurface.label', capability: 'surfaces' },
+      { id: 'helix', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.helix.label', capability: 'curves' },
+      { id: 'fitSpline3d', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.fitSpline3d.label', capability: 'curves' },
+      { id: 'projectCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.projectCurve.label', capability: 'curves' },
+      { id: 'bridgeCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.bridgeCurve.label', capability: 'curves' },
+      { id: 'compositeCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.compositeCurve.label', capability: 'curves' },
+      { id: 'intersectionCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.intersectionCurve.label', capability: 'curves' },
+      { id: 'trimCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.trimCurve.label', capability: 'curves' },
+      { id: 'isoline', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.isoline.label', capability: 'curves' },
+      { id: 'offsetCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.offsetCurve.label', capability: 'curves' },
+      { id: 'isoparametricCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.isoparametricCurve.label', capability: 'curves' },
+      { id: 'editCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.editCurve.label', capability: 'curves' },
+      { id: 'routeCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.routeCurve.label', capability: 'curves' },
+      { id: 'mateConnector', icon: CPlaneIcon, labelKey: 'partStudio.ribbon.items.mateConnector.label', capability: 'mateConnector', shortcut: 'ctrl+m' },
+      { id: 'derived', icon: CPlaneIcon, labelKey: 'partStudio.ribbon.items.derived.label', capability: 'derived' },
+      { id: 'variable', icon: CPlaneIcon, labelKey: 'partStudio.ribbon.items.variable.label', capability: 'variable' },
+      { id: 'queryVariable', icon: CPlaneIcon, labelKey: 'partStudio.ribbon.items.queryVariable.label', capability: 'queryVariable' },
+      { id: 'compositePart', icon: CPlaneIcon, labelKey: 'partStudio.ribbon.items.compositePart.label', capability: 'compositePart' },
+      { id: 'tag', icon: CPlaneIcon, labelKey: 'partStudio.ribbon.items.tag.label', capability: 'tag' },
+    ],
   },
   {
     id: 'frame',
@@ -679,20 +714,19 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     labelKey: 'partStudio.ribbon.tools.sheetMetal.label',
     capability: 'sheetMetal',
     group: 'sheetMetal',
+    // 2026-11-13 live 对拍：父行=钣金模型，后续 11 项逐字对齐（无 SMJog/PCB 项）。
     dropdownItems: [
       { id: 'flange', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.flange.label', capability: 'sheetMetal' },
       { id: 'hem', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.hem.label', capability: 'sheetMetal' },
       { id: 'tab', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.tab.label', capability: 'sheetMetal' },
       { id: 'smBend', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.smBend.label', capability: 'sheetMetal' },
-      { id: 'smJog', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.smJog.label', capability: 'sheetMetal' },
       { id: 'forming', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.forming.label', capability: 'sheetMetal' },
       { id: 'sheetMetalLoft', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.sheetMetalLoft.label', capability: 'sheetMetal' },
       { id: 'smJoint', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.smJoint.label', capability: 'sheetMetal' },
+      { id: 'corner', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.corner.label', capability: 'sheetMetal' },
       { id: 'bendRelief', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.bendRelief.label', capability: 'sheetMetal' },
       { id: 'cornerBreak', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.cornerBreak.label', capability: 'sheetMetal' },
       { id: 'endSheetMetal', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.endSheetMetal.label', capability: 'sheetMetal' },
-      { id: 'pcbFlexModel', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.pcbFlexModel.label', capability: 'sheetMetal' },
-      { id: 'pcbEndFlexModel', icon: SheetMetalIcon, labelKey: 'partStudio.ribbon.items.pcbEndFlexModel.label', capability: 'sheetMetal' },
     ],
   },
   {
@@ -703,37 +737,6 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     group: 'custom',
     // Onshape live: 自定义特征主钮带 ▾（本阶段保留箭头 UI，飞菜单未实现）。
     dropdownItems: [],
-  },
-  {
-    id: 'surfaceCurve',
-    icon: SurfaceCurveIcon,
-    labelKey: 'partStudio.ribbon.tools.surfaceCurve.label',
-    capability: 'surfaces',
-    group: 'surfaceCurve',
-    dropdownItems: [
-      // 曲面 8（capability=surfaces；UI-INVENTORY §2.2 曲面/曲线大全）
-      { id: 'surfacePlane', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.surfacePlane.label', capability: 'surfaces' },
-      { id: 'offsetSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.offsetSurface.label', capability: 'surfaces' },
-      { id: 'boundarySurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.boundarySurface.label', capability: 'surfaces' },
-      { id: 'fillSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.fillSurface.label', capability: 'surfaces' },
-      { id: 'moveBoundary', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.moveBoundary.label', capability: 'surfaces' },
-      { id: 'ruledSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.ruledSurface.label', capability: 'surfaces' },
-      { id: 'mutualTrim', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.mutualTrim.label', capability: 'surfaces' },
-      { id: 'constraintSurface', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.constraintSurface.label', capability: 'surfaces' },
-      // 曲线 12（capability=curves）
-      { id: 'helix', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.helix.label', capability: 'curves' },
-      { id: 'fitSpline3d', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.fitSpline3d.label', capability: 'curves' },
-      { id: 'projectCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.projectCurve.label', capability: 'curves' },
-      { id: 'bridgeCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.bridgeCurve.label', capability: 'curves' },
-      { id: 'compositeCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.compositeCurve.label', capability: 'curves' },
-      { id: 'intersectionCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.intersectionCurve.label', capability: 'curves' },
-      { id: 'trimCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.trimCurve.label', capability: 'curves' },
-      { id: 'isoline', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.isoline.label', capability: 'curves' },
-      { id: 'offsetCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.offsetCurve.label', capability: 'curves' },
-      { id: 'isoparametricCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.isoparametricCurve.label', capability: 'curves' },
-      { id: 'editCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.editCurve.label', capability: 'curves' },
-      { id: 'routeCurve', icon: SurfaceCurveIcon, labelKey: 'partStudio.ribbon.items.routeCurve.label', capability: 'curves' },
-    ],
   },
 ];
 

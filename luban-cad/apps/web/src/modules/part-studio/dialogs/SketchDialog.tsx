@@ -315,6 +315,9 @@ export function SketchDialog({
     if (submitting) return;
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
+      // 已被工具栏飞菜单等更内层消费的 Esc 不得再退出草图（Onshape：Esc 只关
+      // 菜单；RibbonDropdown 的 document 处理器先 preventDefault）。
+      if (event.defaultPrevented) return;
       // Onshape：草图工具激活时 Esc 先结束工具（工具自身处理），不得顺带退出草图。
       // 工具主动退出后 activeTool 会切回选择工具，下一次 Esc 才退出草图。
       const activeTool = (IModelApp.toolAdmin as unknown as { activeTool?: { toolId?: string } } | undefined)?.activeTool;

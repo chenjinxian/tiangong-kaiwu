@@ -71,10 +71,24 @@ const EXPECTED_GATED_IDS = [
   'sketchIntersection',
   'sketchSlot',
   'sketchInsertImage',
+  // 2026-11-13 工具栏 live 全量对拍：约束飞菜单补全 14 变体（六项 gated）。
+  'sketchConcentric',
+  'sketchNormal',
+  'sketchPierce',
+  'sketchSymmetric',
+  'sketchCurvature',
+  'sketchFlow',
+  // 平面▾ 飞菜单的装配/参考工具。
+  'mateConnector',
+  'derived',
+  'variable',
+  'queryVariable',
+  'compositePart',
+  'tag',
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单七变体（倒角已翻 full）+ moveFace/transform/splitPart 已翻 full（共 41，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单七变体（倒角已翻 full）+ 2026-11-13 live 工具栏 12 项 + moveFace/transform/splitPart 已翻 full（共 53，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

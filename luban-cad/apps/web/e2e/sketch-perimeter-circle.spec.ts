@@ -53,7 +53,7 @@ test.describe('周边圆工具（Sketch.PerimeterCircle）', () => {
     });
     await disableSnap(page);
 
-    await activate(page, '周边圆');
+    await activate(page, '3 点圆');
     await clickWorld(page, hub, P(10, 0));
     await clickWorld(page, hub, P(0, 10));
     await clickWorld(page, hub, P(-10, 0));

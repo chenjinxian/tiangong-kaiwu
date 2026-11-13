@@ -271,7 +271,8 @@
         "label": "选择点"
       },
       "sketch": {
-        "label": "草图"
+        "label": "草图",
+        "tooltip": "创建新草图"
       },
       "extrude": {
         "label": "拉伸"
@@ -407,9 +408,6 @@
       "smBend": {
         "label": "折弯"
       },
-      "smJog": {
-        "label": "SMJog"
-      },
       "forming": {
         "label": "成型"
       },
@@ -427,12 +425,6 @@
       },
       "endSheetMetal": {
         "label": "结束钣金模型"
-      },
-      "pcbFlexModel": {
-        "label": "PCBFlexModel"
-      },
-      "pcbEndFlexModel": {
-        "label": "PCBEndFlexModel"
       },
       "surfacePlane": {
         "label": "平面"
@@ -465,34 +457,55 @@
         "label": "3D 拟合样条"
       },
       "projectCurve": {
-        "label": "投影"
+        "label": "投影曲线"
       },
       "bridgeCurve": {
-        "label": "桥接"
+        "label": "桥接曲线"
       },
       "compositeCurve": {
-        "label": "复合"
+        "label": "复合曲线"
       },
       "intersectionCurve": {
-        "label": "交点"
+        "label": "交点曲线"
       },
       "trimCurve": {
-        "label": "修剪"
+        "label": "修剪曲线"
       },
       "isoline": {
         "label": "等斜线"
       },
       "offsetCurve": {
-        "label": "偏移"
+        "label": "偏移曲线"
       },
       "isoparametricCurve": {
-        "label": "等参"
+        "label": "等参曲线"
       },
       "editCurve": {
-        "label": "编辑"
+        "label": "编辑曲线"
       },
       "routeCurve": {
         "label": "路线曲线"
+      },
+      "mateConnector": {
+        "label": "配合连接器"
+      },
+      "derived": {
+        "label": "派生"
+      },
+      "variable": {
+        "label": "变量"
+      },
+      "queryVariable": {
+        "label": "查询变量"
+      },
+      "compositePart": {
+        "label": "复合零件"
+      },
+      "tag": {
+        "label": "标记"
+      },
+      "corner": {
+        "label": "角点"
       }
     },
     "sketchTools": {
@@ -506,13 +519,13 @@
         "label": "中心点圆"
       },
       "arc": {
-        "label": "3 点圆弧"
+        "label": "三点圆弧"
       },
       "spline": {
         "label": "样条"
       },
       "fillet": {
-        "label": "圆角"
+        "label": "草图圆角"
       },
       "trim": {
         "label": "修剪"
@@ -548,7 +561,7 @@
         "label": "垂直"
       },
       "equal": {
-        "label": "相等"
+        "label": "等长"
       },
       "midpoint": {
         "label": "中点"
@@ -569,13 +582,13 @@
         "label": "半径"
       },
       "polygon": {
-        "label": "内切多边形"
+        "label": "内接多边形"
       },
       "point": {
         "label": "点"
       },
       "use": {
-        "label": "使用"
+        "label": "使用（投影/转换）"
       },
       "construction": {
         "label": "构造"
@@ -596,25 +609,25 @@
         "label": "尺寸"
       },
       "rectangleCenter": {
-        "label": "中心矩形"
+        "label": "中心点矩形"
       },
       "rectangleAligned": {
         "label": "对齐矩形"
       },
       "circlePerimeter": {
-        "label": "周边圆"
+        "label": "3 点圆"
       },
       "arcCenter": {
-        "label": "中心圆弧"
+        "label": "圆心圆弧"
       },
       "arcTangent": {
         "label": "相切圆弧"
       },
       "polygonCircumscribed": {
-        "label": "外切多边形"
+        "label": "外接多边形"
       },
       "splineBezier": {
-        "label": "贝塞尔曲线"
+        "label": "Bezier"
       },
       "splineConic": {
         "label": "圆锥曲线"
@@ -645,8 +658,40 @@
       },
       "insertImage": {
         "label": "插入图像"
+      },
+      "arcMenu": {
+        "label": "3 点圆弧"
+      },
+      "filletMenu": {
+        "label": "圆角"
+      },
+      "polygonMenu": {
+        "label": "内切多边形"
+      },
+      "useMenu": {
+        "label": "使用"
+      },
+      "concentric": {
+        "label": "同心"
+      },
+      "normal": {
+        "label": "法向"
+      },
+      "pierce": {
+        "label": "穿透"
+      },
+      "symmetric": {
+        "label": "对称"
+      },
+      "curvature": {
+        "label": "曲率"
+      },
+      "sketchFlow": {
+        "label": "草图流"
       }
-    }
+    },
+    "undoShortcut": "cmd+z/ctrl+z",
+    "redoShortcut": "ctrl+y/shift+cmd+z"
   },
   "featureDialog": {
     "confirm": "确认",
@@ -1695,6 +1740,54 @@
     "sketchInsertImage": {
       "title": "插入图像（未支持）",
       "message": "草图图像需要图像实体与渲染支持，当前版本未实现；点击不会写入数据。"
+    },
+    "sketchConcentric": {
+      "title": "同心约束",
+      "message": "草图同心约束的拾取/求解通道尚未实现（求解器已有 CONCENTRIC 类型的接线留待后续切片）。"
+    },
+    "sketchNormal": {
+      "title": "法向约束",
+      "message": "草图法向约束尚未实现。"
+    },
+    "sketchPierce": {
+      "title": "穿透约束",
+      "message": "草图穿透约束（曲线穿过草图平面）尚未实现。"
+    },
+    "sketchSymmetric": {
+      "title": "对称约束",
+      "message": "草图对称约束尚未实现（草图镜像工具已可用）。"
+    },
+    "sketchCurvature": {
+      "title": "曲率约束",
+      "message": "草图 G2/G3 曲率约束尚未实现。"
+    },
+    "sketchFlow": {
+      "title": "草图流",
+      "message": "草图流约束尚未实现。"
+    },
+    "mateConnector": {
+      "title": "配合连接器",
+      "message": "装配配合连接器（mate connector）尚未接入本产品的装配/特征管道。"
+    },
+    "derived": {
+      "title": "派生",
+      "message": "派生特征（Derived）跨 Part Studio 引用尚未实现。"
+    },
+    "variable": {
+      "title": "变量",
+      "message": "变量（Variable）表与表达式引擎尚未实现。"
+    },
+    "queryVariable": {
+      "title": "查询变量",
+      "message": "查询变量功能尚未实现。"
+    },
+    "compositePart": {
+      "title": "复合零件",
+      "message": "复合零件（Composite Part）尚未实现。"
+    },
+    "tag": {
+      "title": "标记",
+      "message": "标记（Tag）元数据功能尚未实现。"
     }
   },
   "viewCube": {

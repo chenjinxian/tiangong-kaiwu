@@ -372,6 +372,7 @@ interface RibbonButtonModel {
   id: string;
   icon: RibbonIcon;
   labelKey: string;
+  tooltipKey?: string;
   shortcut?: string;
   showLabel?: boolean;
 }
@@ -397,7 +398,7 @@ function HistoryGroup({
         type="button"
         className="part-studio-ribbon__tool"
         aria-label={t('partStudio.topBar.edit.undo')}
-        title={t('partStudio.topBar.edit.undo')}
+        title={`${t('partStudio.topBar.edit.undo')} (${t('partStudio.ribbon.undoShortcut')})`}
         disabled={!canEdit || !canUndo}
         onClick={onUndo}
         data-testid="part-studio-ribbon-undo"
@@ -408,7 +409,7 @@ function HistoryGroup({
         type="button"
         className="part-studio-ribbon__tool"
         aria-label={t('partStudio.topBar.edit.redo')}
-        title={t('partStudio.topBar.edit.redo')}
+        title={`${t('partStudio.topBar.edit.redo')} (${t('partStudio.ribbon.redoShortcut')})`}
         disabled={!canEdit || !canRedo}
         onClick={onRedo}
         data-testid="part-studio-ribbon-redo"
@@ -430,6 +431,7 @@ function RibbonToolButton({ tool, onActivate, active, highlighted, disabled = fa
 }): React.JSX.Element {
   const { t } = useTranslation();
   const label = t(tool.labelKey);
+  const tip = tool.tooltipKey ? t(tool.tooltipKey) : label;
   const Icon = tool.icon;
   const onshapeIcon = onshapeIconFor(tool.id);
   const className = [
@@ -442,7 +444,7 @@ function RibbonToolButton({ tool, onActivate, active, highlighted, disabled = fa
     <button
       type="button"
       aria-label={label}
-      title={tool.shortcut ? `${label} (${tool.shortcut})` : label}
+      title={tool.shortcut ? `${tip} (${tool.shortcut})` : tip}
       aria-pressed={active}
       className={className}
       disabled={disabled}
@@ -473,9 +475,21 @@ export interface RibbonProps {
   onRedo?: () => void;
 }
 
-/** 已注册快捷键 → 命令 id（Onshape 工具快捷键；下拉子项无快捷键）。 */
+/** 已注册快捷键 → 命令 id（Onshape 工具快捷键）。 */
 const RIBBON_SHORTCUTS: ReadonlyMap<string, string> = new Map(
   RIBBON_TOOLS.flatMap((tool) => (tool.shortcut ? [[tool.shortcut.toLowerCase(), tool.id] as const] : [])),
+);
+
+/**
+ * 草图工具栏快捷键（2026-11-13 live 对拍）：主钮 l/g/c/a/shift+s/u/q/shift+f/m/o/d/i
+ * 与飞菜单变体 r/x/shift+o/b/t/h/v/shift+l/e/shift+m/shift+k/shift+g/shift+q/shift+j/shift+u。
+ * 草图态与特征态同名但语义不同（shift+s：特征=新建草图，草图=点），按模式取表。
+ */
+const SKETCH_SHORTCUTS: ReadonlyMap<string, string> = new Map<string, string>(
+  SKETCH_RIBBON_TOOLS.flatMap((tool) => [
+    ...(tool.shortcut ? [[tool.shortcut.toLowerCase(), tool.id] as const] : []),
+    ...(tool.dropdownItems ?? []).flatMap((item) => (item.shortcut ? [[item.shortcut.toLowerCase(), item.id] as const] : [])),
+  ]),
 );
 
 /**
@@ -579,18 +593,27 @@ export function Ribbon({
       if (event.altKey) parts.push('alt');
       if (event.shiftKey) parts.push('shift');
       parts.push(event.key.toLowerCase());
-      const commandId = RIBBON_SHORTCUTS.get(parts.join('+'));
-      if (commandId === undefined)
+      const combo = parts.join('+');
+      const commandId = (sketchActive ? SKETCH_SHORTCUTS : RIBBON_SHORTCUTS).get(combo);
+      if (commandId === undefined) {
+        // Onshape 撤消/重做（live tooltip：ctrl+z / ctrl+y / shift+cmd+z）。
+        if (combo === 'ctrl+z' && canUndo) {
+          event.preventDefault();
+          onUndo?.();
+        } else if ((combo === 'ctrl+y' || combo === 'ctrl+shift+z') && canRedo) {
+          event.preventDefault();
+          onRedo?.();
+        }
         return;
-      if (commandId === 'newSketch' && sketchActive)
-        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       void activate(commandId);
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activate, sketchActive]);
+    // 捕获阶段：工具（Line/Trim…）会吞按键；Onshape 快捷键在工具激活时仍生效。
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [activate, sketchActive, canUndo, canRedo, onUndo, onRedo]);
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {

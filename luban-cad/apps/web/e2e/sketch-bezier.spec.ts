@@ -53,7 +53,7 @@ test.describe('贝塞尔曲线工具（Sketch.Bezier）', () => {
     });
     await disableSnap(page);
 
-    await activate(page, '贝塞尔曲线');
+    await activate(page, 'Bezier');
     await clickWorld(page, hub, P(0, 0));
     await clickWorld(page, hub, P(10, 10));
     await clickWorld(page, hub, P(20, -10));

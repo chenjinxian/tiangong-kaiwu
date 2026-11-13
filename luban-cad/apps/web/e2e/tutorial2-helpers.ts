@@ -45,13 +45,13 @@ export async function activate(page: Page, name: string): Promise<void> {
   if ((await target.count()) === 0) {
     // Onshape live：约束/绘制变体收在飞菜单（2026-11-02）；尺寸无飞菜单。
     const variantParent: Record<string, string> = {
-      '中心矩形': 'Sketch.Rectangle',
+      '中心点矩形': 'Sketch.Rectangle',
       '对齐矩形': 'Sketch.Rectangle',
-      '中心圆弧': 'Sketch.Arc3Point',
+      '圆心圆弧': 'Sketch.Arc3Point',
       '相切圆弧': 'Sketch.Arc3Point',
-      '贝塞尔曲线': 'Sketch.Spline',
-      '周边圆': 'Sketch.CenterCircle',
-      '外切多边形': 'sketchInscribedPolygon',
+      'Bezier': 'Sketch.Spline',
+      '3 点圆': 'Sketch.CenterCircle',
+      '外接多边形': 'sketchInscribedPolygon',
     };
     const parent = variantParent[name];
     if (parent !== undefined) {
@@ -59,7 +59,7 @@ export async function activate(page: Page, name: string): Promise<void> {
       await dropdown.getByRole('button', { name: /▾/ }).click();
       target = page.getByRole('menuitem', { name, exact: true });
     } else {
-      const inConstraints = ['水平', '竖直', '平行', '垂直', '相等', '中点', '相切', '固定'].includes(name);
+      const inConstraints = ['重合', '同心', '平行', '相切', '水平', '竖直', '垂直', '等长', '中点', '法向', '穿透', '对称', '固定', '曲率', '草图流'].includes(name);
       if (!inConstraints) throw new Error(`草图工具 ${name} 不在册`);
       const dropdown = toolbar.getByTestId('part-studio-ribbon-dropdown-Sketch.Constraint.Coincident');
       await dropdown.getByRole('button', { name: /▾/ }).click();
@@ -72,16 +72,16 @@ export async function activate(page: Page, name: string): Promise<void> {
   const expectedToolId: Record<string, string> = {
     '线': 'Sketch.Line',
     '拐角矩形': 'Sketch.Rectangle',
-    '中心矩形': 'Sketch.CenterRectangle',
+    '中心点矩形': 'Sketch.CenterRectangle',
     '对齐矩形': 'Sketch.AlignedRectangle',
-    '中心圆弧': 'Sketch.CenterArc',
-    '贝塞尔曲线': 'Sketch.Bezier',
+    '圆心圆弧': 'Sketch.CenterArc',
+    'Bezier': 'Sketch.Bezier',
     '相切圆弧': 'Sketch.TangentArc',
     '中心点圆': 'Sketch.CenterCircle',
-    '周边圆': 'Sketch.PerimeterCircle',
-    '内切多边形': 'sketchInscribedPolygon',
-    '外切多边形': 'sketchCircumscribedPolygon',
-    '3 点圆弧': 'Sketch.Arc3Point',
+    '3 点圆': 'Sketch.PerimeterCircle',
+    '内接多边形': 'sketchInscribedPolygon',
+    '外接多边形': 'sketchCircumscribedPolygon',
+    '三点圆弧': 'Sketch.Arc3Point',
     '样条': 'Sketch.Spline',
     '偏移': 'Sketch.Offset',
     '镜像': 'Sketch.Mirror',
@@ -91,10 +91,11 @@ export async function activate(page: Page, name: string): Promise<void> {
     '竖直': 'Sketch.Constraint.Vertical',
     '平行': 'Sketch.Constraint.Parallel',
     '垂直': 'Sketch.Constraint.Perpendicular',
-    '相等': 'Sketch.Constraint.Equal',
+    '等长': 'Sketch.Constraint.Equal',
     '中点': 'Sketch.Constraint.Midpoint',
     '相切': 'Sketch.Constraint.Tangent',
     '固定': 'Sketch.Constraint.Fixed',
+    '草图圆角': 'sketchFillet',
     '尺寸': 'Sketch.Dimension',
     '距离': 'Sketch.Dimension',
     '长度': 'Sketch.Dimension',

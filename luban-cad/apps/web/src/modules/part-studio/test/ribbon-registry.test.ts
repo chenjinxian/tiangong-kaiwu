@@ -1,13 +1,13 @@
 // src/modules/part-studio/test/ribbon-registry.test.ts
 //
 // M3 Task 4（brief Step 1）：工具 ribbon 注册表完整性——
-//  1) 28 工具全在册（os-11 dom-toolbar.html 取证顺序；id 校准原则：已有真实
+//  1) 27 工具全在册（2026-11-13 live 全量对拍顺序；id 校准原则：已有真实
 //     iTwin 工具的沿用旧应用 toolId——SweepFaces/RoundEdges/ChamferEdges/
 //     HollowFaces/MirrorElements/LinearPattern；DraftFaces/CreateHole 已翻
 //     gated（X-01，后端无命令），未接线的用 Onshape command-id——
 //     newSketch/extrude/…/USER_FEATURES）；
-//  2) 8 个下拉飞菜单全在册（os-20 采集：加厚/圆角/拔模/线性阵列/变换/框架/
-//     钣金模型/曲面曲线组），各含子项清单与 os-20 txt 证据一致；
+//  2) 9 个下拉飞菜单全在册（2026-11-13 live：加厚/圆角/拔模/线性阵列/变换/
+//     平面/框架/钣金模型/添加自定义特征），平面▾ 25 项与 live 逐字一致；
 //  3) 快捷键（os-11 title 属性：草图 shift+s / 拉伸 shift+e / 旋转 shift+w /
 //     圆角 shift+f）；
 //  4) 能力校准（T2 挂账「gated toolId 暂定命名待 T4 校准」）：注册表引用的
@@ -65,7 +65,6 @@ const EXPECTED_TOOL_IDS = [
   'frame', // 框架 ▾
   'sheetMetalStart', // 钣金模型 ▾
   'USER_FEATURES', // 添加自定义特征
-  'surfaceCurve', // 曲面/曲线组 ▾
 ] as const;
 
 /** os-11 分组顺序（toolset-seperator 切分；选择组随默认选择工具退役）。 */
@@ -80,7 +79,6 @@ const EXPECTED_GROUP_ORDER: RibbonGroup[] = [
   'frames',
   'sheetMetal',
   'custom',
-  'surfaceCurve',
 ];
 
 /** os-20 采集的 8 个下拉飞菜单 → 子项 id 清单（键=校准后注册表 toolId）。 */
@@ -91,20 +89,21 @@ const EXPECTED_DROPDOWNS: Record<string, string[]> = {
   LinearPattern: ['CircularPattern', 'curvePattern'], // 线性/环形（真实直改 toolId）/曲线阵列
   transform: ['wrap', 'decal'], // 变换/包覆/印花
   frame: ['frameTrim', 'gusset', 'endCap', 'cutList'], // 框架/框架修剪/角撑板/端盖/切割清单
-  sheetMetalStart: [ // 钣金模型（UI-INVENTORY §2.2 全 13 项）
-    'flange', 'hem', 'tab', 'smBend', 'smJog', 'forming', 'sheetMetalLoft',
-    'smJoint', 'bendRelief', 'cornerBreak', 'endSheetMetal',
-    'pcbFlexModel', 'pcbEndFlexModel',
+  // 2026-11-13 live：钣金模型 ▾ 11 项（无 SMJog/PCB 项，含角点）。
+  sheetMetalStart: [
+    'flange', 'hem', 'tab', 'smBend', 'forming', 'sheetMetalLoft',
+    'smJoint', 'corner', 'bendRelief', 'cornerBreak', 'endSheetMetal',
   ],
-  cPlane: [], // 平面 ▾（Onshape live 箭头；变体未实现，空飞菜单）
-  USER_FEATURES: [], // 添加自定义特征 ▾（Onshape live 箭头；飞菜单未实现）
-  surfaceCurve: [ // 曲面/曲线大全（UI-INVENTORY §2.2：曲面 8 + 曲线 12）
-    'surfacePlane', 'offsetSurface', 'boundarySurface', 'fillSurface',
-    'moveBoundary', 'ruledSurface', 'mutualTrim', 'constraintSurface',
-    'helix', 'fitSpline3d', 'projectCurve', 'bridgeCurve', 'compositeCurve',
-    'intersectionCurve', 'trimCurve', 'isoline', 'offsetCurve',
-    'isoparametricCurve', 'editCurve', 'routeCurve',
+  // 2026-11-13 live：平面 ▾ 25 项（曲面/曲线/装配参考全量，顺序逐字）。
+  cPlane: [
+    'offsetSurface', 'boundarySurface', 'fillSurface', 'moveBoundary',
+    'ruledSurface', 'mutualTrim', 'constraintSurface', 'helix', 'fitSpline3d',
+    'projectCurve', 'bridgeCurve', 'compositeCurve', 'intersectionCurve',
+    'trimCurve', 'isoline', 'offsetCurve', 'isoparametricCurve', 'editCurve',
+    'routeCurve', 'mateConnector', 'derived', 'variable', 'queryVariable',
+    'compositePart', 'tag',
   ],
+  USER_FEATURES: [], // 添加自定义特征 ▾（文档自定义特征为 FeatureScript 运行时，未接）
 };
 
 /** os-11 title 属性钉死的四枚快捷键。 */
@@ -150,9 +149,9 @@ function registryI18nKeys(): string[] {
   return [...keys];
 }
 
-describe('RIBBON_TOOLS 注册表完整性（28 工具，os-11 顺序 + 筋）', () => {
-  it('恰为 28 工具且 id 集合与顺序全对齐取证清单', () => {
-    expect(RIBBON_TOOLS).toHaveLength(28);
+describe('RIBBON_TOOLS 注册表完整性（27 工具，2026-11-13 live 顺序）', () => {
+  it('恰为 27 工具且 id 集合与顺序全对齐取证清单', () => {
+    expect(RIBBON_TOOLS).toHaveLength(27);
     expect(RIBBON_TOOLS.map((tool) => tool.id)).toEqual([...EXPECTED_TOOL_IDS]);
   });
 
@@ -181,8 +180,7 @@ describe('RIBBON_GROUP_ORDER 分组（os-11 分隔序）', () => {
 
   // M6-c T5：分组序权威升级——diag-tools.json（2026-10-23 Tutorial 2 主工具栏
   // 实测）的 11 组序逐组钉死。工具名取注册表 labelKey 的 zh 词库值，与采集
-  // 逐组对账；采集两处刻意缺席（撤消重做→顶栏、筋未注册——工具集不变裁决）
-  // 不入断言；surfaceCurve=本仓扩充组（采集无此组）单独断言钉末位。
+  // 逐组对账；筋 2026-11-02 已入册，2026-11-13 起无自创分组。
   const ONSHAPE_GROUP_SEQUENCE: ReadonlyArray<readonly [group: RibbonGroup, labels: readonly string[]]> = [
     ['sketch', ['草图']],
     ['create', ['拉伸', '旋转', '扫掠', '放样', '加厚']],
@@ -210,14 +208,14 @@ describe('RIBBON_GROUP_ORDER 分组（os-11 分隔序）', () => {
         `分组 ${group} 的组内序与 diag-tools.json 不一致`,
       ).toEqual([...labels]);
     }
-    // 本仓扩充组：surfaceCurve 钉末位（采集主工具栏无此组）。
-    expect(RIBBON_TOOLS[RIBBON_TOOLS.length - 1]!.group).toBe('surfaceCurve');
-    expect(RIBBON_GROUP_ORDER[RIBBON_GROUP_ORDER.length - 1]).toBe('surfaceCurve');
+    // 2026-11-13：不再有本仓自创分组——末组即 live 的自定义特征。
+    expect(RIBBON_TOOLS[RIBBON_TOOLS.length - 1]!.group).toBe('custom');
+    expect(RIBBON_GROUP_ORDER[RIBBON_GROUP_ORDER.length - 1]).toBe('custom');
   });
 });
 
-describe('下拉飞菜单（10 个：os-20 八组 + 平面/自定义箭头 UI）', () => {
-  it('恰为 10 个带 dropdownItems 的工具，id 集合对齐', () => {
+describe('下拉飞菜单（9 个：2026-11-13 live 全量）', () => {
+  it('恰为 9 个带 dropdownItems 的工具，id 集合对齐', () => {
     const dropdownTools = RIBBON_TOOLS.filter((tool) => tool.dropdownItems !== undefined);
     expect(dropdownTools.map((tool) => tool.id).sort()).toEqual(Object.keys(EXPECTED_DROPDOWNS).sort());
   });
@@ -262,8 +260,7 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
     const gatedTools = RIBBON_TOOLS.filter((tool) => isGated(tool.capability));
     expect(gatedTools.map((tool) => tool.id).sort()).toEqual([
       'DraftFaces', 'USER_FEATURES', 'deleteBodies', 'deleteFace', 'externalThread', 'frame',
-      'modifyFillet', 'replaceFace', 'rib', 'sheetMetalStart',
-      'surfaceCurve', 'thicken',
+      'modifyFillet', 'replaceFace', 'rib', 'sheetMetalStart', 'thicken',
     ].sort());
     for (const capability of GATED_CAPABILITIES) {
       expect(isGated(capability)).toBe(true);
@@ -276,13 +273,14 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
     }
   });
 
-  it('曲面/曲线子项 capability 分挂 surfaces/curves（材料/外观式拆分口径）', () => {
-    const surfaceCurve = RIBBON_TOOLS.find((tool) => tool.id === 'surfaceCurve');
+  it('平面▾ 的曲面/曲线子项 capability 分挂 surfaces/curves', () => {
+    const cPlane = RIBBON_TOOLS.find((tool) => tool.id === 'cPlane');
     const byCapability = new Map(
-      (surfaceCurve?.dropdownItems ?? []).map((item) => [item.id, item.capability]),
+      (cPlane?.dropdownItems ?? []).map((item) => [item.id, item.capability]),
     );
-    expect(byCapability.get('surfacePlane')).toBe('surfaces');
+    expect(byCapability.get('offsetSurface')).toBe('surfaces');
     expect(byCapability.get('helix')).toBe('curves');
+    expect(byCapability.get('mateConnector')).toBe('mateConnector');
   });
 });
 
@@ -293,9 +291,9 @@ describe('命令查找辅助（palette 数据源）', () => {
     expect(findRibbonCommand('nope')).toBeUndefined();
   });
 
-  it('allRibbonCommands 展开工具+全部子项（28+44=72 条命令）', () => {
+  it('allRibbonCommands 展开工具+全部子项（27+47=74 条命令）', () => {
     const all = allRibbonCommands();
-    expect(all).toHaveLength(72);
+    expect(all).toHaveLength(74);
     // 工具保序：展开序中过滤回顶层工具，仍等于 os-11 工具序列。
     const toolIds = all
       .filter((command) => (RIBBON_TOOLS as readonly RibbonCommand[]).includes(command))

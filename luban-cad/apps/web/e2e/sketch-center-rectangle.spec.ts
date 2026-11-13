@@ -58,7 +58,7 @@ test.describe('中心矩形工具（Sketch.CenterRectangle）', () => {
     });
     await disableSnap(page);
 
-    await activate(page, '中心矩形');
+    await activate(page, '中心点矩形');
     await clickWorld(page, hub, P(0, 0));
     await clickWorld(page, hub, P(10, 5));
     await page.waitForTimeout(1_500);
