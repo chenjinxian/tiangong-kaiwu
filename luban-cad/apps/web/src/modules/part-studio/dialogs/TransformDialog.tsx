@@ -35,6 +35,7 @@ import type {
   TransformParams,
 } from '@luban-cad/shared';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
+import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 
 export interface TransformDialogProps {
   featureName: string;
@@ -315,6 +316,9 @@ export function TransformDialog({
       setBusy(false);
     }
   }, [submitDisabled, applyOp, buildParams, editMode, featureId, targetBodyKey, t, featureName, onConfirm]);
+
+  // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
 
   const targetLabel = targetBody?.name && targetBody.name.trim() !== ''
     ? `${targetBody.name} (${targetBody.bodyKey})`

@@ -103,6 +103,7 @@ import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
+import { SKETCH_RIBBON_TOOLS } from '../ribbon/sketch-tools.js';
 
 /**
  * 官方 iTwin ViewCube 按需加载：默认模式只加载官方组件 chunk；
@@ -277,6 +278,22 @@ export function PartStudioCanvas({
   const canvasSelectionForSketchPlane = usePartStudioStore((s) => s.canvas.selection);
   const setCanvasSelection = usePartStudioStore((s) => s.setCanvasSelection);
   const activeToolIdForSketchPicker = usePartStudioStore((s) => s.tool.activeToolId);
+  // 2026-11-13 Onshape live：草图工具激活时右键菜单首项「退出 <工具>」。
+  const activeSketchToolLabel = React.useMemo(() => {
+    if (!activeToolIdForSketchPicker)
+      return undefined;
+    const entry = SKETCH_RIBBON_TOOLS.find((tool) => tool.id === activeToolIdForSketchPicker)
+      ?? SKETCH_RIBBON_TOOLS.flatMap((tool) => tool.dropdownItems ?? [])
+        .find((item) => item.id === activeToolIdForSketchPicker);
+    if (!entry)
+      return activeToolIdForSketchPicker;
+    const label = t(entry.labelKey);
+    return label === entry.labelKey ? entry.id : label;
+  }, [activeToolIdForSketchPicker, t]);
+  const exitActiveSketchTool = React.useCallback(() => {
+    const tool = IModelApp.toolAdmin?.activeTool as { exitTool?: () => Promise<void> } | undefined;
+    void tool?.exitTool?.();
+  }, []);
 
   // ADR-0018 S1b：草图实体选择并入唯一选择权威；退出草图即清掉草图条目
   //（它们不是 iModel 元素，不得泄漏到建模态菜单/工具输入）。
@@ -973,13 +990,19 @@ export function PartStudioCanvas({
         />
       )}
       {/* ADR-0018 S1b：草图编辑态（无绘制工具激活）实体/控制点拾取与选中强调。 */}
-      {sketchActiveForDecorations && sketchSystem?.activeSketch && activeToolIdForSketchPicker == null && (
+      {sketchActiveForDecorations && sketchSystem?.activeSketch && (
         <SketchEntityPicker
           viewport={viewport}
           sketch={sketchSystem.activeSketch}
           selected={sketchEntitySelection}
           canEdit={canEdit}
-          interactive={!sketchUseSession && (!sketchPatternSession || sketchEntitySelection.length === 0)}
+          // 绘制工具激活时只保留右键菜单（菜单首项「退出 <工具>」），不拾取实体。
+          interactive={activeToolIdForSketchPicker == null
+            && !sketchUseSession
+            && (!sketchPatternSession || sketchEntitySelection.length === 0)}
+          contextMenuEnabled
+          activeToolLabel={activeSketchToolLabel}
+          onExitTool={exitActiveSketchTool}
           previewEntities={sketchPreviewEntities}
           onPreviewChange={setSketchPreviewEntities}
           onCommitDrag={commitSketchDrag}

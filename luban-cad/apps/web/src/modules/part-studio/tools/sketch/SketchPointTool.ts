@@ -4,7 +4,7 @@
  *
  * 草图点工具（toolId `Sketch.Point`，Onshape 草图「点」工具首切片）。
  *
- * 交互：点击放置一个点，工具保持存活可连续放点；Esc/右键结束。点不参与面域，
+ * 交互：点击放置一个点，工具保持存活可连续放点；Esc 结束（右键=画布菜单，菜单首项「退出 点」）。点不参与面域，
  * 但可作为孔位/定位参考（HoleDialog 的草图点孔位通道消费）。取点走统一
  * `sketch-pick.pickSketchPlaneLocal`（热捕捉 → 光标射线∩草图平面 → 回退），
  * 世界点经草图平面架投影为局部 (u,v)。提交走 `applyUpdate` 乐观整体覆写，
@@ -103,7 +103,7 @@ export class SketchPointTool extends PrimitiveTool {
   }
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
-    await this.exitTool();
+    // Onshape live 2026-11-13：右键=画布菜单（首项「退出 <工具>」），不直接退出；Esc 仍退出。
     return EventHandled.Yes;
   }
 

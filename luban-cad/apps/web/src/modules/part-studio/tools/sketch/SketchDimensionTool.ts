@@ -131,7 +131,7 @@ export class SketchDimensionTool extends PrimitiveTool {
       this._outputPrompt();
       return EventHandled.Yes;
     }
-    await this.exitTool();
+    // Onshape live 2026-11-13：右键=画布菜单（首项「退出 <工具>」），不直接退出；Esc 仍退出。
     return EventHandled.Yes;
   }
 

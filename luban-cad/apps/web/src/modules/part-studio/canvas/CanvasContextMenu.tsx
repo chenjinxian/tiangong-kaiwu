@@ -4,8 +4,11 @@
  *
  * CanvasContextMenu（M3 Task 5）：画布右键菜单（对齐 os-12 + 旧应用空白态
  * 口径）——选择驱动重构的落地组件：
- * - 空白态：适应视图/顶/前/右/等轴测/显示设置（沿袭旧应用 EditorViewport
- *   空白态菜单；显示设置 → store dock display 页签展开）；
+ * - 空白态（2026-11-13 Onshape live `context-menus-20261113`）：全部显示/
+ *   选择▸（gated）/创建选定内容…（gated）/缩放到合适大小/等轴测；
+ * - 特征对话框打开（同证据）：首两项 确认 <特征>/取消——经 `dialog-commands`
+ *   命令槽与对话框 ✓/✗ 同源（feature-dialog 全族登记）；
+ * - 草图模式右键菜单归 SketchEntityPicker（唯一权威）；
  * - 选中态按 primary.kind 重构（part/face/edge/feature/vertex）——os-12
  *   可落地子集：编辑特征（M4-T6 起 edit 模式 FeatureDialog 宿主路由）/显示依赖（gated）/隐藏
  *   （store.hiddenIds + viewport 隐藏）/缩放到合适大小/视图垂直于/删除
@@ -35,24 +38,24 @@ import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { clearCanvasSelection } from '../internal/selection-authority.js';
 import {
-  SvgAlignLeft,
-  SvgAlignRight,
-  SvgAlignTop,
+  SvgCheckmark,
+  SvgClose,
   SvgDelete,
   SvgDocumentation,
   SvgEdit,
-  SvgFitToView,
   SvgHierarchyTree,
   SvgLayers,
   SvgModel,
   SvgObjectRotate,
   SvgPalette,
   SvgSelection,
-  SvgSettings,
+  SvgSelectionClear,
   SvgVisibilityHide,
+  SvgVisibilityShow,
   SvgWindowZoomIn,
 } from '@itwin/itwinui-icons-react';
 import { isGated } from '../internal/capabilities.js';
+import { runDialogCommand } from '../internal/dialog-commands.js';
 import {
   fitView,
   standardView,
@@ -83,7 +86,18 @@ export type CanvasMenuAction =
   | { kind: 'assign-material' }
   | { kind: 'edit-appearance' }
   | { kind: 'create-drawing' }
-  | { kind: 'appearance-for-face' };
+  | { kind: 'appearance-for-face' }
+  // 2026-11-13：状态相关菜单（Onshape live `context-menus-20261113`）
+  // ——特征对话框前置命令与空白态项（草图模式菜单归 SketchEntityPicker）。
+  | { kind: 'confirm-dialog' }
+  | { kind: 'cancel-dialog' }
+  | { kind: 'show-all' }
+  | { kind: 'clear-selection' }
+  | { kind: 'zoom-to-selection' }
+  // gated：真实动作未实现（菜单项仍渲染，点击走能力引导）。
+  | { kind: 'select-filter' }
+  | { kind: 'create-selection' }
+  | { kind: 'select-other' };
 
 export interface CanvasMenuItem {
   id: string;
@@ -95,6 +109,8 @@ export interface CanvasMenuItem {
   capability?: string;
   /** 左置图标（os-12 V18；aria-hidden 纯装饰）。 */
   icon: React.ComponentType;
+  /** 标签插值名覆写（对话框/草图/工具的具名项；缺省用当前选择名）。 */
+  nameOverride?: string;
   action: CanvasMenuAction;
   /** 模型级禁用（面/边删除暂不支持、owner 不可用等）。 */
   disabled?: boolean;
@@ -119,23 +135,118 @@ function viewCommandGroup(hideLabelKey = 'hide', hideUsesName = true): CanvasMen
 }
 
 /**
- * 画布右键菜单模型（纯函数）——按选择集重构：
- * 空=空白态菜单；非空按 primary.kind 分派（多选以主选择为准，os-12 同口径）。
+ * 菜单状态（2026-11-13 Onshape live `ui-evidence/context-menus-20261113`）：
+ * 同一个右键在不同“不能交互”状态下首项不同——
+ * - 特征对话框打开：`确认 <特征>`/`取消` 前置；
+ * - 草图工具激活：`退出 <工具>` 前置；
+ * - 草图模式：`确认 <草图>` 前置 + 草图专用项（复制草图/视图垂直于草图平面…）；
+ * - 空白态：`全部显示/选择/创建选定内容…/缩放到合适大小/等轴测`。
  */
-export function buildCanvasMenu(selection: readonly CanvasSelection[]): CanvasMenuEntry[] {
+export interface CanvasMenuState {
+  /** 特征对话框显示名（例如「拉伸 1」）；对话框打开时前置「确认/取消」。 */
+  featureDialogLabel?: string;
+  /** 是否存在会话隐藏实体（决定「全部显示」可用性）。 */
+  hasHidden?: boolean;
+}
+
+/** 具名菜单项（nameOverride=对话框/草图/工具名）。 */
+function namedItem(
+  id: string,
+  labelKey: string,
+  icon: React.ComponentType,
+  action: CanvasMenuAction,
+  nameOverride: string,
+  capability?: string,
+): CanvasMenuItem {
+  return { ...item(id, labelKey, icon, action, true, capability), nameOverride };
+}
+
+/** 空白/对话框/草图的「选择」组（Onshape 全量：选择▸/创建选定内容/选择其他）。 */
+function selectionCommandGroup(): CanvasMenuEntry[] {
+  return [
+    item('select-filter', 'selectFilter', SvgSelection, { kind: 'select-filter' }, false, 'selectionFilters'),
+    item('create-selection', 'createSelection', SvgSelection, { kind: 'create-selection' }, false, 'createSelection'),
+    item('select-other', 'selectOther', SvgSelection, { kind: 'select-other' }, false, 'selectOther'),
+  ];
+}
+
+/**
+ * 画布右键菜单模型（纯函数）——按“状态 + 选择集”重构：
+ * 特征对话框 → 确认/取消前置；草图工具激活 → 退出工具前置；草图模式 →
+ * 草图专用菜单；否则按选择集分派（多选以主选择为准，os-12 同口径）。
+ */
+export function buildCanvasMenu(
+  selection: readonly CanvasSelection[],
+  state: CanvasMenuState = {},
+): CanvasMenuEntry[] {
   const primary = selection.length > 0 ? selection[selection.length - 1] : undefined;
-  if (!primary) {
+
+  // ── 特征对话框打开（Onshape：确认 <特征> / 取消 前置）───────────────────
+  if (state.featureDialogLabel !== undefined) {
+    const showAll: CanvasMenuEntry = {
+      ...item('show-all', 'showAll', SvgVisibilityShow, { kind: 'show-all' }),
+      disabled: !state.hasHidden,
+      disabledReasonKey: state.hasHidden ? undefined : 'partStudio.canvasMenu.showAllEmpty',
+    };
+    const clearItems: CanvasMenuEntry[] = selection.length > 0
+      ? [item('clear-selection', 'clearSelection', SvgSelectionClear, { kind: 'clear-selection' }), 'separator']
+      : [];
     return [
-      item('fit-view', 'fitView', SvgFitToView, { kind: 'fit-view' }),
+      namedItem('confirm-dialog', 'confirmDialog', SvgCheckmark, { kind: 'confirm-dialog' }, state.featureDialogLabel),
+      item('cancel-dialog', 'cancelDialog', SvgClose, { kind: 'cancel-dialog' }),
       'separator',
-      item('standard-view-top', 'top', SvgAlignTop, { kind: 'standard-view', view: 'top' }),
-      item('standard-view-front', 'front', SvgAlignLeft, { kind: 'standard-view', view: 'front' }),
-      item('standard-view-right', 'right', SvgAlignRight, { kind: 'standard-view', view: 'right' }),
-      item('standard-view-iso', 'iso', SvgModel, { kind: 'standard-view', view: 'iso' }),
+      showAll,
       'separator',
-      item('open-display-settings', 'displaySettings', SvgSettings, { kind: 'open-display-settings' }),
+      ...clearItems,
+      ...selectionCommandGroup(),
+      'separator',
+      item('zoom-to-fit', 'zoomToFit', SvgWindowZoomIn, { kind: 'zoom-to-fit' }),
+      {
+        ...item('zoom-to-selection', 'zoomToSelection', SvgWindowZoomIn, { kind: 'zoom-to-selection' }),
+        disabled: selection.length === 0,
+        disabledReasonKey: selection.length === 0 ? 'partStudio.canvasMenu.noSelection' : undefined,
+      },
+      {
+        ...item('view-normal-to', 'viewNormalTo', SvgObjectRotate, { kind: 'view-normal-to' }),
+        disabled: selection.length === 0,
+        disabledReasonKey: selection.length === 0 ? 'partStudio.canvasMenu.noSelection' : undefined,
+      },
     ];
   }
+
+  // ── 特征模式空白态（Onshape：全部显示 / 选择 / 创建选定内容 / 缩放到合适大小 / 等轴测）
+  if (!primary) {
+    return [
+      {
+        ...item('show-all', 'showAll', SvgVisibilityShow, { kind: 'show-all' }),
+        disabled: !state.hasHidden,
+        disabledReasonKey: state.hasHidden ? undefined : 'partStudio.canvasMenu.showAllEmpty',
+      },
+      'separator',
+      item('select-filter', 'selectFilter', SvgSelection, { kind: 'select-filter' }, false, 'selectionFilters'),
+      item('create-selection', 'createSelection', SvgSelection, { kind: 'create-selection' }, false, 'createSelection'),
+      'separator',
+      item('zoom-to-fit', 'zoomToFit', SvgWindowZoomIn, { kind: 'zoom-to-fit' }),
+      item('standard-view-iso', 'iso', SvgModel, { kind: 'standard-view', view: 'iso' }),
+    ];
+  }
+
+  // ── 选择驱动菜单：Onshape 选中态前置「清除选定内容」────────────────────
+  const selectionMenu = buildSelectionMenu(primary, selection);
+  if (selectionMenu.length === 0)
+    return selectionMenu;
+  return [
+    item('clear-selection', 'clearSelection', SvgSelectionClear, { kind: 'clear-selection' }),
+    'separator',
+    ...selectionMenu,
+  ];
+}
+
+/** 既有选择驱动菜单（part/face/edge/vertex/feature/sketchEntity）。 */
+function buildSelectionMenu(
+  primary: CanvasSelection,
+  _selection: readonly CanvasSelection[],
+): CanvasMenuEntry[] {
   switch (primary.kind) {
     case 'feature':
       return [
@@ -303,10 +414,22 @@ export function CanvasContextMenu({
 }: CanvasContextMenuProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const selection = usePartStudioStore((s) => s.canvas.selection);
+  const hiddenIds = usePartStudioStore((s) => s.canvas.hiddenIds);
+  const showNodes = usePartStudioStore((s) => s.showNodes);
   const hideNodes = usePartStudioStore((s) => s.hideNodes);
   const setDockTab = usePartStudioStore((s) => s.setDockTab);
   const openDock = usePartStudioStore((s) => s.openDock);
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
+  // 2026-11-13：状态相关菜单数据源（Onshape live context-menus-20261113）。
+  // 草图模式右键菜单归 SketchEntityPicker（唯一权威）；这里只处理特征对话框。
+  const dialogState = usePartStudioStore((s) => s.dialog);
+  const featureDialogLabel = React.useMemo(() => {
+    if (dialogState.active !== 'feature') return undefined;
+    if (dialogState.mode === 'edit' && dialogState.featureName) return dialogState.featureName;
+    const key = `partStudio.ribbon.tools.${dialogState.featureType}.label`;
+    const label = t(key);
+    return label === key ? dialogState.featureType : label;
+  }, [dialogState, t]);
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState(false);
   // 视口边缘钳制（终审 T5-④）：anchor 落在右/下边缘时菜单被截出视口外——
@@ -444,6 +567,38 @@ export function CanvasContextMenu({
           // 非 gated 落到此（注册表翻转后）——依赖项面板接线前为 no-op。
           onClose();
           return;
+        // ── 2026-11-13 状态相关命令（Onshape live context-menus-20261113）──
+        case 'confirm-dialog':
+          runAndClose(() => {
+            if (!runDialogCommand('confirm'))
+              console.warn('[part-studio] 确认对话框：无活动对话框命令处理器');
+          });
+          return;
+        case 'cancel-dialog':
+          runAndClose(() => {
+            if (!runDialogCommand('cancel'))
+              onClose();
+          });
+          return;
+        case 'show-all':
+          runAndClose(() => {
+            if (hiddenIds.length > 0)
+              showNodes(hiddenIds);
+          });
+          return;
+        case 'clear-selection':
+          runAndClose(() => clearCanvasSelection(connection));
+          return;
+        case 'zoom-to-selection':
+          runAndClose(zoomToSelection);
+          return;
+        case 'select-filter':
+        case 'create-selection':
+        case 'select-other':
+          // gated 项在上方能力分支已返回；走到这里说明能力已翻 full 但动作
+          // 尚未接线——诚实告警，不做假成功。
+          runAndClose(() => console.warn(`[part-studio] 菜单动作 ${action.kind} 未接线（能力已 full）`));
+          return;
         case 'assign-material':
         case 'edit-appearance':
         case 'create-drawing':
@@ -455,7 +610,10 @@ export function CanvasContextMenu({
           return;
       }
     },
-    [canEdit, hideNodes, onClose, onSelectOwner, openDock, primary, runAndClose, selection, setDockTab, openFeatureDialog],
+    [
+      canEdit, connection, hiddenIds, hideNodes, onClose, onSelectOwner, openDock,
+      primary, runAndClose, selection, setDockTab, openFeatureDialog, showNodes,
+    ],
   );
 
   const name = primary ? selectionName(primary) : '';
@@ -525,7 +683,10 @@ export function CanvasContextMenu({
     );
   }
 
-  const entries = buildCanvasMenu(selection);
+  const entries = buildCanvasMenu(selection, {
+    featureDialogLabel,
+    hasHidden: hiddenIds.length > 0,
+  });
 
   return (
     <>
@@ -564,7 +725,7 @@ export function CanvasContextMenu({
               <span className="part-studio-menu-item-icon" aria-hidden="true">
                 <entry.icon />
               </span>
-              {entry.usesName ? t(entry.labelKey, { name }) : t(entry.labelKey)}
+              {entry.usesName ? t(entry.labelKey, { name: entry.nameOverride ?? name }) : t(entry.labelKey)}
             </button>
           );
         })}

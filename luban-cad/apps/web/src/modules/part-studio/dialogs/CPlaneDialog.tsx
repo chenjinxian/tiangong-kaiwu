@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import type { CPlaneParams, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CPLANE_REFERENCES, isCPlaneReference } from '../internal/cplane.js';
 import type { CPlaneReference } from '../internal/cplane.js';
+import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 
 export interface CPlaneDialogProps {
   featureName: string;
@@ -118,6 +119,9 @@ export function CPlaneDialog({
       setBusy(false);
     }
   };
+
+  // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
 
   return (
     <div

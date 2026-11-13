@@ -8,7 +8,7 @@
  * 再点终点；圆弧在起点与直线相切。首切片只接**草图直线端点**（面/边相切属
  * 外部引用）；提交一条 arc + coincident(arc.start, line.endpoint) + tangent(arc, line)。
  * Onshape live（2026-11-13）：绘制工具提交后保持激活——本工具提交成功后回到
- * 「选起点」阶段，继续画下一条弧（Esc/右键退出）。连续链式弧（自动取上一弧
+ * 「选起点」阶段，继续画下一条弧（Esc 退出工具；右键=画布菜单，菜单首项「退出 <工具>」）。连续链式弧（自动取上一弧
  * 端点作起点）仍未做。
  *
  * 取点沿用草图工具链统一 `pickHitLocal`（sketch-pick：热捕捉 → 光标射线∩草图
@@ -157,7 +157,7 @@ export class SketchTangentArcTool extends PrimitiveTool {
   }
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
-    await this.exitTool();
+    // Onshape live 2026-11-13：右键=画布菜单（首项「退出 <工具>」），不直接退出；Esc 仍退出。
     return EventHandled.Yes;
   }
 

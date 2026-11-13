@@ -339,14 +339,15 @@ export abstract class SketchCreateTool extends PrimitiveTool {
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
     if (this._anchors.length > 0) {
-      // 取消进行中的形状，工具保持存活（再右键退出）——M3-b 两层语义。
+      // 取消进行中的形状，工具保持存活——Onshape live 2026-11-13：右键同时弹画布
+      // 菜单，菜单首项「退出 <工具>」才是退出入口；Esc 仍直接退出。
       this._anchors = [];
       this._publishFeedback();
       this._provideToolAssistance();
       this._outputStagePrompt();
       return EventHandled.Yes;
     }
-    await this.exitTool();
+    // Onshape live 2026-11-13：右键=画布菜单（首项「退出 <工具>」），不直接退出；Esc 仍退出。
     return EventHandled.Yes;
   }
 

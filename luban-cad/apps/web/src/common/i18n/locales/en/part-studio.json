@@ -1395,7 +1395,8 @@
         "invalidDimension": "The dimension value must be a number greater than 0",
         "updateFailed": "Sketch update failed"
       }
-    }
+    },
+    "blankMenuExitTool": "Exit {{name}}"
   },
   "palette": {
     "title": "Search tools",
@@ -1439,7 +1440,17 @@
     "selectFaces": "Select faces",
     "selectEdges": "Select edges",
     "selectVertices": "Select vertices",
-    "selectParts": "Select parts"
+    "selectParts": "Select parts",
+    "confirmDialog": "Confirm {{name}}",
+    "cancelDialog": "Cancel",
+    "showAll": "Show all",
+    "showAllEmpty": "No hidden entities to show",
+    "selectFilter": "Select",
+    "createSelection": "Create selection…",
+    "selectOther": "Select other…",
+    "zoomToSelection": "Zoom to selection",
+    "clearSelection": "Clear selection",
+    "noSelection": "Select something first"
   },
   "tree": {
     "contextMenuLabel": "Feature menu",
@@ -1796,6 +1807,18 @@
     "tag": {
       "title": "Tag",
       "message": "Tag metadata is not implemented yet."
+    },
+    "selectionFilters": {
+      "title": "Selection filters",
+      "message": "Selection filters by face type / loop-chain are not implemented yet."
+    },
+    "createSelection": {
+      "title": "Create selection",
+      "message": "Saved named selections are not implemented yet."
+    },
+    "selectOther": {
+      "title": "Select other",
+      "message": "The \"Select other…\" candidate list is not implemented yet."
     }
   },
   "viewCube": {

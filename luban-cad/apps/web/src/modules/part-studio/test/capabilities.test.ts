@@ -83,10 +83,14 @@ const EXPECTED_GATED_IDS = [
   'queryVariable',
   'compositePart',
   'tag',
+  // 2026-11-13 右键菜单状态对齐（live context-menus-20261113）。
+  'selectionFilters',
+  'createSelection',
+  'selectOther',
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单七变体（倒角已翻 full）+ 2026-11-13 live 工具栏 10 项（同心/中点线已翻 full） + moveFace/transform/splitPart 已翻 full（共 51，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单七变体（倒角已翻 full）+ 2026-11-13 live 工具栏 10 项（同心/中点线已翻 full） + moveFace/transform/splitPart 已翻 full + 右键菜单三项（选择过滤/创建选定内容/选择其他，共 54，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

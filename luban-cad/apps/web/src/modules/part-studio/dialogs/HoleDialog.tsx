@@ -25,6 +25,7 @@ import type { BodyInfo, FeatureOp, FeatureOpResult, HoleVertexRef, PreviewResult
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useWorkspaceRef } from '../../../common/workspace/use-workspace-ref.js';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
+import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 
 const INCH_MM = 25.4;
 
@@ -341,6 +342,9 @@ export function HoleDialog({
       setBusy(false);
     }
   };
+
+  // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
 
   const [locationsOpen, setLocationsOpen] = React.useState(false);
   const selectedLabels = (options ?? []).filter((o) => selected.has(o.key)).map((o) => o.label);

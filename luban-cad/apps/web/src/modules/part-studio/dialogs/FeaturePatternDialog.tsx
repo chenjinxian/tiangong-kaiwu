@@ -28,6 +28,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { FeatureOp, FeatureOpResult, PreviewResult } from '@luban-cad/shared';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
+import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 
 export interface FeaturePatternDialogProps {
   featureName: string;
@@ -279,6 +280,9 @@ export function FeaturePatternDialog({
       setBusy(false);
     }
   }, [submitDisabled, applyOp, featureId, buildParams, t, featureName, onConfirm]);
+
+  // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
 
   const countLabel = t(centeredActive
     ? 'partStudio.featureDialog.patternCountLabelCentered'

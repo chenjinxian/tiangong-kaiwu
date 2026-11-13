@@ -621,11 +621,11 @@ describe('命令搜索（alt+/ 开闭，os-23）', () => {
 });
 
 describe('画布右键菜单（os-12 选择驱动）', () => {
-  it('空白态：适应视图/四标准视图/显示设置；Escape 收合', () => {
+  it('空白态：全部显示/选择/创建选定内容/缩放到合适大小/等轴测；Escape 收合（Onshape live）', () => {
     renderPage();
     fireEvent.contextMenu(screen.getByTestId('part-studio-canvas'));
     const menu = screen.getByRole('menu', { name: '画布菜单' });
-    for (const label of ['适应视图', '顶视图', '前视图', '右视图', '等轴测视图', '显示设置']) {
+    for (const label of ['全部显示', '选择', '创建选定内容…', '缩放到合适大小', '等轴测视图']) {
       expect(within(menu).getByRole('menuitem', { name: label })).toBeDefined();
     }
     fireEvent.keyDown(window, { key: 'Escape' });

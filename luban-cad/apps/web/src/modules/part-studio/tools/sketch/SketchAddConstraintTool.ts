@@ -180,12 +180,12 @@ export abstract class SketchAddConstraintTool extends PrimitiveTool {
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
     if (this._picks.length > 0) {
-      // 取消进行中的拾取序列，工具保持存活（再右键退出）——M3-b 两层语义。
+      // 取消进行中的拾取序列，工具保持存活（退出工具用右键菜单「退出 <工具>」或 Esc）——M3-b 两层语义。
       this._clearPicks();
       this._outputPrompt(pickPrompt(this.constraintKind, []));
       return EventHandled.Yes;
     }
-    await this.exitTool();
+    // Onshape live 2026-11-13：右键=画布菜单（首项「退出 <工具>」），不直接退出；Esc 仍退出。
     return EventHandled.Yes;
   }
 

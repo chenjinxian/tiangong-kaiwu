@@ -1395,7 +1395,8 @@
         "invalidDimension": "尺寸值必须为大于 0 的数值",
         "updateFailed": "草图更新失败"
       }
-    }
+    },
+    "blankMenuExitTool": "退出 {{name}}"
   },
   "palette": {
     "title": "搜索工具",
@@ -1439,7 +1440,17 @@
     "selectFaces": "选择面",
     "selectEdges": "选择边",
     "selectVertices": "选择点",
-    "selectParts": "选择零件"
+    "selectParts": "选择零件",
+    "confirmDialog": "确认 {{name}}",
+    "cancelDialog": "取消",
+    "showAll": "全部显示",
+    "showAllEmpty": "没有可显示的隐藏实体",
+    "selectFilter": "选择",
+    "createSelection": "创建选定内容…",
+    "selectOther": "选择其他…",
+    "zoomToSelection": "放大选定对象",
+    "clearSelection": "清除选定内容",
+    "noSelection": "需要先选择对象"
   },
   "tree": {
     "contextMenuLabel": "特征菜单",
@@ -1796,6 +1807,18 @@
     "tag": {
       "title": "标记",
       "message": "标记（Tag）元数据功能尚未实现。"
+    },
+    "selectionFilters": {
+      "title": "选择过滤器",
+      "message": "按面类型/环链的选择过滤器尚未实现。"
+    },
+    "createSelection": {
+      "title": "创建选定内容",
+      "message": "创建命名选定内容（saved selection）尚未实现。"
+    },
+    "selectOther": {
+      "title": "选择其他",
+      "message": "「选择其他…」候选列表尚未实现。"
     }
   },
   "viewCube": {

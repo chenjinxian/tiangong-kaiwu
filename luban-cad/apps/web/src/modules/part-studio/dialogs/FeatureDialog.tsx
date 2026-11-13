@@ -253,6 +253,7 @@ import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 import { FeatureProfilePicker } from '../components/FeatureProfilePicker.js';
 import type { ProfilePick, ProfileSketch } from '../internal/profile-picker.js';
+import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 import {
   buildExtrudePreview,
   buildRevolvePreview,
@@ -2538,6 +2539,10 @@ export function FeatureDialog({
     buildResult,
     featureName,
   ]);
+
+  // 2026-11-13：画布右键菜单前置的「确认 / 取消」与对话框 ✓/✗ 同源
+  //（Onshape live：特征对话框打开时右键菜单首两项为 确认 <特征> / 取消）。
+  useDialogCommandHandler({ onConfirm: handleConfirm, onCancel: () => onCancel?.() });
 
   // 选中草图（Onshape：最近一张草图自动激活，面域在视口拾取）。
   const selectedSketch = sketchOptions.find((option) => option.id === selectedSketchId);

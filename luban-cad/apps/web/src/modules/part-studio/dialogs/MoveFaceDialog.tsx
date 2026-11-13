@@ -35,6 +35,7 @@ import type {
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import type { CanvasSelection } from '../types.js';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
+import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 
 export interface MoveFaceDialogProps {
   featureName: string;
@@ -261,6 +262,9 @@ export function MoveFaceDialog({
       setBusy(false);
     }
   }, [submitDisabled, applyOp, editMode, featureId, buildParams, ownerBodyKey, t, featureName, onConfirm]);
+
+  // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
 
   return (
     <div

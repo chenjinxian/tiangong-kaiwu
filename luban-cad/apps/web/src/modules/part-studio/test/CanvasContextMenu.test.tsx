@@ -1,8 +1,8 @@
 // src/modules/part-studio/test/CanvasContextMenu.test.tsx
 //
 // M3 Task 5（brief Step 1）：画布右键菜单（对齐 os-12）+ 选择驱动——
-//  1) 空白态：右键菜单=适应视图/顶视图/前视图/右视图/等轴测视图/显示设置
-//     （沿袭旧应用 EditorViewport 空白态口径）；
+//  1) 空白态（2026-11-13 Onshape live）：全部显示/选择/创建选定内容…/
+//     缩放到合适大小/等轴测；特征对话框打开时前置 确认 <特征>/取消；
 //  2) 选中态按拾取类型重构：part → 隐藏/缩放/视图垂直于/材料·外观·工程图
 //     (gated→能力引导)/删除(HITL)；face → 面外观(gated)/删除；feature →
 //     编辑特征(tools.run)/显示依赖项(gated)/删除；edge/vertex → 精简集；
@@ -72,6 +72,7 @@ import { usePartStudioStore } from '../index.js';
 import { buildCanvasMenu, CanvasContextMenu, clampMenuPosition } from '../canvas/CanvasContextMenu.js';
 import type { CanvasMenuItem } from '../canvas/CanvasContextMenu.js';
 import { PartStudioCanvas } from '../components/PartStudioCanvas.js';
+import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 
 /** 造一个带视口方法的 fake selectedView。 */
 function makeViewport(): Record<string, unknown> {
@@ -90,10 +91,15 @@ function makeViewport(): Record<string, unknown> {
 
 /** store 复位：canvas/tree/dock 切片回缺省（用例间互不渗漏）。 */
 function resetStore(): void {
+  const sketch = usePartStudioStore.getState().sketch;
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     dock: { activeTab: 'toolSettings', isOpen: false },
+    // 2026-11-13：菜单状态源复位（工具/对话框）。
+    tool: { activeToolId: null },
+    dialog: { active: null },
+    sketch: { ...sketch, isActive: false },
   });
 }
 
@@ -127,23 +133,42 @@ beforeEach(() => {
 });
 
 describe('buildCanvasMenu 菜单模型（纯函数）', () => {
-  it('空白选择 → 适应视图/四标准视图/显示设置（无选中态项）', () => {
+  it('空白选择 → 全部显示/选择/创建选定内容/缩放到合适大小/等轴测（Onshape 空白态）', () => {
     const entries = buildCanvasMenu([]);
     const ids = entries.filter((e) => e !== 'separator').map((e) => (e as { id: string }).id);
     expect(ids).toEqual([
-      'fit-view',
-      'standard-view-top',
-      'standard-view-front',
-      'standard-view-right',
+      'show-all',
+      'select-filter',
+      'create-selection',
+      'zoom-to-fit',
       'standard-view-iso',
-      'open-display-settings',
     ]);
+  });
+
+  it('特征对话框打开 → 确认 <特征>/取消 前置 + 选择组/缩放/视图垂直于', () => {
+    const entries = buildCanvasMenu([], { featureDialogLabel: '拉伸 1' });
+    const items = entries.filter((e) => e !== 'separator') as CanvasMenuItem[];
+    expect(items.map((i) => i.id)).toEqual([
+      'confirm-dialog',
+      'cancel-dialog',
+      'show-all',
+      'select-filter',
+      'create-selection',
+      'select-other',
+      'zoom-to-fit',
+      'zoom-to-selection',
+      'view-normal-to',
+    ]);
+    expect(items[0]!.nameOverride).toBe('拉伸 1');
+    expect(items[0]!.labelKey).toBe('partStudio.canvasMenu.confirmDialog');
+    expect(items.find((i) => i.id === 'zoom-to-selection')!.disabled).toBe(true);
   });
 
   it('part 拾取 → 材料/外观/工程图 gated 引导 + 隐藏/缩放/视图垂直于/删除', () => {
     const entries = buildCanvasMenu([{ kind: 'part', id: 'p1', label: 'Part 1' }]);
     const items = entries.filter((e) => e !== 'separator') as Array<{ id: string; capability?: string }>;
     expect(items.map((i) => i.id)).toEqual([
+      'clear-selection',
       'hide',
       'zoom-to-fit',
       'view-normal-to',
@@ -163,6 +188,7 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
     ]);
     const items = entries.filter((e) => e !== 'separator') as Array<{ id: string; capability?: string }>;
     expect(items.map((i) => i.id)).toEqual([
+      'clear-selection',
       'edit-feature',
       'show-dependencies',
       'hide',
@@ -179,9 +205,9 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
     ]);
     const items = menu.filter((entry): entry is CanvasMenuItem => entry !== 'separator');
     expect(items.map((entry) => entry.id)).toEqual([
-      'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner', 'appearance-for-face', 'delete',
+      'clear-selection', 'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner', 'appearance-for-face', 'delete',
     ]);
-    expect(items[0]!.labelKey).toBe('partStudio.canvasMenu.hideOwner');
+    expect(items.find((entry) => entry.id === 'hide')!.labelKey).toBe('partStudio.canvasMenu.hideOwner');
     expect(items.find((entry) => entry.id === 'select-owner')!.action).toEqual({
       kind: 'select-owner', bodyKey: '0x18',
     });
@@ -208,7 +234,7 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
     ]);
     const items = menu.filter((entry): entry is CanvasMenuItem => entry !== 'separator');
     expect(items.map((entry) => entry.id)).toEqual([
-      'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner', 'delete',
+      'clear-selection', 'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner', 'delete',
     ]);
     expect(items.find((entry) => entry.id === 'select-owner')!.action).toEqual({
       kind: 'select-owner', bodyKey: '0x19',
@@ -221,7 +247,7 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
       { kind: 'vertex', id: 'vertex:0x18:11', label: '点 1', ownerBodyKey: '0x18', cacheId: 11 },
     ]).filter((e) => e !== 'separator') as CanvasMenuItem[]);
     expect(items.map((i) => i.id)).toEqual([
-      'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner',
+      'clear-selection', 'hide', 'zoom-to-fit', 'view-normal-to', 'select-owner',
     ]);
     expect(items.find((i) => i.id === 'select-owner')!.action).toEqual({
       kind: 'select-owner', bodyKey: '0x18',
@@ -229,16 +255,17 @@ describe('buildCanvasMenu 菜单模型（纯函数）', () => {
   });
 });
 
-describe('CanvasContextMenu 空白态（对齐旧应用视口右键）', () => {
-  it('渲染 适应视图/顶/前/右/等轴测/显示设置；不渲染选中态项', () => {
+describe('CanvasContextMenu 空白态（Onshape live context-menus-20261113）', () => {
+  it('渲染 全部显示/选择/创建选定内容/缩放到合适大小/等轴测；不渲染选中态项', () => {
     renderMenu();
     const menu = screen.getByRole('menu', { name: '画布菜单' });
-    for (const name of ['适应视图', '顶视图', '前视图', '右视图', '等轴测视图', '显示设置']) {
+    for (const name of ['全部显示', '选择', '创建选定内容…', '缩放到合适大小', '等轴测视图']) {
       expect(within(menu).getByRole('menuitem', { name })).toBeDefined();
     }
     expect(within(menu).queryByRole('menuitem', { name: /删除/ })).toBeNull();
-    // 2026-11-03：显式选择模式已移除（默认 Onshape 选择工具取代）。
-    expect(within(menu).queryByRole('menuitem', { name: /选择(面|边|点|零件)/ })).toBeNull();
+    // Onshape 空白态没有顶/前/右标准视图与显示设置（这些入口在 ViewCube/菜单）。
+    expect(within(menu).queryByRole('menuitem', { name: '顶视图' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '显示设置' })).toBeNull();
   });
 
   it('anchor=null 渲染空（页面级常驻挂载，右键驱动开合）', () => {
@@ -246,32 +273,32 @@ describe('CanvasContextMenu 空白态（对齐旧应用视口右键）', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  it('点击适应视图 → viewport 取景 + 菜单关闭', async () => {
+  it('点击缩放到合适大小 → viewport 取景 + 菜单关闭', async () => {
     mocks.viewport = makeViewport();
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderMenu(onClose);
-    await user.click(screen.getByRole('menuitem', { name: '适应视图' }));
+    await user.click(screen.getByRole('menuitem', { name: '缩放到合适大小' }));
     expect(mocks.lookAtVolume).toHaveBeenCalled();
     expect(mocks.synchWithView).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('点击顶视图 → setStandardRotation(StandardViewId.Top) + 正交关相机', async () => {
+  it('点击等轴测视图 → setStandardRotation(StandardViewId.Iso) + 正交关相机', async () => {
     mocks.viewport = makeViewport();
     const user = userEvent.setup();
     renderMenu();
-    await user.click(screen.getByRole('menuitem', { name: '顶视图' }));
-    expect(mocks.setStandardRotation).toHaveBeenCalledWith('sv-top');
+    await user.click(screen.getByRole('menuitem', { name: '等轴测视图' }));
+    expect(mocks.setStandardRotation).toHaveBeenCalledWith('sv-iso');
     expect(mocks.turnCameraOff).toHaveBeenCalled();
   });
 
-  it('点击显示设置 → store dock=display 且展开', async () => {
+  it('点击全部显示 → store.hiddenIds 清空', async () => {
     const user = userEvent.setup();
+    usePartStudioStore.setState((s) => ({ canvas: { ...s.canvas, hiddenIds: ['p1'] } }));
     renderMenu();
-    await user.click(screen.getByRole('menuitem', { name: '显示设置' }));
-    expect(usePartStudioStore.getState().dock.activeTab).toBe('display');
-    expect(usePartStudioStore.getState().dock.isOpen).toBe(true);
+    await user.click(screen.getByRole('menuitem', { name: '全部显示' }));
+    expect(usePartStudioStore.getState().canvas.hiddenIds).toEqual([]);
   });
 });
 
@@ -569,5 +596,43 @@ describe('M4-T8 T5-⑤：菜单监听一次注册（anchor 变化不重挂）', 
     } finally {
       addSpy.mockRestore();
     }
+  });
+});
+
+describe('CanvasContextMenu 特征对话框状态（Onshape live context-menus-20261113）', () => {
+  it('特征对话框打开 → 确认 拉伸 / 取消 前置（不渲染选中态删除）', () => {
+    usePartStudioStore.setState({
+      dialog: { active: 'feature', mode: 'new', featureType: 'extrude' },
+    });
+    render(<CanvasContextMenu anchor={ANCHOR} onClose={vi.fn()} />);
+    const menu = screen.getByRole('menu', { name: '画布菜单' });
+    expect(within(menu).getByRole('menuitem', { name: '确认 拉伸' })).toBeDefined();
+    expect(within(menu).getByRole('menuitem', { name: '取消' })).toBeDefined();
+    expect(within(menu).queryByRole('menuitem', { name: /删除/ })).toBeNull();
+  });
+
+  it('确认/取消 菜单项 → 对话框命令槽（与本对话框 ✓/✗ 同源）', async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn();
+    const cancel = vi.fn();
+    function DialogCommandHarness(): null {
+      useDialogCommandHandler({ onConfirm: confirm, onCancel: cancel });
+      return null;
+    }
+    usePartStudioStore.setState({
+      dialog: { active: 'feature', mode: 'new', featureType: 'extrude' },
+    });
+    const onClose = vi.fn();
+    render(
+      <>
+        <DialogCommandHarness />
+        <CanvasContextMenu anchor={ANCHOR} onClose={onClose} />
+      </>,
+    );
+    await user.click(screen.getByRole('menuitem', { name: '确认 拉伸' }));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+    await user.click(screen.getByRole('menuitem', { name: '取消' }));
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 });

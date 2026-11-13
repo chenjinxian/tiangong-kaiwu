@@ -269,7 +269,7 @@ export class SketchOffsetTool extends PrimitiveTool {
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {
     if (this._phase === 'place') {
-      // 两层取消语义（M3-b）：place → 弃链回 pick（工具存活）；再右键退出。
+      // 两层取消语义（M3-b）：place → 弃链回 pick（工具存活）；退出用菜单项或 Esc。
       this._phase = 'pick';
       this._chain = undefined;
       this._seed = undefined;
@@ -277,7 +277,7 @@ export class SketchOffsetTool extends PrimitiveTool {
       this._outputPrompt('pickChain');
       return EventHandled.Yes;
     }
-    await this.exitTool();
+    // Onshape live 2026-11-13：右键=画布菜单（首项「退出 <工具>」），不直接退出；Esc 仍退出。
     return EventHandled.Yes;
   }
 

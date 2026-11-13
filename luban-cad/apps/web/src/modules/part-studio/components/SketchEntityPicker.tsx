@@ -11,6 +11,11 @@
  *
  * 视觉：选中实体=橙色描边（闭合实体加浅橙填充）；悬停=蓝色加粗；控制点悬停
  * 放大圆环。基础约束着色/控制点由 SketchCurvesDecoration 负责，本层只画强调。
+ *
+ * 右键菜单（2026-11-13 Onshape live `context-menus-20261113`）：草图模式的
+ * 空白/实体右键菜单唯一权威。草图工具激活时宿主以 `interactive=false +
+ * contextMenuEnabled` 挂载本层——只开空白菜单（首项「退出 <工具>」），不拾取
+ * 实体；工具右键**不再**直接退出（菜单项/Esc 承担）。
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -49,6 +54,16 @@ export interface SketchEntityPickerProps {
   canEdit?: boolean;
   /** 交互总门（阵列 gizmo 接管指针时 false：只显示选中/悬停强调）。 */
   interactive?: boolean;
+  /**
+   * 2026-11-13 Onshape live：草图工具激活（interactive=false）时仍允许右键
+   * 菜单——菜单首项「退出 <工具>」。true 时右键只开空白菜单（不拾取实体，
+   * 避免与绘制工具的输入抢答）。
+   */
+  contextMenuEnabled?: boolean;
+  /** 当前活动草图工具显示名（菜单首项「退出 {{name}}」）。 */
+  activeToolLabel?: string;
+  /** 退出当前草图工具（菜单「退出 <工具>」）。 */
+  onExitTool?: () => void;
   /** 拖拽预览实体（显示层覆盖；提交成功后由宿主清空）。 */
   previewEntities?: readonly SketchEntityDto[] | null;
   /** 拖拽预览更新（null=取消/结束）。 */
@@ -102,6 +117,9 @@ export function SketchEntityPicker({
   onSelectionChange,
   canEdit = true,
   interactive = true,
+  contextMenuEnabled = false,
+  activeToolLabel,
+  onExitTool,
   previewEntities,
   onPreviewChange,
   onCommitDrag,
@@ -176,6 +194,12 @@ export function SketchEntityPicker({
   canEditRef.current = canEdit;
   const interactiveRef = React.useRef(interactive);
   interactiveRef.current = interactive;
+  const contextMenuEnabledRef = React.useRef(contextMenuEnabled);
+  contextMenuEnabledRef.current = contextMenuEnabled;
+  const activeToolLabelRef = React.useRef(activeToolLabel);
+  activeToolLabelRef.current = activeToolLabel;
+  const onExitToolRef = React.useRef(onExitTool);
+  onExitToolRef.current = onExitTool;
   React.useEffect(() => {
     if (!interactive)
       setHover(null);
@@ -395,7 +419,9 @@ export function SketchEntityPicker({
       return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
     };
     const onContextMenu = (event: MouseEvent): void => {
-      if (!interactiveRef.current)
+      // 2026-11-13 Onshape live：草图工具激活时仍开空白菜单（首项「退出 <工具>」），
+      // 但不拾取实体（interactive=false → 一律空白菜单，不与绘制工具抢输入）。
+      if (!interactiveRef.current && !contextMenuEnabledRef.current)
         return;
       const rect = canvas.getBoundingClientRect();
       const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -406,7 +432,7 @@ export function SketchEntityPicker({
       // Onshape：右键拖拽（旋转/平移）结束不弹菜单；右键单击才弹。
       if (consumeRightDragMenuSuppression())
         return;
-      const hit = hitTestRef.current(point);
+      const hit = interactiveRef.current ? hitTestRef.current(point) : undefined;
       if (!hit) {
         setMenu(null);
         setBlankMenu({ x: event.clientX, y: event.clientY });
@@ -610,6 +636,20 @@ export function SketchEntityPicker({
             onMouseDown={(event) => event.stopPropagation()}
             onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
           >
+            {activeToolLabel !== undefined && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="part-studio-tree-menu__item"
+                  data-testid="sketch-blank-menu-exit-tool"
+                  onClick={() => { close(); onExitTool?.(); }}
+                >
+                  {t('partStudio.sketch.blankMenuExitTool', { name: activeToolLabel })}
+                </button>
+                <div className="part-studio-tree-menu__separator" role="separator" />
+              </>
+            )}
             <button
               type="button"
               role="menuitem"

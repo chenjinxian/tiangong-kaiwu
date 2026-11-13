@@ -73,6 +73,11 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   queryVariable: 'gated', // 查询变量
   compositePart: 'gated', // 复合零件
   tag: 'gated', // 标记
+  // 2026-11-13 右键菜单状态对齐（Onshape live context-menus-20261113）：
+  // 菜单项在 live 中真实存在、动作未实现——gated 诚实引导，不静默 no-op。
+  selectionFilters: 'gated', // 选择▸（面类型/环链过滤器）
+  createSelection: 'gated', // 创建选定内容…
+  selectOther: 'gated', // 选择其他…
   deleteBodies: 'gated', // 删除零件（无后端 FeatureOp——W1.2b 诚实 gated）
   modifyFillet: 'gated', // 修改圆角（无工具/后端面——W1.2b 续审计诚实 gated）
   deleteFace: 'gated', // 删除面（内核 DeleteSubEntity 0 回包——blocked-kernel）
@@ -195,4 +200,8 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   queryVariable: guidanceFor('queryVariable'),
   compositePart: guidanceFor('compositePart'),
   tag: guidanceFor('tag'),
+  // 2026-11-13 右键菜单状态对齐。
+  selectionFilters: guidanceFor('selectionFilters'),
+  createSelection: guidanceFor('createSelection'),
+  selectOther: guidanceFor('selectOther'),
 };

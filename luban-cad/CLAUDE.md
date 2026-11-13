@@ -178,6 +178,17 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **画布右键菜单状态对齐（2026-11-13，纯前端）**：Onshape live
+  `context-menus-20261113`——特征空白态=全部显示/选择/创建选定内容/缩放到合适
+  大小/等轴测；特征对话框打开前置 确认 <特征>/取消（新 `internal/dialog-commands`
+  单槽位，8 个特征对话框登记，确认仍走原 FeatureOp 守卫）；选中态前置
+  「清除选定内容」；草图空白菜单（`SketchEntityPicker` 唯一权威）在草图工具
+  激活时首项「退出 <工具>」（picker 以 interactive=false 挂载只开空白菜单）；
+  草图工具右键不再直接退出（菜单项/Esc 承担）；新 gated 选择过滤/创建选定
+  内容/选择其他（能力引导）。验证：web **1835/1835**、真栈
+  `context-menu-states.spec.ts` **4 passed**、`mouse-interaction` +
+  `part-studio` + `sketch-point-tool` **12 passed**、`tutorial2` 全链
+  **2 passed（3.4 min）**；`tsc`/lint 绿。
 - **草图连续绘制 + 射线∩平面取点（2026-11-13，纯前端）**：绘制工具提交后
   保持激活（直线链式延续、双击结束、Esc/右键退出；相切圆弧同步）；退出草图
   停掉 `Sketch.*` 工具。真栈发现并修复取点回归：相机不再自动正视草图平面后
