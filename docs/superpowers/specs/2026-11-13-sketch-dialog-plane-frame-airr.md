@@ -29,7 +29,7 @@
 | 底栏 | 右对齐：草图分析工具（sprite `sketch-analysis-tools`）+「成品」（仅编辑既有草图）+ ?（sprite `help-button`）；无「缩放到合适大小/正视草图平面」 |
 | 标题变化 | 创建前泛称「草图」；选平面后「草图 N」 |
 | pending 草图 | 创建后树行立即可见；✗ 取消=删除 pending 草图 |
-| 平面框 | 浅蓝 `rgb(182,200,223)` 2px 线框，以平面原点为中心；f4 零件 ≈1.5× 框、f5 75mm 草图 vs ≈150mm 框 → 随内容范围自适应 |
+| 平面框 | 浅蓝 `rgb(182,200,223)` 2px 线框；**贴合内容（草图/模型）的长方形、每边略大一点**（不是正方形；f4/f5 与用户复核） |
 | 飞菜单图标 | 18 个 sketch id 的 live icon 名（见下），sprite symbol 全部可抽取 |
 
 ## 实现
@@ -47,8 +47,9 @@
 
 ### 2. 草图平面框（`internal/sketch-plane-frame.ts` + `SketchPlanePicker`）
 
-- 纯几何：`sketchPlaneFrameCorners`（平面正交基四角）、
-  `sketchPlaneFrameHalfSize`（范围 8 角在 u/v 最大投影 × 1.5，min 12mm）。
+- 纯几何：`sketchPlaneFrameRect`（范围 8 角投影到平面 u/v 轴 → 内容包围矩形，
+  每边留白 8%（min 2mm），**保留内容长宽比 → 长方形**）、
+  `sketchPlaneFrameCorners`（空场景回退：以平面原点为中心的基准面方框）。
 - Picker 新增 `framePlane`/`sketchRange`：矩形按选中/活动草图平面绘制
   （基准面/cPlane/模型面均可），尺寸优先草图实体范围，否则查询模型范围，
   最后回退基准面尺寸；存在 frame 时不再重复描基准面选中边。
@@ -120,6 +121,10 @@
 5. **选面后视口同步显示平面框 + 草图名文字**：`SketchPlanePicker` 新增
    `frameLabel`（草图名沿框顶边外侧绘制，与边框同步）；marker 暴露
    `data-frame-plane`/`data-frame-label` 供真栈断言。
+   用户同日进一步复核：Onshape 的框是**比草图/模型略大的长方形**（不是正方形）
+   ——框改为内容包围矩形（保留长宽比，每边 8%/min2mm 留白），空场景回退
+   基准面方框；单测覆盖 40×10 → 长方形、正方内容 → 正方框、偏移内容不强制
+   居中。
 
 ## 已知边界 / 后续
 
@@ -128,7 +133,8 @@
   相机菜单，草图激活时可用。
 - 平面框为 2D overlay（与既有 SketchPlanePicker 选中描边同层），不做模型遮挡
   深度裁剪；若后续要求与 live 完全一致的遮挡效果，再上 3D WorldDecoration。
-- 平面框尺寸系数 1.5 来自两例 live 比例（1.5–2×），非契约值。
+- 平面框为内容包围矩形（8% / min 2mm 留白）——贴合草图或模型的长宽比；
+  空场景（无草图/无模型）回退基准面方框。留白参数非契约值。
 - 「成品」复用完成出口（等价 ✓），Onshape 的「成品」附加语义（保留草图工具
   上下文）未单列。
 

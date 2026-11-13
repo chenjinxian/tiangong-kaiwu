@@ -20,7 +20,7 @@ import {
 } from '../internal/plane-picker.js';
 import {
   sketchPlaneFrameCorners,
-  sketchPlaneFrameHalfSize,
+  sketchPlaneFrameRect,
 } from '../internal/sketch-plane-frame.js';
 import './SketchPlanePicker.css';
 
@@ -96,14 +96,14 @@ export function SketchPlanePicker({
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = React.useState<DatumPlaneId | null>(null);
   const [points, setPoints] = React.useState<Partial<Record<DatumPlaneId, ScreenPoint>>>({});
-  const [modelFrameHalfSize, setModelFrameHalfSize] = React.useState<number | undefined>(undefined);
+  const [modelFrameRange, setModelFrameRange] = React.useState<Range3d | undefined>(undefined);
   const hoverRef = React.useRef<DatumPlaneId | null>(null);
   hoverRef.current = hover;
 
   // 无草图实体时按模型范围取框尺寸（Onshape live：框随零件尺寸自适应）。
   React.useEffect(() => {
     let cancelled = false;
-    setModelFrameHalfSize(undefined);
+    setModelFrameRange(undefined);
     if (!viewport || !framePlane || sketchRange)
       return;
     void (async () => {
@@ -119,9 +119,8 @@ export function SketchPlanePicker({
         const union = new Range3d();
         for (const range of ranges)
           union.extendRange(Range3d.fromJSON(range));
-        const half = sketchPlaneFrameHalfSize(framePlane, union);
-        if (half !== undefined && !cancelled)
-          setModelFrameHalfSize(half);
+        if (!union.isNull && !cancelled)
+          setModelFrameRange(union);
       } catch {
         // 模型范围查询失败：回退基准面尺寸（不阻断草图拾取）。
       }
@@ -181,15 +180,15 @@ export function SketchPlanePicker({
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    // Onshape live f4/f5：选中/活动草图平面框（任意来源平面，非仅基准面）。
-    // 框随模型/草图范围自适应（sketch-plane-frame 纯几何），颜色取 live 采样
-    // rgb(182,200,223) 2px。存在 frame 时不再重复描基准面选中边。
+    // Onshape live f4/f5 + 用户复核：选中/活动草图平面框（任意来源平面，非仅
+    // 基准面）。框是贴合内容（草图/模型）的**长方形**（每边略大一点），不是
+    // 正方形；空场景回退基准面方框。颜色取 live 采样 rgb(182,200,223) 2px。
+    // 存在 frame 时不再重复描基准面选中边。
     let hasFrame = false;
     if (framePlane) {
-      const half = (sketchRange ? sketchPlaneFrameHalfSize(framePlane, sketchRange) : undefined)
-        ?? modelFrameHalfSize
-        ?? datumPlaneHalfSize(viewport);
-      const corners = sketchPlaneFrameCorners(framePlane, half);
+      const contentRange = sketchRange ?? modelFrameRange;
+      const corners = (contentRange ? sketchPlaneFrameRect(framePlane, contentRange) : undefined)
+        ?? sketchPlaneFrameCorners(framePlane, datumPlaneHalfSize(viewport));
       if (corners) {
         hasFrame = true;
         const pts = corners.map((p) => viewport.worldToView(p));
@@ -261,7 +260,7 @@ export function SketchPlanePicker({
         ctx.restore();
       }
     }
-  }, [viewport, hover, selected, pendingSketchName, framePlane, sketchRange, frameLabel, modelFrameHalfSize]);
+  }, [viewport, hover, selected, pendingSketchName, framePlane, sketchRange, frameLabel, modelFrameRange]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {

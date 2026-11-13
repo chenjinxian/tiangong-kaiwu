@@ -187,7 +187,8 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   无下拉（只读显示；cPlane 经特征树选中桥 `tree.selectedNodeIds`）、× 清除
   仅删 pending 草壳并保持对话框打开可重选；✓/✗ 全 9 个对话框统一 sprite
   （✗ 透明底红 X；✓ 实心 #419228/禁用 #d9e9d4）；选中/活动草图平面渲染浅蓝
-  自适应平面框 + 草图名文字（基准面/cPlane/模型面，尺寸=草图或模型范围 ×1.5）；
+  贴合内容的长方形平面框 + 草图名文字（基准面/cPlane/模型面，每边留白
+  8%/min2mm；不是正方形；空场景回退基准面方框）；
   ✗/Esc 取消新建 = `deleteSketch` 删除 pending 草壳（标准事务可撤销；失败不
   关框；编辑既有草图不删）；18 个草图飞菜单 id 补 live sprite，16 个 symbol
   抽取。验证：web **1848/1848**、真栈 `sketch-create-parity` **1 passed**

@@ -2,19 +2,19 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 草图平面框几何（2026-11-13 Onshape live f4/f5 复核）：
- * 创建/编辑草图且平面已确定时，Onshape 在视口渲染一个浅蓝平面框。f4（零件
- * ~1.5× 框宽）与 f5（75 mm 草图 vs ~150 mm 框）实测框尺寸随模型/草图范围
- * 自适应、以平面原点为中心；本模块只产出纯几何（世界四角 + 半尺寸），
- * 渲染在 SketchPlanePicker 的 2D overlay 完成。
+ * 草图平面框几何（2026-11-13 Onshape live f4/f5 复核 + 用户二次复核）：
+ * 创建/编辑草图且平面已确定时，Onshape 在视口渲染一个浅蓝平面框——框是
+ * **比内容（草图实体或模型）略大的长方形**（沿平面局部 u/v 轴对齐），不是
+ * 正方形。本模块只产出纯几何（世界四角），渲染在 SketchPlanePicker 的 2D
+ * overlay 完成；空场景（无草图/无模型）回退基准面尺寸的方框。
  */
 import { Point3d, Range3d, Vector3d } from '@itwin/core-geometry';
 import type { SketchPlaneDto } from '@luban-cad/shared';
 
-/** 框相对内容包围盒的放大系数（live 两例 1.5–2×；取 1.5 偏保守）。 */
-export const SKETCH_FRAME_SCALE = 1.5;
-/** 极小草图/零件的保底半尺寸（mm），避免框退化为一条线。 */
-export const SKETCH_FRAME_MIN_HALF_SIZE_MM = 12;
+/** 框相对内容包围盒每边的留白比例（live f4/f5：比内容大一点）。 */
+export const SKETCH_FRAME_MARGIN_RATIO = 0.08;
+/** 每边最小留白（mm），避免极小草图/零件时框贴边。 */
+export const SKETCH_FRAME_MIN_MARGIN_MM = 2;
 
 interface PlaneBasis {
   origin: Point3d;
@@ -37,7 +37,7 @@ function planeBasis(plane: SketchPlaneDto): PlaneBasis | undefined {
   return { origin: Point3d.create(plane.origin.x, plane.origin.y, plane.origin.z), u, v };
 }
 
-/** 平面内以原点为中心的方框四角（闭合顺序，不重复首点）。 */
+/** 平面内以原点为中心的方框四角（空场景回退；闭合顺序，不重复首点）。 */
 export function sketchPlaneFrameCorners(
   plane: SketchPlaneDto,
   halfSize: number,
@@ -52,28 +52,47 @@ export function sketchPlaneFrameCorners(
 }
 
 /**
- * 包围盒 → 平面框半尺寸：取 8 角相对平面原点在 u/v 方向的最大投影 ×
- * SKETCH_FRAME_SCALE；range 为空/退化返回 undefined（调用方回退基准面尺寸）。
+ * 包围盒 → 平面内**长方形**框四角（沿平面 u/v 轴对齐，每边留白
+ * SKETCH_FRAME_MARGIN_RATIO，至少 SKETCH_FRAME_MIN_MARGIN_MM）。
+ * 框贴合内容的实际长宽比——零件/草图是长方时框就是长方形（用户 2026-11-13
+ * 复核：Onshape 是比内容略大的长方形，不是正方形）。
  */
-export function sketchPlaneFrameHalfSize(
+export function sketchPlaneFrameRect(
   plane: SketchPlaneDto,
   range: Range3d,
-): number | undefined {
+): Point3d[] | undefined {
   if (range.isNull)
     return undefined;
   const basis = planeBasis(plane);
   if (!basis)
     return undefined;
-  let maxAbs = 0;
+  let minU = Number.POSITIVE_INFINITY;
+  let maxU = Number.NEGATIVE_INFINITY;
+  let minV = Number.POSITIVE_INFINITY;
+  let maxV = Number.NEGATIVE_INFINITY;
   for (const x of [range.low.x, range.high.x]) {
     for (const y of [range.low.y, range.high.y]) {
       for (const z of [range.low.z, range.high.z]) {
         const d = Vector3d.create(x - basis.origin.x, y - basis.origin.y, z - basis.origin.z);
-        maxAbs = Math.max(maxAbs, Math.abs(d.dotProduct(basis.u)), Math.abs(d.dotProduct(basis.v)));
+        const du = d.dotProduct(basis.u);
+        const dv = d.dotProduct(basis.v);
+        minU = Math.min(minU, du); maxU = Math.max(maxU, du);
+        minV = Math.min(minV, dv); maxV = Math.max(maxV, dv);
       }
     }
   }
-  if (!Number.isFinite(maxAbs) || maxAbs <= 1e-6)
+  const width = maxU - minU;
+  const height = maxV - minV;
+  if (!Number.isFinite(width) || !Number.isFinite(height) || (width <= 1e-6 && height <= 1e-6))
     return undefined;
-  return Math.max(SKETCH_FRAME_MIN_HALF_SIZE_MM, maxAbs * SKETCH_FRAME_SCALE);
+  const marginU = Math.max(SKETCH_FRAME_MIN_MARGIN_MM, width * SKETCH_FRAME_MARGIN_RATIO);
+  const marginV = Math.max(SKETCH_FRAME_MIN_MARGIN_MM, height * SKETCH_FRAME_MARGIN_RATIO);
+  const corner = (u: number, v: number): Point3d =>
+    basis.origin.plusScaled(basis.u, u).plusScaled(basis.v, v);
+  return [
+    corner(minU - marginU, minV - marginV),
+    corner(maxU + marginU, minV - marginV),
+    corner(maxU + marginU, maxV + marginV),
+    corner(minU - marginU, maxV + marginV),
+  ];
 }
