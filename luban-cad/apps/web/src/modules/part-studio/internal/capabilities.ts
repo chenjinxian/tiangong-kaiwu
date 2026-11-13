@@ -60,7 +60,7 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sketchInsertImage: 'gated', // 插入图像（图像实体/渲染未实现）
   // 2026-11-13 工具栏 live 全量对拍：草图约束飞菜单补齐 live 全 14 变体；
   // 求解器/拾取未接的六项登记 gated（诚实引导，不静默 no-op）。
-  sketchConcentric: 'gated', // 同心（求解器有类型、前端拾取通道未接）
+  sketchConcentric: 'full', // 同心（2026-11-13：两圆拾取工具接通；arc/混合待解析器）
   sketchNormal: 'gated', // 法向
   sketchPierce: 'gated', // 穿透
   sketchSymmetric: 'gated', // 对称
@@ -185,7 +185,6 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   sketchSlot: guidanceFor('sketchSlot'),
   sketchInsertImage: guidanceFor('sketchInsertImage'),
   // 2026-11-13 工具栏 live 全量对拍新增 gated。
-  sketchConcentric: guidanceFor('sketchConcentric'),
   sketchNormal: guidanceFor('sketchNormal'),
   sketchPierce: guidanceFor('sketchPierce'),
   sketchSymmetric: guidanceFor('sketchSymmetric'),

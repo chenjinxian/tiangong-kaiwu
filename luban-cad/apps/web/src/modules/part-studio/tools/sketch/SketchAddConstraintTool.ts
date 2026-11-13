@@ -281,6 +281,14 @@ export class TangentAddTool extends SketchAddConstraintTool {
   protected createInstance(): SketchAddConstraintTool { return new TangentAddTool(); }
 }
 
+/** 同心：2 circle（v1 就近分辨只解析圆；arc/混合待解析器扩展）。 */
+export class ConcentricAddTool extends SketchAddConstraintTool {
+  public static override toolId = 'Sketch.Constraint.Concentric';
+  public static override iconSpec = 'icon-constraint-concentric';
+  protected readonly constraintKind = 'concentric';
+  protected createInstance(): SketchAddConstraintTool { return new ConcentricAddTool(); }
+}
+
 /** 固定：1 point（锁参数；origin 归一化也走此路径）。 */
 export class FixedAddTool extends SketchAddConstraintTool {
   public static override toolId = 'Sketch.Constraint.Fixed';
@@ -290,7 +298,7 @@ export class FixedAddTool extends SketchAddConstraintTool {
 }
 
 /**
- * 注册草图约束 6 工具（M6-b T5；幂等——模块级 flag）。注册点=PartStudioPage
+ * 注册草图约束 9 工具（M6-b T5；幂等——模块级 flag）。注册点=PartStudioPage
  * 工具注册编排（registerSketchTools 之后同 try 块）；懒引与幂等语义见
  * registerSketchTools（SketchCreateTool.ts）。
  */
@@ -306,5 +314,6 @@ export function registerSketchConstraintTools(): void {
   IModelApp.tools.register(MidpointAddTool);
   IModelApp.tools.register(TangentAddTool);
   IModelApp.tools.register(FixedAddTool);
+  IModelApp.tools.register(ConcentricAddTool);
   constraintToolsRegistered = true;
 }

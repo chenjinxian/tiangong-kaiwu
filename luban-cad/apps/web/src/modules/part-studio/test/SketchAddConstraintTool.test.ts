@@ -59,6 +59,7 @@ import {
 import type { SketchConstraintKind, SketchEntityKind } from '../tools/sketch/sketch-constraint-logic.js';
 import {
   CoincidentAddTool,
+  ConcentricAddTool,
   EqualAddTool,
   HorizontalAddTool,
   ParallelAddTool,
@@ -96,6 +97,8 @@ describe('M6-b T5：槽位定义表（SolverTypes 冻结契约逐字）', () => 
     // v1.23：整圆 + line 也走端点相切语义（顺序不限）
     expect(CONSTRAINT_SLOT_SHAPES.tangent).toContainEqual(['circle', 'line']);
     expect(CONSTRAINT_SLOT_SHAPES.tangent).toContainEqual(['line', 'circle']);
+    // 2026-11-13 同心：v1 就近分辨只解析圆（arc/混合待解析器扩展）。
+    expect(CONSTRAINT_SLOT_SHAPES.concentric).toEqual([['circle', 'circle']]);
   });
 });
 
@@ -106,6 +109,14 @@ describe('M6-b T5：acceptPick 槽位接收判定', () => {
     const rejected = acceptPick('coincident', [], 'line');
     expect(rejected.ok).toBe(false);
     expect(rejected.message).toBeTruthy(); // 拒收文案（info，不消耗点击）
+  });
+
+  it('concentric：两个圆满槽；线/混搭拒收', () => {
+    expect(acceptPick('concentric', [], 'circle')).toEqual({ ok: true, complete: false });
+    expect(acceptPick('concentric', ['circle'], 'circle')).toEqual({ ok: true, complete: true });
+    expect(acceptPick('concentric', [], 'line').ok).toBe(false);
+    expect(acceptPick('concentric', ['circle'], 'line').ok).toBe(false);
+    expect(acceptPick('concentric', ['circle'], 'circle').message).toBeUndefined();
   });
 
   it('horizontal/vertical：单线即满槽；点对式两槽', () => {
@@ -213,9 +224,10 @@ describe('M6-b T5：约束 6 工具 toolId 与注册接线', () => {
     expect(ParallelAddTool.toolId).toBe('Sketch.Constraint.Parallel');
     expect(PerpendicularAddTool.toolId).toBe('Sketch.Constraint.Perpendicular');
     expect(EqualAddTool.toolId).toBe('Sketch.Constraint.Equal');
+    expect(ConcentricAddTool.toolId).toBe('Sketch.Constraint.Concentric');
   });
 
-  it('registerSketchConstraintTools 幂等：9 工具按序各注册一次（二次调用 no-op）', () => {
+  it('registerSketchConstraintTools 幂等：10 工具按序各注册一次（二次调用 no-op）', () => {
     const before = registerMock.mock.calls.length;
     registerSketchConstraintTools();
     registerSketchConstraintTools(); // 幂等：模块 flag 置位后 no-op
@@ -230,6 +242,7 @@ describe('M6-b T5：约束 6 工具 toolId 与注册接线', () => {
       'Sketch.Constraint.Midpoint',
       'Sketch.Constraint.Tangent',
       'Sketch.Constraint.Fixed',
+      'Sketch.Constraint.Concentric',
     ]);
   });
 });

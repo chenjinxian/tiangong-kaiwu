@@ -54,13 +54,14 @@
 
 所有 live 项均已渲染并具备 live 文案/顺序/快捷键。**功能实现**状态：
 - full：草图/特征既有工具（线、矩形、圆、圆弧、样条、点、偏移、镜像、线性/
-  环形阵列、变换、圆角/倒角、修剪/延伸/分割、约束 8 项、尺寸、拉伸/旋转/
-  扫掠/放样、圆角/倒角、孔/抽壳/分割/变换/布尔/删除零件等，见能力矩阵）。
+  环形阵列、变换、圆角/倒角、修剪/延伸/分割、约束 9 项（含 2026-11-13 接通的
+  同心）、尺寸、拉伸/旋转/扫掠/放样、圆角/倒角、孔/抽壳/分割/变换/布尔/
+  删除零件等，见能力矩阵）。
 - gated（点击打开能力引导，说明真实原因，不是静默 no-op）：加厚（含封闭）、
   面混合、拔模/主体拔模、曲线阵列、包覆、印花、筋、外部螺纹、修改圆角/
   删除面/替换面、框架▾、钣金▾、平面▾ 曲面/曲线/装配参考、添加自定义特征、
   草图文本/椭圆/椭圆弧/圆锥/3 点圆之外的样条控制点/中点线/交点/槽/插入图像、
-  草图约束同心/法向/穿透/对称/曲率/草图流。
+  草图约束法向/穿透/对称/曲率/草图流（同心已翻 full，见 concentric AIRR）。
 - 这些 gated 项的反转 = 后端/内核/求解器实现（Stage G 分波），不改变本切片
   UI 契约。
 - 图标：飞菜单变体暂复用家族图标（live 每项有独立 glyph；本次只采集了
@@ -73,13 +74,15 @@
 - 更新 `ribbon-registry.test.ts`（27 工具、9 飞菜单、74 命令）、
   `capabilities.test.ts`（gated 53）、`SketchDialog.test.tsx`（live 文案/顺序 +
   Esc defaultPrevented 守卫）。
-- web 全量：**137 files / 1821 tests passed**。
+- web 全量：**137 files / 1819 tests passed**（同心翻 full 后 gated 参数化集合 -2）。
 - 真栈新增 `e2e/toolbar-live-parity.spec.ts` **3 passed**：平面▾ 26 行
   （父行+25）逐字+ctrl+m keycap；特征 shift+s 开草图对话框；约束▾ 15 行
   文案/keycap 逐字；草图 l→线、shift+s→点、m→修剪；Esc 关菜单不退出草图。
 - 真栈标签重命名回归：sketch-bezier / center-arc / center-rectangle /
   perimeter-circle / polygon（内切+外切）/ use / fillet（4 用例）共
   **12 passed（3.6 min）**。
+- 同批功能切片：`e2e/sketch-concentric.spec.ts` **2 passed**（同心约束落库+
+  圆心重合）。
 - `tutorial2-tools`（9.3 min 长批）3 passed / 4 failed；其中「绘制」「圆」两项
   单独重跑各 **2 passed**（长批负载下的点击抖动），另两项「约束」「标注」计数
   差 1 为本机既有环境红（2026-11-13 editor-state AIRR 已用未修改代码复现同值）。

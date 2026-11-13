@@ -1167,7 +1167,9 @@
         "midpointThird": "Midpoint constraint: click the last endpoint",
         "tangentFirst": "Tangent constraint: click an arc/spline or a line",
         "tangentSecond": "Tangent constraint: click the other curve",
-        "fixedFirst": "Fixed constraint: click a point"
+        "fixedFirst": "Fixed constraint: click a point",
+        "concentricFirst": "Select the first circle",
+        "concentricSecond": "Select the second circle (its center will coincide)"
       },
       "reject": {
         "coincidentNeedsPoint": "The coincident constraint accepts points or a point and a circle (got {{actual}})",
@@ -1179,7 +1181,8 @@
         "slotMismatch": "Entity type does not fit a slot of this constraint",
         "midpointNeedsPointLine": "The midpoint constraint needs a point and a line, or three points (got {{actual}})",
         "tangentNeedsCurveLine": "The tangent constraint needs an arc/circle/spline and a line (got {{actual}})",
-        "fixedNeedsPoint": "The fixed constraint only accepts a point (got {{actual}})"
+        "fixedNeedsPoint": "The fixed constraint only accepts a point (got {{actual}})",
+        "concentricNeedsCircle": "{{label}} needs two circles (got {{actual}})"
       }
     },
     "dimension": {
@@ -1339,7 +1342,8 @@
         "radius": "Radius",
         "midpoint": "Midpoint",
         "tangent": "Tangent",
-        "fixed": "Fixed"
+        "fixed": "Fixed",
+        "concentric": "Concentric"
       },
       "dimensionKinds": {
         "distance": "Distance",

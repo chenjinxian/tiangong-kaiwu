@@ -32,7 +32,8 @@ export type SketchConstraintKind =
   | 'equal'
   | 'midpoint'
   | 'tangent'
-  | 'fixed';
+  | 'fixed'
+  | 'concentric';
 
 export type SketchEntityKind = SketchEntityDto['kind'];
 
@@ -76,6 +77,10 @@ export const CONSTRAINT_SLOT_SHAPES: Record<
   // line 端点（经 coincident）落在圆上的端点相切，见 SolverTypes.ts。
   tangent: [['arc', 'line'], ['circle', 'line'], ['spline', 'line'], ['line', 'arc'], ['line', 'circle'], ['line', 'spline'], ['arc', 'arc'], ['spline', 'spline']],
   fixed: [['point']],
+  // 同心（2026-11-13 live 约束飞菜单补齐）：两圆/两弧圆心重合。v1 就近分辨
+  // 只解析 point/line/circle（arc 无独立解算体），因此先收 circle+circle；
+  // arc/混合组合待解析器扩展（诚实提示两个圆）。
+  concentric: [['circle', 'circle']],
 };
 
 /** 拒收文案键（按种类回退通用键；槽位态专键在 acceptPick 内定位）。 */
@@ -89,6 +94,7 @@ const REJECT_KEYS: Record<SketchConstraintKind, string> = {
   midpoint: 'partStudio.sketch.constraint.reject.midpointNeedsPointLine',
   tangent: 'partStudio.sketch.constraint.reject.tangentNeedsCurveLine',
   fixed: 'partStudio.sketch.constraint.reject.fixedNeedsPoint',
+  concentric: 'partStudio.sketch.constraint.reject.concentricNeedsCircle',
 };
 
 /**
@@ -157,6 +163,10 @@ export function pickPrompt(kind: SketchConstraintKind, picked: SketchPickKind[])
         : { key: 'partStudio.sketch.constraint.prompts.tangentSecond', params: { label } };
     case 'fixed':
       return { key: 'partStudio.sketch.constraint.prompts.fixedFirst', params: { label } };
+    case 'concentric':
+      return picked.length === 0
+        ? { key: 'partStudio.sketch.constraint.prompts.concentricFirst', params: { label } }
+        : { key: 'partStudio.sketch.constraint.prompts.concentricSecond', params: { label } };
   }
 }
 
