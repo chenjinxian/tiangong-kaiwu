@@ -187,12 +187,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   无下拉（只读显示；cPlane 经特征树选中桥 `tree.selectedNodeIds`）、× 清除
   仅删 pending 草壳并保持对话框打开可重选；✓/✗ 全 9 个对话框统一 sprite
   （✗ 透明底红 X；✓ 实心 #419228/禁用 #d9e9d4）；选中/活动草图平面渲染浅蓝
-  贴合内容的长方形平面框 + 草图名文字（基准面/cPlane/模型面，每边留白
-  8%/min2mm；不是正方形；空场景回退基准面方框）；
+  **世界固定长方形**平面框（半宽 2× 基准面、半高 1.15× 基准面，同心；内容
+  超出对称扩张；live 实测绘缩放不漂移）+ 框左上角内侧水平「草图 N」
+  （基准面/cPlane/模型面；不是正方形；框边可在视口外，与 live 一致）；
   ✗/Esc 取消新建 = `deleteSketch` 删除 pending 草壳（标准事务可撤销；失败不
   关框；编辑既有草图不删）；18 个草图飞菜单 id 补 live sprite，16 个 symbol
   抽取。验证：web **1848/1848**、真栈 `sketch-create-parity` **1 passed**
-  （布局/字号/平面框边框+文字/取消删除/编辑成品/5+15 项图标）+
+  （布局/字号/平面框边框+文字+正视后投影宽高比 1.5–2.0 排除正方形/取消删除/
+  编辑成品/5+15 项图标）+
   `sketch-edit`/`sketch-camera-parity`/`sketch-camera-fit`/`sketch-region-fill`
   **7 passed**、`sketch-chamfer`/`sketch-fillet`/`sketch-split`/`mouse-interaction`
   **10 passed**、`cplane-point` **1 passed**、`autosave-version`/`ui-parity`

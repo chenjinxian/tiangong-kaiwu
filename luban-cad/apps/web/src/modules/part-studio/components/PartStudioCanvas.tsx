@@ -977,7 +977,7 @@ export function PartStudioCanvas({
       return option.plane;
     return sketchPlaneFromOption(id) ?? null;
   }, [dialog.active, sketchActiveForDialog, sketchSystem?.activeSketch, sketchDraftPlane, sketchFacePlane, sketchPlaneOptions]);
-  // 草图实体范围（框尺寸随草图自适应；空草图回退模型范围/基准面尺寸）。
+  // 草图实体范围（内容超出固定最小框时对称扩张；空草图回退模型范围）。
   const sketchFrameRange = React.useMemo(
     () => sketchSystem?.activeSketch
       ? sketchWorldRange(sketchSystem.activeSketch.plane, sketchSystem.activeSketch.entities)

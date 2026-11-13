@@ -73,6 +73,29 @@ async function frameAlphaPixels(page: import('@playwright/test').Page): Promise<
   });
 }
 
+/** overlay 非透明像素的屏幕包围盒（平面框形状证据）。 */
+async function framePixelBBox(page: import('@playwright/test').Page): Promise<{ width: number; height: number }> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('.part-studio-plane-picker') as HTMLCanvasElement | null;
+    if (!canvas)
+      return { width: 0, height: 0 };
+    const { width, height } = canvas;
+    const data = canvas.getContext('2d')!.getImageData(0, 0, width, height).data;
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (data[(y * width + x) * 4 + 3]! > 0) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    return maxX < 0 ? { width: 0, height: 0 } : { width: maxX - minX + 1, height: maxY - minY + 1 };
+  });
+}
+
 test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
   test('创建态布局/平面框/取消删除/编辑成品/飞菜单图标', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
@@ -144,7 +167,23 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     await expect(dialog.locator('.part-studio-sketch-dialog__plane-clock')).toBeVisible();
     await expect(dialog.locator('.part-studio-sketch-dialog__plane-clear')).toBeVisible();
     await expect(dialog.getByTestId('sketch-finish')).toHaveCount(0);
+    // 2026-11-13 live 二轮实测：平面框是**世界固定长方形**（半宽 2× 基准面、
+    // 半高 1.15× 基准面 ≈ 600×345 mm），远大于本用例 40 mm 盒体——默认取景下
+    // 框边在视口外。先经 ViewCube 相机菜单「正视草图平面」转正，再滚轮缩小，
+    // 验证绘制像素与宽>高形状（正对时投影宽高比 = 600:345，不是正方形）。
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-view-normal-to-sketch').click();
+    await page.waitForTimeout(500);
+    const viewportBox = (await page.getByTestId('part-studio-viewport').boundingBox())!;
+    await page.mouse.move(viewportBox.x + viewportBox.width / 2, viewportBox.y + viewportBox.height / 2);
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, 600);
+      await page.waitForTimeout(120);
+    }
     await expect.poll(() => frameAlphaPixels(page), { timeout: 20_000 }).toBeGreaterThan(500);
+    const frameBox = await framePixelBBox(page);
+    expect(frameBox.width / frameBox.height).toBeGreaterThan(1.5);
+    expect(frameBox.width / frameBox.height).toBeLessThan(2.0);
     // 2026-11-13 用户复核：选面后视口须同步显示平面框**和草图名文字**。
     const pickerMarker = page.getByTestId('sketch-plane-picker');
     await expect(pickerMarker).toHaveAttribute('data-frame-plane', 'true');

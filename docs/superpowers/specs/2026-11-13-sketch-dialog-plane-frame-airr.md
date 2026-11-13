@@ -29,7 +29,7 @@
 | 底栏 | 右对齐：草图分析工具（sprite `sketch-analysis-tools`）+「成品」（仅编辑既有草图）+ ?（sprite `help-button`）；无「缩放到合适大小/正视草图平面」 |
 | 标题变化 | 创建前泛称「草图」；选平面后「草图 N」 |
 | pending 草图 | 创建后树行立即可见；✗ 取消=删除 pending 草图 |
-| 平面框 | 浅蓝 `rgb(182,200,223)` 2px 线框；**贴合内容（草图/模型）的长方形、每边略大一点**（不是正方形；f4/f5 与用户复核） |
+| 平面框 | 浅蓝 `rgb(182,200,223)` 2px 线框；**以平面原点为中心的世界固定长方形**：半宽 = 基准面半宽 × 2.0、半高 = × 1.15（空 PS 选 Front 实测外框 1090×617 px vs 基准面方框 545×545 px，同心；缩放实验证明世界固定）。内容超出时对称扩张；「草图 N」为**水平文字**，位于框左上角内侧（不是正方形、不是内容包围盒、不沿顶边旋转；2026-11-13 二轮 live 复核） |
 | 飞菜单图标 | 18 个 sketch id 的 live icon 名（见下），sprite symbol 全部可抽取 |
 
 ## 实现
@@ -47,12 +47,16 @@
 
 ### 2. 草图平面框（`internal/sketch-plane-frame.ts` + `SketchPlanePicker`）
 
-- 纯几何：`sketchPlaneFrameRect`（范围 8 角投影到平面 u/v 轴 → 内容包围矩形，
-  每边留白 8%（min 2mm），**保留内容长宽比 → 长方形**）、
-  `sketchPlaneFrameCorners`（空场景回退：以平面原点为中心的基准面方框）。
-- Picker 新增 `framePlane`/`sketchRange`：矩形按选中/活动草图平面绘制
-  （基准面/cPlane/模型面均可），尺寸优先草图实体范围，否则查询模型范围，
-  最后回退基准面尺寸；存在 frame 时不再重复描基准面选中边。
+- 纯几何：`sketchPlaneFrameRect(plane, datumHalfSize, contentRange?)`——以平面
+  原点为中心的**固定长方形**：半宽 = 基准面半宽 × `SKETCH_FRAME_WIDTH_RATIO`
+  （2.0）、半高 = × `SKETCH_FRAME_HEIGHT_RATIO`（1.15）；`contentRange` 在
+  u/v 上最大绝对值超出最小框时**对称扩张**（×1.08，无 live 直测的保守外推）。
+  不再有内容包围盒/基准面方框两套口径。
+- Picker 新增 `framePlane`/`sketchRange`：框按选中/活动草图平面绘制
+  （基准面/cPlane/模型面均可），内容范围优先草图实体，否则查询模型范围；
+  存在 frame 时不再重复描基准面选中边。标签 `frameLabel ?? pendingSketchName`
+  以**水平文字**绘制在投影四角的左上角内侧（+12/+24 px），颜色
+  `rgba(150,200,238,0.95)`、600 16px。
 - 宿主 `PartStudioCanvas` 由活动草图落库平面 → 草稿平面解析来源，传给 Picker。
 
 ### 3. 取消新建草图 = 删除 pending 草壳
@@ -83,12 +87,14 @@
 
 - 单测：`SketchDialog.test.tsx`（41 passed：布局/字段两态/成品/取消删除/
   删除失败不关框/编辑不删/字段 × 清 pending 且不关框/无下拉）、
-  `sketch-plane-frame.test.ts`（4 组纯几何）、`FeatureDialog.test.tsx`、
+  `sketch-plane-frame.test.ts`（7 组纯几何：固定长方形比例/内容扩张/退化）、
+  `FeatureDialog.test.tsx`、
   `ViewCube.test.tsx`（相机菜单「正视草图平面」命令）；web 全量
   **139 files / 1848 passed**；tsc（src/e2e）/eslint 绿。
 - 真栈：`e2e/sketch-create-parity.spec.ts` **1 passed**（创建态计算样式/
-  字号 16/12/13.3333px/平面框像素+`data-frame-label`/取消删除/编辑成品/
-  飞菜单 5+15 项图标）；`sketch-edit`、`sketch-camera-parity`、
+  字号 16/12/13.3333px/平面框像素+`data-frame-label`+正视后投影宽高比
+  1.5–2.0（排除正方形）/取消删除/编辑成品/飞菜单 5+15 项图标）；
+  `sketch-edit`、`sketch-camera-parity`、
   `sketch-camera-fit`、`sketch-region-fill`、`sketch-chamfer`、
   `cplane-point` **9 passed**（含 cPlane 树选中桥 4000 mm³ 真栈）；
   `autosave-version`/`ui-parity`/`sketch-extrude`（T1）在迁移批次通过；
@@ -121,10 +127,13 @@
 5. **选面后视口同步显示平面框 + 草图名文字**：`SketchPlanePicker` 新增
    `frameLabel`（草图名沿框顶边外侧绘制，与边框同步）；marker 暴露
    `data-frame-plane`/`data-frame-label` 供真栈断言。
-   用户同日进一步复核：Onshape 的框是**比草图/模型略大的长方形**（不是正方形）
-   ——框改为内容包围矩形（保留长宽比，每边 8%/min2mm 留白），空场景回退
-   基准面方框；单测覆盖 40×10 → 长方形、正方内容 → 正方框、偏移内容不强制
-   居中。
+   用户同日进一步复核：Onshape 的框是**比草图基准面大一点的长方形**（不是正方形）。
+   第三轮 live 采集（empty-front-zoomed-out/in、live-sketch-frame-crop）实测：
+   外框 1090×617 px vs 基准面方框 545×545 px，两者同心；缩放后比例不变，
+   证明框是**世界固定长方形**（半宽 2×、半高 1.15× 基准面），标签为框左上角
+   内侧的**水平**浅蓝文字。据此重写 `sketch-plane-frame.ts`（删除内容包围盒
+   口径，改为固定长方形 + 内容超限对称扩张），单测覆盖空内容比例、
+   内容小不缩、内容大对称扩张、偏侧仍居中、空 Range/退化点/退化平面。
 
 ## 已知边界 / 后续
 
@@ -133,8 +142,12 @@
   相机菜单，草图激活时可用。
 - 平面框为 2D overlay（与既有 SketchPlanePicker 选中描边同层），不做模型遮挡
   深度裁剪；若后续要求与 live 完全一致的遮挡效果，再上 3D WorldDecoration。
-- 平面框为内容包围矩形（8% / min 2mm 留白）——贴合草图或模型的长宽比；
-  空场景（无草图/无模型）回退基准面方框。留白参数非契约值。
+- 平面框是**世界固定长方形**（2× / 1.15× 基准面）——零件远小于框时框边会
+  落在视口外（Onshape live 同样如此，缩放实验已证）；内容超出最小框时的
+  对称扩张（×1.08）无 live 直测，是「框至少包住内容」的保守外推；
+  比例/留白参数非契约值。
+- 真栈 `sketch-create-parity` 以 ViewCube「正视草图平面」+ 滚轮缩小验证框的
+  绘制像素与投影宽高比（600:345 ≈ 1.74，断言 1.5–2.0，排除正方形）。
 - 「成品」复用完成出口（等价 ✓），Onshape 的「成品」附加语义（保留草图工具
   上下文）未单列。
 
