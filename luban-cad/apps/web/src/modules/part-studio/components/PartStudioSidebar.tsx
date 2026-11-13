@@ -54,6 +54,11 @@ export interface PartStudioSidebarProps {
   partStudioId?: string;
   /** B6 M-A3.2a：body 读面（仅连接成功读过 getBodies 时下传；undefined=legacy 回退）。 */
   bodies?: readonly BodyInfo[];
+  /**
+   * 2026-11-13：consumed（active=false）body 键集——视口 neverDrawn 隐藏源。
+   * 必须来自**未过滤** getBodies（bodies prop 是 displayBodies 已滤 consumed）。
+   */
+  consumedBodyKeys?: readonly string[];
   /** body 读面加载中（零件段骨架）。 */
   bodiesLoading?: boolean;
   /** body 读面失败（初次失败可见错误+重试；已加载后刷新失败就地错误条）。 */
@@ -94,6 +99,7 @@ export function PartStudioSidebar({
   connection,
   partStudioId,
   bodies,
+  consumedBodyKeys,
   bodiesLoading,
   bodiesError,
   viewport,
@@ -283,6 +289,7 @@ export function PartStudioSidebar({
         connection={connection}
         partStudioId={partStudioId}
         bodies={bodies}
+        consumedBodyKeys={consumedBodyKeys}
         bodiesLoading={bodiesLoading}
         bodiesError={bodiesError}
         viewport={viewport}

@@ -178,13 +178,12 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   await showcaseCaption(page, '步骤 2｜打开 Part Studio', '空白 Part Studio；左侧特征树、右侧 3D 视口。接下来从草图开始。');
 
   // 进入草图：Front（前视）平面。
-  await showcaseCaption(page, '步骤 3｜新建草图', '点击工具栏「草图」→ 在视口中点击 Front 基准面（蓝色高亮）→ 绿色✓确认。');
+  await showcaseCaption(page, '步骤 3｜新建草图', '点击工具栏「草图」→ 在视口中点击 Front 基准面（蓝色高亮）→ 直接进入草图编辑。');
   await page.getByRole('button', { name: '草图', exact: true }).click();
   const sketchDialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(sketchDialog).toBeVisible();
   await chooseSketchPlaneInViewport(page, 'front');
   await expect(sketchDialog.getByRole('combobox', { name: '草图平面' })).toContainText('Front');
-  await sketchDialog.getByRole('button', { name: '确认' }).click();
   // Onshape：创建后同一草图对话框保持打开（编辑态），草图工具条变身。
   await expect(
     page.getByRole('toolbar', { name: '草图工具' }).or(sketchDialog.getByTestId('part-studio-sketch-dialog-error')),

@@ -92,7 +92,6 @@ async function createRightSketch(page: Page): Promise<void> {
   const dialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(dialog).toBeVisible();
   await chooseSketchPlaneInViewport(page, 'right');
-  await dialog.getByRole('button', { name: '确认' }).click();
   await expect(
     page.getByRole('toolbar', { name: '草图工具' }).or(dialog.getByTestId('part-studio-sketch-dialog-error')),
   ).toBeVisible({ timeout: 60_000 });

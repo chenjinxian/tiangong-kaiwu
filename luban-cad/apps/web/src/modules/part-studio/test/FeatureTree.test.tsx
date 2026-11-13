@@ -300,7 +300,9 @@ describe('B6 M-A3.2a 零件段 = authored active body（getBodies 读面）', ()
 
   it('consumed 几何视口隐藏；与手动隐藏并集；undo 恢复 active 后重新可见', async () => {
     mocks.viewport = { id: 'vp' };
-    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    // 2026-11-13：consumed 键集来自**未过滤**读面（bodies=displayBodies 已滤），
+    // 由宿主显式下传 consumedBodyKeys。
+    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} consumedBodyKeys={['0x18']} />);
     // 首次：仅 consumed body（0x18）进 neverDrawn（replace=true 重建集）。
     await waitFor(() => expect(mocks.hideElements).toHaveBeenCalledWith(['0x18'], { id: 'vp' }, true));
     // 手动隐藏 0x15（store.hiddenIds）→ 并集重算，用户隐藏不被 consumed 通道吞掉。
@@ -318,6 +320,7 @@ describe('B6 M-A3.2a 零件段 = authored active body（getBodies 读面）', ()
       <FeatureTree
         entries={ENTRIES}
         bodies={BODIES.map((body) => (body.bodyKey === '0x18' ? { ...body, active: true } : body))}
+        consumedBodyKeys={[]}
       />,
     );
     await waitFor(() => expect(mocks.clearHiddenElements).toHaveBeenCalledWith({ id: 'vp' }));
@@ -330,10 +333,10 @@ describe('B6 M-A3.2a 零件段 = authored active body（getBodies 读面）', ()
   });
 
   it('viewport 晚于 getBodies 出现 → 应用 consumed hide（I3：effect 依赖真 viewport）', async () => {
-    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} />);
+    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} consumedBodyKeys={['0x18']} />);
     expect(mocks.hideElements).not.toHaveBeenCalled();
     const lateViewport = { id: 'late-vp' };
-    rerender(<FeatureTree entries={ENTRIES} bodies={BODIES} viewport={lateViewport as never} />);
+    rerender(<FeatureTree entries={ENTRIES} bodies={BODIES} consumedBodyKeys={['0x18']} viewport={lateViewport as never} />);
     await waitFor(() =>
       expect(mocks.hideElements).toHaveBeenCalledWith(['0x18'], lateViewport, true),
     );

@@ -118,7 +118,6 @@ async function boot(page: Page, request: APIRequestContext): Promise<{ ctx: Ctx;
   const dialog = page.getByTestId('part-studio-sketch-dialog');
   await expect(dialog).toBeVisible();
   await chooseSketchPlaneInViewport(page, 'front');
-  await dialog.getByRole('button', { name: '确认' }).click();
   // Onshape：创建后同一草图对话框保持打开（编辑态），草图工具条变身。
   await expect(
     page.getByRole('toolbar', { name: '草图工具' }).or(dialog.getByTestId('part-studio-sketch-dialog-error')),

@@ -1922,7 +1922,7 @@ describe('B-model P2.5：active scope 视口过滤', () => {
       await new Promise((resolve) => setTimeout(resolve, 20));
     });
     expect(lastViewportOptions().iModel).toBeUndefined();
-    expect(lastViewportOptions().activeModelIds ?? undefined).toBeUndefined();
+    expect(lastViewportOptions().activeModelIds).toEqual([]); // B fail-closed：不回落全模型
   });
 
   it('editorToolSettings：B active scope 钉死 active physModelId（selector 内其他模型不参与）', async () => {

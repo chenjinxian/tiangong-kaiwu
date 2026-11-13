@@ -35,6 +35,12 @@ export interface UseBrepTopologyOptions {
   hiddenIds: readonly string[];
   display: DisplaySettings;
   enabled?: boolean;
+  /**
+   * 草图编辑态（2026-11-13）：暂停叠加并清空——Onshape 编辑草图时下游体回滚，
+   * 边缘叠加不能继续画出被隐藏体（否则只剩灰色线框残留）。只清空、不发读命令
+   * （草图工具会话占用 SolidModeling）。退出草图后自动重读。
+   */
+  suppressed?: boolean;
 }
 
 export interface UseBrepTopologyResult {
@@ -77,6 +83,7 @@ export function useBrepTopology({
   hiddenIds,
   display,
   enabled = true,
+  suppressed = false,
 }: UseBrepTopologyOptions): UseBrepTopologyResult {
   const decorationRef = useRef<BrepTopologyDecoration>();
   const [topology, setTopology] = useState<BrepTopology>();
@@ -115,6 +122,15 @@ export function useBrepTopology({
 
   // 拓扑刷新（body 读面/树刷新/隐藏集变化）。
   useEffect(() => {
+    if (suppressed) {
+      // 草图编辑：立即清空叠加（不读后端，避免与草图工具会话冲突）。
+      const empty: BrepTopology = { edges: [], vertices: [] };
+      setTopology(empty);
+      decorationRef.current?.setTopology(empty);
+      setLoading(false);
+      setError(undefined);
+      return;
+    }
     if (!connection || !viewport || !bodiesLoaded || !enabled) {
       setLoading(false);
       return;
@@ -174,7 +190,7 @@ export function useBrepTopology({
       if (retryTimer !== undefined)
         clearTimeout(retryTimer);
     };
-  }, [connection, viewport, bodies, bodiesLoaded, revision, hiddenKey, enabled, hiddenIds]);
+  }, [connection, viewport, bodies, bodiesLoaded, revision, hiddenKey, enabled, suppressed, hiddenIds]);
 
   return { topology, loading, error };
 }

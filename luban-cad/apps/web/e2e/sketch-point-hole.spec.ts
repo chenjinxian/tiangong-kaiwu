@@ -28,7 +28,6 @@ test.describe('Sketch.Point → 孔位', () => {
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
     await chooseSketchPlaneInViewport(page, 'front');
-    await dialog.getByRole('button', { name: '确认' }).click();
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
 
     const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();

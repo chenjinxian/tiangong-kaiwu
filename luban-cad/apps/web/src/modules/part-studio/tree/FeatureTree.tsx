@@ -115,6 +115,13 @@ export interface FeatureTreeProps {
    * 发布门禁要求 MS minor ≥ web minor，正常栈不会走此回退）。
    */
   bodies?: readonly BodyInfo[];
+  /**
+   * 2026-11-13：consumed（active=false）body 键集——视口 neverDrawn 隐藏的数据源。
+   * **必须来自未过滤的 getBodies 读面**：`bodies` 传入的是 displayBodies（已滤掉
+   * consumed），若再从其中推导会让隐藏恒为空（删除特征后体残留的根因）。
+   * undefined=读面不可用 → 不接管 neverDrawn（legacy 回退）。
+   */
+  consumedBodyKeys?: readonly string[];
   /** body 读面加载中（零件段骨架；读面未就绪时不抢先发 legacy 查询）。 */
   bodiesLoading?: boolean;
   /**
@@ -353,6 +360,7 @@ export function FeatureTree({
   connection,
   partStudioId,
   bodies,
+  consumedBodyKeys,
   bodiesLoading,
   bodiesError,
   viewport,
@@ -417,19 +425,41 @@ export function FeatureTree({
   useCanvasSelection(editHighlightIds);
 
   // B6 M-A3.2a：consumed body 几何视口隐藏（持久元素仍会被渲染——树过滤不够）。
-  // neverDrawn 集 = consumed body ∪ store.canvas.hiddenIds（手动隐藏），replace=true
-  // 整集重建：撤销恢复 active / 手动隐藏/取消隐藏后都按最新并集重算；并集空时
-  // clearHiddenElements 令撤销后的 body 重新可见。无 viewport（壳期/测试）静默跳过。
+  // neverDrawn 集 = consumed body ∪ store.canvas.hiddenIds（手动隐藏）∪
+  // **编辑草图时位于该草图下游的 body**（Onshape 回滚语义近似：双击草图编辑时
+  // 后续拉伸体不应继续显示），replace=true 整集重建：撤销恢复 active / 手动隐藏/
+  // 取消隐藏 / 进出草图后都按最新并集重算；并集空时 clearHiddenElements 令
+  // 撤销后的 body 重新可见。无 viewport（壳期/测试）静默跳过。
+  // consumed 键集必须来自**未过滤**读面（props.consumedBodyKeys）——bodies 是
+  // displayBodies（已滤 consumed），从其中推导会让隐藏恒空（2026-11-13 根因）。
   // 草图不在此列：2026-11-04 起 LubanCAD.Sketch 不再写 native geometry stream
   // （params 唯一数据源，SketchCurvesDecoration 唯一显示源），无需按元素 id 隐藏。
+  const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
+  const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
   const consumedBodiesKey = React.useMemo(
-    () => (bodies === undefined
-      ? null
-      : JSON.stringify(bodies.filter((body) => !body.active).map((body) => body.bodyKey))),
-    [bodies],
+    () => (consumedBodyKeys === undefined ? null : JSON.stringify([...consumedBodyKeys])),
+    [consumedBodyKeys],
   );
   const manualHiddenIds = usePartStudioStore((s) => s.canvas.hiddenIds);
   const manualHiddenKey = React.useMemo(() => JSON.stringify(manualHiddenIds), [manualHiddenIds]);
+  const downstreamBodyKeys = React.useMemo(() => {
+    if (!sketchActive || !activeSketchId || bodies === undefined)
+      return [];
+    const indexById = new Map((entries ?? []).map((entry, index) => [entry.id, index]));
+    const sketchIndex = indexById.get(activeSketchId);
+    if (sketchIndex === undefined)
+      return [];
+    return bodies
+      .filter((body) => {
+        // displayBodies 已只含 active authored；源特征在草图之后的产体 → 隐藏。
+        if (body.sourceFeatureId === undefined)
+          return false;
+        const sourceIndex = indexById.get(body.sourceFeatureId);
+        return sourceIndex !== undefined && sourceIndex > sketchIndex;
+      })
+      .map((body) => body.bodyKey);
+  }, [sketchActive, activeSketchId, bodies, entries]);
+  const downstreamBodyKey = React.useMemo(() => JSON.stringify(downstreamBodyKeys), [downstreamBodyKeys]);
   React.useEffect(() => {
     if (consumedBodiesKey === null) return; // 读面不可用：不接管 neverDrawn（legacy 回退）
     // I3：viewport 是 effect 依赖（真下传优先）——getBodies 先于 viewport 创建时，
@@ -438,7 +468,8 @@ export function FeatureTree({
     if (!targetViewport) return;
     const consumed = JSON.parse(consumedBodiesKey) as string[];
     const manual = JSON.parse(manualHiddenKey) as string[];
-    const union = [...new Set([...consumed, ...manual])];
+    const downstream = JSON.parse(downstreamBodyKey) as string[];
+    const union = [...new Set([...consumed, ...manual, ...downstream])];
     try {
       const emphasize = EmphasizeElements.getOrCreate(targetViewport);
       if (union.length > 0) emphasize.hideElements(union, targetViewport, true);
@@ -446,10 +477,7 @@ export function FeatureTree({
     } catch (err) {
       console.warn('[part-studio] consumed body 隐藏应用失败（无真实视口？）', err);
     }
-  }, [consumedBodiesKey, manualHiddenKey, viewport]);
-  // T6 草图模式：活动草图行红显（os-30 树红显进行中草图）。
-  const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
-  const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
+  }, [consumedBodiesKey, manualHiddenKey, downstreamBodyKey, viewport]);
   // M6-a T7：草图节点编辑入口（双击+右键两路同义）——enterSketch 进草图模式，
   // ribbon 变身/栅格覆盖层/树红显全由既有 sketch 切片消费面驱动。
   const enterSketch = usePartStudioStore((s) => s.enterSketch);

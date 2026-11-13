@@ -168,7 +168,10 @@ export function SketchDialog({
 
   const [internalPlane, setInternalPlane] = React.useState('');
   const plane = planeId !== undefined ? (planeId ?? '') : internalPlane;
+  /** 下拉选择来源标记：下拉选平面仍走 ✓（既有语义）；视口/树拾取直接进草图。 */
+  const dropdownPlaneRef = React.useRef<string | null>(null);
   const setPlane = React.useCallback((next: string) => {
+    dropdownPlaneRef.current = next;
     setInternalPlane(next);
     onPlaneChange?.(next || null);
   }, [onPlaneChange]);
@@ -279,6 +282,25 @@ export function SketchDialog({
       }
     })();
   }, [submitting, canEdit, editing, applyOp, enterSketch, sketchId, onConfirm, buildResult, plane, resolvedPlane]);
+
+  // 2026-11-13（用户反馈）：新建草图时**选平面即进入编辑**（Onshape 流程）——
+  // 视口拾取/特征树基准面点击（外部 planeId 变化）直接创建并进入草图编辑，
+  // 不再需要额外 ✓。下拉选择保留 ✓（既有语义/测试口径；dropdownPlaneRef 标记）。
+  // 初始即带平面（如先选模型面再点草图）= 已确认过的选择，不自动再创建。
+  const confirmRef = React.useRef(handleConfirm);
+  confirmRef.current = handleConfirm;
+  const lastAutoPlaneRef = React.useRef(plane);
+  React.useEffect(() => {
+    const previous = lastAutoPlaneRef.current;
+    lastAutoPlaneRef.current = plane;
+    if (previous === plane) return;
+    if (editing || submitting || !canEdit || plane === '') return;
+    if (dropdownPlaneRef.current === plane) {
+      dropdownPlaneRef.current = null; // 下拉选择：等待显式 ✓
+      return;
+    }
+    confirmRef.current();
+  }, [plane, editing, submitting, canEdit]);
 
   const handleCancel = React.useCallback(() => {
     exitSketch();

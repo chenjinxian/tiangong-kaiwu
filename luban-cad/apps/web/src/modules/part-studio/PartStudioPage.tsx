@@ -446,9 +446,13 @@ function PartStudioSession({
   // PhysicalModel，切页签原地换白名单+重取景，不重建 connection/viewport）；
   // A = undefined（legacy 全模型）。memo 稳定数组身份（viewer 以内容签名做
   // 依赖，此处仍避免无谓变更）。
+  // 2026-11-13：B 文档 scope 未解析/切换中（activePhysModelId 缺省）时**不得**
+  // 回落 undefined（viewer 语义=全模型）——否则新建 Part Studio / 切页签的
+  // 过渡窗口会短暂显示其它 scope 的体（用户报告「第二个 PS 看到第一个拉伸体」）。
+  // B 模式 fail-closed 传空数组（清空 selector）；A legacy 保持 undefined 全模型。
   const activeModelIds = React.useMemo(
-    () => (activePhysModelId ? [activePhysModelId] : undefined),
-    [activePhysModelId],
+    () => (activePhysModelId ? [activePhysModelId] : (mode === 'B' ? [] : undefined)),
+    [activePhysModelId, mode],
   );
   const {
     viewportRef,
@@ -491,6 +495,14 @@ function PartStudioSession({
   const displayBodies = React.useMemo(
     () => bodiesForDisplay(featureSystem.bodies, featureSystem.tree),
     [featureSystem.bodies, featureSystem.tree],
+  );
+  // 2026-11-13：consumed body 隐藏源必须取自**未过滤**读面（displayBodies 已滤
+  // consumed；从它推导会让 neverDrawn 恒空 = 删除特征后体残留的根因）。
+  const consumedBodyKeys = React.useMemo(
+    () => (featureSystem.bodiesLoaded
+      ? featureSystem.bodies.filter((body) => body.active === false).map((body) => body.bodyKey)
+      : undefined),
+    [featureSystem.bodies, featureSystem.bodiesLoaded],
   );
 
   // 2026-11-13：零件「隔离…」简化切片——会话级隐藏其它 body（同一 hiddenIds
@@ -613,6 +625,9 @@ function PartStudioSession({
     hiddenIds,
     display: displaySettings.settings,
     enabled: !sketchActiveForBrep && !dialogActiveForBrep,
+    // 2026-11-13：草图编辑时下游体 faces 经 neverDrawn 隐藏后，拓扑边缘叠加
+    // 也必须清空（否则残留灰色线框）；退出草图后自动重读。
+    suppressed: sketchActiveForBrep,
   });
 
   // P2.5 F1：scope/连接切换必须清空元素集选择。`selectionSet` 按连接持有——
@@ -1203,6 +1218,7 @@ function PartStudioSession({
               // 物理查询；I1：初次失败也下传 bodiesError → 可见错误条 + 重试，不静默）。
               // I3：viewport 显式下传 → consumed 隐藏随晚到/重建视口重跑。
               bodies={featureSystem.bodiesLoaded ? displayBodies : undefined}
+              consumedBodyKeys={consumedBodyKeys}
               bodiesLoading={featureSystem.bodiesLoading}
               bodiesError={featureSystem.bodiesError}
               viewport={viewport ?? undefined}
