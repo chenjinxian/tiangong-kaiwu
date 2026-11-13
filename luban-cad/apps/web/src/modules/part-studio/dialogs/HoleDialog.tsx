@@ -21,6 +21,7 @@ import {
   type ScreenViewport,
 } from '@itwin/core-frontend';
 import { useTranslation } from 'react-i18next';
+import { DialogHeaderButtons } from './DialogHeaderButtons.js';
 import type { BodyInfo, FeatureOp, FeatureOpResult, HoleVertexRef, PreviewResult } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useWorkspaceRef } from '../../../common/workspace/use-workspace-ref.js';
@@ -367,12 +368,7 @@ export function HoleDialog({
     >
       <header className="part-studio-feature-dialog__header">
         <h2 className="part-studio-feature-dialog__title">{featureName}</h2>
-        <div className="part-studio-feature-dialog__header-actions">
-          <button type="button" className="part-studio-feature-dialog__confirm" aria-label={t('partStudio.featureDialog.confirm')}
-            disabled={submitDisabled} onClick={() => void confirm()}>✓</button>
-          <button type="button" className="part-studio-feature-dialog__cancel" aria-label={t('partStudio.featureDialog.cancel')}
-            onClick={() => onCancel?.()}>✗</button>
-        </div>
+        <DialogHeaderButtons disabled={submitDisabled} onConfirm={() => void confirm()} onCancel={() => onCancel?.()} />
       </header>
       <div className="part-studio-feature-dialog__body">
         {error && <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-hole-dialog-error">{error}</p>}

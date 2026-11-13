@@ -3509,14 +3509,16 @@ describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点�
     expect(block).not.toContain('--iui-color-text-accent');
   });
 
-  it('✓（__confirm）禁用 → Onshape 浅绿底 + not-allowed；enabled=实心绿 #419228', () => {
+  it('✓（__confirm）禁用 → Onshape 浅绿底 + not-allowed；enabled=实心绿 #419228；✗ 透明底红 X', () => {
     const block = cssRuleBlock('.part-studio-feature-dialog__confirm:disabled');
     expect(block).toContain('#d9e9d4');
     expect(block).toContain('cursor: not-allowed');
     // enabled 规则（Onshape live 2026-11-12 像素采样）=实心绿。
     const enabled = cssRuleBlock('.part-studio-feature-dialog__confirm');
     expect(enabled).toContain('#419228');
-    expect(featureDialogCss).toContain('background: #ae3c3e;');
+    // 2026-11-13 live 复核：✗ 为透明底 + sprite 红 X（不再是实心红方块）。
+    expect(featureDialogCss).toMatch(/\.part-studio-feature-dialog__cancel\s*\{\s*background: transparent;/);
+    expect(featureDialogCss).not.toContain('background: #ae3c3e;');
   });
 
   it('悬停反馈门到 enabled：__finish/__confirm 不再有会命中禁用态的裸 :hover 规则', () => {

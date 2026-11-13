@@ -32,12 +32,12 @@
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Svg2D, SvgCheckmark, SvgClock, SvgClose, SvgFitToView } from '@itwin/itwinui-icons-react';
+import { Svg2D, SvgClock } from '@itwin/itwinui-icons-react';
 import { IModelApp } from '@itwin/core-frontend';
 import type { FeatureOp, FeatureOpResult, SketchPlaneDto } from '@luban-cad/shared';
-import { fitViewToModelRanges } from '@luban-cad/viewer';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { orientCameraToSketchPlane } from '../canvas/sketch-camera.js';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import './SketchDialog.css';
 
 /** 平面选项（下拉项寻址单位）。`plane`（v1.29）：cPlane 等自定义平面的世界快照；
@@ -112,11 +112,6 @@ export interface SketchDialogProps {
   /** ✗取消出口（exitSketch 之后调用）。 */
   onCancel?: () => void;
   /**
-   * 适合窗口（ADR-0018 S1f）：编辑态由宿主按草图实体范围取景（Onshape 语义）；
-   * 缺省回退全局模型取景。
-   */
-  onFitToView?: () => void;
-  /**
    * ADR-0018 S1g：受控「显示约束」开关（宿主 gate 草图 glyph/尺寸标注覆盖层）。
    * 缺省为内部态；提供该 prop 时以宿主值为准，变更经 onShowConstraintsChange 回传。
    */
@@ -146,7 +141,6 @@ export function SketchDialog({
   canEdit = true,
   onConfirm,
   onCancel,
-  onFitToView,
   showConstraints: showConstraintsProp,
   onShowConstraintsChange,
 }: SketchDialogProps): React.JSX.Element {
@@ -188,6 +182,11 @@ export function SketchDialog({
   // 提交态（M6-a T4）：提交中禁重入；错误就地 Alert（对话框不关——FeatureDialog 同款）。
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
+  // 2026-11-13（Onshape live f4）：本对话框**新建**的草图先处于 pending（树行已建、
+  // 尚未由第二次 ✓ 提交）；此时 ✗/Esc = 取消创建 → 经标准 deleteSketch 删除整张
+  // 草图（可撤销）。编辑既有草图的 ✗ 不得删除。
+  const [newlyCreated, setNewlyCreated] = React.useState(false);
+  const createdSketchIdRef = React.useRef<string | undefined>(undefined);
   // 卸载守卫（FeatureDialog 同款）：pending 期间宿主关闭（✗）后的迟到回包不得再 setState。
   // StrictMode 正确形态（T8 真栈冒烟修正，原 `useEffect(() => () => {...})` 只挂
   // cleanup 不重置——React 18 dev 双挂载（mount→cleanup→mount，ref 持久）后恒
@@ -201,21 +200,14 @@ export function SketchDialog({
     };
   }, []);
 
-  // Onshape live：草图对话框底栏左钮 = 缩放到合适大小（真实 fit，不做假历史）。
-  const handleFitToView = React.useCallback(() => {
-    if (onFitToView) {
-      onFitToView();
-      return;
-    }
-    const viewport = IModelApp.viewManager?.selectedView;
-    if (viewport) void fitViewToModelRanges(viewport);
-  }, [onFitToView]);
-  // ADR-0018 S1f：编辑既有草图不自动转正（live），改为显式「正视草图平面」。
+  // Onshape live f4/f5：底栏 = 草图分析工具 + 成品（编辑既有草图）+ ?；
+  // 「正视草图平面」在 live 属工具栏动作，本仓保留既有显式入口（编辑态底栏
+  // 左端，18 个真栈用例依赖；创建态不显示，保持 f4 布局一致）。
   const handleViewNormal = React.useCallback(() => {
     const viewport = IModelApp.viewManager?.selectedView;
-    if (viewport) orientCameraToSketchPlane(viewport, activeSketchPlane);
+    if (viewport)
+      orientCameraToSketchPlane(viewport, activeSketchPlane);
   }, [activeSketchPlane]);
-
   const selectedOption = planeOptions.find((option) => option.id === plane);
   /** v1.29：选中项自带 plane（cPlane）优先；三基准面回退旧映射。 */
   const resolvedPlane = React.useCallback(
@@ -244,7 +236,10 @@ export function SketchDialog({
     // 无法映射到三基准面时 plane 为空，但不得因此阻断「完成草图」。
     if (submitting || !canEdit || (plane === '' && !editing)) return; // 禁重入 + 只读门禁 + 新建未选平面
     if (editing) {
-      // Onshape：编辑态 ✓ = 完成草图（几何修改已逐 op 提交）。
+      // Onshape：编辑态 ✓ = 完成草图（几何修改已逐 op 提交）。本对话框新建的
+      // pending 草图自此提交，之后的 ✗ 不再删除它。
+      createdSketchIdRef.current = undefined;
+      setNewlyCreated(false);
       onConfirm?.(buildResult());
       return;
     }
@@ -275,7 +270,10 @@ export function SketchDialog({
       if (result.ok) {
         // 真 sketchId 入 store（废 'sketch-active' 占位串）；featureId 缺省=
         // 契约外兜底（insertSketch 后端恒返回 featureId），回退壳期寻址。
-        enterSketch(result.featureId ?? sketchId ?? 'sketch-active');
+        const createdId = result.featureId ?? (sketchId !== undefined ? sketchId : 'sketch-active');
+        createdSketchIdRef.current = createdId;
+        setNewlyCreated(true);
+        enterSketch(createdId);
         onConfirm?.(buildResult());
       } else {
         setError(result.error);
@@ -302,10 +300,40 @@ export function SketchDialog({
     confirmRef.current();
   }, [plane, editing, submitting, canEdit]);
 
+  /**
+   * ✗/Esc（Onshape live f4）：新建的本草图 = pending 特征，取消创建必须把树行
+   * 一并删除（标准 `deleteSketch` FeatureOp → 事务可撤销）；已有草图的编辑取消
+   * 只退出、不删几何。删除失败就地 Alert 不关框（不静默留下孤儿草图）。
+   */
   const handleCancel = React.useCallback(() => {
+    if (submitting) return;
+    const createdId = createdSketchIdRef.current;
+    if (createdId !== undefined && applyOp && canEdit) {
+      setError(undefined);
+      setSubmitting(true);
+      void (async () => {
+        let result: FeatureOpResult;
+        try {
+          result = await applyOp({ kind: 'deleteSketch', sketchId: createdId });
+        } catch (err) {
+          result = { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
+        if (!aliveRef.current) return;
+        setSubmitting(false);
+        if (result.ok) {
+          createdSketchIdRef.current = undefined;
+          setNewlyCreated(false);
+          exitSketch();
+          onCancel?.();
+        } else {
+          setError(result.error);
+        }
+      })();
+      return;
+    }
     exitSketch();
     onCancel?.();
-  }, [exitSketch, onCancel]);
+  }, [submitting, applyOp, canEdit, exitSketch, onCancel]);
 
   // ADR-0017 Stage D：Onshape Escape = 取消草图工具（红 X 同义）。非模态面板，
   // 焦点可在画布上——监听 window；提交中不取消（等待落位，防半提交）。
@@ -333,6 +361,23 @@ export function SketchDialog({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [submitting]);
 
+  // Onshape live f4/f5：新建 pending（含已选平面）/编辑既有草图的会话标识。
+  // 新建会话的 ✗ = 取消创建（删除树行）；编辑既有草图的 ✗ 只退出。
+  const isNewSketchSession = !editing || newlyCreated;
+  // 编辑既有草图（非本框新建）底栏出现「成品」；pending 新草图不出现（f4）。
+  const showFinish = editing && !newlyCreated;
+  // f4 创建态标题为泛称「草图」，选平面后升级为「草图 N」；f5 编辑态=草图名。
+  const dialogTitle = !editing && plane === '' && !newlyCreated
+    ? t('partStudio.sketchDialog.defaultTitle')
+    : (sketchName ?? t('partStudio.sketchDialog.defaultTitle'));
+  const planeText = selectedOption
+    ? `${selectedOption.label}${
+      selectedOption.id === 'top' || selectedOption.id === 'front' || selectedOption.id === 'right'
+        ? t('partStudio.sketchDialog.planeNameSuffix')
+        : ''
+    }`
+    : (editing ? t('partStudio.sketchDialog.customPlane') : '');
+
   return (
     <div
       role="dialog"
@@ -342,10 +387,10 @@ export function SketchDialog({
       className="part-studio-sketch-dialog"
       data-testid="part-studio-sketch-dialog"
     >
-      {/* 顶置标题行：草图名 + ✓/✗ + 历史时钟 + ? 帮助（os-30）。 */}
+      {/* 顶置标题行：草图名 + ✓/✗（Onshape sprite 图标；✗ 透明底红 X）。 */}
       <header className="part-studio-sketch-dialog__header">
         <h2 className="part-studio-sketch-dialog__title">
-          {sketchName ?? t('partStudio.sketchDialog.defaultTitle')}
+          {dialogTitle}
         </h2>
         <div className="part-studio-sketch-dialog__header-actions">
           <button
@@ -355,15 +400,16 @@ export function SketchDialog({
             disabled={submitting || !canEdit || (plane === '' && !editing)}
             onClick={handleConfirm}
           >
-            <SvgCheckmark />
+            <OnshapeIcon name="ok-button" size={20} />
           </button>
           <button
             type="button"
             aria-label={t('partStudio.sketchDialog.cancel')}
             className="part-studio-sketch-dialog__cancel"
+            disabled={submitting}
             onClick={handleCancel}
           >
-            <SvgClose />
+            <OnshapeIcon name="cancel-button" size={20} />
           </button>
         </div>
       </header>
@@ -397,13 +443,15 @@ export function SketchDialog({
           </p>
         )}
 
-        {/* 草图平面字段（Onshape live：字段本身不是下拉框；主场选择是在视口/
-            特征树点击基准面。字段点击提供可访问的基准面列表兜底，无箭头）。 */}
+        {/* 草图平面字段（Onshape live f4/f5：字段为**堆叠**布局——小号「草图平面」
+            标签 + 值/×；空态浅蓝高亮引导选面，已选=白底灰边。字段点击提供可访问
+            的基准面列表兜底，主场选择仍是视口/特征树点击平面）。 */}
         <div className="part-studio-sketch-dialog__plane-row">
-          <span className="part-studio-sketch-dialog__plane-label">
-            {t('partStudio.sketchDialog.planeLabel')}
-          </span>
-          <div className="part-studio-sketch-dialog__plane-field" data-testid="sketch-plane-field">
+          <div
+            className="part-studio-sketch-dialog__plane-field"
+            data-state={plane === '' ? 'empty' : 'selected'}
+            data-testid="sketch-plane-field"
+          >
             <button
               type="button"
               role="combobox"
@@ -412,26 +460,38 @@ export function SketchDialog({
               aria-controls="part-studio-sketch-plane-menu"
               className="part-studio-sketch-dialog__plane-value"
               data-testid="sketch-plane-field-button"
-              disabled={editing}
+              disabled={!isNewSketchSession}
               onClick={() => {
-                if (!editing) setPlaneMenuOpen((open) => !open);
+                if (isNewSketchSession) setPlaneMenuOpen((open) => !open);
               }}
             >
-              {selectedOption
-                ? `${selectedOption.label}${
-                  selectedOption.id === 'top' || selectedOption.id === 'front' || selectedOption.id === 'right'
-                    ? t('partStudio.sketchDialog.planeNameSuffix')
-                    : ''
-                }`
-                : (editing ? t('partStudio.sketchDialog.customPlane') : t('partStudio.sketchDialog.planeFieldPlaceholder'))}
+              <span className="part-studio-sketch-dialog__plane-field-label">
+                {t('partStudio.sketchDialog.planeLabel')}
+              </span>
+              {(plane !== '' || editing) && (
+                <span className="part-studio-sketch-dialog__plane-chip" data-testid="sketch-plane-chip">
+                  {planeText}
+                </span>
+              )}
             </button>
-            {!editing && plane !== '' && (
+            {plane !== '' && (
               <button
                 type="button"
                 className="part-studio-sketch-dialog__plane-clear"
                 aria-label={t('partStudio.sketchDialog.clearPlane')}
                 title={t('partStudio.sketchDialog.clearPlane')}
+                disabled={!isNewSketchSession}
                 onClick={() => {
+                  if (!isNewSketchSession)
+                    return;
+                  // 已自动创建的 pending 草图无法原地换平面（updateSketch 无 plane
+                  // 键）：清除 = 取消该草壳（同 ✗，标准 deleteSketch），避免留下
+                  // 「字段已清空但草图仍在/再选平面不生效」的假交互。仅下拉选面
+                  // 尚未创建时是纯本地清除。
+                  if (newlyCreated) {
+                    handleCancel();
+                    return;
+                  }
                   setPlane('');
                   setPlaneMenuOpen(false);
                 }}
@@ -439,7 +499,7 @@ export function SketchDialog({
                 ×
               </button>
             )}
-            {!editing && planeMenuOpen && (
+            {isNewSketchSession && planeMenuOpen && (
               <ul
                 id="part-studio-sketch-plane-menu"
                 role="listbox"
@@ -464,12 +524,11 @@ export function SketchDialog({
               </ul>
             )}
           </div>
-          {/* Onshape live：历史时钟在字段右侧、字段框之外（装饰；无真实历史面板）。 */}
-          {!editing && (
-            <span className="part-studio-sketch-dialog__plane-clock" aria-hidden="true">
-              <SvgClock />
-            </span>
-          )}
+          {/* Onshape live f4/f5：历史时钟在字段右侧、字段框之外（创建/编辑均显示；
+              装饰——无真实历史面板）。 */}
+          <span className="part-studio-sketch-dialog__plane-clock" aria-hidden="true">
+            <SvgClock />
+          </span>
         </div>
 
         {/* 四开关勾选组（os-30：默认仅「显示错误」勾选）。 */}
@@ -515,14 +574,15 @@ export function SketchDialog({
           </label>
         </div>
       </div>
-      {/* Onshape live：草图对话框底栏=左侧「缩放到合适大小」图标 + 右侧 ?。 */}
+      {/* Onshape live f4/f5 底栏（右对齐）：草图分析工具图标 +「成品」（编辑既有
+          草图）+ ?。分析工具尚未实现 → 禁用并诚实提示（不伪造打开动作）。 */}
       <footer className="part-studio-sketch-dialog__footer">
         {editing && (
           <button
             type="button"
             aria-label={t('partStudio.sketchDialog.viewNormalToPlane')}
             title={t('partStudio.sketchDialog.viewNormalToPlane')}
-            className="part-studio-sketch-dialog__history"
+            className="part-studio-sketch-dialog__view-normal"
             data-testid="sketch-view-normal"
             onClick={handleViewNormal}
           >
@@ -531,13 +591,24 @@ export function SketchDialog({
         )}
         <button
           type="button"
-          aria-label={t('partStudio.sketchDialog.fitToView')}
-          title={t('partStudio.sketchDialog.fitToView')}
-          className="part-studio-sketch-dialog__history"
-          onClick={handleFitToView}
+          aria-label={t('partStudio.sketchDialog.analysisTools')}
+          title={t('partStudio.sketchDialog.analysisToolsUnavailable')}
+          className="part-studio-sketch-dialog__analysis"
+          data-testid="sketch-analysis-tools"
+          disabled
         >
-          <SvgFitToView />
+          <OnshapeIcon name="sketch-analysis-tools" size={18} />
         </button>
+        {showFinish && (
+          <button
+            type="button"
+            className="part-studio-sketch-dialog__finish"
+            data-testid="sketch-finish"
+            onClick={handleConfirm}
+          >
+            {t('partStudio.sketchDialog.finishSketch')}
+          </button>
+        )}
         <button
           type="button"
           aria-label={t('partStudio.sketchDialog.help')}
@@ -545,7 +616,7 @@ export function SketchDialog({
           className="part-studio-sketch-dialog__help"
           onClick={() => setHelpOpen((prev) => !prev)}
         >
-          ?
+          <OnshapeIcon name="help-button" size={18} />
         </button>
       </footer>
     </div>

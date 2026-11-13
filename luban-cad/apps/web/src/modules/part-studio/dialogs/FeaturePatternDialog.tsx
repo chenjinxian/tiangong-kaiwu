@@ -26,6 +26,7 @@ import {
   type ScreenViewport,
 } from '@itwin/core-frontend';
 import { useTranslation } from 'react-i18next';
+import { DialogHeaderButtons } from './DialogHeaderButtons.js';
 import type { FeatureOp, FeatureOpResult, PreviewResult } from '@luban-cad/shared';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 import { useDialogCommandHandler } from '../internal/dialog-commands.js';
@@ -303,23 +304,7 @@ export function FeaturePatternDialog({
     >
       <header className="part-studio-feature-dialog__header">
         <h2 className="part-studio-feature-dialog__title">{featureName}</h2>
-        <div className="part-studio-feature-dialog__header-actions">
-          <button
-            type="button"
-            className="part-studio-feature-dialog__confirm"
-            aria-label={t('partStudio.featureDialog.confirm')}
-            disabled={submitDisabled}
-            onClick={() => void confirm()}
-            data-testid="part-studio-feature-pattern-confirm"
-          >✓</button>
-          <button
-            type="button"
-            className="part-studio-feature-dialog__cancel"
-            aria-label={t('partStudio.featureDialog.cancel')}
-            onClick={() => onCancel?.()}
-            data-testid="part-studio-feature-pattern-cancel"
-          >✗</button>
-        </div>
+        <DialogHeaderButtons disabled={submitDisabled} onConfirm={() => void confirm()} onCancel={() => onCancel?.()} confirmTestId="part-studio-feature-pattern-confirm" cancelTestId="part-studio-feature-pattern-cancel" />
       </header>
       <div className="part-studio-feature-dialog__body">
         {error !== undefined && (

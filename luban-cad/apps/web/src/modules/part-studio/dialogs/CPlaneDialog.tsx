@@ -13,6 +13,7 @@
 import * as React from 'react';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import { useTranslation } from 'react-i18next';
+import { DialogHeaderButtons } from './DialogHeaderButtons.js';
 import type { CPlaneParams, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 import { CPLANE_REFERENCES, isCPlaneReference } from '../internal/cplane.js';
 import type { CPlaneReference } from '../internal/cplane.js';
@@ -135,25 +136,7 @@ export function CPlaneDialog({
     >
       <header className="part-studio-feature-dialog__header">
         <h2 className="part-studio-feature-dialog__title">{featureName}</h2>
-        <div className="part-studio-feature-dialog__header-actions">
-          <button
-            type="button"
-            className="part-studio-feature-dialog__confirm"
-            aria-label={t('partStudio.featureDialog.confirm')}
-            disabled={submitDisabled}
-            onClick={() => void confirm()}
-          >
-            ✓
-          </button>
-          <button
-            type="button"
-            className="part-studio-feature-dialog__cancel"
-            aria-label={t('partStudio.featureDialog.cancel')}
-            onClick={() => onCancel?.()}
-          >
-            ✗
-          </button>
-        </div>
+        <DialogHeaderButtons disabled={submitDisabled} onConfirm={() => void confirm()} onCancel={() => onCancel?.()} />
       </header>
       <div className="part-studio-feature-dialog__body">
         {error && (

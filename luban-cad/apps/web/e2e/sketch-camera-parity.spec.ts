@@ -93,7 +93,7 @@ test.describe('草图相机语义（ADR-0018 S1f）', () => {
     expect(afterEnter!.z).toBeCloseTo(before!.z, 6);
 
     // 显式「正视草图平面」→ 视图 Z 轴 = 平面法向（+Y）。
-    await page.getByTestId('sketch-view-normal').click();
+    await page.getByRole('button', { name: '正视草图平面' }).click();
     await expect.poll(async () => {
       const normal = await readViewNormal(page);
       return normal ? Math.hypot(normal.x - FRONT.normal.x, normal.y - FRONT.normal.y, normal.z - FRONT.normal.z) : 999;

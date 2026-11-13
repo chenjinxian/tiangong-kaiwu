@@ -168,7 +168,8 @@ test.describe('Onshape 草图框选', () => {
 
     await page.getByRole('button', { name: '正视草图平面' }).click();
     await page.waitForTimeout(300);
-    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.waitForTimeout(500);
     await page.evaluate(() => {
       const vp = ((window as any).__lubanE2E?.coreFrontend)?.IModelApp?.viewManager?.selectedView as

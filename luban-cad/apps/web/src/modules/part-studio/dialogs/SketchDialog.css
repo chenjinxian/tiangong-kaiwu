@@ -71,11 +71,11 @@
 }
 
 .part-studio-sketch-dialog__cancel {
-  background: #ae3c3e;
+  background: transparent;
 }
 
 .part-studio-sketch-dialog__cancel:hover {
-  background: #9b3639;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .part-studio-sketch-dialog__confirm svg,
@@ -292,10 +292,11 @@
 
 .part-studio-sketch-dialog__title {
   overflow: hidden;
-  /* Onshape live：草图名标题为深红 #9c3132、半粗。 */
-  color: #9c3132;
-  font-size: 14px;
-  font-weight: 600;
+  /* Onshape live f4/f5 像素采样（2026-11-13）：标题 rgb(51,51,51)、500 16px
+     （旧值为深红 #9c3132 / 14px，已按 live 复核修正）。 */
+  color: #333333;
+  font-size: 16px;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -309,6 +310,20 @@
   inline-size: 28px;
   block-size: 28px;
   border-radius: 0;
+}
+
+/* Onshape live f4：✗ = 28×28 **透明底** + 红色 sprite X（不是实心红方块）。 */
+.part-studio-sketch-dialog__cancel {
+  background: transparent;
+}
+
+.part-studio-sketch-dialog__cancel:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.part-studio-sketch-dialog__cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .part-studio-sketch-dialog__confirm svg,
@@ -332,55 +347,118 @@
   line-height: 16px;
 }
 
+/* Onshape live f4/f5（2026-11-13 像素采样）：字段堆叠——小号「草图平面」标签 +
+   值行；空态底 #e2f0fa / 2px 边框 rgb(40,80,170)，已选态底 #fbfdfe / 1px
+   rgb(149,149,149) 边框。 */
 .part-studio-sketch-dialog__plane-row {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   gap: 6px;
   margin: 0;
-}
-
-.part-studio-sketch-dialog__plane-label {
-  display: none;
+  padding: 4px 3px 2px;
 }
 
 .part-studio-sketch-dialog__plane-field {
   position: relative;
+  display: flex;
   flex: 1;
+  flex-direction: row;
+  align-items: stretch;
   min-inline-size: 0;
-  min-block-size: 26px;
-  padding: 1px 3px;
-  border: 1px solid #a9c4dd;
+  min-block-size: 42px;
+  padding: 0 2px 0 6px;
+  border: 1px solid #959595;
   border-radius: 0;
-  background: #eaf2fb;
+  background: #fbfdfe;
 }
 
-/* Onshape live：时钟在字段框右侧之外（装饰，不参与交互）。 */
+.part-studio-sketch-dialog__plane-field[data-state='empty'] {
+  padding: 0 4px;
+  border: 2px solid #2850aa;
+  background: #e2f0fa;
+}
+
+/* Onshape live：时钟在字段框右侧之外（装饰，不参与交互；创建/编辑均显示）。 */
 .part-studio-sketch-dialog__plane-clock {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  inline-size: 22px;
-  block-size: 22px;
-  color: #4a4a4a;
+  inline-size: 26px;
+  block-size: 26px;
+  align-self: center;
+  color: #3f3f3f;
 }
 
 .part-studio-sketch-dialog__plane-clock svg {
-  inline-size: 18px;
-  block-size: 18px;
+  inline-size: 22px;
+  block-size: 22px;
 }
 
 .part-studio-sketch-dialog__plane-value {
-  inline-size: 100%;
-  min-block-size: 22px;
-  padding: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-inline-size: 0;
+  gap: 0;
+  padding: 2px 0;
   border: 0;
   background: transparent;
-  /* Onshape live：占位「草图平面」是深色正文，不是灰占位。 */
-  color: #1f1f1f;
-  font-size: 13px;
+  color: #333333;
+  font: inherit;
   text-align: start;
+  cursor: pointer;
+}
+
+/* Onshape f4 创建态（无值）：标签在字段内垂直居中，而不是贴顶。 */
+.part-studio-sketch-dialog__plane-field[data-state='empty'] .part-studio-sketch-dialog__plane-value {
+  justify-content: center;
+}
+
+.part-studio-sketch-dialog__plane-value:disabled {
+  cursor: default;
+}
+
+.part-studio-sketch-dialog__plane-field-label {
+  color: #666666;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.part-studio-sketch-dialog__plane-chip {
+  max-inline-size: 100%;
+  overflow: hidden;
+  color: #333333;
+  font-size: 16px;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-sketch-dialog__plane-clear {
+  flex-shrink: 0;
+  align-self: center;
+  inline-size: 22px;
+  block-size: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.part-studio-sketch-dialog__plane-clear:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.part-studio-sketch-dialog__plane-clear:disabled {
+  cursor: default;
 }
 
 .part-studio-sketch-dialog__plane-menu {
@@ -411,30 +489,84 @@
   font-size: 12px;
 }
 
+/* Onshape live f4/f5：底栏右侧 = 草图分析工具 + 成品（编辑既有草图）+ ?。 */
 .part-studio-sketch-dialog__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-block-size: 28px;
-  padding: 0 2px;
+  justify-content: flex-end;
+  gap: 6px;
+  min-block-size: 34px;
+  padding: 0 3px;
 }
 
-.part-studio-sketch-dialog__history {
-  inline-size: 24px;
-  block-size: 24px;
+/* 既有显式入口（编辑态底栏左端；live 属工具栏动作，见 AIRR 已知边界）。 */
+.part-studio-sketch-dialog__view-normal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 26px;
+  block-size: 26px;
+  margin-inline-end: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #555555;
+  cursor: pointer;
 }
 
-.part-studio-sketch-dialog__history svg {
+.part-studio-sketch-dialog__view-normal:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.part-studio-sketch-dialog__view-normal svg {
   inline-size: 18px;
   block-size: 18px;
 }
 
-.part-studio-sketch-dialog__help {
-  inline-size: 20px;
-  block-size: 20px;
-  border: none;
-  background: #f5f5f5;
+.part-studio-sketch-dialog__analysis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 26px;
+  block-size: 26px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #555555;
+}
+
+.part-studio-sketch-dialog__analysis:disabled {
+  cursor: default;
+}
+
+.part-studio-sketch-dialog__finish {
+  min-inline-size: 52px;
+  block-size: 26px;
+  padding: 0 10px;
+  border: 1px solid #bdbdbd;
+  border-radius: 2px;
+  background: #fdfdfd;
+  color: #333333;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.part-studio-sketch-dialog__finish:hover {
+  background: #f0f0f0;
+}
+
+.part-studio-sketch-dialog__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 22px;
+  block-size: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #666666;
+  font: inherit;
   font-size: 12px;
+  border-radius: 50%;
 }

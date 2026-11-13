@@ -84,7 +84,8 @@ test.describe('草图修剪（纵向反解回归）', () => {
     await sketchRow.dblclick({ timeout: 30_000 });
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
-    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.getByRole('button', { name: '正视草图平面' }).click();
     await page.waitForTimeout(600);
 

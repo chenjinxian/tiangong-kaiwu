@@ -69,7 +69,8 @@ test.describe('草图非尺寸约束 glyph（Onshape 对拍）', () => {
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
 
     // 正视草图并取景（glyph 屏幕位置依赖相机；点击坐标从观测面实时读取）。
-    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.getByRole('button', { name: '正视草图平面' }).click();
     await page.waitForTimeout(600);
 

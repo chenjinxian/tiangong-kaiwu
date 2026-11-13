@@ -88,7 +88,7 @@ import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
 import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
 import { applyCanvasSelection } from '../internal/selection-authority.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
-import { fitCameraToSketch, orientCameraToSketchPlane } from '../canvas/sketch-camera.js';
+import { fitCameraToSketch, orientCameraToSketchPlane, sketchWorldRange } from '../canvas/sketch-camera.js';
 import { fitVisibleContent } from '../internal/fit-visible.js';
 import { sketchEntitiesToWorldPolylines } from '../internal/sketch-curves.js';
 import { Range3d } from '@itwin/core-geometry';
@@ -942,6 +942,32 @@ export function PartStudioCanvas({
     [canEdit, connection, t],
   );
 
+  // 2026-11-13 Onshape live f4/f5：草图平面框——创建已选平面 / 编辑草图时显示。
+  // 平面来源：活动草图落库平面 → 待建草稿平面（模型面/cPlane/三基准面）。
+  const sketchPlaneFrame = React.useMemo<SketchPlaneDto | null>(() => {
+    if (dialog.active !== 'sketch')
+      return null;
+    const activePlane = sketchSystem?.activeSketch?.plane;
+    if (sketchActiveForDialog && activePlane)
+      return activePlane;
+    const id = sketchDraftPlane;
+    if (!id)
+      return null;
+    if (sketchFacePlane?.id === id)
+      return sketchFacePlane.plane;
+    const option = sketchPlaneOptions.find((entry) => entry.id === id);
+    if (option && 'plane' in option && option.plane)
+      return option.plane;
+    return sketchPlaneFromOption(id) ?? null;
+  }, [dialog.active, sketchActiveForDialog, sketchSystem?.activeSketch, sketchDraftPlane, sketchFacePlane, sketchPlaneOptions]);
+  // 草图实体范围（框尺寸随草图自适应；空草图回退模型范围/基准面尺寸）。
+  const sketchFrameRange = React.useMemo(
+    () => sketchSystem?.activeSketch
+      ? sketchWorldRange(sketchSystem.activeSketch.plane, sketchSystem.activeSketch.entities)
+      : undefined,
+    [sketchSystem?.activeSketch],
+  );
+
   // data-viewport-ready：M4-T2 视口下传锚点（结构断言/T5 适应视图接线前的就绪观测位）。
   return (
     <div
@@ -987,6 +1013,8 @@ export function PartStudioCanvas({
             : null}
           onSelect={handleSketchPlaneSelect}
           pendingSketchName={sketchActiveForDialog ? undefined : sketchDialogName}
+          framePlane={sketchPlaneFrame}
+          sketchRange={sketchFrameRange}
         />
       )}
       {/* ADR-0018 S1b：草图编辑态（无绘制工具激活）实体/控制点拾取与选中强调。 */}
@@ -1392,9 +1420,6 @@ export function PartStudioCanvas({
           onShowConstraintsChange={setShowConstraints}
           onConfirm={handleSketchConfirm}
           onCancel={handleSketchDialogCancel}
-          // 2026-11-13 Onshape live：草图对话框的「缩放到合适大小」与全局同义
-          //（可见内容：模型 ∪ 活动草图；空场景基准面），不是只取草图包围盒。
-          onFitToView={viewport ? fitVisible : undefined}
         />
       )}
     </div>

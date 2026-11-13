@@ -68,7 +68,8 @@ test.describe('草图偏移 — 圆（同心圆）', () => {
     // 角度/距离对像素敏感：正视草图平面并放大到 R10 视野。
     await page.getByRole('button', { name: '正视草图平面' }).click();
     await page.waitForTimeout(300);
-    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.waitForTimeout(400);
     await page.evaluate(() => {
       const vp = (window as unknown as {

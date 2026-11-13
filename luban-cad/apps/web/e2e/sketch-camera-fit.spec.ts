@@ -126,9 +126,10 @@ test.describe('草图相机与缩放到合适大小（Onshape live 2026-11-13）
     await clickWorld(page, hub, P(10, 10));
     await page.waitForTimeout(1_500);
 
-    // 草图对话框「缩放到合适大小」：Onshape 语义=可见内容（此处为草图实体）。
-    const dialog = page.getByTestId('part-studio-sketch-dialog');
-    await dialog.getByRole('button', { name: '缩放到合适大小' }).click();
+    // 全局「缩放到合适大小」（Onshape live：该动作在草图工具栏/ViewCube，不在
+    // 草图对话框底栏）：语义=可见内容（此处为草图实体）。
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await expect.poll(async () => Math.max(...(await camera(page)).extents.map(Math.abs)), {
       timeout: 15_000,
       intervals: [200, 400, 800],

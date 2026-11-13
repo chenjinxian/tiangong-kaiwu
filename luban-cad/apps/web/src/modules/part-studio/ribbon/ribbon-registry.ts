@@ -421,7 +421,7 @@ const ONSHAPE_TOOL_ICONS: Readonly<Record<string, OnshapeIconName>> = {
 
   // —— 草图工具栏（Onshape live 20 钮 + flyout 子项）——
   'Sketch.Line': 'sketch-line-segment-button',
-  'Sketch.Midline': 'sketch-line-segment-button',
+  'Sketch.Midline': 'sketch-midpoint-line-button',
   'Sketch.Rectangle': 'sketch-rectangle-button',
   'Sketch.CenterRectangle': 'sketch-center-rectangle-button',
   'Sketch.AlignedRectangle': 'sketch-aligned-rectangle-button',
@@ -457,6 +457,23 @@ const ONSHAPE_TOOL_ICONS: Readonly<Record<string, OnshapeIconName>> = {
   'Sketch.Constraint.Equal': 'sketch-equal-button',
   'Sketch.Constraint.Midpoint': 'sketch-midpoint-button',
   'Sketch.Constraint.Tangent': 'sketch-tangent-button',
+  sketchEllipse: 'sketch-ellipse-button',
+  sketchEllipseArc: 'elliptical-arc-button',
+  sketchSplineControlPoints: 'add-spline-point',
+  sketchIntersection: 'sketch-intersection-button',
+  sketchChamfer: 'sketch-chamfer-button',
+  sketchExtend: 'sketch-extend-button',
+  sketchSplit: 'sketch_split_icon',
+  sketchSlot: 'sketch-slot-button',
+  sketchCircularPattern: 'sketch-cpattern-button',
+  sketchTransform: 'sketch-transform-button',
+  sketchInsertImage: 'sketch-image-rectangle-button',
+  'Sketch.Constraint.Concentric': 'sketch-concentric-button',
+  'Sketch.Constraint.Normal': 'sketch-normal-button',
+  'Sketch.Constraint.Pierce': 'sketch-pierce-button',
+  'Sketch.Constraint.Symmetric': 'sketch-symmetric-button',
+  'Sketch.Constraint.Curvature': 'equal-curvature',
+  sketchFlow: 'flow-continuity',
   'Sketch.Constraint.Fixed': 'sketch-fix-button',
 };
 

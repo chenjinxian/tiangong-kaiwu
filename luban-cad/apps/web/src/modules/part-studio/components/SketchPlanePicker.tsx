@@ -8,14 +8,20 @@
  * 视觉隐藏 marker 暴露每个平面一个保证命中的屏幕点（演示/e2e 用真实点击）。
  */
 import React from 'react';
+import { Range3d } from '@itwin/core-geometry';
 import type { ScreenViewport } from '@itwin/core-frontend';
-import { datumPlaneGeometries } from '@luban-cad/viewer';
+import type { SketchPlaneDto } from '@luban-cad/shared';
+import { datumPlaneGeometries, datumPlaneHalfSize } from '@luban-cad/viewer';
 import type { DatumPlaneId } from '@luban-cad/viewer';
 import {
   datumPlanePickPoints,
   pickDatumPlaneAt,
   type ScreenPoint,
 } from '../internal/plane-picker.js';
+import {
+  sketchPlaneFrameCorners,
+  sketchPlaneFrameHalfSize,
+} from '../internal/sketch-plane-frame.js';
 import './SketchPlanePicker.css';
 
 export interface SketchPlanePickerProps {
@@ -24,6 +30,13 @@ export interface SketchPlanePickerProps {
   onSelect: (id: DatumPlaneId) => void;
   /** 新建草图名（Onshape live：选中平面后沿其顶边显示浅蓝「草图 N」）。 */
   pendingSketchName?: string;
+  /**
+   * 选中/活动草图平面（基准面/cPlane/模型面任意来源；2026-11-13 Onshape live
+   * f4/f5）：存在时绘制浅蓝草图平面框——即使三基准面已被 body 规则隐藏。
+   */
+  framePlane?: SketchPlaneDto | null;
+  /** 草图实体世界范围（框尺寸按草图 ∪ 模型自适应；缺省查询模型范围）。 */
+  sketchRange?: Range3d;
 }
 
 // Onshape live（2026-11-12 像素采样）：选中平面不加填充（内部仍 #f6f8fa），
@@ -41,12 +54,46 @@ export function SketchPlanePicker({
   selected,
   onSelect,
   pendingSketchName,
+  framePlane,
+  sketchRange,
 }: SketchPlanePickerProps): React.JSX.Element | null {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = React.useState<DatumPlaneId | null>(null);
   const [points, setPoints] = React.useState<Partial<Record<DatumPlaneId, ScreenPoint>>>({});
+  const [modelFrameHalfSize, setModelFrameHalfSize] = React.useState<number | undefined>(undefined);
   const hoverRef = React.useRef<DatumPlaneId | null>(null);
   hoverRef.current = hover;
+
+  // 无草图实体时按模型范围取框尺寸（Onshape live：框随零件尺寸自适应）。
+  React.useEffect(() => {
+    let cancelled = false;
+    setModelFrameHalfSize(undefined);
+    if (!viewport || !framePlane || sketchRange)
+      return;
+    void (async () => {
+      try {
+        const ids: string[] = [];
+        for await (const row of viewport.iModel.createQueryReader('SELECT ECInstanceId FROM BisCore.PhysicalModel'))
+          ids.push(row[0] as string);
+        if (cancelled || ids.length === 0)
+          return;
+        const ranges = await viewport.iModel.models.queryModelRanges(ids);
+        if (cancelled)
+          return;
+        const union = new Range3d();
+        for (const range of ranges)
+          union.extendRange(Range3d.fromJSON(range));
+        const half = sketchPlaneFrameHalfSize(framePlane, union);
+        if (half !== undefined && !cancelled)
+          setModelFrameHalfSize(half);
+      } catch {
+        // 模型范围查询失败：回退基准面尺寸（不阻断草图拾取）。
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewport, framePlane, sketchRange]);
 
   React.useEffect(() => {
     const canvas = viewport?.canvas;
@@ -98,19 +145,46 @@ export function SketchPlanePicker({
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
+    // Onshape live f4/f5：选中/活动草图平面框（任意来源平面，非仅基准面）。
+    // 框随模型/草图范围自适应（sketch-plane-frame 纯几何），颜色取 live 采样
+    // rgb(182,200,223) 2px。存在 frame 时不再重复描基准面选中边。
+    let hasFrame = false;
+    if (framePlane) {
+      const half = (sketchRange ? sketchPlaneFrameHalfSize(framePlane, sketchRange) : undefined)
+        ?? modelFrameHalfSize
+        ?? datumPlaneHalfSize(viewport);
+      const corners = sketchPlaneFrameCorners(framePlane, half);
+      if (corners) {
+        hasFrame = true;
+        const pts = corners.map((p) => viewport.worldToView(p));
+        ctx.beginPath();
+        ctx.moveTo(pts[0]!.x, pts[0]!.y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y);
+        ctx.closePath();
+        ctx.strokeStyle = 'rgb(182, 200, 223)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
     for (const geometry of datumPlaneGeometries(viewport)) {
       const active = geometry.id === hover || geometry.id === selected;
       if (!active) continue;
       const points2d = geometry.points.map((p) => viewport.worldToView(p));
-      ctx.beginPath();
-      ctx.moveTo(points2d[0]!.x, points2d[0]!.y);
-      for (let i = 1; i < points2d.length; i++) ctx.lineTo(points2d[i]!.x, points2d[i]!.y);
-      ctx.closePath();
-      ctx.fillStyle = geometry.id === selected ? SELECTED_FILL : HOVER_FILL;
-      ctx.fill();
-      ctx.strokeStyle = SELECTED_STROKE;
-      ctx.lineWidth = geometry.id === selected ? 2 : 1.25;
-      ctx.stroke();
+      // framePlane 在场时由上方统一平面框负责选中描边；此处只留悬停高亮与标签。
+      const drawSelectedOutline = geometry.id === selected && !hasFrame;
+      if (geometry.id === selected && hasFrame) {
+        // Onshape live：不填充、不描边，仅保留「草图 N」标签。
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(points2d[0]!.x, points2d[0]!.y);
+        for (let i = 1; i < points2d.length; i++) ctx.lineTo(points2d[i]!.x, points2d[i]!.y);
+        ctx.closePath();
+        ctx.fillStyle = drawSelectedOutline ? SELECTED_FILL : HOVER_FILL;
+        ctx.fill();
+        ctx.strokeStyle = SELECTED_STROKE;
+        ctx.lineWidth = drawSelectedOutline ? 2 : 1.25;
+        ctx.stroke();
+      }
       if (geometry.id === selected && pendingSketchName) {
         // Onshape live：选中平面顶边外侧、沿边书写的浅蓝「草图 N」。
         let topEdge = 0;
@@ -148,7 +222,7 @@ export function SketchPlanePicker({
         ctx.restore();
       }
     }
-  }, [viewport, hover, selected, pendingSketchName]);
+  }, [viewport, hover, selected, pendingSketchName, framePlane, sketchRange, modelFrameHalfSize]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {

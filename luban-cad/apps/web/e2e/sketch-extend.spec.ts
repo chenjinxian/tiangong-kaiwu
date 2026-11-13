@@ -69,7 +69,8 @@ test.describe('草图延伸（Onshape 对拍）', () => {
     await sketchRow.dblclick({ timeout: 30_000 });
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
-    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.getByRole('button', { name: '正视草图平面' }).click();
     await page.waitForTimeout(600);
 
@@ -108,7 +109,8 @@ test.describe('草图延伸（Onshape 对拍）', () => {
     expect(linePoints(await getSketchRpc(ctx, sketchId, token), 11)?.a).toEqual({ x: -10, y: 0 });
 
     // 第一段提交后相机/视图可能因刷新变化：重新正视取景，保证第二段点击坐标稳定。
-    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.getByRole('button', { name: '正视草图平面' }).click();
     await page.waitForTimeout(600);
 
@@ -163,7 +165,8 @@ test.describe('草图延伸（Onshape 对拍）', () => {
     await sketchRow.dblclick({ timeout: 30_000 });
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
-    await page.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.getByRole('button', { name: '正视草图平面' }).click();
     await page.waitForTimeout(600);
 

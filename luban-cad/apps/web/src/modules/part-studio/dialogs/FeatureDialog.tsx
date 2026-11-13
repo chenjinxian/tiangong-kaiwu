@@ -225,7 +225,8 @@ import {
   type BriefcaseConnection,
   type ScreenViewport,
 } from '@itwin/core-frontend';
-import { SvgCheckmark, SvgClose } from '@itwin/itwinui-icons-react';
+import { SvgClose } from '@itwin/itwinui-icons-react';
+import { DialogHeaderButtons } from './DialogHeaderButtons.js';
 import type {
   BodyInfo,
   BooleanBodiesParams,
@@ -2636,25 +2637,7 @@ export function FeatureDialog({
       {/* 顶置标题行：特征名 + ✓确认/✗取消（os-31）。 */}
       <header className="part-studio-feature-dialog__header">
         <h2 className="part-studio-feature-dialog__title">{featureName}</h2>
-        <div className="part-studio-feature-dialog__header-actions">
-          <button
-            type="button"
-            aria-label={t('partStudio.featureDialog.confirm')}
-            className="part-studio-feature-dialog__confirm"
-            disabled={submitDisabled}
-            onClick={handleConfirm}
-          >
-            <SvgCheckmark />
-          </button>
-          <button
-            type="button"
-            aria-label={t('partStudio.featureDialog.cancel')}
-            className="part-studio-feature-dialog__cancel"
-            onClick={() => onCancel?.()}
-          >
-            <SvgClose />
-          </button>
-        </div>
+        <DialogHeaderButtons disabled={submitDisabled} onConfirm={handleConfirm} onCancel={() => onCancel?.()} />
       </header>
 
       {/* Onshape live 页签面：extrude/revolve = 结果类型 + 布尔作用域；

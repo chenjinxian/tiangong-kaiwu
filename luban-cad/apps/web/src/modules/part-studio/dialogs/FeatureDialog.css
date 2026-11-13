@@ -41,8 +41,9 @@
   gap: 2px;
 }
 
-/* Onshape live（f6/f7 像素采样）：✓=实心绿 #419228 / ✗=实心红 #ae3c3e，
-   28×28 圆角方块 + 白色图标；禁用 ✓ 为浅绿底 #d9e9d4。 */
+/* Onshape live（f4/f5/f6 像素采样 2026-11-13 复核）：✓=实心绿 #419228（像素
+   rgb(65,146,40)）+ 白色 sprite 对勾；✗=**透明底** + 红色 sprite X（#BD3039，
+   不是实心红方块）；禁用 ✓ 为浅绿底 #d9e9d4（像素 rgb(217,233,212)）。 */
 .part-studio-feature-dialog__confirm,
 .part-studio-feature-dialog__cancel {
   display: inline-flex;
@@ -71,11 +72,11 @@
 }
 
 .part-studio-feature-dialog__cancel {
-  background: #ae3c3e;
+  background: transparent;
 }
 
 .part-studio-feature-dialog__cancel:hover {
-  background: #9b3639;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .part-studio-feature-dialog__confirm svg,
@@ -569,7 +570,9 @@
 }
 
 .part-studio-feature-dialog__title {
-  font-size: 14px;
+  /* Onshape live computedStyles（2026-11-13）：500 16px rgb(51,51,51)。 */
+  color: #333333;
+  font-size: 16px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;

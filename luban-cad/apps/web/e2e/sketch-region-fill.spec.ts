@@ -80,9 +80,9 @@ test.describe('草图面域填充（ADR-0018 S1f）', () => {
     await expect(marker).toHaveAttribute('data-count', /^[1-9]\d*$/, { timeout: 30_000 });
 
     // 正视 + 适合窗口 → 截屏（像素取证：矩形内、圆外的世界点 (6,0,0)）。
-    await page.getByTestId('sketch-view-normal').click();
-    const dialog = page.getByTestId('part-studio-sketch-dialog');
-    await dialog.getByRole('button', { name: '缩放到合适大小' }).click();
+    await page.getByRole('button', { name: '正视草图平面' }).click();
+    await page.getByTestId('viewcube-menu-trigger').click();
+    await page.getByTestId('viewcube-menu-zoom-fit').click();
     await page.waitForTimeout(800);
     const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
     const box = await canvas.boundingBox();

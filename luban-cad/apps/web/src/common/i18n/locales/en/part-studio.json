@@ -1013,7 +1013,10 @@
     "helpText": "Pick a sketch plane to start sketching; the toggles control imprint/constraints/expressions/error display.",
     "readonlyHint": "Read-only permission; cannot create a sketch",
     "facePlane": "Model face",
-    "facePlaneFailed": "The selected face is not planar or could not be read, so it cannot be used as a sketch plane"
+    "facePlaneFailed": "The selected face is not planar or could not be read, so it cannot be used as a sketch plane",
+    "finishSketch": "Done",
+    "analysisTools": "Sketch analysis tools",
+    "analysisToolsUnavailable": "Sketch analysis tools are not implemented yet"
   },
   "sketch": {
     "dragFailed": "Sketch drag commit failed: {{message}}",

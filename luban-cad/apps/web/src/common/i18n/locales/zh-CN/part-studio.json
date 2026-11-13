@@ -1013,7 +1013,10 @@
     "helpText": "选择草图平面后开始绘制草图；勾选组控制压印/约束/表达式/错误的显示。",
     "readonlyHint": "当前为只读权限，无法创建草图",
     "facePlane": "模型面",
-    "facePlaneFailed": "所选面不是平面或无法读取，不能作为草图平面"
+    "facePlaneFailed": "所选面不是平面或无法读取，不能作为草图平面",
+    "finishSketch": "成品",
+    "analysisTools": "草图分析工具",
+    "analysisToolsUnavailable": "草图分析工具尚未实现"
   },
   "sketch": {
     "dragFailed": "草图拖拽提交失败：{{message}}",
