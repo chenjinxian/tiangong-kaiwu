@@ -1146,6 +1146,10 @@
         "splineDegenerate": "样条端点重合或控制柄退化为零切向，未提交",
         "systemNotReady": "草图系统未就绪，请退出草图模式后重试",
         "updateFailed": "草图更新失败"
+      },
+      "midline": {
+        "firstPrompt": "点击放置线段中点",
+        "nextPrompt": "点击放置端点（线段关于中点对称）"
       }
     },
     "system": {

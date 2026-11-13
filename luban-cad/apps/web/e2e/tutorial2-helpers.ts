@@ -51,6 +51,7 @@ export async function activate(page: Page, name: string): Promise<void> {
       '相切圆弧': 'Sketch.Arc3Point',
       'Bezier': 'Sketch.Spline',
       '3 点圆': 'Sketch.CenterCircle',
+      '中点线': 'Sketch.Line',
       '外接多边形': 'sketchInscribedPolygon',
     };
     const parent = variantParent[name];
@@ -71,6 +72,7 @@ export async function activate(page: Page, name: string): Promise<void> {
   // 等 iTwin 真正完成工具切换（store.activeToolId 在 run 前即写入，不能当就绪信号）。
   const expectedToolId: Record<string, string> = {
     '线': 'Sketch.Line',
+    '中点线': 'Sketch.Midline',
     '拐角矩形': 'Sketch.Rectangle',
     '中心点矩形': 'Sketch.CenterRectangle',
     '对齐矩形': 'Sketch.AlignedRectangle',

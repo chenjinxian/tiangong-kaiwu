@@ -494,6 +494,51 @@ export class SketchLineTool extends SketchCreateTool {
 }
 
 /**
+ * 中点线（2026-11-13 live 飞菜单补齐）：首击=线段中点 M，次击=一端点 A；
+ * 线段对称于 M（另一端 B=2M−A）+ 可见中点 point + midpoint 约束。
+ * 后端 SolverTypes 支持 midpoint 的 point+line 形态（SlvsSolver AT_MIDPOINT）。
+ */
+export class SketchMidlineTool extends SketchCreateTool {
+  public static override toolId = 'Sketch.Midline';
+  public static override iconSpec = 'icon-midline';
+  protected readonly sketchKind = 'line';
+  protected readonly requiredPoints = 2;
+  protected readonly promptKeys = [
+    'partStudio.sketch.create.midline.firstPrompt',
+    'partStudio.sketch.create.midline.nextPrompt',
+  ] as const;
+  protected readonly degenerateToastKey = 'partStudio.sketch.create.toasts.zeroSize';
+
+  protected createInstance(): SketchCreateTool { return new SketchMidlineTool(); }
+
+  protected buildShape(points: SketchPoint2[]): SketchShapeDraft | undefined {
+    const [mid, end] = points;
+    if (!mid || !end) return undefined;
+    const start = { u: 2 * mid.u - end.u, v: 2 * mid.v - end.v };
+    if (Math.hypot(end.u - start.u, end.v - start.v) < 1e-12) return undefined;
+
+    const idLine = this.nextEntityId();
+    const idMid = this.nextEntityId();
+    return {
+      entities: [
+        { kind: 'line', id: idLine, p1: { x: start.u, y: start.v }, p2: { x: end.u, y: end.v } },
+        { kind: 'point', id: idMid, x: mid.u, y: mid.v },
+      ],
+      constraints: [
+        { kind: 'midpoint', id: this.nextEntityId(), refs: [idMid, idLine] },
+      ],
+    };
+  }
+
+  protected buildPreview(anchors: SketchPoint2[], cursor: SketchPoint2, builder: GraphicBuilder): void {
+    const mid = anchors[0];
+    if (!mid) return;
+    const start = { u: 2 * mid.u - cursor.u, v: 2 * mid.v - cursor.v };
+    this.addWorldLineString(builder, [start, cursor]);
+  }
+}
+
+/**
  * 中心矩形（v1.19，Onshape「center rectangle」同构）：对角 2 点 →
  * 4 line（内联端点）+ 1 可见中心 point；自动关系：
  * 4 角 coincident（结构化 start/end）+ 2 parallel + 1 perpendicular + 1 horizontal
@@ -1197,6 +1242,7 @@ let sketchToolsRegistered = false;
 export function registerSketchTools(): void {
   if (sketchToolsRegistered) return;
   IModelApp.tools.register(SketchLineTool);
+  IModelApp.tools.register(SketchMidlineTool);
   IModelApp.tools.register(SketchRectangleTool);
   IModelApp.tools.register(SketchCenterRectangleTool);
   IModelApp.tools.register(SketchAlignedRectangleTool);

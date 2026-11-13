@@ -1146,6 +1146,10 @@
         "splineDegenerate": "Spline endpoints coincide or a handle has zero tangent; not submitted",
         "systemNotReady": "Sketch system not ready; exit sketch mode and retry",
         "updateFailed": "Sketch update failed"
+      },
+      "midline": {
+        "firstPrompt": "Click to place the line midpoint",
+        "nextPrompt": "Click to place the endpoint (line is symmetric about the midpoint)"
       }
     },
     "system": {

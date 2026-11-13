@@ -13,6 +13,7 @@ import {
   SketchArc3PointTool,
   SketchCenterCircleTool,
   SketchLineTool,
+  SketchMidlineTool,
   SketchPerimeterCircleTool,
   SketchInscribedPolygonTool,
   SketchCircumscribedPolygonTool,
@@ -26,6 +27,9 @@ class TestableLine extends SketchLineTool {
   public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
 }
 class TestableRect extends SketchRectangleTool {
+  public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
+}
+class TestableMidline extends SketchMidlineTool {
   public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
 }
 class TestableCircle extends SketchCenterCircleTool {
@@ -60,6 +64,26 @@ describe('M6-a T5：SketchLineTool buildShape（v1.19 内联端点）', () => {
 
   it('零长度（两点重合）→ undefined', () => {
     const tool = new TestableLine();
+    expect(tool.callBuildShape([{ u: 1, v: 1 }, { u: 1, v: 1 }])).toBeUndefined();
+  });
+});
+
+describe('Sketch.Midline（2026-11-13 live 飞菜单）：首击中点、次击端点', () => {
+  it('对称线 + 中点 point + midpoint 约束', () => {
+    const tool = new TestableMidline();
+    const draft = tool.callBuildShape([{ u: 0, v: 0 }, { u: 0.05, v: 0.01 }]);
+    expect(draft).toBeDefined();
+    expect(draft!.entities).toEqual([
+      { kind: 'line', id: 1, p1: { x: -0.05, y: -0.01 }, p2: { x: 0.05, y: 0.01 } },
+      { kind: 'point', id: 2, x: 0, y: 0 },
+    ]);
+    expect(draft!.constraints).toEqual([
+      { kind: 'midpoint', id: 3, refs: [2, 1] },
+    ]);
+  });
+
+  it('零长度（中点=端点）→ undefined', () => {
+    const tool = new TestableMidline();
     expect(tool.callBuildShape([{ u: 1, v: 1 }, { u: 1, v: 1 }])).toBeUndefined();
   });
 });

@@ -94,7 +94,7 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
 
   // 绘制组（10 钮）
   tool('Sketch.Line', 'partStudio.ribbon.sketchTools.line.label', 'sketchDraw', 'sketch', [
-    menuItem('sketchMidline', 'partStudio.ribbon.sketchTools.midline.label', 'sketchMidline'),
+    menuItem('Sketch.Midline', 'partStudio.ribbon.sketchTools.midline.label', 'sketchMidline'),
   ], 'l'),
   tool('Sketch.Rectangle', 'partStudio.ribbon.sketchTools.rectangle.label', 'sketchDraw', 'sketch', [
     menuItem('Sketch.CenterRectangle', 'partStudio.ribbon.sketchTools.rectangleCenter.label', 'sketch', 'r'),

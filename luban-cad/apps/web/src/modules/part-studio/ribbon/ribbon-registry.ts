@@ -421,6 +421,7 @@ const ONSHAPE_TOOL_ICONS: Readonly<Record<string, OnshapeIconName>> = {
 
   // —— 草图工具栏（Onshape live 20 钮 + flyout 子项）——
   'Sketch.Line': 'sketch-line-segment-button',
+  'Sketch.Midline': 'sketch-line-segment-button',
   'Sketch.Rectangle': 'sketch-rectangle-button',
   'Sketch.CenterRectangle': 'sketch-center-rectangle-button',
   'Sketch.AlignedRectangle': 'sketch-aligned-rectangle-button',

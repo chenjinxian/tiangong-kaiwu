@@ -50,7 +50,7 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sketchText: 'gated', // 草图文本（字体轮廓引擎 + 新实体类型未实现）
   sketchConic: 'gated', // 草图圆锥曲线（conic 实体/求解器未实现）
   // 2026-11-13 live 飞菜单盘点（136-flyout-*）：Onshape 草图下拉变体全量登记。
-  sketchMidline: 'gated', // 中点线（变体工具未实现）
+  sketchMidline: 'full', // 中点线（2026-11-13 工具接通：首击中点、次击端点）
   sketchEllipse: 'gated', // 椭圆（新实体类型/求解器/后端未实现）
   sketchEllipseArc: 'gated', // 椭圆弧（同上）
   sketchSplineControlPoints: 'gated', // 样条控制点（控制点创建模式未实现）
@@ -177,7 +177,6 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   sketchText: guidanceFor('sketchText'),
   sketchConic: guidanceFor('sketchConic'),
   // 2026-11-13 live 飞菜单变体盘点。
-  sketchMidline: guidanceFor('sketchMidline'),
   sketchEllipse: guidanceFor('sketchEllipse'),
   sketchEllipseArc: guidanceFor('sketchEllipseArc'),
   sketchSplineControlPoints: guidanceFor('sketchSplineControlPoints'),
