@@ -31,6 +31,10 @@ class TestableRect extends SketchRectangleTool {
 }
 class TestableMidline extends SketchMidlineTool {
   public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
+  public callContinue(points: SketchPoint2[]) { return this.continueAnchors(points); }
+}
+class TestableLineContinue extends SketchLineTool {
+  public callContinue(points: SketchPoint2[]) { return this.continueAnchors(points); }
 }
 class TestableCircle extends SketchCenterCircleTool {
   public callBuildShape(points: SketchPoint2[]) { return this.buildShape(points); }
@@ -65,6 +69,16 @@ describe('M6-a T5：SketchLineTool buildShape（v1.19 内联端点）', () => {
   it('零长度（两点重合）→ undefined', () => {
     const tool = new TestableLine();
     expect(tool.callBuildShape([{ u: 1, v: 1 }, { u: 1, v: 1 }])).toBeUndefined();
+  });
+});
+
+describe('连续绘制（2026-11-13 Onshape live：提交后工具保持激活）', () => {
+  it('直线链：下一段从上一段终点开始；其它绘制工具从空锚点开始', () => {
+    const line = new TestableLineContinue();
+    expect(line.callContinue([{ u: 1, v: 2 }, { u: 3, v: 4 }])).toEqual([{ u: 3, v: 4 }]);
+    expect(line.callContinue([])).toEqual([]);
+    const mid = new TestableMidline();
+    expect(mid.callContinue([{ u: 1, v: 2 }, { u: 3, v: 4 }])).toEqual([]);
   });
 });
 

@@ -12,11 +12,12 @@
  * 保留。两层换芯（M6-a T5 SketchCreateTool 先例照搬）：
  *
  * - 取点：**禁手写 z=0 投影**（M3-b planeZ=0 恒定假设已废弃，architecture.md
- *   §四）——AccuSnap 热捕捉 adjustedPoint（含 AccuDraw/栅格调整）优先、回落
- *   ev.point 光标裸点（SketchCreateTool `_pickLocal` 同式），世界点经草图
- *   平面架（sketch-plane.ts，store.sketch.activeSketchPlane → onPostInstall
- *   解析一次）投影为局部 (u,v)，再按解算坐标纯几何就近分辨实体。
- *   **禁手写命中测试**照旧——实体分辨是几何距离，不是视口命中测试。
+ *   §四）——统一 `sketch-pick.pickSketchPlaneLocal`：AccuSnap 热捕捉
+ *   adjustedPoint 优先；否则视口光标射线与草图平面求交（相机不再自动正视
+ *   平面后 ev.point 不落在草图平面，2026-11-13 真栈修复）；最后回退
+ *   ev.point。世界点经草图平面架（sketch-plane.ts）投影为局部 (u,v)，再按
+ *   解算坐标纯几何就近分辨实体。**禁手写命中测试**照旧——实体分辨是几何
+ *   距离，不是视口命中测试。
  * - 运行依赖：**模块级 accessor** getSketchSystem()（M6-a T5 同款——
  *   `IModelApp.tools.run(id)` 无参启动无选项注入通道，宿主 PartStudioSession
  *   挂载 useSketchSystem 时注册）；toast 走 IModelApp.notifications
@@ -42,6 +43,7 @@ import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { sketchPlaneFrameFrom } from './sketch-plane.js';
 import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
+import { pickSketchPlaneLocal } from './sketch-pick.js';
 import {
   acceptPick,
   nextConstraintId,
@@ -60,14 +62,12 @@ export function resolveSketchPlaneFrame(): SketchPlaneFrame {
 }
 
 /**
- * 取点（约束/尺寸两工具共用）：AccuSnap 热捕捉 adjustedPoint 优先（含
- * AccuDraw/栅格调整），回落 ev.point 光标裸点；世界点经草图平面架投影为
- * 局部 (u,v)——取代 M3-b 手写 z=0 投影（M6-a T5 SketchCreateTool 同式）。
+ * 取点（约束/尺寸/相切圆弧工具共用）：委托统一 `sketch-pick.pickSketchPlaneLocal`
+ * ——AccuSnap 热捕捉优先；否则光标射线与草图平面求交（相机不再自动正视平面后
+ * `ev.point` 不落在草图平面，2026-11-13 真栈修复）；最后回退 ev.point 投影。
  */
 export function pickHitLocal(ev: BeButtonEvent, plane: SketchPlaneFrame): SketchPoint2 {
-  const snap = IModelApp.accuSnap?.getCurrSnapDetail();
-  const world = snap && snap.isHot ? snap.adjustedPoint : ev.point;
-  return plane.toLocal(world);
+  return pickSketchPlaneLocal(ev, plane);
 }
 
 /**

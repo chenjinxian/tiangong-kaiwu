@@ -33,6 +33,30 @@ export async function disableSnap(page: Page): Promise<void> {
   });
 }
 
+/** 给当前 PrimitiveTool 实例打标；返回 tag（无活动工具=undefined）。 */
+export async function tagActiveTool(page: Page): Promise<number | undefined> {
+  return page.evaluate(() => {
+    const im = (window as any).__lubanE2E?.coreFrontend?.IModelApp;
+    const admin = im?._toolAdmin ?? im?.toolAdmin;
+    const tool = admin?.primitiveTool;
+    if (!tool) return undefined;
+    const tag = Math.random();
+    tool.__activateTag = tag;
+    return tag as number;
+  });
+}
+
+/** 等工具实例被替换（重激活同一 toolId → 新实例：锚点/拾取归零）。 */
+export async function waitNewToolInstance(page: Page, tag: number | undefined): Promise<void> {
+  if (tag === undefined) return;
+  await page.waitForFunction((previous) => {
+    const im = (window as any).__lubanE2E?.coreFrontend?.IModelApp;
+    const admin = im?._toolAdmin ?? im?.toolAdmin;
+    const tool = admin?.primitiveTool;
+    return tool !== undefined && tool.__activateTag !== previous;
+  }, tag, { timeout: 15_000 });
+}
+
 export async function activate(page: Page, name: string): Promise<void> {
   const toolbar = page.getByRole('toolbar', { name: '草图工具' });
   // Onshape 草图只有一个尺寸按钮（无下拉）；长度/半径/距离均由同一工具按拾取
@@ -68,6 +92,9 @@ export async function activate(page: Page, name: string): Promise<void> {
     }
   }
   await expect(target).toBeVisible({ timeout: 15_000 });
+  // 重激活同一工具（例如连续尺寸）时工具 id 不变——必须等**新实例**装好再点画布，
+  // 否则第一击落在旧实例/切换窗口中丢失（真栈实测：toolId 已相等但安装未完成）。
+  const previousTag = await tagActiveTool(page);
   await target.click();
   // 等 iTwin 真正完成工具切换（store.activeToolId 在 run 前即写入，不能当就绪信号）。
   const expectedToolId: Record<string, string> = {
@@ -113,6 +140,7 @@ export async function activate(page: Page, name: string): Promise<void> {
       expected,
       { timeout: 15_000 },
     );
+    await waitNewToolInstance(page, previousTag);
   }
   await page.waitForTimeout(300);
   await disableSnap(page);

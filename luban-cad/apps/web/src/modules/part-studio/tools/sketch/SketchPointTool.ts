@@ -5,8 +5,8 @@
  * 草图点工具（toolId `Sketch.Point`，Onshape 草图「点」工具首切片）。
  *
  * 交互：点击放置一个点，工具保持存活可连续放点；Esc/右键结束。点不参与面域，
- * 但可作为孔位/定位参考（HoleDialog 的草图点孔位通道消费）。取点沿用草图工具链
- * 标准 AccuSnap 热捕捉（getCurrSnapDetail → adjustedPoint，回落 ev.point），
+ * 但可作为孔位/定位参考（HoleDialog 的草图点孔位通道消费）。取点走统一
+ * `sketch-pick.pickSketchPlaneLocal`（热捕捉 → 光标射线∩草图平面 → 回退），
  * 世界点经草图平面架投影为局部 (u,v)。提交走 `applyUpdate` 乐观整体覆写，
  * 拒收只回滚本次 id；不手写命中测试/第二套事务。
  */
@@ -28,6 +28,7 @@ import { resolveSketchPlaneFrame } from './SketchAddConstraintTool.js';
 import type { SketchPlaneFrame } from './sketch-plane.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 import { autoWeldConstraints } from './sketch-auto-weld.js';
+import { pickSketchPlaneLocal } from './sketch-pick.js';
 
 const PREVIEW_COLOR = ColorDef.from(0, 120, 215);
 
@@ -63,16 +64,14 @@ export class SketchPointTool extends PrimitiveTool {
     if (this._hintText) publishSketchToolHint(this.toolId, this._hintText, this._cursorView);
   }
 
-  public override async onDataButtonDown(_ev: BeButtonEvent): Promise<EventHandled> {
+  public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
     const sketchSystem = getSketchSystem();
     const sketch = sketchSystem?.activeSketch;
     if (!sketchSystem || !sketch) {
       this._notify(i18next.t('partStudio.sketch.point.toasts.sketchEmpty'), OutputMessagePriority.Error);
       return EventHandled.Yes;
     }
-    const snap = IModelApp.accuSnap?.getCurrSnapDetail();
-    const world = snap && snap.isHot ? snap.adjustedPoint : _ev.point;
-    const local = this._plane.toLocal(world);
+    const local = pickSketchPlaneLocal(ev, this._plane);
     if (!Number.isFinite(local.u) || !Number.isFinite(local.v)) {
       this._notify(i18next.t('partStudio.sketch.point.toasts.invalidPoint'), OutputMessagePriority.Info);
       return EventHandled.Yes;
@@ -96,7 +95,7 @@ export class SketchPointTool extends PrimitiveTool {
   public override onDynamicFrame(ev: BeButtonEvent, context: DynamicsContext): void {
     const builder = context.createGraphic({ type: GraphicType.WorldOverlay });
     builder.setSymbology(PREVIEW_COLOR, PREVIEW_COLOR, 2, LinePixels.Solid);
-    const local = this._plane.toLocal(ev.point);
+    const local = pickSketchPlaneLocal(ev, this._plane);
     const arc = Arc3d.createXY(Point3d.create(local.u, local.v, 0), 0.8, AngleSweep.createStartSweepRadians(0, Math.PI * 2));
     arc.tryTransformInPlace(this._plane.localToWorld);
     builder.addArc(arc, false, false);

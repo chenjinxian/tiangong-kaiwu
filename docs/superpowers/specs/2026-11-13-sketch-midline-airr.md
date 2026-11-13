@@ -20,8 +20,9 @@
 - 工具栏：线 ▾ 子项 id 由 `sketchMidline` 改为 `Sketch.Midline`（与工具 toolId
   一致）；能力 `sketchMidline` gated→full（guide 词条删除）；图标复用线图标。
 - i18n：`sketch.create.midline.firstPrompt/nextPrompt`（zh/en）。
-- 非目标：连续绘制模式（本仓所有绘制工具提交后退出；Onshape 保持工具活跃），
-  端点 auto-weld 走基类（与直线工具同口径）。
+- 非目标：连续绘制模式（已于 `2026-11-13-sketch-continuous-drawing-airr.md`
+  接通：中点线提交后保持激活、空锚点开始下一形状），端点 auto-weld 走基类
+  （与直线工具同口径）。
 
 ## 测试
 

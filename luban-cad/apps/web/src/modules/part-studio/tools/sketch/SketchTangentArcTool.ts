@@ -7,11 +7,13 @@
  * 证据：Onshape Help「Tangent Arc」——两次点击：点已有直线的端点定起点/切线，
  * 再点终点；圆弧在起点与直线相切。首切片只接**草图直线端点**（面/边相切属
  * 外部引用）；提交一条 arc + coincident(arc.start, line.endpoint) + tangent(arc, line)。
- * 工具一次只建一条弧（完成即退出）；连续链式弧留后续。
+ * Onshape live（2026-11-13）：绘制工具提交后保持激活——本工具提交成功后回到
+ * 「选起点」阶段，继续画下一条弧（Esc/右键退出）。连续链式弧（自动取上一弧
+ * 端点作起点）仍未做。
  *
- * 取点沿用草图工具链标准 AccuSnap（getCurrSnapDetail → adjustedPoint，回落
- * ev.point）；世界点经草图平面架投影为局部 (u,v)。提交走 applyUpdate 乐观整体
- * 覆写，拒收只回滚本次 id。
+ * 取点沿用草图工具链统一 `pickHitLocal`（sketch-pick：热捕捉 → 光标射线∩草图
+ * 平面 → 回退）；世界点经草图平面架投影为局部 (u,v)。提交走 applyUpdate 乐观
+ * 整体覆写，拒收只回滚本次 id。
  */
 import {
   BeButtonEvent,
@@ -127,7 +129,9 @@ export class SketchTangentArcTool extends PrimitiveTool {
       return EventHandled.Yes;
     }
     this._nextId = idBase + 3;
-    await this.exitTool();
+    // Onshape（2026-11-13 live）：提交后保持激活，回到起点拾取继续画下一条弧。
+    this._start = undefined;
+    this._outputPrompt('start');
     return EventHandled.Yes;
   }
 

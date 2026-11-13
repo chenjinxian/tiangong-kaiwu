@@ -10,10 +10,11 @@
  * 2026-10-23-tutorial2-sketch-chain/architecture.md §二复用清单）换芯为
  * itwinjs-core 标准件：
  *
- * - 取点：AccuSnap 捕捉优先——`IModelApp.accuSnap.getCurrSnapDetail()` 热捕捉
- *   取 `adjustedPoint`，回落 `ev.point`。**禁手写命中测试**。世界点经草图
- *   平面架（sketch-plane.ts）投影为局部 (u,v) 提交——取代 M3-b 的手写 z=0
- *   投影（planeZ=0 恒定假设已废弃，architecture.md §四）。
+ * - 取点：统一 `sketch-pick.pickSketchPlaneLocal`——AccuSnap 热捕捉取
+ *   `adjustedPoint`；否则视口光标射线与草图平面求交（相机不再自动正视平面后
+ *   `ev.point` 不落在草图平面，2026-11-13 真栈实测 v 恒 0 退化）；再回退
+ *   `ev.point` 投影。**禁手写命中测试**。世界点经草图平面架（sketch-plane.ts）
+ *   投影为局部 (u,v) 提交。
  * - 标注提示（2026-11-02 Onshape live）：不激活 iTwin AccuDraw 罗盘（Onshape
  *   草图没有该 UI），而由 sketch-live-measures + sketch-tool-feedback 发布
  *   「阶段提示 + 线长/角度/矩形宽高/圆与弧半径」；SketchToolFeedbackOverlay
@@ -25,7 +26,9 @@
  * - 提交：满点 → buildShape 构造草稿 entities/constraints →
  *   `getSketchSystem().applyUpdate([...base, ...draft])` 乐观整体覆写 →
  *   拒收（ok:false）回滚 id 计数 + outputMessage 错误透出（后端拒收文本原样，
- *   含 dof/冲突 id），工具保持存活可立即重画；成功 exitTool。
+ *   含 dof/冲突 id），工具保持存活可立即重画；**成功同样保持存活**
+ *   （Onshape live 2026-11-13 连续绘制）：直线链式延续上一段终点，其余工具
+ *   回到空锚点开始下一形状；双击/右键/Esc 退出工具。
  * - 实体 id：maxId+1（实体与约束共用一支递增计数器；onPostInstall 与每次
  *   提交前按 activeSketch 重播种）。
  * - 运行依赖：**模块级 accessor**（useSketchSystem.ts 的
@@ -58,6 +61,7 @@ import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { sketchPlaneFrameFrom } from './sketch-plane.js';
 import { autoWeldConstraints } from './sketch-auto-weld.js';
+import { pickSketchPlaneLocal } from './sketch-pick.js';
 import { POLYGON_DEFAULT_SIDES, POLYGON_MAX_SIDES, POLYGON_MIN_SIDES, regularPolygonVertices, type PolygonMode } from './sketch-polygon.js';
 import { computeSketchLiveMeasures } from './sketch-live-measures.js';
 import {
@@ -110,6 +114,11 @@ export abstract class SketchCreateTool extends PrimitiveTool {
 
   /** 形状种类（测试/诊断面）。 */
   protected abstract readonly sketchKind: SketchCreateKind;
+  /**
+   * 提交成功后保留的锚点（2026-11-13 Onshape live：绘制工具提交后保持激活）：
+   * 缺省空 = 工具保持激活但开始下一形状；直线覆写为 [上一段终点]（连续链）。
+   */
+  protected continueAnchors(_points: SketchPoint2[]): SketchPoint2[] { return []; }
   /** 满点所需锚点数（线/矩形/圆=2，3点弧=3）。 */
   protected abstract readonly requiredPoints: number;
   /** 分阶段提示语 i18n 键（索引=当前已锚点数；调用时翻译，避免语言快照）。 */
@@ -175,6 +184,15 @@ export abstract class SketchCreateTool extends PrimitiveTool {
   }
 
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
+    // Onshape：双击结束当前链/当前形状——工具保持激活等待下一轮。
+    // 首次双击（锚点为空）同样是 no-op，避免完成形状后第二击落下多余锚点。
+    if (ev.isDoubleClick) {
+      this._anchors = [];
+      this._publishFeedback();
+      this._provideToolAssistance();
+      this._outputStagePrompt();
+      return EventHandled.No;
+    }
     this._anchors.push(this._pickLocal(ev));
     this._cursorLocal = this._pickLocal(ev);
     this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
@@ -197,7 +215,8 @@ export abstract class SketchCreateTool extends PrimitiveTool {
 
   /**
    * 提交当前锚点的形状草稿（基类第三次点击与子类键盘 Enter 共用）。
-   * 失败时保持工具存活并回滚 id；成功退出工具。
+   * 失败/成功都保持工具存活（失败回滚 id；成功后连续绘制——锚点由
+   * `continueAnchors` 决定：缺省空，直线为上一段终点）。
    */
   protected async commitAnchors(points: SketchPoint2[]): Promise<void> {
     this._anchors = [];
@@ -246,7 +265,12 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       return;
     }
 
-    await this.exitTool();
+    // Onshape（2026-11-13 live）：提交后**不退出**——同一工具连续绘制。
+    // 直线保留上一段终点作为下一段起点（链式）；其余工具从空锚点开始新形状。
+    this._anchors = this.continueAnchors(points);
+    this._publishFeedback();
+    this._provideToolAssistance();
+    this._outputStagePrompt();
   }
 
   /** Dynamics 帧回调：已锚点 + 当前光标点 → 预览（WorldOverlay，压顶绘制）。 */
@@ -349,11 +373,9 @@ export abstract class SketchCreateTool extends PrimitiveTool {
   /** 重启用实例工厂（子类返回自身类型新实例）。 */
   protected abstract createInstance(): SketchCreateTool;
 
-  /** 取点：AccuSnap 热捕捉 adjustedPoint 优先，回落 ev.point；世界点投影到草图面 (u,v)。 */
+  /** 取点：统一 `pickSketchPlaneLocal`（热捕捉 → 光标射线∩草图平面 → 回退）。 */
   private _pickLocal(ev: BeButtonEvent): SketchPoint2 {
-    const snap = IModelApp.accuSnap?.getCurrSnapDetail();
-    const world = snap && snap.isHot ? snap.adjustedPoint : ev.point;
-    return this._plane.toLocal(world);
+    return pickSketchPlaneLocal(ev, this._plane);
   }
 
   /** 按 activeSketch 现有全部实体/约束 id 重播种（单调不减，防 refresh 前冲突）。 */
@@ -490,6 +512,12 @@ export class SketchLineTool extends SketchCreateTool {
     const a0 = anchors[0];
     if (!a0) return;
     this.addWorldLineString(builder, [a0, cursor]);
+  }
+
+  /** Onshape 直线 = 连续链：下一段从上一段终点开始（Esc/双击结束链）。 */
+  protected override continueAnchors(points: SketchPoint2[]): SketchPoint2[] {
+    const last = points[points.length - 1];
+    return last ? [last] : [];
   }
 }
 

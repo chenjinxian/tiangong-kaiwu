@@ -574,6 +574,20 @@ export function PartStudioCanvas({
   }, [closeDialog, selectDatum]);
   // T6：草图模式覆盖层开关（os-30 栅格/约束）。
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
+  // 2026-11-13：绘制工具提交后保持激活（Onshape 连续绘制）。退出草图（✓/Esc/
+  // 切 scope）必须停掉仍在活动的草图工具，否则回到特征环境后仍被 Sketch.*
+  // 工具接管输入。
+  const sketchActiveRef = React.useRef(sketchActive);
+  React.useEffect(() => {
+    const previous = sketchActiveRef.current;
+    sketchActiveRef.current = sketchActive;
+    if (!previous || sketchActive) return;
+    const active = IModelApp.toolAdmin?.activeTool as
+      { toolId?: string; exitTool?: () => Promise<void> } | undefined;
+    const toolId = active?.toolId;
+    if (typeof toolId === 'string' && /sketch/i.test(toolId))
+      void active?.exitTool?.();
+  }, [sketchActive]);
   // T6 评审 I-1：viewOnly 运行时切换 → 打开中的写面对话框整体收口（宿主职责）。
   // 语义线切分（B2 只读写门禁）：此处保持 store.viewOnly 直读——「仅查看模式」
   // 是用户主动切换，收口/菜单态语义不吃权限；写动作门走 canEdit prop（下方

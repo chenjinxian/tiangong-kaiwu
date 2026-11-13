@@ -352,8 +352,8 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   })!;
 
   // ── 3. 小弧（圆心 (57.15,−27.0002) R15.875，起点自动焊到右腿末端）+ 相切（[16][17]）
-  await showcaseCaption(page, '步骤 7｜小弧', '工具：3 点圆弧\n(41.275, -27.0002) → (57.15, -42.8752) → (45.925, -38.225)\n起点焊到右腿末端；约束：与右腿相切。');
-  await activate(page, '3 点圆弧');
+  await showcaseCaption(page, '步骤 7｜小弧', '工具：三点圆弧\n(41.275, -27.0002) → (57.15, -42.8752) → (45.925, -38.225)\n起点焊到右腿末端；约束：与右腿相切。');
+  await activate(page, '三点圆弧');
   await clickWorld(page, hub, P(41.275, -27.0002));
   await clickWorld(page, hub, P(57.15, -42.8752));
   await clickWorld(page, hub, P(45.925, -38.225));
@@ -378,10 +378,6 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   after = await counts(8, 19, '喉线-小弧相切');
   await addConstraint(page, hub, '水平', [midOf(throat)]);
   after = await counts(8, 20, '喉线水平');
-  const throatNow = lines(after).find((l) => {
-    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
-    return Math.abs(l.p1.y - l.p2.y) < 1e-6 && l.p1.y < -35;
-  })!;
   await showcaseScene(page, SCENES.sketchRight);
 
   // ── 5. 第二矩形（中心矩形 (60.325,−66.675)↔(111.125,−38.1)；+5 实体/+10 约束）
@@ -403,13 +399,27 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   })!;
 
   // ── 6. 第二矩形定位（[31] vertical(center, throat.end)；[32]-[37] 尺寸）
+  // 密集约束后，实体中点会落进约束 glyph / 尺寸标注的命中矩形：editor 的 window
+  // 捕获段 pointerdown 会 preventDefault 把画布点击吞成「选中约束」（2026-11-13
+  // 真栈实证）。本节起关闭「显示约束」（=对话框复选框同一 store 开关，纯显示态），
+  // 完成草图前恢复；几何/约束落库不受影响。
+  const setShowConstraints = (visible: boolean) => page.evaluate((v) => {
+    (window as any).__lubanE2EApp?.usePartStudioStore?.getState().setShowConstraints(v);
+  }, visible);
+  await setShowConstraints(false);
   await addConstraint(page, hub, '竖直', [center2, P(85.725, -42.8752)]);
   after = await counts(13, 31, '第二矩形竖直定位');
   await addDimension(page, hub, '半径', [P(45.925, -38.225)], 15.875);
   after = await counts(13, 32, '小弧半径');
   await addDimension(page, hub, '长度', [midOf(rect2Bottom(after))], 50.8);
   after = await counts(13, 33, '第二矩形长度');
-  await addDimension(page, hub, '距离', [midOf(throatNow), midOf(topLine(after))], 52.4002);
+  // 喉线中点必须取**最新**快照：前面 [32][33] 两次尺寸提交会让 SLVS 微调几何，
+  // 步骤 4 的旧坐标可能已不在线上（拾取按像素半径解析 → 落空）。
+  const throatAfterDims = lines(after).find((l) => {
+    if (typeof l.p1 !== 'object' || typeof l.p2 !== 'object') return false;
+    return Math.abs(l.p1.y - l.p2.y) < 1e-6 && l.p1.y < -35;
+  })!;
+  await addDimension(page, hub, '距离', [midOf(throatAfterDims), midOf(topLine(after))], 52.4002);
   after = await counts(13, 34, '喉线到底边距离');
   await addDimension(page, hub, '长度', [midOf(rect2Right(after))], 28.575);
   after = await counts(13, 35, '第二矩形高度');
@@ -549,6 +559,8 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   console.log(`[t2-mouse] spline 控制点最大偏差 = ${maxCtrlDev.toFixed(4)} mm`);
   expect(maxCtrlDev, '样条控制点偏差').toBeLessThan(1.0);
 
+  // 拾取阶段结束：恢复「显示约束」，下面的标注断言需要全部尺寸标注可见。
+  await setShowConstraints(true);
   console.log(`[t2-mouse] FINAL histogram=${JSON.stringify(histogram)} dims=${dims.length}`);
   // 9 条尺寸约束全部在画布上有标注（Onshape live：长度/距离/半径）。
   await expect(annotationsMarker).toHaveAttribute('data-count', '9', { timeout: 15_000 });
