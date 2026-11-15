@@ -2103,7 +2103,7 @@
     "noViewport": "视口未就绪——打开模型后可用"
   },
   "transformDialog": {
-    "targetBody": "要变换的实体",
+    "targetBody": "要变换或复制的图元",
     "targetFixed": "创建时确定（编辑中只读）",
     "targetPlaceholder": "选择实体…",
     "targetMissing": "请选择要变换的实体",
@@ -2113,7 +2113,11 @@
     "modes": {
       "translate": "按 XYZ 平动",
       "rotate": "旋转",
-      "scale": "缩放"
+      "scale": "缩放",
+      "line": "按直线平动",
+      "distance": "按距离平动",
+      "mate": "按配合连接器变换",
+      "inPlace": "原位复制"
     },
     "dx": "ΔX（mm）",
     "dy": "ΔY（mm）",
@@ -2132,7 +2136,12 @@
     "translateNoop": "平移为零：请输入非零偏移",
     "combinedHint": "该变换包含多个分量（平移/旋转/缩放），当前对话框只支持单分量编辑；请删除后重建以修改组合。",
     "submitSuccess": "{{name}} 已更新",
-    "copyMergeHint": "首版复制将原件与副本合并到同一实体（copy=true Unite）；独立零件副本需多体输出（ADR-0015）。"
+    "copyMergeHint": "首版复制将原件与副本合并到同一实体（copy=true Unite）；独立零件副本需多体输出（ADR-0015）。",
+    "modeChannelHint": "live 默认「按直线平动」暂无后端通道；本对话框按 XYZ 平动 / 旋转 / 缩放执行。",
+    "translateValueAria": "{{axis}} 轴平移（mm）",
+    "uniformScale": "均匀缩放",
+    "uniformOnlyHint": "未勾选均匀缩放：当前契约仅支持均匀缩放，非均匀缩放在此对话框不可编辑。",
+    "scalePoint": "点或配合连接器"
   },
   "splitPartDialog": {
     "splitType": "分割类型",

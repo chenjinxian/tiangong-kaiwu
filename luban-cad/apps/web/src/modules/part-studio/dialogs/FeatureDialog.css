@@ -2196,3 +2196,186 @@
 .part-studio-feature-dialog__boolean-tools-field .part-studio-feature-dialog__checkbox {
   min-block-size: 24px;
 }
+
+/* ── Transform live 对齐（2026-11-15 dialog-audit group-d §1，仅 transform 作用域）──
+ * 目标 query field 两态（空 26px 浅蓝 / 已选 42px 白底）、无标签 14px 模式行、
+ * X/Y/Z 轴值行（轴色块 + 右对齐 mm + 1px 下划线 + 禁用计算器）、缩放固定点只读行。
+ * 载荷/预览/校验不变。 */
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__query-row {
+  margin: 0;
+  padding: 0;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__query-field {
+  gap: 0;
+  margin: 2px 3px;
+  padding: 0 6px;
+  border-radius: 2px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__query-field.is-empty {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  min-block-size: 26px;
+  border: 1px solid #1651b0;
+  background: #def1fb;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__query-field.is-selected {
+  justify-content: center;
+  gap: 1px;
+  min-block-size: 42px;
+  border: 1px solid #d7d7d7;
+  background: #ffffff;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__query-label {
+  padding-block-start: 0;
+  color: #555555;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__target-chip {
+  overflow: hidden;
+  color: #333333;
+  font-size: 13.3333px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__target-select {
+  inline-size: 100%;
+  block-size: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 13.3333px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__mode-row {
+  display: flex;
+  align-items: center;
+  min-block-size: 28px;
+  padding: 0 3px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__mode-select {
+  inline-size: 100%;
+  block-size: 28px;
+  padding: 0 2px;
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 14px;
+  line-height: 26px;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__mode-select:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* live X/Y/Z 数值行：轴色块 + 字母标签左，值右对齐 + mm + 下划线 + 计算器。 */
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__value-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 28px;
+  padding: 0 3px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__value-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__axis-glyph {
+  display: inline-block;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 1px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__axis-glyph[data-axis='x'] {
+  background: #c0392b;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__axis-glyph[data-axis='y'] {
+  background: #3d8a4a;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__axis-glyph[data-axis='z'] {
+  background: #2b62b8;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__value-input {
+  min-inline-size: 0;
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: transparent;
+  font-size: 13.3333px;
+  text-align: end;
+}
+
+/* live 点或配合连接器：白底只读字段 + 时钟图标（无拾取通道）。 */
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__point-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 3px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__point-field {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-inline-size: 0;
+  min-block-size: 26px;
+  padding: 0 6px;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__point-label {
+  overflow: hidden;
+  color: #555555;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__point-value {
+  margin-inline-start: auto;
+  color: #333333;
+  font-size: 13.3333px;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__clock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 20px;
+  block-size: 20px;
+  color: #6d7d8c;
+}
+
+.part-studio-feature-dialog[data-feature='transform'] .part-studio-transform-dialog__clock svg {
+  inline-size: 15px;
+  block-size: 15px;
+}

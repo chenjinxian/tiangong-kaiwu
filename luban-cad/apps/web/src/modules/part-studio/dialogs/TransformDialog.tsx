@@ -8,13 +8,16 @@
  * 变换类型菜单含「按 XYZ 平动 / 旋转 / 缩放」；XYZ 平动的 dx/dy/dz、旋转的
  * 「轴 + 角度」、缩放的「均匀缩放 + 缩放 + 点」与「复制零件」。
  *
- * 首切片只渲染已有字段证据且后端契约已支持的模式：
+ * 后端契约已支持的模式：
  * - 按 XYZ 平动（translation）；
  * - 世界 X/Y/Z 轴旋转（rotation；任意轴只读保留，不改写）；
  * - 均匀缩放（scale；固定点/非均匀缩放不在本 UI 编辑，保留落库值只读）；
  * - 复制零件（copy）。
- * 「按直线/距离平动」「按配合连接器变换」「原位复制」无字段证据，不渲染假控件；
+ * live 模式菜单 7 项全部按序渲染；「按直线/距离平动」「按配合连接器变换」
+ * 「原位复制」无后端通道，诚实禁用并标注未实现；默认按 XYZ 平动。
  * 多分量 transform（平移+旋转+缩放同存）不在本对话框改参（禁用并提示重建）。
+ * 2026-11-15：按 dialog-audit group-d §1 对齐 live 行皮肤（目标 query field 两态、
+ * 无标签模式行、X/Y/Z 轴值行、均匀缩放/固定点行、底栏滑杆+?）；载荷不变。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -178,8 +181,9 @@ export function TransformDialog({
   const [dy, setDy] = React.useState(() => numberText(stored.translation?.y));
   const [dz, setDz] = React.useState(() => numberText(stored.translation?.z));
   const [axis, setAxis] = React.useState<WorldAxis | 'custom'>(() => storedAxis ?? (customAxis !== undefined ? 'custom' : 'Z'));
-  const [angle, setAngle] = React.useState(() => numberText(stored.rotation?.angleDeg, '90'));
-  const [scale, setScale] = React.useState(() => numberText(stored.scale, '2'));
+  const [angle, setAngle] = React.useState(() => numberText(stored.rotation?.angleDeg, '30'));
+  const [scale, setScale] = React.useState(() => numberText(stored.scale, '1'));
+  const [uniform, setUniform] = React.useState(() => stored.scaleAxes === undefined);
   const [copy, setCopy] = React.useState(stored.copy === true);
   const [targetBodyKey, setTargetBodyKey] = React.useState<string | undefined>(() => (
     activeBodies.length === 1 ? activeBodies[0]!.bodyKey : undefined
@@ -219,7 +223,7 @@ export function TransformDialog({
     ? translationFinite && !translationNoop
     : mode === 'rotate'
       ? angleValid && axisValid
-      : scaleValid && !nonUniform;
+      : scaleValid && !nonUniform && uniform;
   const submitDisabled = busy || !canEdit || applyOp === undefined || combined
     || noBodies || targetMissing || (editMode ? false : activeBodies.length > 1 && targetBodyKey === undefined)
     || !modeValid;
@@ -324,6 +328,19 @@ export function TransformDialog({
   const targetLabel = targetBody?.name && targetBody.name.trim() !== ''
     ? `${targetBody.name} (${targetBody.bodyKey})`
     : targetBody?.bodyKey;
+  const targetSelected = editMode || targetBody !== undefined;
+  const notImplementedTitle = t('partStudio.featureDialog.notImplemented');
+  const translateRows: Array<{
+    axis: 'x' | 'y' | 'z';
+    label: 'X' | 'Y' | 'Z';
+    value: string;
+    setValue: React.Dispatch<React.SetStateAction<string>>;
+    testId: string;
+  }> = [
+    { axis: 'x', label: 'X', value: dx, setValue: setDx, testId: 'part-studio-transform-dx' },
+    { axis: 'y', label: 'Y', value: dy, setValue: setDy, testId: 'part-studio-transform-dy' },
+    { axis: 'z', label: 'Z', value: dz, setValue: setDz, testId: 'part-studio-transform-dz' },
+  ];
 
   return (
     <div
@@ -350,40 +367,46 @@ export function TransformDialog({
             {t('partStudio.transformDialog.combinedHint')}
           </p>
         )}
-        <section className="part-studio-feature-dialog__distance" data-field="transform-target">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-target">
-            {t('partStudio.transformDialog.targetBody')}
-          </label>
-          {editMode ? (
-            <span className="part-studio-feature-dialog__static-value" data-testid="part-studio-transform-target-fixed">
-              {t('partStudio.transformDialog.targetFixed')}
+        <section className="part-studio-transform-dialog__query-row" data-field="transform-target">
+          <div
+            className={`part-studio-feature-dialog__profile-field part-studio-transform-dialog__query-field${targetSelected ? ' is-selected' : ' is-empty'}`}
+            data-testid="part-studio-transform-target-field"
+            aria-label={t('partStudio.transformDialog.targetBody')}
+          >
+            <span className="part-studio-feature-dialog__query-label part-studio-transform-dialog__query-label">
+              {t('partStudio.transformDialog.targetBody')}
             </span>
-          ) : noBodies ? (
-            <span className="part-studio-feature-dialog__static-value" data-testid="part-studio-transform-no-bodies">
-              {t('partStudio.transformDialog.noBodies')}
-            </span>
-          ) : activeBodies.length === 1 ? (
-            <span className="part-studio-feature-dialog__static-value" data-testid="part-studio-transform-target">
-              {targetLabel}
-            </span>
-          ) : (
-            <select
-              id="part-studio-transform-target"
-              aria-label={t('partStudio.transformDialog.targetBody')}
-              className="part-studio-feature-dialog__select"
-              value={targetBodyKey ?? ''}
-              disabled={busy || !canEdit}
-              onChange={(event) => setTargetBodyKey(event.target.value === '' ? undefined : event.target.value)}
-              data-testid="part-studio-transform-target"
-            >
-              <option value="">{t('partStudio.transformDialog.targetPlaceholder')}</option>
-              {activeBodies.map((body) => (
-                <option key={body.bodyKey} value={body.bodyKey}>
-                  {body.name && body.name.trim() !== '' ? `${body.name} (${body.bodyKey})` : body.bodyKey}
-                </option>
-              ))}
-            </select>
-          )}
+            {editMode ? (
+              <span className="part-studio-transform-dialog__target-chip" data-testid="part-studio-transform-target-fixed">
+                {t('partStudio.transformDialog.targetFixed')}
+              </span>
+            ) : noBodies ? (
+              <span className="part-studio-transform-dialog__target-chip" data-testid="part-studio-transform-no-bodies">
+                {t('partStudio.transformDialog.noBodies')}
+              </span>
+            ) : activeBodies.length > 1 ? (
+              <select
+                id="part-studio-transform-target"
+                aria-label={t('partStudio.transformDialog.targetBody')}
+                className="part-studio-transform-dialog__target-select"
+                value={targetBodyKey ?? ''}
+                disabled={busy || !canEdit}
+                onChange={(event) => setTargetBodyKey(event.target.value === '' ? undefined : event.target.value)}
+                data-testid="part-studio-transform-target"
+              >
+                <option value="">{t('partStudio.transformDialog.targetPlaceholder')}</option>
+                {activeBodies.map((body) => (
+                  <option key={body.bodyKey} value={body.bodyKey}>
+                    {body.name && body.name.trim() !== '' ? `${body.name} (${body.bodyKey})` : body.bodyKey}
+                  </option>
+                ))}
+              </select>
+            ) : targetBody !== undefined ? (
+              <span className="part-studio-transform-dialog__target-chip" data-testid="part-studio-transform-target">
+                {targetLabel}
+              </span>
+            ) : null}
+          </div>
         </section>
         {!editMode && activeBodies.length > 1 && targetBody === undefined && (
           <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-transform-target-missing">
@@ -395,71 +418,88 @@ export function TransformDialog({
             {t('partStudio.transformDialog.needsBody')}
           </p>
         )}
-        <section className="part-studio-feature-dialog__distance" data-field="transform-mode">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-mode">
-            {t('partStudio.transformDialog.mode')}
-          </label>
+        {/* live 模式行为无标签整行下拉（14px 值、透明底、下划线）；7 项按 live 顺序
+            全部渲染，无后端通道的 4 项禁用并标注未实现（不静默省略）。 */}
+        <div className="part-studio-feature-dialog__mode-row part-studio-transform-dialog__mode-row" data-field="transform-mode">
           <select
             id="part-studio-transform-mode"
             aria-label={t('partStudio.transformDialog.mode')}
-            className="part-studio-feature-dialog__select"
+            className="part-studio-transform-dialog__mode-select"
             value={mode}
             disabled={busy || !canEdit || combined}
             onChange={(event) => setMode(event.target.value as TransformMode)}
             data-testid="part-studio-transform-mode"
           >
+            <option value="line" disabled title={notImplementedTitle}>
+              {t('partStudio.transformDialog.modes.line')}
+            </option>
+            <option value="distance" disabled title={notImplementedTitle}>
+              {t('partStudio.transformDialog.modes.distance')}
+            </option>
             <option value="translate">{t('partStudio.transformDialog.modes.translate')}</option>
+            <option value="mate" disabled title={notImplementedTitle}>
+              {t('partStudio.transformDialog.modes.mate')}
+            </option>
             <option value="rotate">{t('partStudio.transformDialog.modes.rotate')}</option>
+            <option value="inPlace" disabled title={notImplementedTitle}>
+              {t('partStudio.transformDialog.modes.inPlace')}
+            </option>
             <option value="scale">{t('partStudio.transformDialog.modes.scale')}</option>
           </select>
-        </section>
+        </div>
+        <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-transform-mode-hint">
+          {t('partStudio.transformDialog.modeChannelHint')}
+        </p>
         {mode === 'translate' && (
           <>
-            <section className="part-studio-feature-dialog__distance" data-field="transform-dx">
-              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-dx">
-                {t('partStudio.transformDialog.dx')}
-              </label>
-              <input
-                id="part-studio-transform-dx"
-                aria-label={t('partStudio.transformDialog.dx')}
-                className="part-studio-feature-dialog__input"
-                inputMode="decimal"
-                value={dx}
-                disabled={busy || !canEdit || combined}
-                onChange={(event) => setDx(event.target.value)}
-                data-testid="part-studio-transform-dx"
-              />
-            </section>
-            <section className="part-studio-feature-dialog__distance" data-field="transform-dy">
-              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-dy">
-                {t('partStudio.transformDialog.dy')}
-              </label>
-              <input
-                id="part-studio-transform-dy"
-                aria-label={t('partStudio.transformDialog.dy')}
-                className="part-studio-feature-dialog__input"
-                inputMode="decimal"
-                value={dy}
-                disabled={busy || !canEdit || combined}
-                onChange={(event) => setDy(event.target.value)}
-                data-testid="part-studio-transform-dy"
-              />
-            </section>
-            <section className="part-studio-feature-dialog__distance" data-field="transform-dz">
-              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-dz">
-                {t('partStudio.transformDialog.dz')}
-              </label>
-              <input
-                id="part-studio-transform-dz"
-                aria-label={t('partStudio.transformDialog.dz')}
-                className="part-studio-feature-dialog__input"
-                inputMode="decimal"
-                value={dz}
-                disabled={busy || !canEdit || combined}
-                onChange={(event) => setDz(event.target.value)}
-                data-testid="part-studio-transform-dz"
-              />
-            </section>
+            {translateRows.map((row) => (
+              <section
+                key={row.axis}
+                className="part-studio-transform-dialog__value-row"
+                data-field={`transform-d${row.axis}`}
+              >
+                <label
+                  className="part-studio-transform-dialog__value-label"
+                  htmlFor={`part-studio-transform-d${row.axis}`}
+                >
+                  <span
+                    className="part-studio-transform-dialog__axis-glyph"
+                    data-axis={row.axis}
+                    aria-hidden="true"
+                  />
+                  <span>{row.label}</span>
+                </label>
+                <input
+                  id={`part-studio-transform-d${row.axis}`}
+                  aria-label={t('partStudio.transformDialog.translateValueAria', { axis: row.label })}
+                  className="part-studio-feature-dialog__input part-studio-transform-dialog__value-input"
+                  inputMode="decimal"
+                  value={row.value}
+                  disabled={busy || !canEdit || combined}
+                  onChange={(event) => row.setValue(event.target.value)}
+                  data-testid={row.testId}
+                />
+                <span className="part-studio-feature-dialog__value-unit">mm</span>
+                <button
+                  type="button"
+                  className="part-studio-feature-dialog__calculator"
+                  aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                  disabled
+                  title={notImplementedTitle}
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                    <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                    <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                    <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                    <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                  </svg>
+                </button>
+              </section>
+            ))}
             {translationNoop && (
               <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-transform-noop">
                 {t('partStudio.transformDialog.translateNoop')}
@@ -524,6 +564,16 @@ export function TransformDialog({
         )}
         {mode === 'scale' && (
           <>
+            {/* live：均匀缩放复选（默认勾选）；落库非均匀缩放只读保留（禁用）。 */}
+            <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-transform-uniform">
+              <input
+                type="checkbox"
+                checked={uniform}
+                disabled={busy || !canEdit || combined || nonUniform}
+                onChange={(event) => setUniform(event.target.checked)}
+              />
+              <span>{t('partStudio.transformDialog.uniformScale')}</span>
+            </label>
             <section className="part-studio-feature-dialog__distance" data-field="transform-scale">
               <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-scale">
                 {t('partStudio.transformDialog.scale')}
@@ -539,6 +589,33 @@ export function TransformDialog({
                 data-testid="part-studio-transform-scale"
               />
             </section>
+            {/* live 固定点 query 行；无拾取通道，只读显示已存固定点。 */}
+            <div className="part-studio-transform-dialog__point-row" data-testid="part-studio-transform-scale-point">
+              <div
+                className="part-studio-transform-dialog__point-field"
+                title={notImplementedTitle}
+              >
+                <span className="part-studio-transform-dialog__point-label">
+                  {t('partStudio.transformDialog.scalePoint')}
+                </span>
+                {stored.scaleOrigin !== undefined && (
+                  <span className="part-studio-transform-dialog__point-value">
+                    {vecText(stored.scaleOrigin)}
+                  </span>
+                )}
+              </div>
+              <span className="part-studio-transform-dialog__clock" aria-hidden="true">
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+              </span>
+            </div>
+            {!uniform && !nonUniform && (
+              <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-transform-uniform-hint">
+                {t('partStudio.transformDialog.uniformOnlyHint')}
+              </p>
+            )}
             {nonUniform && (
               <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-transform-nonuniform">
                 {t('partStudio.transformDialog.nonUniformHint')}
@@ -575,6 +652,20 @@ export function TransformDialog({
           </p>
         )}
       </div>
+      <footer className="part-studio-feature-dialog__footer">
+        <div className="part-studio-feature-dialog__transparency">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            defaultValue={0}
+            disabled
+            aria-label={t('partStudio.featureDialog.transparencyLabel')}
+            className="part-studio-feature-dialog__transparency-slider"
+          />
+        </div>
+        <button type="button" className="part-studio-feature-dialog__help" aria-label={t('partStudio.featureDialog.help')}>?</button>
+      </footer>
       {previewHost !== null && dynamicPreview !== undefined && createPortal(
         <FeaturePreviewOverlay
           viewport={viewport ?? null}

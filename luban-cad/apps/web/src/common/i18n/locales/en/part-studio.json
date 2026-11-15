@@ -2103,7 +2103,7 @@
     "noViewport": "Viewport not ready — open a model first"
   },
   "transformDialog": {
-    "targetBody": "Entity to transform",
+    "targetBody": "Entities to transform or copy",
     "targetFixed": "Fixed at creation (read-only while editing)",
     "targetPlaceholder": "Select an entity…",
     "targetMissing": "Select the entity to transform",
@@ -2113,7 +2113,11 @@
     "modes": {
       "translate": "Translate by XYZ",
       "rotate": "Rotate",
-      "scale": "Scale"
+      "scale": "Scale",
+      "line": "Translate by line",
+      "distance": "Translate by distance",
+      "mate": "Transform by mate connector",
+      "inPlace": "Copy in place"
     },
     "dx": "ΔX (mm)",
     "dy": "ΔY (mm)",
@@ -2132,7 +2136,12 @@
     "translateNoop": "Translation is zero: enter a non-zero offset",
     "combinedHint": "This transform combines multiple components (translate/rotate/scale); this dialog edits a single component only. Delete and recreate it to change the combination.",
     "submitSuccess": "{{name}} updated",
-    "copyMergeHint": "This first slice merges the original and the copy into one entity (copy=true Unite); an independent Part copy requires multi-body output (ADR-0015)."
+    "copyMergeHint": "This first slice merges the original and the copy into one entity (copy=true Unite); an independent Part copy requires multi-body output (ADR-0015).",
+    "modeChannelHint": "The live default (Translate by line) has no backend channel; this dialog supports Translate by XYZ / Rotate / Scale.",
+    "translateValueAria": "{{axis}} axis translation (mm)",
+    "uniformScale": "Uniform scale",
+    "uniformOnlyHint": "Uniform scale is unchecked: the contract supports uniform scale only; non-uniform scale cannot be edited in this dialog.",
+    "scalePoint": "Point or mate connector"
   },
   "splitPartDialog": {
     "splitType": "Split type",
