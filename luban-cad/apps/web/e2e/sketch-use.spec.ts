@@ -119,7 +119,16 @@ test.describe('草图「使用」（Onshape Use 对拍）', () => {
 
     // 源圆右边沿（圆心 x=0.02，R10mm）。
     const onCircle = await project(0.03, 0);
-    await page.mouse.click(onCircle.x, onCircle.y);
+    // 2026-11-15 稳定性：Use 覆盖层的候选命中层依赖 hover 状态；undo 后不移动
+    // 鼠标直接 click 会落在无命中层的时刻（基线 9bdc5b76 同样间歇性红）。
+    // 真实用户总是先移动鼠标 → 先移开再移回候选再点击；断言不放宽。
+    const hoverThenClick = async (x: number, y: number): Promise<void> => {
+      await page.mouse.move(x + 6, y + 6);
+      await page.mouse.move(x, y);
+      await page.waitForTimeout(150);
+      await page.mouse.click(x, y);
+    };
+    await hoverThenClick(onCircle.x, onCircle.y);
     await expect.poll(async () => projectedCircle(await getSketchRpc(ctx, consumerId, token), sourceId)?.radius, {
       timeout: 40_000,
       intervals: [500, 1000, 2000],
@@ -138,7 +147,7 @@ test.describe('草图「使用」（Onshape Use 对拍）', () => {
     }).toBeUndefined();
 
     // 再次使用 → 改源草图半径 R20mm → 本草图读面联动 R20mm。
-    await page.mouse.click(onCircle.x, onCircle.y);
+    await hoverThenClick(onCircle.x, onCircle.y);
     await expect.poll(async () => projectedCircle(await getSketchRpc(ctx, consumerId, token), sourceId)?.radius, {
       timeout: 40_000,
       intervals: [500, 1000, 2000],
