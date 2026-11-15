@@ -950,6 +950,27 @@
   background: #ffffff;
 }
 
+/* 2026-11-15 live：阵列类型行（作用域下拉下方；12px 标签 + 无边框下拉）。 */
+.part-studio-feature-dialog__kind-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  align-items: center;
+  min-block-size: 27px;
+  gap: 4px;
+  padding: 0 3px;
+}
+
+.part-studio-feature-dialog__kind-row .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog__kind-row .part-studio-feature-dialog__select {
+  border-color: transparent;
+  background: transparent;
+  text-align: end;
+}
+
 /* 实体字段：Onshape live 为浅蓝底、边框、字段内即占位/芯片，不另起标签行。 */
 .part-studio-feature-dialog__entities-header {
   min-block-size: 24px;
@@ -1102,28 +1123,42 @@
 .part-studio-feature-dialog[data-feature='fillet'] [data-testid='part-studio-feature-dialog-asymmetric'] { order: 6; }
 .part-studio-feature-dialog[data-feature='fillet'] [data-testid^='part-studio-feature-dialog-fillet-'] { order: 7; }
 
-/* 阵列：实体字段 → 方向 → 距离 → 实例数；镜像：实体字段 → 镜像平面。 */
+/* 阵列（2026-11-15 live 行序）：实体（要阵列化的图元）→ 方向 → 距离 →
+ * 实例数 → 居中 → 第二个方向（展开子行随行）→ 跳过实例；镜像：实体字段 →
+ * 镜像平面。所有平铺行/块显式 order（order:0 会浮到 query field 之上）。 */
 .part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__entities,
 .part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities { order: 1; }
 .part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__entities {
   display: flex;
   flex-direction: column;
 }
-.part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__pattern-axis { order: 2; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-direction'] { order: 2; }
 .part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-spacing'],
 .part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-angle'] { order: 3; }
 .part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-count'] { order: 4; }
-.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-scope-hint'] { order: 5; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-centered'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-centered-hint'] { order: 5; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-second-direction'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-second-count'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-second-spacing'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-second-axis'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-second-centered'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-second-hint'] { order: 6; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-skip-instances'] { order: 7; }
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-scope-hint'],
+.part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-needs-body-hint'] { order: 8; }
 
-/* 镜像 live 对齐（2026-11-15）：实体字段=独立 query field（标签在字段内），
- * 外层 section 不再承担字段框；镜像平面走共享 axis-field 外壳（标签/下拉/时钟
- * 按 DOM 顺序，不再用 order 抢先）。 */
-.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities {
+/* 镜像/阵列 live 对齐（2026-11-15）：实体字段=独立 query field（标签在字段内），
+ * 外层 section 不再承担字段框；镜像平面/阵列方向走共享 axis-field 外壳
+ * （标签/下拉/翻转钮按 DOM 顺序，行序用上方 order）。 */
+.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities,
+.part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__entities {
   padding: 0;
   border: 0;
   background: transparent;
 }
-.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities-label {
+.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities-label,
+.part-studio-feature-dialog[data-feature='pattern'] .part-studio-feature-dialog__entities-label {
   display: none;
 }
 

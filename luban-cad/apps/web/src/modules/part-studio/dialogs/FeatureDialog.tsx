@@ -1173,9 +1173,9 @@ export function FeatureDialog({
   const [mirrorSourceFeatureId, setMirrorSourceFeatureId] = React.useState('');
   const mirrorFeatureReady = mirrorScope === 'body'
     || (mirrorSourceFeatureId !== '' && mirrorPlaneChoice !== 'FACE');
-  // B5 pattern 通道：kind（ribbon 入口可指定初始值）+ count（含原件，缺省 3）+
-  // spacing（linear 缺省 10）/ angle（circular 缺省 360°）+ axis（linear 缺省 X；
-  // circular 锁定 Z，见下方载荷/渲染）。
+  // B5 pattern 通道：kind（ribbon 入口可指定初始值）+ count（含原件，缺省 2——
+  // 2026-11-15 live 默认）+ spacing（linear 缺省 10）/ angle（circular 缺省 360°）
+  // + axis（linear 缺省 X；circular 锁定 Z，见下方载荷/渲染）。
   const [patternKind, setPatternKind] = React.useState<PatternParams['kind']>(() =>
     mode === 'edit' && (editParams?.kind === 'linear' || editParams?.kind === 'circular')
       ? editParams.kind
@@ -1195,7 +1195,7 @@ export function FeatureDialog({
       && storedCount % 2 === 1
     )
       return String((storedCount + 1) / 2);
-    return storedNumberString(storedCount) ?? '3';
+    return storedNumberString(storedCount) ?? '2';
   });
   const [patternSpacing, setPatternSpacing] = React.useState(() => storedNumberString(editParams?.spacing) ?? '10');
   const [patternAngle, setPatternAngle] = React.useState(() => storedNumberString(editParams?.angle) ?? '360');
@@ -2707,28 +2707,23 @@ export function FeatureDialog({
       {((patternChannel && !patternUpstreamMissing) || mirrorChannel) && (
         <div className="part-studio-feature-dialog__mode-row">
           {featureType === 'pattern' ? (
+            // 2026-11-15 live：模式行 = 作用域下拉（零件阵列/特征阵列/面阵列）。
+            // 后端 PatternParams 只有 body 作用域（featurePattern 是独立特征）——
+            // 特征/面作用域诚实禁用并标注未实现，不造假切换。
             <select
-              aria-label={t('partStudio.featureDialog.patternKindLabel')}
+              aria-label={t('partStudio.featureDialog.patternScopeLabel')}
               className="part-studio-feature-dialog__select part-studio-feature-dialog__mode-select"
-              value={patternKind}
+              defaultValue="body"
               disabled={submitting}
-              onChange={(event) => {
-                const kind = event.target.value as PatternParams['kind'];
-                setPatternKind(kind);
-                if (kind === 'circular') {
-                  setPatternAxis('Z');
-                  // v1.49：圆周阵列不支持居中（服务端 zod 同口径拒收），切换即复位。
-                  setPatternCentered(false);
-                  // v1.62：圆周不支持第二方向；可见地取消，切回线性需重新勾选。
-                  setPatternSecondEnabled(false);
-                  setPatternSecondCentered(false);
-                  // v1.63：圆周暂不支持反向。
-                  setPatternOppositeDirection(false);
-                }
-              }}
+              data-testid="part-studio-feature-dialog-pattern-scope"
             >
-              <option value="linear">{t('partStudio.featureDialog.patternModeOptions.linear')}</option>
-              <option value="circular">{t('partStudio.featureDialog.patternModeOptions.circular')}</option>
+              <option value="body">{t('partStudio.featureDialog.patternScopeOptions.body')}</option>
+              <option value="feature" disabled title={t('partStudio.featureDialog.notImplemented')}>
+                {t('partStudio.featureDialog.patternScopeOptions.feature')}
+              </option>
+              <option value="face" disabled title={t('partStudio.featureDialog.notImplemented')}>
+                {t('partStudio.featureDialog.patternScopeOptions.face')}
+              </option>
             </select>
           ) : (
             // 2026-11-15 live：模式行即真实作用域选择器（零件镜像/特征镜像/
@@ -2755,6 +2750,42 @@ export function FeatureDialog({
               </option>
             </select>
           )}
+        </div>
+      )}
+      {/* 2026-11-15 live：阵列类型（线性/圆周）是作用域下拉下方的带标签行；
+          可访问名仍为「阵列类型」（测试/e2e 选择器沿用）。 */}
+      {patternChannel && !patternUpstreamMissing && (
+        <div className="part-studio-feature-dialog__kind-row">
+          <label
+            className="part-studio-feature-dialog__distance-label"
+            htmlFor="part-studio-feature-dialog-pattern-kind"
+          >
+            {t('partStudio.featureDialog.patternKindLabel')}
+          </label>
+          <select
+            id="part-studio-feature-dialog-pattern-kind"
+            aria-label={t('partStudio.featureDialog.patternKindLabel')}
+            className="part-studio-feature-dialog__select"
+            value={patternKind}
+            disabled={submitting}
+            onChange={(event) => {
+              const kind = event.target.value as PatternParams['kind'];
+              setPatternKind(kind);
+              if (kind === 'circular') {
+                setPatternAxis('Z');
+                // v1.49：圆周阵列不支持居中（服务端 zod 同口径拒收），切换即复位。
+                setPatternCentered(false);
+                // v1.62：圆周不支持第二方向；可见地取消，切回线性需重新勾选。
+                setPatternSecondEnabled(false);
+                setPatternSecondCentered(false);
+                // v1.63：圆周暂不支持反向。
+                setPatternOppositeDirection(false);
+              }
+            }}
+          >
+            <option value="linear">{t('partStudio.featureDialog.patternKindOptions.linear')}</option>
+            <option value="circular">{t('partStudio.featureDialog.patternKindOptions.circular')}</option>
+          </select>
         </div>
       )}
       {/* 2026-11-15 live：镜像操作页签紧随作用域下拉、位于实体字段之前
@@ -4061,9 +4092,9 @@ export function FeatureDialog({
           className="part-studio-feature-dialog__entities"
           data-channel={sketchChannel ? 'sketch' : undefined}
         >
-          {/* mirror：实体字段单独渲染为 live query field（标签在字段内），
-              booleanBodies：工具字段自带「工具」标签——两者都不渲染旧表头。 */}
-          {!mirrorChannel && !booleanBodiesChannel && (
+          {/* mirror/pattern：实体字段单独渲染为 live query field（标签在字段内），
+              booleanBodies：工具字段自带「工具」标签——都不渲染旧表头。 */}
+          {!mirrorChannel && !booleanBodiesChannel && !patternChannel && (
             <div className="part-studio-feature-dialog__entities-header">
               {/* 草图通道（拉伸/旋转）：标签移入字段内部（Onshape query field
                   形态，空态 26px 蓝底 / 已选态 42px 白底）。 */}
@@ -4073,9 +4104,7 @@ export function FeatureDialog({
                     ? t('partStudio.featureDialog.chamferEdgesLabel')
                     : filletChannel
                       ? t('partStudio.featureDialog.filletEdgesLabel')
-                      : patternChannel
-                        ? t('partStudio.featureDialog.patternParametersLabel')
-                        : sweepChannel
+                      : sweepChannel
                           ? t('partStudio.featureDialog.sweepSketchesLabel')
                           : loftChannel
                             ? t('partStudio.featureDialog.loftSectionsLabel')
@@ -4095,16 +4124,27 @@ export function FeatureDialog({
             </div>
           )}
 
-          {/* pattern：实体字段显示 active authored body 芯片（整件阵列）。 */}
-          {patternChannel && activeBodies.length > 0 && (
-            <div className="part-studio-feature-dialog__profile-field" data-testid="part-studio-feature-dialog-body-chips">
-              <ul className="part-studio-feature-dialog__chips">
-                {activeBodies.map((body, index) => (
-                  <li key={body.bodyKey} className="part-studio-feature-dialog__chip">
-                    <span className="part-studio-feature-dialog__chip-label">{bodyOptionLabel(body, index)}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* pattern（2026-11-15 live）：`要阵列化的图元` query field——空态 26px
+              蓝底单行，已选态 42px 白底 label + chips。整件阵列无逐体子集通道，
+              chips 只读（无假 ×）——title 说明作用范围（同 mirror 口径）。 */}
+          {patternChannel && (
+            <div
+              className={`part-studio-feature-dialog__profile-field${activeBodies.length === 0 ? ' is-empty' : ''}`}
+              data-testid="part-studio-feature-dialog-pattern-entities"
+              title={t('partStudio.featureDialog.patternEntitiesReadOnlyHint')}
+            >
+              <span className="part-studio-feature-dialog__query-label">
+                {t('partStudio.featureDialog.patternParametersLabel')}
+              </span>
+              {activeBodies.length > 0 && (
+                <ul className="part-studio-feature-dialog__chips">
+                  {activeBodies.map((body, index) => (
+                    <li key={body.bodyKey} className="part-studio-feature-dialog__chip">
+                      <span className="part-studio-feature-dialog__chip-label">{bodyOptionLabel(body, index)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
@@ -4503,7 +4543,11 @@ export function FeatureDialog({
                 </p>
               ) : (
                 <React.Fragment>
-                  <section className="part-studio-feature-dialog__distance" data-field="pattern-count">
+                  <section
+                    className="part-studio-feature-dialog__distance"
+                    data-field="pattern-count"
+                    title={t('partStudio.featureDialog.patternCountHint')}
+                  >
                     <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-count">
                       {t(patternCenteredActive
                         ? 'partStudio.featureDialog.patternCountLabelCentered'
@@ -4555,28 +4599,52 @@ export function FeatureDialog({
                       />
                     </section>
                   )}
-                  <select
-                    aria-label={t('partStudio.featureDialog.patternAxisLabel')}
-                    className="part-studio-feature-dialog__select part-studio-feature-dialog__pattern-axis"
-                    value={patternKind === 'circular' ? 'Z' : patternAxis}
-                    disabled={submitting || patternKind === 'circular'}
-                    onChange={(event) => setPatternAxis(event.target.value as PatternParams['axis'])}
+                  {/* 2026-11-15 live：方向 = query field 外壳（标签 + 世界轴下拉
+                      + 行尾双向翻转钮=反向）。后端 PatternParams.axis 只有世界
+                      X/Y/Z，不支持任意边/面方向——下拉保留既有可访问名「方向轴」，
+                      反向从独立复选框移入本字段（aria-pressed 表达反向态）。 */}
+                  <section
+                    className="part-studio-feature-dialog__axis-field"
+                    data-field="pattern-direction"
+                    data-testid="part-studio-feature-dialog-pattern-direction"
                   >
-                    <option value="X">{t('partStudio.featureDialog.patternAxisOptions.X')}</option>
-                    <option value="Y">{t('partStudio.featureDialog.patternAxisOptions.Y')}</option>
-                    <option value="Z">{t('partStudio.featureDialog.patternAxisOptions.Z')}</option>
-                  </select>
-                  {patternKind === 'linear' && (
-                    <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-pattern-opposite-direction">
-                      <input
-                        type="checkbox"
-                        checked={patternOppositeDirection}
+                    <span className="part-studio-feature-dialog__query-label">
+                      {t('partStudio.featureDialog.patternDirectionLabel')}
+                    </span>
+                    <select
+                      aria-label={t('partStudio.featureDialog.patternAxisLabel')}
+                      className="part-studio-feature-dialog__select part-studio-feature-dialog__pattern-axis"
+                      value={patternKind === 'circular' ? 'Z' : patternAxis}
+                      disabled={submitting || patternKind === 'circular'}
+                      onChange={(event) => setPatternAxis(event.target.value as PatternParams['axis'])}
+                    >
+                      <option value="X">{t('partStudio.featureDialog.patternAxisOptions.X')}</option>
+                      <option value="Y">{t('partStudio.featureDialog.patternAxisOptions.Y')}</option>
+                      <option value="Z">{t('partStudio.featureDialog.patternAxisOptions.Z')}</option>
+                    </select>
+                    {patternKind === 'linear' && (
+                      <button
+                        type="button"
+                        className="part-studio-feature-dialog__direction-flip"
+                        aria-label={t('partStudio.featureDialog.directionOptions.backward')}
+                        aria-pressed={patternOppositeDirection}
+                        title={t('partStudio.featureDialog.directionOptions.backward')}
                         disabled={submitting}
-                        onChange={(event) => setPatternOppositeDirection(event.target.checked)}
-                      />
-                      <span>{t('partStudio.featureDialog.directionOptions.backward')}</span>
-                    </label>
-                  )}
+                        onClick={() => setPatternOppositeDirection((prev) => !prev)}
+                      >
+                        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                          <path
+                            d="M2 5h9M8 2l3 3-3 3M14 11H5M8 8l-3 3 3 3"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </section>
                   {/* v1.49（ADR-0007 切片 6）：居中线性阵列——N 为每侧实例数（含原件），
                       总实例数 2N−1；圆周不支持居中（服务端 zod 同口径拒收）。 */}
                   <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-pattern-centered">
@@ -4675,7 +4743,13 @@ export function FeatureDialog({
                       </p>
                     </React.Fragment>
                   )}
-                  <label className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat" data-testid="part-studio-feature-dialog-pattern-skip-instances">
+                  {/* 2026-11-15 live：跳过实例行在 live 可用；后端无逐实例点选/
+                      跳过通道——禁用占位 + 未实现提示（诚实，不造假勾选）。 */}
+                  <label
+                    className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat"
+                    data-testid="part-studio-feature-dialog-pattern-skip-instances"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
                     <input type="checkbox" checked={false} disabled onChange={() => undefined} />
                     <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>
                   </label>

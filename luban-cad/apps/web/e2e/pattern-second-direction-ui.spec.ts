@@ -119,7 +119,9 @@ test.describe('Body pattern 第二方向 UI（ADR-0007 切片 13）', () => {
     await releaseWriteLease(ctx, lease, token);
 
     await page.getByRole('button', { name: '线性阵列', exact: true }).click({ timeout: 30_000 });
-    await expect(page.getByRole('textbox', { name: '实例数量（含原件）' })).toHaveValue('3', { timeout: 30_000 });
+    // 2026-11-15 live：实例数缺省 2；本例第一方向显式 3（3×2 网格）。
+    await expect(page.getByRole('textbox', { name: '实例数' })).toHaveValue('2', { timeout: 30_000 });
+    await page.getByRole('textbox', { name: '实例数' }).fill('3');
     await page.getByRole('checkbox', { name: '第二个方向' }).check();
     await expect(page.getByRole('textbox', { name: '第二方向实例数量（含原件）' })).toHaveValue('2');
     await page.getByRole('textbox', { name: '第二方向间距' }).fill('8');
@@ -176,7 +178,9 @@ test.describe('Body pattern 第二方向 UI（ADR-0007 切片 13）', () => {
     await featureList.getByRole('button', { name: /阵列/ }).dblclick();
     const reverseDialog = page.getByTestId('part-studio-feature-dialog');
     await expect(reverseDialog).toBeVisible({ timeout: 30_000 });
-    await reverseDialog.getByRole('checkbox', { name: '反向' }).check();
+    // 2026-11-15 live：反向 = 方向字段内的翻转钮（aria-pressed），非独立复选框。
+    await reverseDialog.getByRole('button', { name: '反向' }).click();
+    await expect(reverseDialog.getByRole('button', { name: '反向' })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('part-studio-feature-preview'))
       .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
     const reverseConfirm = reverseDialog.getByRole('button', { name: '确认' });

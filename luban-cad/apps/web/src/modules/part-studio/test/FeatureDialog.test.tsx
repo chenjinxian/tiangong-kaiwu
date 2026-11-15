@@ -2720,20 +2720,55 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     return { user, onConfirm, unmount: rendered.unmount };
   }
 
-  it('初始形态（linear）：类型下拉缺省线性、count=3、spacing=10、axis=X；无 angle/距离输入；✓/成品可用', () => {
+  it('初始形态（linear）：范围=零件阵列、类型下拉缺省线性、count=2、距离=10、axis=X；✓/成品可用', () => {
     renderPatternDialog(makeApplyOp());
+    // 2026-11-15 live：作用域下拉（零件阵列选中；特征/面作用域无后端通道，诚实禁用）。
+    const scope = screen.getByRole('combobox', { name: '阵列范围' }) as HTMLSelectElement;
+    expect(scope.value).toBe('body');
+    const featureOption = within(scope).getByRole('option', { name: '特征阵列' }) as HTMLOptionElement;
+    expect(featureOption.disabled).toBe(true);
+    expect(featureOption.getAttribute('title')).toBe('该能力尚未实现');
+    const faceOption = within(scope).getByRole('option', { name: '面阵列' }) as HTMLOptionElement;
+    expect(faceOption.disabled).toBe(true);
+    expect(faceOption.getAttribute('title')).toBe('该能力尚未实现');
     const kind = screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement;
     expect(kind.value).toBe('linear');
-    expect(screen.getByRole('option', { name: '零件阵列' })).toBeDefined();
-    expect(screen.getByRole('option', { name: '圆周阵列' })).toBeDefined();
-    expect((screen.getByRole('textbox', { name: '实例数量（含原件）' }) as HTMLInputElement).value).toBe('3');
-    expect((screen.getByRole('textbox', { name: '间距' }) as HTMLInputElement).value).toBe('10');
+    expect(within(kind).getByRole('option', { name: '线性阵列' })).toBeDefined();
+    expect(within(kind).getByRole('option', { name: '圆周阵列' })).toBeDefined();
+    expect((screen.getByRole('textbox', { name: '实例数' }) as HTMLInputElement).value).toBe('2');
+    expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('10');
+    expect(screen.getByRole('textbox', { name: '实例数' }).closest('section')!.getAttribute('title'))
+      .toContain('包含原件');
+    // 方向 query field：标签 + 世界轴下拉（可访问名沿用「方向轴」）+ 反向翻转钮。
+    const direction = screen.getByTestId('part-studio-feature-dialog-pattern-direction');
+    expect(direction.textContent).toContain('方向');
+    expect(within(direction).getByRole('combobox', { name: '方向轴' })).toBeDefined();
+    const reverse = within(direction).getByRole('button', { name: '反向' });
+    expect(reverse.getAttribute('aria-pressed')).toBe('false');
     expect((screen.getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement).value).toBe('X');
     expect(screen.queryByRole('textbox', { name: '总角度（度）' })).toBeNull();
-    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // pattern 无距离量
+    // 跳过实例：禁用占位 + 未实现 title（无逐实例通道）。
+    const skip = screen.getByTestId('part-studio-feature-dialog-pattern-skip-instances');
+    expect(skip.getAttribute('title')).toBe('该能力尚未实现');
     expect(screen.getByTestId('part-studio-feature-dialog-pattern-scope-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('实体字段：要阵列化的图元 query field——无体时空态 26px；有体时只读 chip + 整件提示', () => {
+    const { unmount } = renderPatternDialog(makeApplyOp());
+    const empty = screen.getByTestId('part-studio-feature-dialog-pattern-entities');
+    expect(empty.textContent).toContain('要阵列化的图元');
+    expect(empty.className).toContain('is-empty');
+    expect(empty.getAttribute('title')).toContain('全部上游实体');
+    unmount();
+    renderPatternDialog(makeApplyOp(), {
+      bodies: [{ bodyKey: '0x15', name: 'Body 1', active: true, authored: true, sourceFeatureId: 'f1' }],
+    });
+    const filled = screen.getByTestId('part-studio-feature-dialog-pattern-entities');
+    expect(filled.className).not.toContain('is-empty');
+    expect(filled.textContent).toContain('Body 1');
+    // 只读：无移除按钮/叉（整件阵列无逐体子集通道）。
+    expect(within(filled).queryByRole('button')).toBeNull();
   });
 
   // Onshape live + 审计（2026-11-15）：pattern 载荷不读取布尔作用域，通用页签
@@ -2750,7 +2785,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     expect(previewOp.mock.calls.at(-1)![0]).toMatchObject({
       kind: 'insertFeature',
       featureType: 'pattern',
-      params: { kind: 'linear', count: 3, spacing: 10, axis: 'X' },
+      params: { kind: 'linear', count: 2, spacing: 10, axis: 'X' },
     });
     await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
     await waitFor(() => expect(previewOp.mock.calls.some(([op]) =>
@@ -2774,7 +2809,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     });
   });
 
-  it('线性提交：载荷 {kind:"linear", count:3, spacing:10, axis:"X"}（无 angle 键）→ onConfirm', async () => {
+  it('线性提交：载荷 {kind:"linear", count:2, spacing:10, axis:"X"}（无 angle 键）→ onConfirm', async () => {
     const applyOp = makeApplyOp();
     const { user, onConfirm } = renderPatternDialog(applyOp);
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -2782,7 +2817,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'pattern',
-      params: { kind: 'linear', count: 3, spacing: 10, axis: 'X' },
+      params: { kind: 'linear', count: 2, spacing: 10, axis: 'X' },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -2791,14 +2826,14 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     const applyOp = makeApplyOp();
     const { user, onConfirm } = renderPatternDialog(applyOp);
     await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
-    expect(screen.queryByRole('textbox', { name: '间距' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull();
     const angle = screen.getByRole('textbox', { name: '总角度（度）' }) as HTMLInputElement;
     expect(angle.value).toBe('360');
     const axis = screen.getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement;
     expect(axis.value).toBe('Z');
     expect(axis.disabled).toBe(true);
-    await user.clear(screen.getByRole('textbox', { name: '实例数量（含原件）' }));
-    await user.type(screen.getByRole('textbox', { name: '实例数量（含原件）' }), '4');
+    await user.clear(screen.getByRole('textbox', { name: '实例数' }));
+    await user.type(screen.getByRole('textbox', { name: '实例数' }), '4');
     await user.clear(angle);
     await user.type(angle, '180');
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -2814,16 +2849,16 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     renderPatternDialog(makeApplyOp(), { initialPatternKind: 'circular' });
     expect((screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement).value).toBe('circular');
     expect(screen.getByRole('textbox', { name: '总角度（度）' })).toBeDefined();
-    expect(screen.queryByRole('textbox', { name: '间距' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull();
     expect((screen.getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement).value).toBe('Z');
   });
 
   it('非法数值 → 字段级诚实文案 + 不发起 op（count<2 / 非整数、spacing<=0、angle 越界）', async () => {
     const cases: Array<{ field: string; value: string; message: string }> = [
-      { field: '实例数量（含原件）', value: '1', message: '实例数量须为 2–1000 的整数（含原件）' },
-      { field: '实例数量（含原件）', value: '2.5', message: '实例数量须为 2–1000 的整数（含原件）' },
-      { field: '实例数量（含原件）', value: '1001', message: '实例数量须为 2–1000 的整数（含原件）' }, // M1 上限
-      { field: '间距', value: '0', message: '间距须为正数' },
+      { field: '实例数', value: '1', message: '实例数量须为 2–1000 的整数（含原件）' },
+      { field: '实例数', value: '2.5', message: '实例数量须为 2–1000 的整数（含原件）' },
+      { field: '实例数', value: '1001', message: '实例数量须为 2–1000 的整数（含原件）' }, // M1 上限
+      { field: '距离', value: '0', message: '间距须为正数' },
     ];
     for (const c of cases) {
       const applyOp = makeApplyOp();
@@ -2851,19 +2886,19 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
 
   // v1.49（ADR-0007 切片 6）：居中线性阵列——UI 输入 N=每侧实例数（含原件），
   // 载荷 count=2N−1（总实例数，必为奇数，seed 居中）；圆周不支持居中。
-  it('v1.49 居中：勾选后标签改为每侧实例数 + 提示在场；载荷 count=2N−1（N=3→5）+ centered:true', async () => {
+  it('v1.49 居中：勾选后标签改为每侧实例数 + 提示在场；载荷 count=2N−1（缺省 N=2→3）+ centered:true', async () => {
     const applyOp = makeApplyOp();
     const { user, onConfirm } = renderPatternDialog(applyOp);
     await user.click(screen.getByRole('checkbox', { name: '居中' }));
-    expect(screen.queryByRole('textbox', { name: '实例数量（含原件）' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: '实例数' })).toBeNull();
     const perSide = screen.getByRole('textbox', { name: '每侧实例数（含原件）' }) as HTMLInputElement;
-    expect(perSide.value).toBe('3');
+    expect(perSide.value).toBe('2');
     expect(screen.getByTestId('part-studio-feature-dialog-pattern-centered-hint').textContent).toContain('2N−1');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'pattern',
-      params: { kind: 'linear', count: 5, spacing: 10, axis: 'X', centered: true },
+      params: { kind: 'linear', count: 3, spacing: 10, axis: 'X', centered: true },
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -2896,7 +2931,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'pattern',
-      params: { kind: 'circular', count: 3, angle: 360, axis: 'Z' },
+      params: { kind: 'circular', count: 2, angle: 360, axis: 'Z' },
     });
   });
 
@@ -2937,7 +2972,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
       kind: 'insertFeature',
       featureType: 'pattern',
       params: {
-        kind: 'linear', count: 3, spacing: 10, axis: 'X',
+        kind: 'linear', count: 2, spacing: 10, axis: 'X',
         secondDirection: { count: 3, spacing: 5, axis: 'Y' },
       },
     };
@@ -2978,7 +3013,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     const count = screen.getByRole('textbox', { name: '第二方向实例数量（含原件）' });
     await user.clear(count);
     await user.type(count, '2');
-    const firstCount = screen.getByRole('textbox', { name: '实例数量（含原件）' });
+    const firstCount = screen.getByRole('textbox', { name: '实例数' });
     await user.clear(firstCount);
     await user.type(firstCount, '600');
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -2998,18 +3033,19 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     expect((screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement).disabled).toBe(true);
   });
 
-  it('v1.63 第一方向反向：勾选 → 载荷 oppositeDirection:true；edit 回显；圆周复位', async () => {
+  it('v1.63 第一方向反向：方向字段翻转钮 aria-pressed → 载荷 oppositeDirection:true；edit 回显；圆周复位', async () => {
     const applyOp = makeApplyOp();
     const first = renderPatternDialog(applyOp);
-    const reverse = screen.getByRole('checkbox', { name: '反向' }) as HTMLInputElement;
-    expect(reverse.checked).toBe(false);
+    const reverse = screen.getByRole('button', { name: '反向' }) as HTMLButtonElement;
+    expect(reverse.getAttribute('aria-pressed')).toBe('false');
     await first.user.click(reverse);
+    expect(reverse.getAttribute('aria-pressed')).toBe('true');
     await first.user.selectOptions(screen.getByRole('combobox', { name: '方向轴' }), 'Y');
     await first.user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls[0]![0]).toEqual({
       kind: 'insertFeature',
       featureType: 'pattern',
-      params: { kind: 'linear', count: 3, spacing: 10, axis: 'Y', oppositeDirection: true },
+      params: { kind: 'linear', count: 2, spacing: 10, axis: 'Y', oppositeDirection: true },
     });
     first.unmount();
 
@@ -3019,8 +3055,8 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
       featureId: 'f-rev',
       initialParams: { kind: 'linear', count: 3, spacing: 10, axis: 'X', oppositeDirection: true },
     });
-    const editReverse = screen.getAllByRole('checkbox', { name: '反向' }).at(-1) as HTMLInputElement;
-    expect(editReverse.checked).toBe(true);
+    const editReverse = screen.getAllByRole('button', { name: '反向' }).at(-1) as HTMLButtonElement;
+    expect(editReverse.getAttribute('aria-pressed')).toBe('true');
     await edit.user.click(screen.getAllByRole('button', { name: '确认' }).at(-1)!);
     expect(editApplyOp).toHaveBeenCalledWith({
       kind: 'updateParams',
@@ -3029,7 +3065,7 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     });
 
     await edit.user.selectOptions(screen.getAllByRole('combobox', { name: '阵列类型' }).at(-1)!, 'circular');
-    expect(screen.queryAllByRole('checkbox', { name: '反向' })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: '反向' })).toHaveLength(0);
   });
 
   it('无上游实体（hasBodies=false）→ 需要上游实体提示 + 提交禁用 + 不渲染参数控件/不发起 op', async () => {

@@ -93,13 +93,15 @@ test.describe('Body pattern 居中 UI（ADR-0007 切片 6）', () => {
     );
 
     await page.getByRole('button', { name: '线性阵列', exact: true }).click({ timeout: 30_000 });
-    const countLabel = '实例数量（含原件）';
-    await expect(page.getByRole('textbox', { name: countLabel })).toHaveValue('3', { timeout: 30_000 });
+    // 2026-11-15 live：实例数缺省 2；本例显式用居中 N=3（总实例数 2N−1=5）。
+    const countLabel = '实例数';
+    await expect(page.getByRole('textbox', { name: countLabel })).toHaveValue('2', { timeout: 30_000 });
     await page.getByRole('checkbox', { name: '居中' }).check();
     // 居中后输入语义切换为每侧 N（含 seed），并出现 2N−1 提示。
-    await expect(page.getByRole('textbox', { name: '每侧实例数（含原件）' })).toHaveValue('3');
+    await expect(page.getByRole('textbox', { name: '每侧实例数（含原件）' })).toHaveValue('2');
+    await page.getByRole('textbox', { name: '每侧实例数（含原件）' }).fill('3');
     await expect(page.getByTestId('part-studio-feature-dialog-pattern-centered-hint')).toContainText('2N−1');
-    await page.getByRole('textbox', { name: '间距' }).fill('6');
+    await page.getByRole('textbox', { name: '距离' }).fill('6');
     const confirm = page.getByRole('button', { name: '确认' });
     await expect(confirm).toBeEnabled({ timeout: 15_000 });
     // 后端影子求值几何 → TileRpc 动态预览（2026-11-08 接入 pattern）。

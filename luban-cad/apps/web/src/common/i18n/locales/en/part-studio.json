@@ -799,11 +799,11 @@
       "linear": "Linear pattern",
       "circular": "Circular pattern"
     },
-    "patternCountLabel": "Instance count (including original)",
+    "patternCountLabel": "Instance count",
     "patternCountLabelCentered": "Instances per side (including original)",
     "patternCenteredHint": "Centered: N is the number of instances on each side (including the original); total instances = 2N−1 (seed centered)",
     "patternCountCenteredInvalid": "Instances per side must be an integer between 2 and 500 (including the original)",
-    "patternSpacingLabel": "Spacing",
+    "patternSpacingLabel": "Distance",
     "patternAngleLabel": "Total angle (degrees)",
     "patternAxisLabel": "Axis",
     "patternAxisOptions": {
@@ -915,7 +915,7 @@
     "notImplemented": "This capability is not implemented yet",
     "patternModeLabel": "Pattern mode",
     "patternModeOptions": {
-      "linear": "Part pattern",
+      "linear": "Linear pattern",
       "circular": "Circular pattern"
     },
     "mirrorModeLabel": "Part mirror",
@@ -979,7 +979,15 @@
     "thinThickness2Label": "Thickness 2",
     "thinThickness2Unsupported": "Second thickness has no product channel yet (not submitted)",
     "mirrorReapplyFeaturesLabel": "Reapply features",
-    "mirrorEntitiesReadOnlyHint": "Whole-body mirror applies to all upstream bodies; entities are read-only (per-body removal is unsupported)"
+    "mirrorEntitiesReadOnlyHint": "Whole-body mirror applies to all upstream bodies; entities are read-only (per-body removal is unsupported)",
+    "patternScopeLabel": "Pattern scope",
+    "patternScopeOptions": {
+      "body": "Part pattern",
+      "feature": "Feature pattern",
+      "face": "Face pattern"
+    },
+    "patternEntitiesReadOnlyHint": "Whole-body pattern applies to all upstream bodies; entities are read-only (per-body removal is unsupported)",
+    "patternCountHint": "Instance count includes the original (seed) instance"
   },
   "filletPick": {
     "prompt": "Click edges to fillet in the canvas",

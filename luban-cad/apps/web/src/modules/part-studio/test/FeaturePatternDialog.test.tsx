@@ -8,7 +8,7 @@
 //  5) 源/轴缺失或退化 → 禁提交；
 //  6) canEdit=false 全禁用。
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
@@ -71,12 +71,21 @@ describe('FeaturePatternDialog', () => {
     expect(row.textContent).toContain('跳过实例');
   });
 
+  it('阵列类型选项=线性阵列/环形阵列（特征阵列不是零件阵列）', () => {
+    renderDialog();
+    const kind = screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement;
+    expect(within(kind).getByRole('option', { name: '线性阵列' })).toBeDefined();
+    expect(within(kind).getByRole('option', { name: '环形阵列' })).toBeDefined();
+    expect(within(kind).queryByRole('option', { name: '零件阵列' })).toBeNull();
+    expect(within(kind).queryByRole('option', { name: '圆周阵列' })).toBeNull();
+  });
+
   it('落库回显：居中总数 5 → 每侧 3、居中勾选 + 提示', () => {
     const { applyOp } = renderDialog({}, stored({ centered: true, count: 5 }));
     expect(screen.getByTestId('part-studio-feature-pattern-source').textContent).toBe('0x20000000008');
     expect((screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement).value).toBe('linear');
     expect((screen.getByRole('textbox', { name: '每侧实例数（含原件）' }) as HTMLInputElement).value).toBe('3');
-    expect((screen.getByRole('textbox', { name: '间距' }) as HTMLInputElement).value).toBe('6');
+    expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('6');
     expect(screen.getByTestId('part-studio-feature-pattern-axis').textContent).toContain('方向');
     expect((screen.getByRole('checkbox', { name: '居中' }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByTestId('part-studio-feature-pattern-centered-hint').textContent).toContain('2N−1');
@@ -85,7 +94,7 @@ describe('FeaturePatternDialog', () => {
 
   it('确认：updateParams 保留 source/axis/centered，实例数改 4', async () => {
     const { applyOp, onConfirm, user } = renderDialog({}, stored({ centered: false }));
-    const count = screen.getByRole('textbox', { name: '实例数量（含原件）' });
+    const count = screen.getByRole('textbox', { name: '实例数' });
     await user.clear(count);
     await user.type(count, '4');
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -117,7 +126,7 @@ describe('FeaturePatternDialog', () => {
     });
 
     await user.click(center);
-    expect((screen.getByRole('textbox', { name: '实例数量（含原件）' }) as HTMLInputElement).value).toBe('3');
+    expect((screen.getByRole('textbox', { name: '实例数' }) as HTMLInputElement).value).toBe('3');
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp.mock.calls[1]![0]).toMatchObject({ params: { count: 3 } });
     expect((applyOp.mock.calls[1]![0] as Extract<FeatureOp, { kind: 'updateParams' }>).params)
@@ -134,7 +143,7 @@ describe('FeaturePatternDialog', () => {
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     await user.clear(count);
     await user.type(count, '3');
-    const spacing = screen.getByRole('textbox', { name: '间距' });
+    const spacing = screen.getByRole('textbox', { name: '距离' });
     await user.clear(spacing);
     await user.type(spacing, '0');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
@@ -146,7 +155,7 @@ describe('FeaturePatternDialog', () => {
     const center = screen.getByRole('checkbox', { name: '居中' }) as HTMLInputElement;
     expect(center.checked).toBe(true);
     await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
-    expect(screen.queryByRole('textbox', { name: '间距' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull();
     expect(center.checked).toBe(false);
     expect(center.disabled).toBe(true);
     const angle = screen.getByRole('textbox', { name: '总角度（度）' });
@@ -184,7 +193,7 @@ describe('FeaturePatternDialog', () => {
 
   it('canEdit=false：输入与确认全禁用', () => {
     renderDialog({ canEdit: false });
-    expect((screen.getByRole('textbox', { name: '实例数量（含原件）' }) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('textbox', { name: '实例数' }) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -283,7 +292,7 @@ describe('FeaturePatternDialog', () => {
     expect(screen.getByTestId('part-studio-feature-pattern-source-1').textContent).toBe('0x20000000009');
     expect(screen.getByTestId('part-studio-feature-pattern-multi-source-hint').textContent)
       .toContain('结构引用');
-    const count = screen.getByRole('textbox', { name: '实例数量（含原件）' });
+    const count = screen.getByRole('textbox', { name: '实例数' });
     await user.clear(count);
     await user.type(count, '4');
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -315,7 +324,7 @@ describe('FeaturePatternDialog', () => {
     expect(confirm().disabled).toBe(true);
     await user.clear(secondSpacing);
     await user.type(secondSpacing, '8');
-    const firstCount = screen.getByRole('textbox', { name: '实例数量（含原件）' });
+    const firstCount = screen.getByRole('textbox', { name: '实例数' });
     await user.clear(firstCount);
     await user.type(firstCount, '500');
     expect(screen.queryByTestId('part-studio-feature-pattern-total-invalid')).toBeNull();

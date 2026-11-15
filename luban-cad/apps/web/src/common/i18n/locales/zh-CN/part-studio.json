@@ -799,11 +799,11 @@
       "linear": "线性阵列",
       "circular": "圆周阵列"
     },
-    "patternCountLabel": "实例数量（含原件）",
+    "patternCountLabel": "实例数",
     "patternCountLabelCentered": "每侧实例数（含原件）",
     "patternCenteredHint": "居中：N 为每侧实例数（含原件），总实例数为 2N−1（种子居中）",
     "patternCountCenteredInvalid": "每侧实例数须为 2–500 的整数（含原件）",
-    "patternSpacingLabel": "间距",
+    "patternSpacingLabel": "距离",
     "patternAngleLabel": "总角度（度）",
     "patternAxisLabel": "方向轴",
     "patternAxisOptions": {
@@ -915,8 +915,8 @@
     "notImplemented": "该能力尚未实现",
     "patternModeLabel": "阵列模式",
     "patternModeOptions": {
-      "linear": "零件阵列",
-      "circular": "圆周阵列"
+      "linear": "线性阵列",
+      "circular": "环形阵列"
     },
     "mirrorModeLabel": "零件镜像",
     "measurementLabel": "测量",
@@ -979,7 +979,15 @@
     "thinThickness2Label": "厚度 2",
     "thinThickness2Unsupported": "第二厚度暂无产品通道（不提交该值）",
     "mirrorReapplyFeaturesLabel": "重新应用特征",
-    "mirrorEntitiesReadOnlyHint": "整件镜像作用于全部上游实体；图元只读（不支持逐体移除）"
+    "mirrorEntitiesReadOnlyHint": "整件镜像作用于全部上游实体；图元只读（不支持逐体移除）",
+    "patternScopeLabel": "阵列范围",
+    "patternScopeOptions": {
+      "body": "零件阵列",
+      "feature": "特征阵列",
+      "face": "面阵列"
+    },
+    "patternEntitiesReadOnlyHint": "整件阵列作用于全部上游实体；图元只读（不支持逐体移除）",
+    "patternCountHint": "实例数包含原件（种子实例）"
   },
   "filletPick": {
     "prompt": "点击拾取要圆角的边",
