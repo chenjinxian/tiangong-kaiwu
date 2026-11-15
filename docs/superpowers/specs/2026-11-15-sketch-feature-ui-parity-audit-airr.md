@@ -437,10 +437,25 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   canvas 绘制的符号（真实回归），已改为 `mix-blend-mode: multiply`
   （白底染浅蓝、深色符号保留），CSS 钉同步。chip 本体 18→20 需改 viewer
   装饰器并重建 dist，且未选态度量受背景干扰，暂缓。
-- 仍待证据：E5 未选态 chip 几何/关联实体 hover 高亮、E7 use 候选样式
-  （再次探针仍无可见候选：当前草图仅样条，Use 可能不支持；其他草图曲线
-  在编辑该草图时不可见）、S4b 点坐标读数、S1a 下拉菜单（该尺寸禁用）、
-  S3a 内联编辑 blur。未采集前不改 UI。
+**2026-11-15 子代理全量续作（E5 / S4b）**：
+- **E5 chip 尺寸**：选中浅蓝填充 40×40 设备 px（dpr2）= 20×20 CSS px；
+  `CONSTRAINT_GLYPH_SIZE` 18 → 20（间距随之 22），viewer dist 重建。
+- **E5 悬停关联高亮**：live 悬停非尺寸约束 chip 时，其引用曲线黄绿
+  ~rgb(232,245,136)、控制点橙色 ~#f0b93f。viewer 曲线装饰器新增
+  `entityId` / `highlightedEntityIds` / `setHighlightedEntities`，活动草图
+  被引用曲线叠画 #e8f588 3.2px、控制点 #f0b93f r3.6；app 在画布 mousemove
+  命中 glyph（canEdit 且无草图工具激活）→ `constraintEntityIds()` 收集
+  引用实体 → PartStudioCanvas 传入装饰器；离开/切草图/工具激活即清空。
+  纯显示层，不参与拾取/选择。
+- **S4b 右下角状态读数**：新增 `SketchStatusReadout`（画布右下、仅草图
+  模式、无数据自隐、pointer-events none）：单条选中曲线显示 `长度`/`半径`
+  （尺图标 + 3 位小数 mm），光标世界点显示 `X … mm Y … mm Z … mm`。
+  标签 13.3333px/#666（live `.measurement-name`），值 #333；草图 DTO/世界
+  坐标为米，显示 mm **×1000**（测试钉 20 mm = 0.02）。指针用
+  pointermove + rAF 合帧 + 3 位小数去重，不引入全局状态。
+- 验证：viewer **157/157**、web **1957/1957**、tsc(src+e2e)/eslint 绿。
+- 仍待证据：E5 未选态 chip 几何细项、E7 use 候选样式（再次探针仍无可见
+  候选）、S1a 下拉菜单（该尺寸禁用）、S3a 内联编辑 blur。未采集前不改。
 
 ## 10. 当前状态
 
