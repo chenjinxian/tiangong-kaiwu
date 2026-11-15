@@ -92,18 +92,44 @@
   pointer-events: none;
 }
 
+/* 2026-11-15 live 线性阵列（f1-pattern-clip）：实例数 = 浅褐实底 chip
+   （采样 bg rgb(214,188,160)，文字 13px 深色，radius 3，无边框）；间距值 =
+   纯文本 + 白色描边光晕，无 chip 底。 */
+.part-studio-pattern-handle--count {
+  min-width: 0;
+  height: 20px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: #d6bca0;
+  color: #333333;
+  font-size: 13px;
+}
+
+.part-studio-pattern-handle--spacing {
+  height: 18px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 13px;
+  text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff;
+}
+
+/* 提示 chrome 与 E4 顶部 pill 统一（live 镜像提示：bg #e2f0fa / text #1c4070
+   / 13px / radius 4 / 无边框）；pattern/use 提示沿用同一皮肤。 */
 .part-studio-pattern-prompt {
   position: absolute;
-  top: 8px;
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 31;
-  padding: 4px 10px;
-  border: 1px solid rgba(74, 144, 226, 0.35);
+  padding: 5px 10px;
+  border: 0;
   border-radius: 4px;
-  background: #eef5ff;
-  color: #1f4f99;
-  font: 12px/1.4 "Segoe UI", "Microsoft YaHei", sans-serif;
+  background: #e2f0fa;
+  color: #1c4070;
+  font: 13px/1.3 "Segoe UI", "Microsoft YaHei", sans-serif;
   pointer-events: none;
   white-space: nowrap;
 }

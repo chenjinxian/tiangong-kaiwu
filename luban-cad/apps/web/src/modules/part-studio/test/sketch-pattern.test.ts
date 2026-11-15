@@ -2,6 +2,8 @@
  * AIRR 2026-11-12：草图线性阵列纯逻辑。
  * Onshape 近似口径：实例为独立几何副本（无“阵列关系”约束）。
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
@@ -399,5 +401,46 @@ describe('buildSketchTransform（旋转/缩放）', () => {
     expect(buildSketchTransform([circle(11, 0, 0)], [], [curveSelection(11)], {
       translation: { u: 0, v: 0 }, rotationRad: Number.NaN, scale: 1, origin: { u: 0, v: 0 },
     })).toEqual({ ok: false, error: 'invalid-rotation' });
+  });
+});
+
+// 2026-11-15 live 探针 f1-pattern-clip：线性阵列实例数 = 浅褐 chip，间距 =
+// 纯文本 + 白色光晕；提示条统一 E4 pill 皮肤。jsdom 不算样式 → CSS 文本钉。
+const gizmoCss = readFileSync(resolve(__dirname, '../components/SketchPlanePicker.css'), 'utf8');
+
+function gizmoRule(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, String.fromCharCode(92) + '$&');
+  const match = gizmoCss.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`));
+  if (!match) throw new Error(`rule not found: ${selector}`);
+  return match[1] ?? '';
+}
+
+describe('草图阵列 gizmo live 皮肤（2026-11-15 探针）', () => {
+  it('实例数 chip：采样 bg #d6bca0 / 深色 13px / radius 3 / 无边框', () => {
+    const chip = gizmoRule('.part-studio-pattern-handle--count');
+    expect(chip).toContain('background: #d6bca0');
+    expect(chip).toContain('color: #333333');
+    expect(chip).toContain('border-radius: 3px');
+    expect(chip).toContain('border: 0');
+    expect(chip).toContain('height: 20px');
+    expect(chip).toContain('font-size: 13px');
+  });
+
+  it('间距值：纯文本 + 白色描边光晕（无 chip 底）', () => {
+    const spacing = gizmoRule('.part-studio-pattern-handle--spacing');
+    expect(spacing).toContain('background: transparent');
+    expect(spacing).toContain('border: 0');
+    expect(spacing).toContain('color: #333333');
+    expect(spacing).toContain('text-shadow: 0 0 2px #ffffff');
+    expect(spacing).toContain('font-size: 13px');
+  });
+
+  it('提示条统一 E4 pill：bg #e2f0fa / text #1c4070 / 13px / radius 4 / 无边框', () => {
+    const prompt = gizmoRule('.part-studio-pattern-prompt');
+    expect(prompt).toContain('background: #e2f0fa');
+    expect(prompt).toContain('color: #1c4070');
+    expect(prompt).toContain('border-radius: 4px');
+    expect(prompt).toContain('border: 0');
+    expect(prompt).toContain('font: 13px');
   });
 });

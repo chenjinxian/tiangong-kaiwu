@@ -1422,6 +1422,7 @@
       "confirmOffsetTitle": "Confirm offset distance",
       "dimensionPlaceholder": "A value greater than 0",
       "editDimensionTitle": "Click to edit the dimension value",
+      "expandExpression": "Expand expression",
       "confirm": "Confirm",
       "cancel": "Cancel",
       "delete": "Delete",

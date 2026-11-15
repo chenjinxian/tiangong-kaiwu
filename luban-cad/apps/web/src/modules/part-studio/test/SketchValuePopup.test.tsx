@@ -89,6 +89,11 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
     expect(cancel.className).toBe('part-studio-sketch-value-popup__cancel');
     expect(cancel.querySelector('svg')).not.toBeNull();
     expect(cancel.textContent).toBe('');
+    // live 2026-11-15：输入左侧 20×20 表达式展开箭头，该尺寸非表达式时禁用。
+    const expander = screen.getByTestId('sketch-value-expander') as HTMLButtonElement;
+    expect(expander.disabled).toBe(true);
+    expect(expander.getAttribute('title')).toBe('该能力尚未实现');
+    expect(expander.querySelector('svg')).not.toBeNull();
     // 候选打开期间不得发射关闭事件（工具仍在等待）。
     expect(closed).not.toHaveBeenCalled();
     fireEvent.change(input, { target: { value: '42' } });
@@ -249,23 +254,31 @@ describe('E1 live 值弹层样式', () => {
     expect(card).toContain('gap: 4px');
   });
 
-  it('输入：100×26 / 13.3333px；聚焦下划线 #2850aa', () => {
+  it('输入：100×26 / 13.3333px；聚焦下划线 1px #1651b0（2026-11-15 计算样式）', () => {
     const input = cssRuleBlock('.part-studio-sketch-value-popup__input');
     expect(input).toContain('inline-size: 100px');
     expect(input).toContain('block-size: 26px');
     expect(input).toContain('font-size: 13.3333px');
-    expect(cssRuleBlock('.part-studio-sketch-value-popup__input:focus')).toContain('#2850aa');
+    expect(cssRuleBlock('.part-studio-sketch-value-popup__input:focus')).toContain('#1651b0');
   });
 
-  it('确认/取消：22×22 实心圆，绿 #419228 / 红 #ae3c3e，白色 sprite', () => {
+  it('确认/取消：22×22 / radius 4；确认实心 #009400，取消白底 1px #cccccc 红 X', () => {
     expect(popupCss).toMatch(
-      /\.part-studio-sketch-value-popup__confirm,[\s\S]*?\.part-studio-sketch-value-popup__cancel\s*\{[^}]*inline-size: 22px;[^}]*block-size: 22px;[^}]*border-radius: 50%;/,
+      /\.part-studio-sketch-value-popup__confirm,[\s\S]*?\.part-studio-sketch-value-popup__cancel\s*\{[^}]*inline-size: 22px;[^}]*block-size: 22px;[^}]*border-radius: 4px;/,
     );
-    expect(cssRuleBlock('.part-studio-sketch-value-popup__confirm')).toContain('background: #419228');
     const confirm = cssRuleBlock('.part-studio-sketch-value-popup__confirm');
+    expect(confirm).toContain('background: #009400');
     expect(confirm).toContain('--os-icon-fill-primary--static: #ffffff');
     const cancel = cssRuleBlock('.part-studio-sketch-value-popup__cancel');
-    expect(cancel).toContain('background: #ae3c3e');
-    expect(cancel).toContain('--os-icon-accent-cancel: #ffffff');
+    expect(cancel).toContain('background: #ffffff');
+    expect(cancel).toContain('border: 1px solid #cccccc');
+    expect(cancel).not.toContain('--os-icon-accent-cancel');
+  });
+
+  it('左侧展开箭头：20×20 禁用灰 #d7d7d7（live node-expander）', () => {
+    const expander = cssRuleBlock('.part-studio-sketch-value-popup__expander');
+    expect(expander).toContain('inline-size: 20px');
+    expect(expander).toContain('block-size: 20px');
+    expect(expander).toContain('color: #d7d7d7');
   });
 });

@@ -184,6 +184,20 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
           : t('partStudio.sketch.panel.confirmOffsetTitle')
       }
     >
+      {/* live 2026-11-15：输入框左侧 20×20 展开箭头（该尺寸非表达式时禁用，
+          灰 #d7d7d7）。产品无表达式通道 → 诚实禁用。 */}
+      <button
+        type="button"
+        className="part-studio-sketch-value-popup__expander"
+        aria-label={t('partStudio.sketch.panel.expandExpression')}
+        title={t('partStudio.featureDialog.notImplemented')}
+        disabled
+        data-testid="sketch-value-expander"
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M3 1.5 6.5 5 3 8.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
       <input
         ref={inputRef}
         className="part-studio-sketch-value-popup__input"

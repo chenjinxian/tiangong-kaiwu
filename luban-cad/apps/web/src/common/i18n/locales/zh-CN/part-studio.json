@@ -1422,6 +1422,7 @@
       "confirmOffsetTitle": "确认偏移距离",
       "dimensionPlaceholder": "大于 0 的数值",
       "editDimensionTitle": "点击编辑尺寸值",
+      "expandExpression": "展开表达式",
       "confirm": "确认",
       "cancel": "取消",
       "delete": "删除",

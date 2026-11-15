@@ -1,7 +1,9 @@
 /* 草图尺寸/偏移值确认弹层（Onshape 标注位置浮层，2026-11-03；2026-11-15
  * live 证据按 E1 重校准）：白卡片 1px #cccccc 边框、半径 2、面板高 34；
- * 输入 100×26（13.3333px）、聚焦 2px #2850aa 下划线；确认/取消为 22×22
- * 实心圆（绿 #419228 / 红 #ae3c3e）+ 白色 sprite 勾叉。 */
+ * 输入 100×26（13.3333px）、聚焦 1px #1651b0 下划线；左侧 20×20 灰色
+ * 禁用展开箭头；确认/取消为 22×22 圆角方形（radius 4）：确认实心绿
+ * #009400 + 白色勾，取消白底 1px #cccccc + 红色 X（2026-11-15 探针
+ * g1-dimension-popup 计算样式；此前采样的实心红圆不是该构造）。 */
 .part-studio-sketch-value-popup {
   position: absolute;
   z-index: 26;
@@ -32,10 +34,10 @@
   font-size: 13.3333px;
 }
 
-/* 聚焦态：live 为输入框下缘 2px 蓝线（无外描边）。 */
+/* 聚焦态：live 2026-11-15 计算样式 = 仅下缘 1px rgb(22,81,176)（无外描边）。 */
 .part-studio-sketch-value-popup__input:focus {
   outline: none;
-  box-shadow: inset 0 -2px 0 #2850aa;
+  box-shadow: inset 0 -1px 0 #1651b0;
 }
 
 /* 只读单位后缀（产品固定 mm；角度 °）——不参与输入/解析。 */
@@ -44,6 +46,21 @@
   color: #333333;
   font-size: 13.3333px;
   line-height: 1;
+}
+
+/* 左侧表达式展开箭头（live disabled：node-expander 20×20 灰 #d7d7d7）。 */
+.part-studio-sketch-value-popup__expander {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #d7d7d7;
+  cursor: default;
 }
 
 .part-studio-sketch-value-popup__confirm,
@@ -56,21 +73,21 @@
   block-size: 22px;
   padding: 0;
   border: none;
-  border-radius: 50%;
-  color: #ffffff;
+  border-radius: 4px;
   cursor: pointer;
 }
 
 .part-studio-sketch-value-popup__confirm {
-  background: #419228;
+  background: #009400;
+  color: #ffffff;
   /* ok-button sprite 的填充变量（暗色主题下也保持白色勾）。 */
   --os-icon-fill-primary--static: #ffffff;
 }
 
 .part-studio-sketch-value-popup__cancel {
-  background: #ae3c3e;
-  /* cancel-button sprite 默认红 X；实心红底上覆写为白色 X。 */
-  --os-icon-accent-cancel: #ffffff;
+  border: 1px solid #cccccc;
+  background: #ffffff;
+  /* cancel-button sprite 默认红 X（live 白底灰框 + 红 X）。 */
 }
 
 .part-studio-sketch-value-popup__confirm:enabled:hover,

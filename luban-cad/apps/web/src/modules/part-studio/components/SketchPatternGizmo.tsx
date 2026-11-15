@@ -899,7 +899,7 @@ export function SketchPatternGizmo({
           {kind === 'linear' && spacingHandle && (
             <button
               type="button"
-              className="part-studio-pattern-handle part-studio-pattern-handle--value"
+              className="part-studio-pattern-handle part-studio-pattern-handle--value part-studio-pattern-handle--spacing"
               data-testid="sketch-pattern-spacing"
               title={t('partStudio.sketch.patternSpacing')}
               aria-label={t('partStudio.sketch.patternSpacing')}
@@ -933,7 +933,7 @@ export function SketchPatternGizmo({
           {kind === 'linear' && secondSpacingHandle && (
             <button
               type="button"
-              className="part-studio-pattern-handle part-studio-pattern-handle--value"
+              className="part-studio-pattern-handle part-studio-pattern-handle--value part-studio-pattern-handle--spacing"
               data-testid="sketch-pattern-spacing-second"
               title={t('partStudio.sketch.patternSpacingSecond')}
               aria-label={t('partStudio.sketch.patternSpacingSecond')}
@@ -950,7 +950,7 @@ export function SketchPatternGizmo({
           {kind !== 'transform' && countHandle && (
             <button
               type="button"
-              className="part-studio-pattern-handle part-studio-pattern-handle--value"
+              className="part-studio-pattern-handle part-studio-pattern-handle--value part-studio-pattern-handle--count"
               data-testid="sketch-pattern-count"
               title={t('partStudio.sketch.patternCount')}
               aria-label={t('partStudio.sketch.patternCount')}
@@ -967,7 +967,7 @@ export function SketchPatternGizmo({
           {kind === 'linear' && secondCountHandle && (
             <button
               type="button"
-              className="part-studio-pattern-handle part-studio-pattern-handle--value"
+              className="part-studio-pattern-handle part-studio-pattern-handle--value part-studio-pattern-handle--count"
               data-testid="sketch-pattern-count-second"
               title={t('partStudio.sketch.patternCountSecond')}
               aria-label={t('partStudio.sketch.patternCountSecond')}
