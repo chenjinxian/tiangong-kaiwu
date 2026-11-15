@@ -19,6 +19,8 @@
  *（aria-hidden），不新增 sprite 条目。
  */
 import React from 'react';
+import type { ScreenViewport } from '@itwin/core-frontend';
+import type { SketchPlaneDto } from '@luban-cad/shared';
 import { useTranslation } from 'react-i18next';
 import {
   formatStatusLength,
@@ -26,6 +28,7 @@ import {
   type SketchStatusLength,
   type SketchStatusPoint,
 } from '../internal/sketch-status.js';
+import { useSketchCursorPoint } from '../hooks/useSketchCursorPoint.js';
 import './SketchStatusReadout.css';
 
 export interface SketchStatusReadoutProps {
@@ -56,6 +59,28 @@ function RulerIcon(): React.JSX.Element {
       <path d="M5.6 6.2 6.8 7.4M7.5 4.3 8.7 5.5M9.4 6.2 10.6 7.4M4.3 7.9l1.2 1.2" />
     </svg>
   );
+}
+
+export interface SketchStatusReadoutLiveProps {
+  viewport: ScreenViewport | null | undefined;
+  plane: SketchPlaneDto | null | undefined;
+  /** 仅草图模式为 true；false 时不监听指针。 */
+  enabled: boolean;
+  length?: SketchStatusLength | null;
+}
+
+/**
+ * 连接版读数：光标点订阅放在**本叶子组件**内（同 SketchToolFeedbackOverlay
+ * 口径），高频指针更新只重渲染读数本身，不驱动 PartStudioCanvas 整棵子树。
+ */
+export function SketchStatusReadoutLive({
+  viewport,
+  plane,
+  enabled,
+  length,
+}: SketchStatusReadoutLiveProps): React.JSX.Element | null {
+  const point = useSketchCursorPoint(viewport, plane, enabled);
+  return <SketchStatusReadout point={point} length={length} />;
 }
 
 export function SketchStatusReadout({

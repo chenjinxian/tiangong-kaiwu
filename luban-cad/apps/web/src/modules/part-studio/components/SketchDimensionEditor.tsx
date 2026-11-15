@@ -288,7 +288,9 @@ export function SketchDimensionEditor({
   // 本层只做显示联动，不拦截事件、不改变选择。
   React.useEffect(() => {
     const canvas = viewport?.canvas;
-    if (!viewport || !canvas || !canEdit)
+    // onGlyphHover 缺省（草图工具激活）时不监听/不命中；依赖变化会先跑上一轮
+    // cleanup 清掉残留高亮。
+    if (!viewport || !canvas || !canEdit || !onGlyphHover)
       return;
     const emit = (entityIds: number[]): void => {
       const previous = glyphHoverRef.current;
@@ -317,15 +319,38 @@ export function SketchDimensionEditor({
     return () => {
       canvas.removeEventListener('mousemove', onMouseMove);
       canvas.removeEventListener('mouseleave', onMouseLeave);
-      // 卸载/失活时清掉残留高亮（canEdit 翻转 → 本 effect 重订阅）。
-      if (glyphHoverRef.current.length > 0) {
-        glyphHoverRef.current = [];
+      // 卸载/失活时清掉残留高亮（canEdit 翻转 → 本 effect 重订阅）；同时
+      // 复位上次发出集，避免新回调下同一 glyph 不再触发。
+      const had = glyphHoverRef.current.length > 0;
+      glyphHoverRef.current = [];
+      if (had)
         onGlyphHoverRef.current?.([]);
-      }
     };
     // onGlyphHover 身份变化（工具激活/退出切换回调与 undefined）→ 重订阅并
     // 复位上次发出集，避免「工具期间悬停记录 → 退出后同 glyph 不再回调」。
   }, [viewport, canEdit, onGlyphHover]);
+
+  // 相机变化/约束集变化时清空悬停高亮：glyph 位置随相机/几何移动，旧高亮
+  // 会悬在错误实体上（mousemove 才会重建）。
+  React.useEffect(() => {
+    const clear = (): void => {
+      if (glyphHoverRef.current.length === 0)
+        return;
+      glyphHoverRef.current = [];
+      onGlyphHoverRef.current?.([]);
+    };
+    const viewChanged = viewport?.onViewChanged;
+    viewChanged?.addListener(clear);
+    return () => {
+      viewChanged?.removeListener(clear);
+    };
+  }, [viewport]);
+  React.useEffect(() => {
+    if (glyphHoverRef.current.length === 0)
+      return;
+    glyphHoverRef.current = [];
+    onGlyphHoverRef.current?.([]);
+  }, [constraints]);
 
   // 单击尺寸数值 = 选中（Onshape）；点击画布空白清除约束选择。Delete/Backspace
   // 删除选中尺寸（宿主 updateSketch 移除该约束）。输入框聚焦时不吃键。

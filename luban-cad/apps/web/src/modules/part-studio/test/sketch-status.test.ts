@@ -47,22 +47,23 @@ describe('formatStatusNumber / formatStatusPoint / formatStatusLength', () => {
 });
 
 describe('resolveSketchStatusLength（唯一选择权威 + 活动草图 DTO）', () => {
-  // 2026-11-15：草图 DTO 局部坐标是米（20 mm = 0.02），读数固定 mm → ×1000。
-  it('单选线（内联端点）→ 长度（米制 DTO ×1000 → mm）', () => {
+  // 2026-11-15 单位复核：产品草图数值即 mm（20×20 → 4000 mm³ 口径），不缩放。
+  it('单选线（内联端点）→ 长度（mm 直读，不 ×1000）', () => {
     const active = sketch([
-      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 0.003, y: 0.004 } },
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 3, y: 4 } },
     ]);
     expect(resolveSketchStatusLength(active, [select(1)])).toEqual({ kind: 'length', valueMm: 5 });
   });
 
-  it('单选线 20 mm（0.02 m）→ 20 mm；点实体数值引用同样 ×1000', () => {
+  it('单选线 20 mm（e2e 种子坐标 20）→ 20 mm；点实体引用同样直读', () => {
+    // e2e cplane-point/sketch-create-parity：坐标 20 的 20×20 草图拉伸 10 = 4000 mm³。
     const active = sketch([
-      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 0.02, y: 0 } },
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 20, y: 0 } },
     ]);
     expect(resolveSketchStatusLength(active, [select(1)])).toEqual({ kind: 'length', valueMm: 20 });
     const referenced = sketch([
       { kind: 'point', id: 1, x: 0, y: 0 },
-      { kind: 'point', id: 2, x: 0.006, y: 0.008 },
+      { kind: 'point', id: 2, x: 6, y: 8 },
       { kind: 'line', id: 3, p1: 1, p2: 2 },
     ]);
     expect(resolveSketchStatusLength(referenced, [select(3)])).toEqual({ kind: 'length', valueMm: 10 });
@@ -70,9 +71,9 @@ describe('resolveSketchStatusLength（唯一选择权威 + 活动草图 DTO）',
 
   it('单选圆/弧（有 radius）→ 半径；无 radius 不显示', () => {
     const active = sketch([
-      { kind: 'circle', id: 1, center: 2, radius: 0.0025 },
+      { kind: 'circle', id: 1, center: 2, radius: 2.5 },
       { kind: 'point', id: 2, x: 0, y: 0 },
-      { kind: 'arc', id: 3, center: 2, radius: 0.004 },
+      { kind: 'arc', id: 3, center: 2, radius: 4 },
     ]);
     expect(resolveSketchStatusLength(active, [select(1)])).toEqual({ kind: 'radius', valueMm: 2.5 });
     expect(resolveSketchStatusLength(active, [select(3)])).toEqual({ kind: 'radius', valueMm: 4 });
@@ -93,8 +94,8 @@ describe('resolveSketchStatusLength（唯一选择权威 + 活动草图 DTO）',
 
   it('多选 / 控制点选择 / 跨草图 / 非曲线选择 → null', () => {
     const active = sketch([
-      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 0.001, y: 0 } },
-      { kind: 'line', id: 2, p1: { x: 0, y: 0.001 }, p2: { x: 0.001, y: 0.001 } },
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 } },
+      { kind: 'line', id: 2, p1: { x: 0, y: 1 }, p2: { x: 1, y: 1 } },
     ]);
     expect(resolveSketchStatusLength(active, [select(1), select(2)])).toBeNull();
     expect(resolveSketchStatusLength(active, [

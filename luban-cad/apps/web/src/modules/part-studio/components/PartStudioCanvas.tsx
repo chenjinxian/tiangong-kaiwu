@@ -88,7 +88,7 @@ import { datumPlaneFromSketch } from '../internal/datum-visibility.js';
 import { clearActiveOnshapeHighlight, clearActiveOnshapeSelection } from '../internal/onshape-selection-runtime.js';
 import { applyCanvasSelection } from '../internal/selection-authority.js';
 import { SketchToolFeedbackOverlay } from './SketchToolFeedbackOverlay.js';
-import { SketchStatusReadout } from './SketchStatusReadout.js';
+import { SketchStatusReadoutLive } from './SketchStatusReadout.js';
 import { fitCameraToSketch, orientCameraToSketchPlane, sketchWorldRange } from '../canvas/sketch-camera.js';
 import { fitVisibleContent } from '../internal/fit-visible.js';
 import { sketchEntitiesToWorldPolylines } from '../internal/sketch-curves.js';
@@ -102,7 +102,6 @@ import { useOnshapeMouseNavigation } from '../hooks/useOnshapeMouseNavigation.js
 import { clearRightDragMenuSuppression, consumeRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js';
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
-import { useSketchCursorPoint } from '../hooks/useSketchCursorPoint.js';
 import { resolveSketchStatusLength } from '../internal/sketch-status.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
@@ -670,11 +669,6 @@ export function PartStudioCanvas({
   const sketchStatusPlane = React.useMemo(
     () => (sketchActive ? sketchSystem?.activeSketch?.plane ?? activeSketchPlaneForDialog : null),
     [sketchActive, sketchSystem?.activeSketch, activeSketchPlaneForDialog],
-  );
-  const sketchStatusPoint = useSketchCursorPoint(
-    viewport,
-    sketchStatusPlane,
-    sketchActive && sketchSystem?.activeSketch !== undefined,
   );
   const sketchStatusLength = React.useMemo(
     () => (sketchActive
@@ -1281,7 +1275,12 @@ export function PartStudioCanvas({
       {/* 2026-11-15 E4/S4b Onshape live：右下角草图状态读数（长度/半径 + 光标
           世界点）。仅在草图模式且活动草图就绪时渲染；无数据自隐。 */}
       {sketchActive && sketchSystem?.activeSketch && (
-        <SketchStatusReadout point={sketchStatusPoint} length={sketchStatusLength} />
+        <SketchStatusReadoutLive
+          viewport={viewport}
+          plane={sketchStatusPlane}
+          enabled={sketchActive && sketchSystem?.activeSketch !== undefined}
+          length={sketchStatusLength}
+        />
       )}
 
       <CanvasContextMenu

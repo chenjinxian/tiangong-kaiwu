@@ -74,8 +74,8 @@ export function useSketchCursorPoint(
         clearIfSet();
         return;
       }
-      // iTwin 世界坐标为米；读数固定 mm。
-      const next: SketchStatusPoint = { x: world.x * 1000, y: world.y * 1000, z: world.z * 1000 };
+      // 产品世界数值按固定 mm 解释（20×20 草图=4000 mm³ 的既有口径）→ 直读。
+      const next: SketchStatusPoint = { x: world.x, y: world.y, z: world.z };
       const key = statusKey(next);
       if (key === lastKey)
         return;

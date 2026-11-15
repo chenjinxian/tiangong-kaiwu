@@ -74,6 +74,8 @@ beforeEach(() => {
 
 describe('layoutSketchConstraintGlyphs', () => {
   it('投影锚点并整体上移 16px；方块 20px（2026-11-15 live 实测）', () => {
+    // live dpr2 像素量取：选中 chip 浅蓝填充 40×40 设备 px = 20×20 CSS px。
+    expect(CONSTRAINT_GLYPH_SIZE).toBe(20);
     const { viewport } = makeViewport();
     const layout = layoutSketchConstraintGlyphs([glyph('constraint-3', 'horizontal', 5, 10)], viewport);
     expect(layout).toHaveLength(1);

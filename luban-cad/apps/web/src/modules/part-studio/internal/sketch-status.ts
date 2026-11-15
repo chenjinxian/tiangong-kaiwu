@@ -11,9 +11,11 @@
  * `长度:`（文档单位）；本产品固定 mm，单位后缀逐坐标重复（与 live
  * `X -3.561 in Y 0.000 in Z 0.749 in` 同构）。
  *
- * 说明：草图 DTO 局部坐标与 iTwin 世界坐标是**米制**（`SketchPlaneFrame` 的
- * localToWorld 是刚体变换、无缩放；e2e 中 20 mm 间距=0.02）。显示为产品固定
- * mm 时必须 ×1000——射线∩草图平面得到的世界点与 DTO 实体长度都先换算。
+ * 单位口径（2026-11-15 复核）：本产品草图 DTO 局部与 iTwin 世界数值均按
+ * **产品固定 mm** 解释（`sketch-plane.ts` 注释里的「米制」是遗留误导）；
+ * 证据：种子草图 20×20 拉伸体积 4000 mm³（e2e cplane-point / sketch-create-
+ * parity 以坐标 20 表示 20 mm），尺寸标注 `formatSketchDimensionValue` 直接
+ * 打印原始值并用 mm 文案。因此读数**不做 1000× 缩放**——直接按 mm 显示。
  */
 
 import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
@@ -105,10 +107,12 @@ export function resolveSketchStatusLength(
     entry.sketchId === sketch.id
     && entry.entityId !== undefined
     && isCurveSelection(entry));
-  if (curves.length !== 1)
+  // 同实体重复条目（多源选择投影）按一个实体计——去重后必须恰好一条。
+  const entityIds = [...new Set(curves.map((entry) => entry.entityId!))];
+  if (entityIds.length !== 1)
     return null;
 
-  const entity = sketch.entities.find((candidate) => candidate.id === curves[0]!.entityId);
+  const entity = sketch.entities.find((candidate) => candidate.id === entityIds[0]);
   if (!entity)
     return null;
 
@@ -119,8 +123,8 @@ export function resolveSketchStatusLength(
       const end = resolvePoint(entity.p2, points);
       if (!start || !end)
         return null;
-      // DTO 局部/世界均为米 → 产品固定 mm。
-      const valueMm = Math.hypot(end.x - start.x, end.y - start.y) * 1000;
+      // DTO 数值即产品固定 mm（20×20 草图体积 4000 mm³ 的既有口径）。
+      const valueMm = Math.hypot(end.x - start.x, end.y - start.y);
       return Number.isFinite(valueMm) ? { kind: 'length', valueMm } : null;
     }
     case 'circle':
@@ -128,7 +132,7 @@ export function resolveSketchStatusLength(
       const radius = entity.radius;
       if (typeof radius !== 'number' || !Number.isFinite(radius) || radius < 0)
         return null;
-      return { kind: 'radius', valueMm: radius * 1000 };
+      return { kind: 'radius', valueMm: radius };
     }
     default:
       return null;

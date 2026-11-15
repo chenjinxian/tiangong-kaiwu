@@ -99,6 +99,17 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     expect(circleRadius(initial)).toBeCloseTo(4, 6);
     expect(lineLength(initial)).toBeCloseTo(20, 6);
 
+    // S4b 右下角读数（2026-11-15）：悬停画布 → 世界点 3 位小数 mm。
+    // 单位口径 = 产品 mm（种子 20 坐标=20 mm）；若误乘 1000 会得到万级 X。
+    const viewportBox = (await page.getByTestId('part-studio-viewport').boundingBox())!;
+    await page.mouse.move(viewportBox.x + viewportBox.width / 2, viewportBox.y + viewportBox.height / 2);
+    const pointReadout = page.getByTestId('sketch-status-point');
+    await expect(pointReadout).toBeVisible({ timeout: 15_000 });
+    const pointText = (await pointReadout.textContent()) ?? '';
+    expect(pointText).toMatch(/X -?\d+\.\d{3} mm Y -?\d+\.\d{3} mm Z -?\d+\.\d{3} mm/);
+    const readoutX = Number(/X (-?[\d.]+)/.exec(pointText)?.[1]);
+    expect(Math.abs(readoutX)).toBeLessThan(1000);
+
     // 标注标签（与绘制同源布局）暴露命中中心；双精度点击用真实鼠标。
     const labels = page.getByTestId('sketch-dimension-label');
     await expect(labels).toHaveCount(2, { timeout: 60_000 });
