@@ -2457,6 +2457,16 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
     });
   });
 
+  // Onshape live + 审计（2026-11-15）：mirror 只保留已接线的「镜像操作」页签，
+  // 不再叠加通用「布尔作用域」行（旧行为两行冲突，且前者为可点击 no-op）。
+  it('仅一枚 tablist：「镜像操作」（无「布尔作用域」通用页签；Onshape live + 审计 2026-11-15）', () => {
+    renderMirrorDialog(makeApplyOp());
+    const tablists = screen.getAllByRole('tablist');
+    expect(tablists).toHaveLength(1);
+    expect(tablists[0]!.getAttribute('aria-label')).toBe('镜像操作');
+    expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
+  });
+
   it('v1.48 编辑回显：stored operation=intersect → 相交页签选中；世界平面镜像编辑通道保持可改', () => {
     renderMirrorDialog(makeApplyOp(), {
       mode: 'edit',
@@ -2644,6 +2654,13 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     expect(screen.getByTestId('part-studio-feature-dialog-pattern-scope-hint')).toBeDefined();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // Onshape live + 审计（2026-11-15）：pattern 载荷不读取布尔作用域，通用页签
+  // 是可点击 no-op——对话框不得再渲染「布尔作用域」tablist。
+  it('不渲染「布尔作用域」通用页签（pattern 不消费 scope；Onshape live + 审计 2026-11-15）', () => {
+    renderPatternDialog(makeApplyOp());
+    expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
   });
 
   it('打开即触发 previewOp insertFeature pattern linear（2026-11-08）', async () => {
@@ -3022,6 +3039,15 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
     // 草图通道不接（输入是体边非草画面域）。
     expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
+  });
+
+  // Onshape live + 审计（2026-11-15）：允许边溢出无实现通道——必须是禁用且
+  // 未勾选的占位，不再是 enabled+checked 的假控件。
+  it('「允许边溢出」为未实现占位：禁用未勾选（Onshape live + 审计 2026-11-15）', () => {
+    renderFilletDialog(makeApplyOp());
+    const overflow = screen.getByRole('checkbox', { name: '允许边溢出' }) as HTMLInputElement;
+    expect(overflow.disabled).toBe(true);
+    expect(overflow.checked).toBe(false);
   });
 
   it('单边载荷：拾 1 边 → chip「边 1」→ 结束拾取 → ✓ 解禁 → 载荷 {radius:5, propagateSmooth:true, edges:[对]}', async () => {

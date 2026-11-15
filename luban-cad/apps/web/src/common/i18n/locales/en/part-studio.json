@@ -1990,7 +1990,14 @@
     "submitSuccess": "{{name}} created",
     "updateSuccess": "{{name}} updated",
     "submitFailed": "Plane submission failed",
-    "offsetNone": "None"
+    "offsetNone": "None",
+    "advancedDefinition": "Definition",
+    "advancedDefinitions": {
+      "lineAngle": "Line-angle plane",
+      "linePoint": "Line-point plane",
+      "threePoint": "Three-point plane"
+    },
+    "advancedReadonlyHint": "This plane uses an advanced definition ({{definition}}). This dialog only supports datum-plane offset or world-origin editing; delete this plane and recreate it."
   },
   "appearances": {
     "title": "Appearances",

@@ -51,6 +51,25 @@ function readInitialParams(value: unknown): Partial<CPlaneParams> {
   };
 }
 
+/**
+ * 2026-11-15 P0：落库 cPlane 的高级定义（ADR-0013：LINE_ANGLE / LINE_POINT /
+ * THREE_POINT）本对话框不支持编辑。检测到这些键后整体切只读——绝不能把
+ * `{reference, offsetMm?, origin?, flipNormal?}` 这样的降级载荷提交回去。
+ */
+type AdvancedCPlaneDefinition = 'lineAngle' | 'linePoint' | 'threePoint';
+
+function readAdvancedCPlaneDefinition(value: unknown): AdvancedCPlaneDefinition | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const p = value as Record<string, unknown>;
+  if (Array.isArray(p.threePoints) && p.threePoints.length > 0) return 'threePoint';
+  if (typeof p.line !== 'object' || p.line === null) return undefined;
+  // 与 internal/cplane.ts 的派生优先级一致：point 先于 angleDeg（同存本身非法，
+  // 但仍按高级定义只读处理，不猜用户意图）。
+  if (p.point !== undefined) return 'linePoint';
+  if (p.angleDeg !== undefined) return 'lineAngle';
+  return undefined;
+}
+
 function numberText(value: number): string {
   return Number.isFinite(value) ? String(Number(value.toFixed(4))) : '';
 }
@@ -60,6 +79,13 @@ export function CPlaneDialog({
 }: CPlaneDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const initial = React.useMemo(() => readInitialParams(initialParams), [initialParams]);
+  // 高级定义（线角度/线点/三点）：本对话框只支持基准面偏移与世界原点编辑，
+  // 打开即只读并给出「删除后重建」的诚实提示，✓ 禁用且 confirm 提前返回。
+  const advancedDefinition = React.useMemo(
+    () => readAdvancedCPlaneDefinition(initialParams),
+    [initialParams],
+  );
+  const advancedReadOnly = advancedDefinition !== undefined;
   const [reference, setReference] = React.useState<CPlaneReference | undefined>(() => initial.reference);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [offsetEnabled, setOffsetEnabled] = React.useState(initial.offsetMm !== undefined);
@@ -81,11 +107,12 @@ export function CPlaneDialog({
   const originNumbers = [Number(originX), Number(originY), Number(originZ)];
   const originValid = planeMode !== 'point'
     || ([originX, originY, originZ].every((text) => text.trim() !== '') && originNumbers.every(Number.isFinite));
-  const submitDisabled = !canEdit || busy || !applyOp || reference === undefined
-    || !offsetValid || !originValid;
+  const submitDisabled = advancedReadOnly || !canEdit || busy || !applyOp
+    || reference === undefined || !offsetValid || !originValid;
 
   const confirm = async (): Promise<void> => {
-    if (submitDisabled || reference === undefined || !applyOp) return;
+    // 高级定义不可在此编辑：显式提前返回，杜绝降级参数集覆盖落库定义。
+    if (advancedReadOnly || submitDisabled || reference === undefined || !applyOp) return;
     setBusy(true);
     setError(undefined);
     try {
@@ -150,6 +177,34 @@ export function CPlaneDialog({
           </p>
         )}
 
+        {/* 高级定义只读态：不渲染任何看似可编辑的基准面/偏移/原点控件。 */}
+        {advancedReadOnly && (
+          <React.Fragment>
+            <section
+              className="part-studio-feature-dialog__distance part-studio-cplane__mode"
+              data-testid="part-studio-cplane-advanced-definition"
+            >
+              <span className="part-studio-feature-dialog__distance-label">
+                {t('partStudio.cPlaneDialog.advancedDefinition')}
+              </span>
+              <span className="part-studio-feature-dialog__static-value">
+                {t(`partStudio.cPlaneDialog.advancedDefinitions.${advancedDefinition}`)}
+              </span>
+            </section>
+            <p
+              role="note"
+              className="part-studio-feature-dialog__hint"
+              data-testid="part-studio-cplane-advanced-readonly-hint"
+            >
+              {t('partStudio.cPlaneDialog.advancedReadonlyHint', {
+                definition: t(`partStudio.cPlaneDialog.advancedDefinitions.${advancedDefinition}`),
+              })}
+            </p>
+          </React.Fragment>
+        )}
+
+        {!advancedReadOnly && (
+        <React.Fragment>
         {/* v1.31：平面点模式（Onshape「平面点」的 B2a 子集：世界参考法线 + 世界原点）。 */}
         <section className="part-studio-feature-dialog__distance part-studio-cplane__mode">
           <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-mode">
@@ -308,6 +363,8 @@ export function CPlaneDialog({
           />
           {t('partStudio.cPlaneDialog.flipNormal')}
         </label>
+        </React.Fragment>
+        )}
       </div>
       <footer className="part-studio-feature-dialog__footer">
         <div className="part-studio-feature-dialog__transparency">

@@ -811,6 +811,16 @@ export function FeatureDialog({
     applyOp !== undefined;
   const booleanScopeMapped = booleanScopeCapable && !nativeOperationScope ? booleanScopeFeatureType(booleanScope) : undefined;
   const effectiveFeatureType = booleanScopeMapped ?? featureType;
+  // Onshape live + 审计（2026-11-15）：通用布尔作用域页签只对真正消费该状态的
+  // 特征类型渲染（extrude/revolve 走原生 operation，booleanAdd/Subtract 走
+  // booleanScopeFeatureType 映射）。pattern/mirror 的载荷不读取 booleanScope，
+  // 旧通用页签是可点击 no-op——不得再渲染。
+  const booleanScopeTabsVisible =
+    featureType === undefined
+    || featureType === 'extrude'
+    || featureType === 'revolve'
+    || featureType === 'booleanAdd'
+    || featureType === 'booleanSubtract';
   // 特征内 operation：extrude 的 new/add/remove/intersect 均已实现；
   // revolve 为 new/add/remove（v1.23 ADR-0005 Phase 2；intersect 仍无后端路径，页签禁用）。
   const nativeOperation = nativeOperationScope
@@ -2641,7 +2651,8 @@ export function FeatureDialog({
       </header>
 
       {/* Onshape live 页签面：extrude/revolve = 结果类型 + 布尔作用域；
-          pattern/mirror = 模式字段 + 布尔作用域；booleanBodies = 并集/差集/相交；
+          pattern/mirror = 仅模式字段（不渲染布尔作用域，Onshape live + 审计
+          2026-11-15：其载荷不读取 scope）；booleanBodies = 并集/差集/相交；
           fillet = 边/全圆角；chamfer 无页签。 */}
       {((patternChannel && !patternUpstreamMissing) || (mirrorChannel && !mirrorUpstreamMissing)) && (
         <div className="part-studio-feature-dialog__mode-row">
@@ -2728,8 +2739,9 @@ export function FeatureDialog({
               })}
             </div>
           )}
-          {(featureType === undefined || featureType === 'extrude' || featureType === 'revolve'
-            || featureType === 'pattern' || featureType === 'mirror') && (
+          {/* Onshape live + 审计（2026-11-15）：pattern/mirror 不消费布尔作用域，
+              旧通用页签是可点击 no-op——按消费方集合渲染（见 booleanScopeTabsVisible）。 */}
+          {booleanScopeTabsVisible && (
             <div
               role="tablist"
               aria-label={t('partStudio.featureDialog.booleanScopeTabs')}
@@ -3556,7 +3568,9 @@ export function FeatureDialog({
                 {[
                   ['partial', 'partStudio.featureDialog.partialFilletLabel', false, false],
                   ['variable', 'partStudio.featureDialog.variableFilletLabel', false, false],
-                  ['overflow', 'partStudio.featureDialog.allowOverflowLabel', true, true],
+                  // Onshape live + 审计（2026-11-15）：允许边溢出无实现通道——
+                  // 禁用未勾选占位 + 未实现提示（旧 enabled+checked 是无 onChange 的假控件）。
+                  ['overflow', 'partStudio.featureDialog.allowOverflowLabel', false, false],
                   ['smooth', 'partStudio.featureDialog.smoothFilletLabel', false, false],
                 ].map(([key, labelKey, checked, toggle]) => (
                   <label
@@ -3568,7 +3582,8 @@ export function FeatureDialog({
                       type="checkbox"
                       checked={Boolean(checked)}
                       disabled={!toggle}
-                      onChange={() => undefined}
+                      title={key === 'overflow' ? t('partStudio.featureDialog.notImplemented') : undefined}
+                      onChange={key === 'overflow' ? undefined : () => undefined}
                     />
                     <span>{t(String(labelKey))}</span>
                   </label>

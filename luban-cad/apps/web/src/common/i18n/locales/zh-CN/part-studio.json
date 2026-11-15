@@ -1990,7 +1990,14 @@
     "submitSuccess": "{{name}} 已创建",
     "updateSuccess": "{{name}} 已更新",
     "submitFailed": "平面提交失败",
-    "offsetNone": "无"
+    "offsetNone": "无",
+    "advancedDefinition": "定义",
+    "advancedDefinitions": {
+      "lineAngle": "线角度平面",
+      "linePoint": "线点平面",
+      "threePoint": "三点平面"
+    },
+    "advancedReadonlyHint": "该平面使用高级定义（{{definition}}）。本对话框仅支持基准面偏移/世界原点编辑；请删除该平面后重新创建。"
   },
   "appearances": {
     "title": "外观",

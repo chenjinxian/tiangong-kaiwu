@@ -149,6 +149,57 @@ describe('CPlaneDialog（ADR-0006 切片 B1）', () => {
     expect(screen.getByTestId('part-studio-cplane-readonly-hint')).toBeTruthy();
   });
 
+  // 2026-11-15 P0：高级定义（LINE_ANGLE/LINE_POINT/THREE_POINT）落库参数回显时，
+  // 对话框只支持基准面偏移/世界原点，必须只读——绝不提交降级的 reference 参数集。
+  function expectAdvancedReadonly(initialParams: Record<string, unknown>, definitionLabel: string): void {
+    const { applyOp } = renderDialog({ featureId: '0x42', initialParams });
+    expect(confirmButton().disabled).toBe(true);
+    expect(screen.queryByTestId('cplane-reference-chip')).toBeNull();
+    expect(screen.queryByTestId('cplane-mode')).toBeNull();
+    expect(screen.getByTestId('part-studio-cplane-advanced-definition').textContent)
+      .toContain(definitionLabel);
+    expect(screen.getByTestId('part-studio-cplane-advanced-readonly-hint').textContent)
+      .toContain(definitionLabel);
+    fireEvent.click(confirmButton());
+    expect(applyOp).not.toHaveBeenCalled();
+  }
+
+  it('edit 模式 LINE_ANGLE（line + angleDeg）：只读提示，✓ 禁用且不提交', () => {
+    expectAdvancedReadonly(
+      {
+        reference: 'top',
+        line: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 } },
+        angleDeg: 45,
+      },
+      '线角度平面',
+    );
+  });
+
+  it('edit 模式 LINE_POINT（line + point）：只读提示，✓ 禁用且不提交', () => {
+    expectAdvancedReadonly(
+      {
+        reference: 'top',
+        line: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 } },
+        point: { x: 0, y: 0, z: 5 },
+      },
+      '线点平面',
+    );
+  });
+
+  it('edit 模式 THREE_POINT（threePoints）：只读提示，✓ 禁用且不提交', () => {
+    expectAdvancedReadonly(
+      {
+        reference: 'top',
+        threePoints: [
+          { x: 0, y: 0, z: 0 },
+          { x: 10, y: 0, z: 0 },
+          { x: 0, y: 10, z: 0 },
+        ],
+      },
+      '三点平面',
+    );
+  });
+
   it('后端拒收：就地 Alert，不关闭、不报成功', async () => {
     const applyOp = vi.fn(async (): Promise<FeatureOpResult> => ({ ok: false, error: '平面被草图引用' }));
     const onConfirm = vi.fn();
