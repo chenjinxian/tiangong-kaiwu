@@ -970,7 +970,11 @@
     "vertexArcStart": "Arc {{id}} start",
     "vertexArcEnd": "Arc {{id}} end",
     "endBoundUpToPart": "Up to part",
-    "notSupported": "Not supported yet"
+    "notSupported": "Not supported yet",
+    "directionFieldLabel": "Extrude direction",
+    "mergeAllLabel": "Merge all",
+    "mergeScopeLabel": "Merge scope",
+    "mergeScopeUnresolvedHint": "Multiple bodies with no explicit target: merge scope unresolved (not submitted)"
   },
   "filletPick": {
     "prompt": "Click edges to fillet in the canvas",

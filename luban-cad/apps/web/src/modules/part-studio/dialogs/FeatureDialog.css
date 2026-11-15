@@ -655,6 +655,55 @@
   margin: 0;
 }
 
+/* 2026-11-15 live：终止行 = 终止下拉 + 行尾双向翻转钮（反向，24px）。 */
+.part-studio-feature-dialog__end-bound-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.part-studio-feature-dialog__end-bound-row .part-studio-feature-dialog__select {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.part-studio-feature-dialog__direction-flip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__direction-flip svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-feature-dialog__direction-flip[aria-pressed='true'] {
+  color: #1651b0;
+}
+
+.part-studio-feature-dialog__direction-flip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 方向行（复选 + 展开的「拉伸方向」字段）与合并范围行组。 */
+.part-studio-feature-dialog__direction-group,
+.part-studio-feature-dialog__merge-scope-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .part-studio-feature-dialog__distance-label {
   color: #333333;
   font-size: 12px;
@@ -767,23 +816,7 @@
   font-size: 12px;
 }
 
-/* Onshape 参数顺序：extrude = 实体字段 → 终止条件 → 深度 → 对称 → 折叠段。 */
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__entities {
-  order: 1;
-}
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__distance {
-  order: 2;
-}
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__checkbox[data-testid='part-studio-feature-dialog-symmetric-flat'] {
-  order: 3;
-}
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__sections {
-  order: 4;
-}
-/* 终止条件下拉在深度输入之前（Onshape 行序）。 */
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__end-bound {
-  order: -1;
-}
+/* Onshape 参数顺序在文件后段统一钉（extrude 行序块）；此处仅保留非行序规则。 */
 /* Onshape 不常驻「相交暂不支持」提示行（禁用态在页签 title 中表达）。 */
 .part-studio-feature-dialog [data-testid='part-studio-feature-dialog-intersect-unsupported-hint'] {
   display: none;
@@ -1017,8 +1050,10 @@
   display: none;
 }
 
-/* ── 行序：extrude = 实体 → 终止条件 → 深度 → 方向 → 起始偏移 → 对称 →
- * 拔模 → 第二终止位置（Onshape live；折叠段用 contents 参与 body 流）────── */
+/* ── 行序（2026-11-15 live 审计）：extrude = query field → 终止条件 → 深度 →
+ * 方向 → 起始偏移 →（薄壁）→ 对称 → 拔模 → 第二个终止位置 → 合并范围。
+ * 平铺行/块必须显式 order——order:0 会浮到 query field 之上；选择器全部
+ * 限定 data-feature='extrude'，其它特征类型行序不受影响。──────────────── */
 .part-studio-feature-dialog__body {
   display: flex;
   flex-direction: column;
@@ -1027,13 +1062,25 @@
   display: contents;
 }
 .part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__entities { order: 1; }
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__end-bound { order: 2; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-end-bound'] { order: 2; }
 .part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__distance { order: 3; }
-.part-studio-feature-dialog[data-feature='extrude'] [data-section='direction'] { order: 4; }
-.part-studio-feature-dialog[data-feature='extrude'] [data-section='startOffset'] { order: 5; }
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__checkbox[data-testid='part-studio-feature-dialog-symmetric-flat'] { order: 6; }
-.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__checkbox[data-testid='part-studio-feature-dialog-draft'] { order: 7; }
-.part-studio-feature-dialog[data-feature='extrude'] [data-section='secondEnd'] { order: 8; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-depth-row'] { order: 3; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-direction-group'] { order: 4; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset'] { order: 5; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset-value'] { order: 5; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-field='thin-thickness'] { order: 6; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-symmetric-flat'] { order: 7; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-draft'] { order: 8; }
+/* 展开的子行贴着各自行（拔模角/反向、第二端终止/深度/拔模）。 */
+.part-studio-feature-dialog[data-feature='extrude'] [data-field='draft-angle'],
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-draft-reverse'] { order: 8; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-second-direction'] { order: 9; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-field='second-direction'] { order: 9; }
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-merge-scope-group'] { order: 10; }
+/* 直接子级提示/告警排在参数行之后（order:0 会浮到 query field 之上）。 */
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__body > .part-studio-feature-dialog__hint,
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__body > .part-studio-feature-dialog__alert,
+.part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__body > .part-studio-feature-dialog__lease-warning { order: 11; }
 
 /* 旋转：实体字段（含面域）→ 全方位复选 → 角度。 */
 .part-studio-feature-dialog[data-feature='revolve'] .part-studio-feature-dialog__entities { order: 1; }

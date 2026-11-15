@@ -97,14 +97,15 @@ test.describe('特征对话框 Onshape 参数行（Stage E）', () => {
     await expect(dialog.getByRole('button', { name: '成品' })).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: '确认' })).toHaveCount(1);
 
-    const direction = dialog.getByRole('checkbox', { name: '方向', exact: true });
+    // 2026-11-15 live：反向=终止行翻转钮（方向复选仅展开拉伸方向字段，禁用）。
+    const directionFlip = dialog.getByRole('button', { name: '反向' });
     const startOffset = dialog.getByRole('checkbox', { name: '起始偏移' });
-    await expect(direction).not.toBeChecked();
+    await expect(directionFlip).toHaveAttribute('aria-pressed', 'false');
     await expect(startOffset).not.toBeChecked();
     await expect(dialog.getByRole('textbox', { name: '起始偏移' })).toHaveCount(0);
 
     await dialog.getByRole('textbox', { name: '深度' }).fill('5');
-    await direction.check();
+    await directionFlip.click();
     await startOffset.check();
     const offsetInput = dialog.getByRole('textbox', { name: '起始偏移' });
     await expect(offsetInput).toHaveValue('0');
@@ -126,7 +127,7 @@ test.describe('特征对话框 Onshape 参数行（Stage E）', () => {
     // ── 树行双击编辑：两勾选与值回显 ────────────────────────────────────────
     await page.getByTestId('part-studio-feature-list').getByRole('button', { name: /拉伸 1/ }).dblclick();
     const editDialog = page.getByTestId('part-studio-feature-dialog');
-    await expect(editDialog.getByRole('checkbox', { name: '方向', exact: true })).toBeChecked({ timeout: 30_000 });
+    await expect(editDialog.getByRole('button', { name: '反向' })).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
     await expect(editDialog.getByRole('checkbox', { name: '起始偏移' })).toBeChecked();
     await expect(editDialog.getByRole('textbox', { name: '起始偏移' })).toHaveValue('2');
     await expect(editDialog.getByRole('textbox', { name: '深度' })).toHaveValue('5');

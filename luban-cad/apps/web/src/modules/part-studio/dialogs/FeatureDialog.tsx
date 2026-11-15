@@ -756,6 +756,9 @@ export function FeatureDialog({
     typeof editParams?.draftAngleDeg === 'number' && editParams.draftAngleDeg !== 0);
   const [draft, setDraft] = React.useState(() => storedNumberString(editParams?.draftAngleDeg) ?? '');
   const [draftPullDirection, setDraftPullDirection] = React.useState(() => editParams?.draftPullDirection === true);
+  // 2026-11-15 live（合并范围）：全部合并=省略 mergeScope（契约缺省=自动合并全部
+  // 上游体）；取消勾选仅在可解析到目标体时发 [{bodyKey}]。缺省未勾选（live 同态）。
+  const [mergeAll, setMergeAll] = React.useState(false);
   // 透明度滑杆（M6-c T5 对齐采集底栏；0=不透明。语义挂账见文件头注）。
   const [transparency, setTransparency] = React.useState(0);
   const [helpOpen, setHelpOpen] = React.useState(false);
@@ -1040,6 +1043,16 @@ export function FeatureDialog({
   // 单 body 自动 Part 1；N>1 取显式目标选择；new/remove 无合并目标。
   const mergeScopeBodies = nativeOperation === 'add' && effectiveTargetBodyKey !== ''
     ? [{ bodyKey: effectiveTargetBodyKey }]
+    : undefined;
+  // 2026-11-15 live（extrude 合并范围）：单 body 可直接解析；多 body 必须显式
+  // 目标（targetBodyKey——目标下拉的默认首项不算显式选择）。解析不到 → 字段留空
+  // + 诚实提示，不提交伪作用域（revolution 沿用上面的 legacy 值，不在本切片）。
+  const explicitTargetBody = activeBodies.some((body) => body.bodyKey === targetBodyKey)
+    ? activeBodies.find((body) => body.bodyKey === targetBodyKey)
+    : undefined;
+  const mergeScopeBody = activeBodies.length === 1 ? activeBodies[0] : explicitTargetBody;
+  const extrudeMergeScopeBodies = nativeOperation === 'add' && !mergeAll && mergeScopeBody !== undefined
+    ? [{ bodyKey: mergeScopeBody.bodyKey }]
     : undefined;
   // 读面刷新中：N 未知 → insert 提交挂起（不得发无 target 的 regular insert）。
   const bodiesPending = insertTargetChannel && bodiesLoading === true;
@@ -2293,7 +2306,7 @@ export function FeatureDialog({
                   ...(startOffsetEnabled && startOffset.trim() !== '' && Number.isFinite(Number(startOffset))
                     ? { startOffsetMm: Number(startOffset) }
                     : {}),
-                  ...(mergeScopeBodies ? { mergeScope: mergeScopeBodies } : {}),
+                  ...(extrudeMergeScopeBodies ? { mergeScope: extrudeMergeScopeBodies } : {}),
                   // v1.22 ADR-0005：终止条件（缺省 blind=legacy 不携带该键）。
                   ...(extrudeChannel && effectiveEndBound === 'throughAll'
                     ? { endBound: 'throughAll' as const }
@@ -2392,6 +2405,13 @@ export function FeatureDialog({
             // 第二方向与 symmetric 互斥：关闭/对称时删除落库键，避免旧值残留。
             if (!secondDirectionEnabled || symmetric)
               delete (params as unknown as Record<string, unknown>).secondDirection;
+            // 2026-11-15：合并范围可编辑——全部合并=删除旧键（缺省=自动合并全部
+            // 上游体）；未勾选且可解析=显式单 body；解析不到时保留落库值（不改写为
+            // 伪作用域，也不误删既有合并配置）。
+            if (nativeOperation === 'add') {
+              if (mergeAll) delete editable.mergeScope;
+              else if (extrudeMergeScopeBodies !== undefined) editable.mergeScope = extrudeMergeScopeBodies;
+            }
           }
         } else if (featureType === 'revolve') {
           params = { ...stored, ...paramsPayload } as FeatureParams;
@@ -2538,6 +2558,8 @@ export function FeatureDialog({
     effectiveNewBody,
     nativeOperation,
     mergeScopeBodies,
+    mergeAll,
+    extrudeMergeScopeBodies,
     targetSelectorVisible,
     effectiveTargetBodyKey,
     bodiesPending,
@@ -2910,20 +2932,6 @@ export function FeatureDialog({
             {t('partStudio.featureDialog.booleanIntersectUnsupported')}
           </p>
         )}
-        {/* v1.19：Onshape「加入 + Part 1」合并范围回显（ADD 是同一特征内操作，无额外布尔行）。 */}
-        {nativeOperation === 'add' && mergeScopeBodies !== undefined && (
-          <p
-            role="note"
-            className="part-studio-feature-dialog__hint"
-            data-testid="part-studio-feature-dialog-merge-scope-hint"
-          >
-            {t('partStudio.featureDialog.mergeScopeHint', {
-              name: activeBodies.find((body) => body.bodyKey === mergeScopeBodies[0]?.bodyKey)?.name
-                ?? mergeScopeBodies[0]?.bodyKey ?? '?',
-            })}
-          </p>
-        )}
-
         {/* 编辑只读提示：loft/sweep 的草图结构引用、booleanBodies 的语义参数
             由服务端 updateParams 守卫拒收（换参数须删除特征后重建）。 */}
         {canEdit && editReadOnly && (
@@ -2943,7 +2951,9 @@ export function FeatureDialog({
         {extrudeChannel && (
           <section className="part-studio-feature-dialog__end-bound" data-testid="part-studio-feature-dialog-end-bound">
             {/* Onshape live（f6）：这一行本身就是终止类型组合框（当前值即标签），
-                没有额外的「终止条件」可见文字；可访问名保留 aria-label。 */}
+                没有额外的「终止条件」可见文字；可访问名保留 aria-label。
+                2026-11-15 live：行尾双向翻转钮=反向（「方向」复选不再承担反向）。 */}
+            <div className="part-studio-feature-dialog__end-bound-row">
             <select
               id="part-studio-feature-dialog-end-bound"
               aria-label={t('partStudio.featureDialog.endBoundLabel')}
@@ -3015,6 +3025,29 @@ export function FeatureDialog({
                 {t('partStudio.featureDialog.endBoundThroughAll')}
               </option>
             </select>
+            {/* Onshape live（2026-11-15）：终止行右侧的双向翻转图标=反向。翻转即
+                ExtrudeParams.direction（forward/backward）；aria-pressed 表达反向态。 */}
+            <button
+              type="button"
+              className="part-studio-feature-dialog__direction-flip"
+              aria-label={t('partStudio.featureDialog.directionOptions.backward')}
+              aria-pressed={direction === 'backward'}
+              title={t('partStudio.featureDialog.directionOptions.backward')}
+              disabled={submitting}
+              onClick={() => setDirection((prev) => (prev === 'backward' ? 'forward' : 'backward'))}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path
+                  d="M2 5h9M8 2l3 3-3 3M14 11H5M8 8l-3 3 3 3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            </div>
             {/* 目标顶点选择（仅 upToVertex）：候选=全部草图的点/线端点/弧端点/圆心。 */}
             {upToVertexActive && (
               <section
@@ -3144,7 +3177,10 @@ export function FeatureDialog({
         )}
         {!revolveChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
           && !patternChannel && !booleanBodiesChannel && (
-          <section className="part-studio-feature-dialog__distance">
+          <section
+            className="part-studio-feature-dialog__distance"
+            data-testid="part-studio-feature-dialog-depth-row"
+          >
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t(featureType === 'extrude' ? 'partStudio.featureDialog.depthLabel' : 'partStudio.featureDialog.distanceLabel')}
             </label>
@@ -3187,23 +3223,40 @@ export function FeatureDialog({
         )}
 
         {/* ADR-0017 Stage E（Onshape f6-extrude-dialog 行序）：方向/起始偏移
-            是**真复选框**（勾选才启用/下发）；起始偏移值行勾选后出现。
-            方向=反向（ExtrudeParams.direction=backward）；与预览/载荷同源。 */}
+            是**真复选框**；起始偏移值行勾选后出现。2026-11-15 live 修正：方向
+            行是可展开的「拉伸方向」图元选择器——自定义方向无后端通道（契约仅
+            forward/backward），故复选与字段诚实禁用；反向由终止行翻转钮承担。 */}
         {extrudeChannel && (
           <React.Fragment>
-            <label
-              className="part-studio-feature-dialog__checkbox"
-              data-testid="part-studio-feature-dialog-direction"
+            <div
+              className="part-studio-feature-dialog__direction-group"
+              data-testid="part-studio-feature-dialog-direction-group"
             >
-              <input
-                type="checkbox"
-                aria-label={t('partStudio.featureDialog.sections.direction')}
-                checked={direction === 'backward'}
-                disabled={submitting}
-                onChange={(event) => setDirection(event.target.checked ? 'backward' : 'forward')}
-              />
-              <span>{t('partStudio.featureDialog.sections.direction')}</span>
-            </label>
+              <label
+                className="part-studio-feature-dialog__checkbox"
+                data-testid="part-studio-feature-dialog-direction"
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <input
+                  type="checkbox"
+                  aria-label={t('partStudio.featureDialog.sections.direction')}
+                  disabled
+                  title={t('partStudio.featureDialog.notImplemented')}
+                />
+                <span>{t('partStudio.featureDialog.sections.direction')}</span>
+              </label>
+              {/* 展开区的「拉伸方向」query field（空态样式）：无拾取通道不伪造。 */}
+              <div
+                className="part-studio-feature-dialog__profile-field is-empty"
+                data-testid="part-studio-feature-dialog-direction-field"
+                aria-disabled="true"
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <label className="part-studio-feature-dialog__query-label">
+                  {t('partStudio.featureDialog.directionFieldLabel')}
+                </label>
+              </div>
+            </div>
             <label
               className="part-studio-feature-dialog__checkbox"
               data-testid="part-studio-feature-dialog-start-offset"
@@ -3323,7 +3376,7 @@ export function FeatureDialog({
             </label>
             {draftEnabled && (
               <React.Fragment>
-                <label className="part-studio-feature-dialog__distance">
+                <label className="part-studio-feature-dialog__distance" data-field="draft-angle">
                   <span>{t('partStudio.featureDialog.draftAngleLabel')}</span>
                   <input
                     type="text"
@@ -3374,7 +3427,7 @@ export function FeatureDialog({
               <span>{t('partStudio.featureDialog.secondEndLabel')}</span>
             </label>
             {secondDirectionEnabled && !symmetric && (
-              <section className="part-studio-feature-dialog__distance">
+              <section className="part-studio-feature-dialog__distance" data-field="second-direction">
                 <label
                   htmlFor="part-studio-feature-dialog-second-depth"
                   className="part-studio-feature-dialog__distance-label"
@@ -3415,6 +3468,67 @@ export function FeatureDialog({
               </section>
             )}
           </React.Fragment>
+        )}
+
+        {/* 2026-11-15 live（合并范围，仅「加入」）：全部合并（缺省未勾选）→
+            省略 mergeScope（契约缺省=自动合并全部上游体）；未勾选 → 有边框
+            query field + 目标体 chip。单 body 可直接解析；多 body 须显式目标
+            （目标实体下拉）——解析不到则字段留空 + 诚实提示，不发伪作用域。 */}
+        {extrudeChannel && nativeOperation === 'add' && (
+          <div
+            className="part-studio-feature-dialog__merge-scope-group"
+            data-testid="part-studio-feature-dialog-merge-scope-group"
+          >
+            <label
+              className="part-studio-feature-dialog__checkbox"
+              data-testid="part-studio-feature-dialog-merge-all"
+            >
+              <input
+                type="checkbox"
+                aria-label={t('partStudio.featureDialog.mergeAllLabel')}
+                checked={mergeAll}
+                disabled={submitting}
+                onChange={(event) => setMergeAll(event.target.checked)}
+              />
+              <span>{t('partStudio.featureDialog.mergeAllLabel')}</span>
+            </label>
+            {!mergeAll && (
+              <React.Fragment>
+                <div
+                  className={`part-studio-feature-dialog__profile-field${mergeScopeBody !== undefined ? '' : ' is-empty'}`}
+                  data-testid="part-studio-feature-dialog-merge-scope-field"
+                >
+                  <label className="part-studio-feature-dialog__query-label">
+                    {t('partStudio.featureDialog.mergeScopeLabel')}
+                  </label>
+                  {mergeScopeBody !== undefined && (
+                    <ul className="part-studio-feature-dialog__chips">
+                      <li>
+                        {/* testid 沿用旧 hint 锚点（真栈 tutorial2 依赖可见性）。 */}
+                        <span
+                          className="part-studio-feature-dialog__profile-chip"
+                          data-testid="part-studio-feature-dialog-merge-scope-hint"
+                        >
+                          {mergeScopeBody.name && mergeScopeBody.name.trim() !== ''
+                            ? mergeScopeBody.name
+                            : mergeScopeBody.bodyKey}
+                        </span>
+                      </li>
+                    </ul>
+                  )}
+                </div>
+                {mergeScopeBody === undefined && (
+                  <p
+                    role="note"
+                    className="part-studio-feature-dialog__hint"
+                    data-testid="part-studio-feature-dialog-merge-scope-unresolved-hint"
+                  >
+                    {t('partStudio.featureDialog.mergeScopeUnresolvedHint')}
+                  </p>
+                )}
+              </React.Fragment>
+            )}
+          </div>
         )}
 
         {/* B6 M-A3.2a：extrude「新建实体」复选（结构键）——勾选才在 params 带

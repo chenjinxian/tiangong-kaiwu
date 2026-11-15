@@ -970,7 +970,11 @@
     "vertexArcStart": "圆弧 {{id}} 起点",
     "vertexArcEnd": "圆弧 {{id}} 终点",
     "endBoundUpToPart": "成形到零件",
-    "notSupported": "尚未支持"
+    "notSupported": "尚未支持",
+    "directionFieldLabel": "拉伸方向",
+    "mergeAllLabel": "全部合并",
+    "mergeScopeLabel": "合并范围",
+    "mergeScopeUnresolvedHint": "存在多个实体且未指定目标实体：合并范围未确定（不提交该参数）"
   },
   "filletPick": {
     "prompt": "点击拾取要圆角的边",

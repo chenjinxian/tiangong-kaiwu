@@ -333,12 +333,19 @@ describe('平铺参数行（方向/起始偏移/对称/拔模；ADR-0017 Stage E
     expect(within(dialog).getByRole('checkbox', { name: '反向' })).toBeDefined();
   });
 
-  it('方向=反向复选 + 对称勾选 + 起始偏移值行（载荷由 op 用例钉死）', async () => {
+  it('方向行复选诚实禁用（不再是反向控件）+ 终止行翻转钮切反向 + 对称/起始偏移值行', async () => {
     renderDialog({ entities: [], featureType: 'extrude', mode: 'new', applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })) });
     const user = userEvent.setup();
     const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
-    await user.click(within(dialog).getByRole('checkbox', { name: '方向' }));
-    expect((within(dialog).getByRole('checkbox', { name: '方向' }) as HTMLInputElement).checked).toBe(true);
+    // 2026-11-15 live：方向=可展开的拉伸方向图元字段（无后端通道→禁用）；
+    // 反向由终止行翻转钮承担。
+    const directionCheckbox = within(dialog).getByRole('checkbox', { name: '方向' }) as HTMLInputElement;
+    expect(directionCheckbox.disabled).toBe(true);
+    expect(directionCheckbox.checked).toBe(false);
+    const flip = within(dialog).getByRole('button', { name: '反向' });
+    expect(flip.getAttribute('aria-pressed')).toBe('false');
+    await user.click(flip);
+    expect(flip.getAttribute('aria-pressed')).toBe('true');
     await user.click(within(dialog).getByRole('checkbox', { name: '对称' }));
     expect((within(dialog).getByRole('checkbox', { name: '对称' }) as HTMLInputElement).checked).toBe(true);
     await user.click(within(dialog).getByRole('checkbox', { name: '起始偏移' }));
@@ -1415,8 +1422,8 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
       params: { profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
 
-    // v1.22/ADR-0017 Stage E：方向=反向复选、起始偏移=勾选+值行 → 真实 params。
-    await user.click(screen.getByRole('checkbox', { name: '方向' }));
+    // v1.22/ADR-0017 Stage E：方向=反向（终止行翻转钮）、起始偏移=勾选+值行 → 真实 params。
+    await user.click(screen.getByRole('button', { name: '反向' }));
     await user.click(screen.getByRole('checkbox', { name: '起始偏移' }));
     const offsetInput = screen.getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement;
     await user.clear(offsetInput);
@@ -3573,6 +3580,41 @@ describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点�
 });
 
 // ---------------------------------------------------------------------------
+// Onshape live 2026-11-15 行序（extrude）：query field → 终止条件 → 深度 →
+// 方向 → 起始偏移 →（薄壁）→ 对称 → 拔模 → 第二个终止位置 → 合并范围。
+// 平铺行若缺 order 会以 order:0 浮到 query field 之上——样式层钉子按 CSS
+// 文本断言（jsdom 不计算 flex order，同 B3 禁用钮先例）。
+// ---------------------------------------------------------------------------
+describe('extrude 行序（Onshape live 2026-11-15）', () => {
+  const EXTRUDE = ".part-studio-feature-dialog[data-feature='extrude'] ";
+
+  function cssOrder(selector: string): number {
+    const block = cssRuleBlock(selector);
+    const match = block.match(/order:\s*(-?\d+)/);
+    expect(match, `order not found in ${selector}`).not.toBeNull();
+    return Number(match![1]);
+  }
+
+  it('十行 order 全显式且符合 live 顺序（query→终止→深度→方向→起始偏移→薄壁→对称→拔模→第二端→合并）', () => {
+    const orders = [
+      cssOrder(`${EXTRUDE}.part-studio-feature-dialog__entities`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-end-bound']`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-depth-row']`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-direction-group']`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-start-offset']`),
+      cssOrder(`${EXTRUDE}[data-field='thin-thickness']`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-symmetric-flat']`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-draft']`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-second-direction']`),
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-merge-scope-group']`),
+    ];
+    expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    // 非 extrude 特征不受行序规则影响（无 order 声明 → 视 CSS 级联；此处钉作用域）。
+    expect(featureDialogCss).not.toContain(".part-studio-feature-dialog[data-feature='revolve'] [data-testid='part-studio-feature-dialog-merge-scope-group']");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // B6 M-A3.2a：extrude newBody + >1 authored body 的 target 选择
 //  - extrude 「新建实体」复选：勾选才在 params 带 newBody:true（未勾省略）；
 //  - N>1 active authored body → 目标实体下拉（默认首个；值进 op.targetBodyId，
@@ -3811,6 +3853,87 @@ describe('B6 M-A3.2a newBody + target body（getBodies 读面消费）', () => {
     const checkbox = screen.getByRole('checkbox', { name: '新建实体' }) as HTMLInputElement;
     expect(checkbox.checked).toBe(false);
     expect(checkbox.disabled).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // 2026-11-15 live 审计切片：方向语义拆分 / 合并范围行组（仅 extrude add）
+  // -------------------------------------------------------------------------
+  it('终止行翻转钮：aria-pressed 切换 → params.direction=backward', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodies: [BODY_1] });
+    const flip = screen.getByRole('button', { name: '反向' });
+    expect(flip.getAttribute('aria-pressed')).toBe('false');
+    await user.click(flip);
+    expect(flip.getAttribute('aria-pressed')).toBe('true');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0],
+        operation: 'new', direction: 'backward',
+      },
+    });
+  });
+
+  it('方向复选禁用（不再是反向控件）+ 拉伸方向 query field 诚实禁用', async () => {
+    const applyOp = makeApplyOp();
+    await renderReadyExtrude(applyOp, { bodies: [BODY_1] });
+    const checkbox = screen.getByRole('checkbox', { name: '方向' }) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+    expect(checkbox.checked).toBe(false);
+    const field = screen.getByTestId('part-studio-feature-dialog-direction-field');
+    expect(field.getAttribute('aria-disabled')).toBe('true');
+    expect(field.getAttribute('title')).toBe('该能力尚未实现');
+    expect(field.textContent).toContain('拉伸方向');
+  });
+
+  it('合并范围：全部合并缺省未勾选 → 单 body chip + mergeScope；勾选 → 省略该键', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodies: [BODY_1] });
+    await user.click(screen.getByRole('tab', { name: '加入' }));
+    const mergeAll = screen.getByRole('checkbox', { name: '全部合并' }) as HTMLInputElement;
+    expect(mergeAll.checked).toBe(false);
+    const field = screen.getByTestId('part-studio-feature-dialog-merge-scope-field');
+    expect(field.className).not.toContain('is-empty');
+    expect(field.textContent).toContain('合并范围');
+    expect(field.textContent).toContain('Body 1');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0],
+        operation: 'add', mergeScope: [{ bodyKey: '0x15' }],
+      },
+    });
+    // 勾选全部合并 → 字段隐藏 + 载荷省略 mergeScope（契约缺省=合并全部上游体）。
+    await user.click(mergeAll);
+    expect(screen.queryByTestId('part-studio-feature-dialog-merge-scope-field')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls.at(-1)![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'add',
+      },
+    });
+  });
+
+  it('多体未指定目标：合并范围字段留空 + 诚实提示，载荷不发 mergeScope', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp, { bodies: ACTIVE_TWO });
+    await user.click(screen.getByRole('tab', { name: '加入' }));
+    const field = screen.getByTestId('part-studio-feature-dialog-merge-scope-field');
+    expect(field.className).toContain('is-empty');
+    expect(field.textContent).toContain('合并范围');
+    expect(field.textContent).not.toContain('Body');
+    expect(screen.getByTestId('part-studio-feature-dialog-merge-scope-unresolved-hint').textContent)
+      .toContain('未指定目标实体');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls.at(-1)![0] as unknown as { params: Record<string, unknown> };
+    expect(op.params.operation).toBe('add');
+    expect(op.params.mergeScope).toBeUndefined();
   });
 });
 
