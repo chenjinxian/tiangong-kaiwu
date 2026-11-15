@@ -359,8 +359,63 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
 - 真栈：cplane-line-angle/line-point/three-point 通过；cplane-point 修好空态
   热区后 **4000.000 mm³ 通过**（此前因 0 高度触发按钮超时）。
 
-后续按 W6（放样/扫掠）→ W7 其余（内联编辑定位/CSS、约束选中浅蓝、
-顶部提示 pill、fillet 徽标）串行实施。
+**W6 放样/扫掠（已完成）**：
+- 放样/扫掠补 live 两行页签壳（结果类型「实体」、布尔作用域「新建」为选中态，
+  全部 disabled + title=未实现；aria 名带特征前缀）——信息展示，不提供可点
+  no-op，载荷不变。
+- 放样有序截面收进 `轮廓` query field（42px 选中壳；≤2 截面时无移除钮），
+  新增 `终止形态` 可折叠组（起始/终止轮廓形态禁用「无」）与引导线/路径/
+  连接/显示等参线四条禁用行；范围说明改 sr-only（testid/文本保留）。
+- 扫掠 `要扫掠的面和草图面域` / `扫掠路径` 两个 query field，路径空值为
+  live 红框必填；延伸至完整路径/轮廓控制（无）/扭曲/缩放禁用行。
+- 单测 FeatureDialog **214/214**、web **1909/1909**；真栈
+  loft-sweep-preview/loft-multi-section **3 passed（3.7m）**（三截面
+  4000 mm³、两截面+扫掠 2427.575 mm³）。
+
+**W7b 内联尺寸编辑 + 约束选中（已完成）**：
+- 内联值输入框贴尺寸标签左侧（右缘距标签 4px、垂直居中；无标签矩形回退
+  双击点），纯函数 `computeDimensionEditorPlacement`；live 皮肤 100×26 白底、
+  1px #2850aa、radius 2、无阴影、13.3333px；右侧只读 mm/° 后缀（解析/载荷不变）。
+- 非尺寸约束 glyph 选中改为纯 #e2f0fa 填充、无边框/圆角（live 14-single-origin）。
+- picker/value 单测 **17/17**；真栈 sketch-dimension-edit/sketch-fillet/
+  sketch-constraint-glyphs **8 passed（3.3m）**。
+
+**E4 顶部提示 pill（已完成）**：
+- 阶段提示从光标卡拆出为画布顶部居中 pill：live 实测 ~180×27、底 #e2f0fa、
+  字 #1c4070 13px、radius 4、前导 ⓘ 14px、距工具栏 10px、无边框；
+  光标卡只保留实时尺寸（无尺寸不渲染空白卡），`sketch-tool-feedback` /
+  data-measures 锚点不变。
+- 覆盖层组件测试 8 + 总线 3；干净窗口 tutorial2+sketch-create-parity
+  **3 passed（5.4m）**（一次 HMR 打断的环境性红已如实记录，重跑通过）。
+
+**标题错误态两态修正（已完成）**：
+- live 复核纠正：健康对话框标题 **#333**，仅 `has-regen-error` 时 #AA252D
+  （sketch-dialog-front #333 / sketch-dialog-initial 红；feature-extrude-filled
+  等健康 #333 / 空态红）。此前校准误用错误态样本把标题恒钉为红。
+- SketchDialog：未选平面或提交错误 → 红，否则 #333；FeatureDialog：可编辑
+  但不可提交或提交错误 → 红，否则 #333。单测两态、e2e 增红→#333→红断言；
+  web **1919/1919**、tsc/e2e tsc/eslint 绿。
+
+**E3 圆角悬停徽标（已完成）**：
+- 草图圆角工具悬停可倒角角点（直线-直线/直线-圆弧）时，画布在角点显示
+  橙色实心圆点 **#f0b93f** + 右上角浅褐 **#cfa574** `R5` 纯文本（无底/无描边，
+  2px 白色描边光晕；私有证据 item6-current-before-typing / after-esc-fillet）。
+- 经 feedback bus 新增只读 `badge`（视口 CSS px，与 cursor 同空间），HTML
+  覆盖层渲染（pointer-events none / aria-hidden），不参与拾取与几何。
+- 仅圆角有 live 证据；倒角/偏移不加。反馈套件 32/32、web 1930/1930。
+
+**E1b 尺寸工具弹层等待（已完成）**：
+- live：尺寸值弹层打开期间工具保持激活（蓝色高亮），可链式标注；我方此前
+  发候选即退出。
+- 新增 `dimensionPopupClosed` 事件：仅在弹层关闭一个 dimension 候选
+  （确认成功/取消/草图切换）时发射；非法值/提交失败不关闭不发射；offset
+  候选由工具自持不发射。统一与旧尺寸工具发候选后保持安装、忽略画布拾取，
+  收到关闭事件后退出；清理退订防陈旧监听。自动开始第二个尺寸仍需探针。
+- 定向 46/46、web 1930/1930。
+
+后续：E5 剩余 chip 几何（未缩放度量/边框/hover 语义）与 E6 草图 pattern、
+E7 use 覆盖层仍缺 live 证据，需探针 S6a/S6b/S7/S8；S1a（值弹层下拉）、
+S3a（内联编辑 blur）、S4b（右下角读数）同样待采集。未采集前不改 UI。
 
 ## 10. 当前状态
 

@@ -178,9 +178,24 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **草图/特征全量 UI 对标执行（2026-11-15，纯前端；AIRR
+  `docs/superpowers/specs/2026-11-15-sketch-feature-ui-parity-audit-airr.md`，
+  私有矩阵 `D:/Github/onshape-parity-data/docs/UI-DIALOG-AUDIT-20261115.md`）**：
+  以 live 截图/DOM/computedStyles 为准的波次修复已落地 W1–W7（假控件清零、
+  圆角/倒角、孔/抽壳/移动面/分割、拉伸/旋转、镜像/阵列/布尔/变换/基准面、
+  放样/扫掠、草图实体菜单/尺寸弹框/内联编辑/约束选中/顶部提示 pill/圆角
+  悬停徽标/尺寸弹层链式）。**标题两态纠正**：健康 #333、has-regen-error
+  #AA252D（SketchDialog 未选平面/错误；FeatureDialog 可编辑未就绪/错误）。
+  能力缺口一律诚实禁用 + title，不提供可点 no-op；E5 剩余 chip 几何与
+  E6/E7（草图 pattern/use）仍待 live 探针。验证：web **1930/1930**、
+  `tsc`（src/e2e）/eslint 绿；真栈 sketch-fillet（含徽标）/dimension-edit/
+  offset-circle/constraint-glyphs/tutorial2 **10 passed（8.3m）**、
+  loft/sweep **3 passed**、cplane/镜像/布尔/变换/分割/移动面/抽壳/孔等
+  分组回归绿；一次 HMR 打断的 tutorial2 环境性红已重跑通过（如实记录）。
 - **草图创建对话框/平面框/取消删除/对话框图标/飞菜单图标（2026-11-13，纯前端；
   2026-11-15 按全量审计 live 重校准）**：
-  Onshape live 复核——标题 **500 13px rgb(170,37,45)**、header 29px + 1px
+  Onshape live 复核——标题 **500 13px**（**两态**：健康 #333 / has-regen-error
+  rgb(170,37,45)；2026-11-15 纠正，此前只采到错误态）、header 29px + 1px
   #d7d7d7 下边线；平面字段两态（空态 **26px** 单行 rgb(222,241,251)/1px
   rgb(22,81,176)；选中 42px 白底/1px rgb(215,215,215)；label 12px、值/开关行
   13.3333px）；✓ **#009400**、禁用同底 opacity 0.2；✗ 透明底红 X；时钟外置；
