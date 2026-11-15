@@ -1871,7 +1871,7 @@
   "holeDialog": {
     "units": "单位",
     "metric": "公制",
-    "inch": "英寸",
+    "inch": "Inch",
     "types": "孔类型",
     "simple": "简单",
     "counterbore": "沉头孔",
@@ -1906,12 +1906,17 @@
     "startPlane": "起始平面",
     "startFromPart": "从零件开始",
     "tipAngle": "钻尖角",
-    "tipDrill": "118°（标准钻尖）",
-    "tipFlat": "180°（平底）",
+    "tipDrill": "118 度",
+    "tipFlat": "180 度",
     "mergeScope": "合并范围",
     "autoTarget": "自动（活动零件）",
     "submitSuccess": "{{name}} 已创建",
-    "submitFailed": "孔提交失败"
+    "submitFailed": "孔提交失败",
+    "end": "终止",
+    "reverse": "反向",
+    "diameterTooltip": "直径",
+    "depthTooltip": "深度",
+    "tipAngleStyle": "顶锥角样式"
   },
   "shellDialog": {
     "facesLabel": "要移除的面",

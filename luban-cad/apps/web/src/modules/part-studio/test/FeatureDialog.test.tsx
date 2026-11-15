@@ -3041,6 +3041,21 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect(screen.queryByRole('combobox', { name: '草图' })).toBeNull();
   });
 
+  // Onshape live 2026-11-15：边选择 = 单一 query field（空态 26px 蓝底单行，
+  // 标签在字段内；字段本体点击即启动拾取）。
+  it('边查询字段：空态 is-empty 单行 + 字段内标签；点字段启动拾取并显示「结束拾取」', async () => {
+    const user = userEvent.setup();
+    renderFilletDialog(makeApplyOp());
+    const field = screen.getByTestId('part-studio-feature-dialog-edge-field');
+    expect(field.className).toContain('is-empty');
+    expect(field.textContent).toContain('要设置圆角的图元');
+    await user.click(field);
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    expect(field.className).toContain('is-picking');
+    expect(screen.getByTestId('part-studio-feature-dialog-add-edge').textContent).toBe('结束拾取');
+    expect(screen.getByTestId('part-studio-feature-dialog-picking-hint')).toBeDefined();
+  });
+
   // Onshape live + 审计（2026-11-15）：允许边溢出无实现通道——必须是禁用且
   // 未勾选的占位，不再是 enabled+checked 的假控件。
   it('「允许边溢出」为未实现占位：禁用未勾选（Onshape live + 审计 2026-11-15）', () => {
@@ -4150,11 +4165,29 @@ describe('成形到顶点（Stage G1）', () => {
 });
 
 describe('fillet 行序（ADR-0017 Stage E 追补）', () => {
+  const makeApplyOp = () =>
+    vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' }));
+
+  /** DOM 顺序断言（compareDocumentPosition；CSS order 不改变 DOM 序）。 */
+  function expectDomOrder(dialog: HTMLElement, selectors: string[]): void {
+    const nodes = selectors.map((selector) => {
+      const node = dialog.querySelector<HTMLElement>(selector);
+      expect(node, `missing ${selector}`).not.toBeNull();
+      return node!;
+    });
+    for (let index = 0; index < nodes.length - 1; index++) {
+      expect(
+        nodes[index]!.compareDocumentPosition(nodes[index + 1]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `${selectors[index]} should precede ${selectors[index + 1]}`,
+      ).toBeTruthy();
+    }
+  }
+
   it('切向延伸位于测量之前；圆角类型页签=边/全圆角（后者禁用）', () => {
     renderDialog({
       featureType: 'fillet',
       mode: 'new',
-      applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })),
+      applyOp: makeApplyOp(),
       hasBodies: true,
     });
     const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
@@ -4167,5 +4200,102 @@ describe('fillet 行序（ADR-0017 Stage E 追补）', () => {
     const tabs = within(dialog).getByRole('tablist', { name: '圆角类型' });
     expect(within(tabs).getByRole('tab', { name: '边' }).getAttribute('aria-selected')).toBe('true');
     expect((within(tabs).getByRole('tab', { name: '全圆角' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // Onshape live 2026-11-15 行序：边查询字段 → 切向延伸 → 测量 → 控制 → 半径
+  // → 不对称 → 部分圆角 → 可变圆角 → 允许边溢出 → 平滑圆角。
+  it('行序：边查询字段 → 切向延伸 → 测量 → 控制 → 半径 → 选项（DOM compareDocumentPosition）', () => {
+    renderDialog({
+      featureType: 'fillet',
+      mode: 'new',
+      applyOp: makeApplyOp(),
+      hasBodies: true,
+    });
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    expectDomOrder(dialog, [
+      '[data-field="edge-query"]',
+      '[data-testid="part-studio-feature-dialog-propagate-smooth"]',
+      '[data-field="measurement"]',
+      '[data-field="control"]',
+      '[data-field="radius"]',
+      '[data-testid="part-studio-feature-dialog-asymmetric"]',
+      '[data-testid="part-studio-feature-dialog-fillet-partial"]',
+      '[data-testid="part-studio-feature-dialog-fillet-variable"]',
+      '[data-testid="part-studio-feature-dialog-fillet-overflow"]',
+      '[data-testid="part-studio-feature-dialog-fillet-smooth"]',
+    ]);
+  });
+
+  // Onshape live 2026-11-15 行序（倒角）：边查询字段 → 测量 → 倒角类型 → 距离
+  // → 切向延伸。
+  it('倒角行序：边查询字段 → 测量 → 倒角类型 → 距离 → 切向延伸（DOM compareDocumentPosition）', () => {
+    renderDialog({
+      featureType: 'chamfer',
+      mode: 'new',
+      applyOp: makeApplyOp(),
+      hasBodies: true,
+    });
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    expectDomOrder(dialog, [
+      '[data-field="edge-query"]',
+      '[data-field="measurement"]',
+      '[data-field="chamfer-type"]',
+      '[data-field="radius"]',
+      '[data-testid="part-studio-feature-dialog-propagate-smooth"]',
+    ]);
+  });
+
+  it('测量/控制保持禁用并带未实现提示（title）；倒角类型仍可编辑', () => {
+    const fillet = renderDialog({
+      featureType: 'fillet',
+      mode: 'new',
+      applyOp: makeApplyOp(),
+      hasBodies: true,
+    });
+    for (const name of ['测量', '控制']) {
+      const select = screen.getByRole('combobox', { name }) as HTMLSelectElement;
+      expect(select.disabled).toBe(true);
+      expect(select.getAttribute('title')).toBe('该能力尚未实现');
+    }
+    fillet.unmount();
+
+    renderDialog({
+      featureType: 'chamfer',
+      mode: 'new',
+      applyOp: makeApplyOp(),
+      hasBodies: true,
+    });
+    expect((screen.getByRole('combobox', { name: '测量' }) as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).disabled).toBe(false);
+  });
+
+  it('半径/距离数值行 mm 单位可见；角度行无 mm；参数状态 ± 禁用且诚实 title', async () => {
+    const user = userEvent.setup();
+    const fillet = renderDialog({
+      featureType: 'fillet',
+      mode: 'new',
+      applyOp: makeApplyOp(),
+      hasBodies: true,
+    });
+    const radius = screen.getByRole('textbox', { name: '半径' });
+    const radiusRow = radius.closest('section')!;
+    expect(radiusRow.textContent).toContain('mm');
+    const radiusState = within(radiusRow).getByTestId('part-studio-feature-dialog-radius-state') as HTMLButtonElement;
+    expect(radiusState.disabled).toBe(true);
+    expect(radiusState.getAttribute('title')).toBe('该能力尚未实现');
+    expect(radiusState.textContent).toBe('±');
+    fillet.unmount();
+
+    renderDialog({
+      featureType: 'chamfer',
+      mode: 'new',
+      applyOp: makeApplyOp(),
+      hasBodies: true,
+    });
+    expect(screen.getByRole('textbox', { name: '距离' }).closest('section')!.textContent).toContain('mm');
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'distanceAngle');
+    const angleRow = screen.getByRole('textbox', { name: '角度' }).closest('section')!;
+    expect(angleRow.textContent).not.toContain('mm');
+    expect(within(angleRow).getByTestId('part-studio-feature-dialog-chamfer-angle-state')).toBeDefined();
   });
 });

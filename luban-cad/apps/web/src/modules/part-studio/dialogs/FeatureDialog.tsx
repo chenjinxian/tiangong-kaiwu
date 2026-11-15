@@ -2633,6 +2633,32 @@ export function FeatureDialog({
     </label>
   );
 
+  // 边查询字段的拾取触发器（空态=字段覆盖层；已选态=值行尾部「添加边」）。
+  // 空态可见文案由 query label 承担；拾取中显示「结束拾取」（测试锚点）。
+  const edgePickTrigger = (
+    <button
+      type="button"
+      className={filletEdges.length === 0
+        ? 'part-studio-feature-dialog__edge-field-trigger'
+        : 'part-studio-feature-dialog__edge-field-add'}
+      data-testid="part-studio-feature-dialog-add-edge"
+      aria-pressed={picking}
+      aria-label={picking
+        ? t('partStudio.featureDialog.stopPick')
+        : t('partStudio.featureDialog.addEdge')}
+      disabled={submitting}
+      onClick={picking ? stopPick : startPick}
+    >
+      <span aria-hidden="true">
+        {picking
+          ? t('partStudio.featureDialog.stopPick')
+          : filletEdges.length > 0
+            ? t('partStudio.featureDialog.addEdge')
+            : ''}
+      </span>
+    </button>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -3441,6 +3467,141 @@ export function FeatureDialog({
           </React.Fragment>
         )}
 
+        {/* fillet/chamfer 边查询字段（2026-11-15 Onshape live）：单一 query field
+            ——空态 26px 蓝底单行（字段本体内点击启动边拾取）/已选态 42px 白底
+            （12px 标签 + 13.3333px chips 值行 + ×移除）。DOM 顺序置于参数行之前，
+            与 live 行序一致（行序另有 CSS order 兜底）。 */}
+        {edgePickChannel && (
+          <section
+            className="part-studio-feature-dialog__edge-query"
+            data-field="edge-query"
+            data-testid="part-studio-feature-dialog-edge-query"
+          >
+            {!hasBodies ? (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-no-body-hint"
+              >
+                {t('partStudio.featureDialog.noBodyHint')}
+              </p>
+            ) : !connectionKey ? (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-edge-unpickable"
+              >
+                {t('partStudio.featureDialog.edgeUnpickable')}
+              </p>
+            ) : (
+              <div
+                className={[
+                  'part-studio-feature-dialog__profile-field',
+                  'part-studio-feature-dialog__edge-field',
+                  filletEdges.length === 0 ? 'is-empty' : '',
+                  picking ? 'is-picking' : '',
+                ].filter(Boolean).join(' ')}
+                data-testid="part-studio-feature-dialog-edge-field"
+                onClick={(event) => {
+                  if (submitting) return;
+                  if ((event.target as HTMLElement).closest('button') !== null) return;
+                  if (picking) stopPick();
+                  else startPick();
+                }}
+              >
+                <span className="part-studio-feature-dialog__query-label">
+                  {t(chamferChannel
+                    ? 'partStudio.featureDialog.chamferEdgesLabel'
+                    : 'partStudio.featureDialog.filletEdgesLabel')}
+                </span>
+                {filletEdges.length > 0 && (
+                  <div className="part-studio-feature-dialog__edge-field-value">
+                    <ul
+                      className="part-studio-feature-dialog__chips"
+                      data-testid="part-studio-feature-dialog-edge-chips"
+                    >
+                      {filletPicks.map((pick, index) => (
+                        <li
+                          key={`${pick.ownerElementId}:${filletEdgeRefKey(pick.ref)}`}
+                          className="part-studio-feature-dialog__chip"
+                        >
+                          <span className="part-studio-feature-dialog__chip-label">
+                            {t('partStudio.featureDialog.edgeChip', { index: index + 1 })}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={t('partStudio.featureDialog.removeEdge', { index: index + 1 })}
+                            className="part-studio-feature-dialog__chip-remove"
+                            disabled={submitting}
+                            onClick={() => {
+                              setFilletPicks((prev) => prev.filter((_, i) => i !== index));
+                            }}
+                          >
+                            <SvgClose />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    {edgePickTrigger}
+                  </div>
+                )}
+                {filletEdges.length === 0 && edgePickTrigger}
+              </div>
+            )}
+            {edgePickChannel && picking && (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-picking-hint"
+              >
+                {t('partStudio.featureDialog.pickingHint')}
+              </p>
+            )}
+
+            {/* Critical 1：fillet 的 target 按拾取边父体自动确定（只读显示）；跨体/
+                孤儿/消费态 owner → 显式错误 + 禁提交，绝不回落默认 body。 */}
+            {bodies !== undefined && activeBodies.length > 1 && (
+              filletTargetError !== undefined ? (
+                <p
+                  role="alert"
+                  className="part-studio-feature-dialog__alert"
+                  data-testid="part-studio-feature-dialog-fillet-target-error"
+                >
+                  {filletTargetError}
+                </p>
+              ) : filletDerivedBody ? (
+                <p
+                  role="note"
+                  className="part-studio-feature-dialog__hint"
+                  data-testid="part-studio-feature-dialog-fillet-target-body"
+                >
+                  {t('partStudio.featureDialog.filletTargetBody', {
+                    name: filletDerivedBody.name && filletDerivedBody.name.trim() !== ''
+                      ? filletDerivedBody.name
+                      : t('partStudio.tree.defaultBodyName', {
+                          index: activeBodies.indexOf(filletDerivedBody) + 1,
+                        }),
+                  })}
+                </p>
+              ) : null
+            )}
+
+            {/* 空边集门禁（M6-b T6）：「选择要圆角的边」+ ✓禁用（filletReady
+                判据；无 body 提示在场时让位——同一禁提交因，不双报）。 */}
+            {hasBodies && filletEdges.length === 0 && (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-no-edges-hint"
+              >
+                {t(chamferChannel
+                  ? 'partStudio.featureDialog.chamferNoEdgesHint'
+                  : 'partStudio.featureDialog.noEdgesHint')}
+              </p>
+            )}
+          </section>
+        )}
+
         {/* fillet/chamfer 参数区（M6-b T6；Slice 1b 增倒角模式）：半径/倒角距离
             +切向延伸复选。倒角按类型显示第二距离或角度；fillet 保持单半径。 */}
         {edgePickChannel && (
@@ -3458,6 +3619,7 @@ export function FeatureDialog({
                 className="part-studio-feature-dialog__select"
                 value="default"
                 disabled
+                title={t('partStudio.featureDialog.notImplemented')}
               >
                 <option value="default">
                   {t(chamferChannel
@@ -3477,6 +3639,7 @@ export function FeatureDialog({
                   className="part-studio-feature-dialog__select"
                   value="default"
                   disabled
+                  title={t('partStudio.featureDialog.notImplemented')}
                 >
                   <option value="default">{t('partStudio.featureDialog.controlOptions.distance')}</option>
                 </select>
@@ -3523,6 +3686,19 @@ export function FeatureDialog({
                 disabled={submitting}
                 onChange={(event) => setRadius(event.target.value)}
               />
+              <span className="part-studio-feature-dialog__value-unit">mm</span>
+              {/* Onshape live（2026-11-15）：数值行右侧参数状态 ± 图标；本产品
+                  无参数状态通道——诚实禁用并标注，不伪造可点。 */}
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator part-studio-feature-dialog__parameter-state"
+                data-testid="part-studio-feature-dialog-radius-state"
+                aria-label={t('partStudio.featureDialog.notImplemented')}
+                disabled
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <span aria-hidden="true">±</span>
+              </button>
             </section>
             {chamferChannel && chamferVariant === 'twoDistances' && (
               <section className="part-studio-feature-dialog__distance" data-field="chamfer-distance2">
@@ -3539,6 +3715,17 @@ export function FeatureDialog({
                   disabled={submitting}
                   onChange={(event) => setChamferDistance2(event.target.value)}
                 />
+                <span className="part-studio-feature-dialog__value-unit">mm</span>
+                <button
+                  type="button"
+                  className="part-studio-feature-dialog__calculator part-studio-feature-dialog__parameter-state"
+                  data-testid="part-studio-feature-dialog-distance2-state"
+                  aria-label={t('partStudio.featureDialog.notImplemented')}
+                  disabled
+                  title={t('partStudio.featureDialog.notImplemented')}
+                >
+                  <span aria-hidden="true">±</span>
+                </button>
               </section>
             )}
             {chamferChannel && chamferVariant === 'distanceAngle' && (
@@ -3556,6 +3743,16 @@ export function FeatureDialog({
                   disabled={submitting}
                   onChange={(event) => setChamferAngleDeg(event.target.value)}
                 />
+                <button
+                  type="button"
+                  className="part-studio-feature-dialog__calculator part-studio-feature-dialog__parameter-state"
+                  data-testid="part-studio-feature-dialog-chamfer-angle-state"
+                  aria-label={t('partStudio.featureDialog.notImplemented')}
+                  disabled
+                  title={t('partStudio.featureDialog.notImplemented')}
+                >
+                  <span aria-hidden="true">±</span>
+                </button>
               </section>
             )}
             {chamferChannel && propagateSmoothRow}
@@ -3598,6 +3795,7 @@ export function FeatureDialog({
             「Sketch 1 的 面」形态）；无草图/无面域 → 诚实提示 + 提交禁用。
             M6-b T6 分叉：fillet 新建 = 边 chips + 添加边（对话框驱动拾取）。
             其余（edit/非通道特征/壳期）保持通用 chips + 快速拾取不动。 */}
+        {!edgePickChannel && (
         <section
           className="part-studio-feature-dialog__entities"
           data-channel={sketchChannel ? 'sketch' : undefined}
@@ -3679,34 +3877,6 @@ export function FeatureDialog({
                 ))}
               </select>
             </section>
-          )}
-
-          {/* Critical 1：fillet 的 target 按拾取边父体自动确定（只读显示）；跨体/
-              孤儿/消费态 owner → 显式错误 + 禁提交，绝不回落默认 body。 */}
-          {edgePickChannel && bodies !== undefined && activeBodies.length > 1 && (
-            filletTargetError !== undefined ? (
-              <p
-                role="alert"
-                className="part-studio-feature-dialog__alert"
-                data-testid="part-studio-feature-dialog-fillet-target-error"
-              >
-                {filletTargetError}
-              </p>
-            ) : filletDerivedBody ? (
-              <p
-                role="note"
-                className="part-studio-feature-dialog__hint"
-                data-testid="part-studio-feature-dialog-fillet-target-body"
-              >
-                {t('partStudio.featureDialog.filletTargetBody', {
-                  name: filletDerivedBody.name && filletDerivedBody.name.trim() !== ''
-                    ? filletDerivedBody.name
-                    : t('partStudio.tree.defaultBodyName', {
-                        index: activeBodies.indexOf(filletDerivedBody) + 1,
-                      }),
-                })}
-              </p>
-            ) : null
           )}
 
           {/* chamfer/shell：工具体/owner 通道未接线（gated）——显式禁提交，不默认 target。 */}
@@ -3884,103 +4054,6 @@ export function FeatureDialog({
                 )}
               </React.Fragment>
             )
-          )}
-
-          {/* fillet 通道（M6-b T6）：无 body/无连接诚实降级 / 添加边拾取钮 /
-              拾取中提示 / 边 chips 列表（「边 N」+×移除）/ 空边集门禁。 */}
-          {edgePickChannel && (
-            <React.Fragment>
-              {!hasBodies ? (
-                <p
-                  role="note"
-                  className="part-studio-feature-dialog__hint"
-                  data-testid="part-studio-feature-dialog-no-body-hint"
-                >
-                  {t('partStudio.featureDialog.noBodyHint')}
-                </p>
-              ) : !connectionKey ? (
-                <p
-                  role="note"
-                  className="part-studio-feature-dialog__hint"
-                  data-testid="part-studio-feature-dialog-edge-unpickable"
-                >
-                  {t('partStudio.featureDialog.edgeUnpickable')}
-                </p>
-              ) : (
-                <React.Fragment>
-                  <button
-                    type="button"
-                    className="part-studio-feature-dialog__fast-pick"
-                    data-testid="part-studio-feature-dialog-add-edge"
-                    aria-pressed={picking}
-                    aria-label={picking
-                      ? t('partStudio.featureDialog.stopPick')
-                      : t('partStudio.featureDialog.addEdge')}
-                    disabled={submitting}
-                    onClick={picking ? stopPick : startPick}
-                  >
-                    <span aria-hidden="true">
-                      {picking
-                        ? t('partStudio.featureDialog.stopPick')
-                        : filletEdges.length > 0
-                          ? t('partStudio.featureDialog.addEdge')
-                          : t(chamferChannel
-                            ? 'partStudio.featureDialog.chamferEdgesLabel'
-                            : 'partStudio.featureDialog.filletEdgesLabel')}
-                    </span>
-                  </button>
-                  {picking && (
-                    <p
-                      role="note"
-                      className="part-studio-feature-dialog__hint"
-                      data-testid="part-studio-feature-dialog-picking-hint"
-                    >
-                      {t('partStudio.featureDialog.pickingHint')}
-                    </p>
-                  )}
-                </React.Fragment>
-              )}
-
-              {filletEdges.length > 0 && (
-                <ul className="part-studio-feature-dialog__chips" data-testid="part-studio-feature-dialog-edge-chips">
-                  {filletPicks.map((pick, index) => (
-                    <li
-                      key={`${pick.ownerElementId}:${filletEdgeRefKey(pick.ref)}`}
-                      className="part-studio-feature-dialog__chip"
-                    >
-                      <span className="part-studio-feature-dialog__chip-label">
-                        {t('partStudio.featureDialog.edgeChip', { index: index + 1 })}
-                      </span>
-                      <button
-                        type="button"
-                        aria-label={t('partStudio.featureDialog.removeEdge', { index: index + 1 })}
-                        className="part-studio-feature-dialog__chip-remove"
-                        disabled={submitting}
-                        onClick={() => {
-                          setFilletPicks((prev) => prev.filter((_, i) => i !== index));
-                        }}
-                      >
-                        <SvgClose />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* 空边集门禁（M6-b T6）：「选择要圆角的边」+ ✓禁用（filletReady
-                  判据；无 body 提示在场时让位——同一禁提交因，不双报）。 */}
-              {hasBodies && filletEdges.length === 0 && (
-                <p
-                  role="note"
-                  className="part-studio-feature-dialog__hint"
-                  data-testid="part-studio-feature-dialog-no-edges-hint"
-                >
-                  {t(chamferChannel
-                    ? 'partStudio.featureDialog.chamferNoEdgesHint'
-                    : 'partStudio.featureDialog.noEdgesHint')}
-                </p>
-              )}
-            </React.Fragment>
           )}
 
           {/* B4 mirror 通道：世界平面下拉（XY/YZ/XZ——过世界原点；首版无任意面/基准面引用）。
@@ -4720,6 +4793,7 @@ export function FeatureDialog({
             </ul>
           )}
         </section>
+        )}
 
         {/* 折叠段：方向/起始偏移/对称/拔模（os-31）。草图通道对称段隐藏
             （M6-b T4：平铺复选顶替，见 visibleSections 注记）。 */}

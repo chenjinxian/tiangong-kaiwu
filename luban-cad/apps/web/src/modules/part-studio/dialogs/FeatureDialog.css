@@ -963,6 +963,8 @@
 .part-studio-feature-dialog[data-feature='fillet'] .part-studio-feature-dialog__distance .part-studio-feature-dialog__input,
 .part-studio-feature-dialog[data-feature='chamfer'] .part-studio-feature-dialog__distance .part-studio-feature-dialog__input {
   border-color: transparent;
+  /* live 数值行保留底部 1px #d7d7d7 下划线（border-color 会连带抹掉底边）。 */
+  border-block-end-color: #d7d7d7;
   background: transparent;
   text-align: end;
 }
@@ -1068,17 +1070,93 @@
 .part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-scope-hint'] { order: 5; }
 .part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__mirror-plane { order: 2; }
 
-/* fillet/chamfer 的空态按钮占满实体字段宽度，视觉上即字段占位。 */
-.part-studio-feature-dialog[data-feature='fillet'] [data-testid='part-studio-feature-dialog-add-edge'],
-.part-studio-feature-dialog[data-feature='chamfer'] [data-testid='part-studio-feature-dialog-add-edge'] {
-  inline-size: 100%;
+/* fillet/chamfer 边查询字段（2026-11-15 live）：空态 26px 蓝底单行 / 已选态
+ * 42px 白底（12px 标签 + 13.3333px chips 值行）。字段本体即拾取入口。 */
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='edge-query'],
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='edge-query'] {
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 0;
-  padding: 2px 4px;
-  border: 1px solid #a9c4dd;
-  border-block-start: 0;
-  background: #eaf2fb;
-  text-align: start;
+  padding: 0;
+}
+
+.part-studio-feature-dialog__edge-field {
+  position: relative;
+  margin: 0;
+  padding: 0 6px;
+}
+
+.part-studio-feature-dialog__edge-field.is-empty {
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__edge-field.is-picking .part-studio-feature-dialog__query-label {
+  visibility: hidden;
+}
+
+.part-studio-feature-dialog__edge-field-value {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-block-size: 22px;
+}
+
+/* 空态：整字段即点击热区（文本由 query-label 呈现；拾取中显示「结束拾取」）。 */
+.part-studio-feature-dialog__edge-field-trigger {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font: inherit;
   font-size: 12px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__edge-field-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 已选态：值行尾部「添加边」入口（再点 = 恢复/结束拾取）。 */
+.part-studio-feature-dialog__edge-field-add {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__edge-field-add:enabled:hover {
+  color: #1651b0;
+}
+
+.part-studio-feature-dialog__edge-field-add:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.part-studio-feature-dialog__edge-field .part-studio-feature-dialog__chips {
+  flex: 1 1 auto;
+  min-block-size: 20px;
+}
+
+/* 已选态值行：13.3333px（live query field 值行字号）。 */
+.part-studio-feature-dialog__edge-field .part-studio-feature-dialog__chip,
+.part-studio-feature-dialog__edge-field .part-studio-feature-dialog__chip-label {
+  font-size: 13.3333px;
+  line-height: 20px;
 }
 
 /* CPlane：图元字段（浅蓝实体字段）+ 下拉菜单。 */
@@ -1382,4 +1460,232 @@
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+/* ── Hole live 对齐（2026-11-15 dialog-audit group-c §1；仅 hole 作用域）────
+ * 标题摘要、孔位/合并范围 query field（与 extrude 同两态皮肤）、图标数值行、
+ * 反向箭头、终止行标签、起始平面禁用单选项。载荷/默认值/校验不变。 */
+.part-studio-hole-dialog__summary {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 孔位：单字段（label 在字段内）+ 外侧右方装饰性时钟。 */
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__entities {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.part-studio-hole-dialog__locations-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  inline-size: 100%;
+}
+
+.part-studio-hole-dialog__locations-row .part-studio-feature-dialog__profile-field {
+  flex: 1 1 auto;
+  inline-size: auto;
+  margin: 2px 0;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__profile-field.is-empty {
+  min-block-size: 26px;
+  padding: 0 6px;
+  border: 1px solid #1651b0;
+  border-radius: 2px;
+  background: #def1fb;
+  justify-content: center;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__profile-field.is-selected {
+  min-block-size: 42px;
+  padding: 0 6px;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.part-studio-hole-dialog__clock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6d7d8c;
+}
+
+.part-studio-hole-dialog__clock svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+/* 合并范围：query field 外壳 + 内层单目标 select（不做多选）。 */
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__merge-scope {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: default;
+}
+
+.part-studio-hole-dialog__merge-select {
+  block-size: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 13.3333px;
+}
+
+/* 孔类型/钻孔尺寸：11px 灰标签 + 14px 值、无边框（保持禁用 + title 理由）。 */
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type,
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-block-size: 21px;
+  gap: 8px;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type .part-studio-feature-dialog__distance-label,
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 11px;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type .part-studio-feature-dialog__select,
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size .part-studio-feature-dialog__select {
+  border: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 14px;
+}
+
+/* 直径/深度/钻尖：图标 + 右对齐值 + 单位 + 计算器/反向；底部 1px 下划线。 */
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__icon-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__depth-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__tip-row {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.part-studio-hole-dialog__value-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 18px;
+  block-size: 18px;
+  color: #333333;
+}
+
+.part-studio-hole-dialog__value-icon svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__value-row .part-studio-feature-dialog__input {
+  border-block-end: 1px solid #d7d7d7;
+  text-align: end;
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__icon-row .part-studio-feature-dialog__select {
+  border-block-end: 1px solid #d7d7d7;
+  text-align: end;
+}
+
+.part-studio-hole-dialog__diameter-row .part-studio-hole-dialog__unit,
+.part-studio-hole-dialog__depth-row .part-studio-hole-dialog__unit {
+  color: #333333;
+  font-size: 13.3333px;
+}
+
+/* 反向箭头（替换旧「方向」下拉；direction 载荷语义不变）。 */
+.part-studio-hole-dialog__reverse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-hole-dialog__reverse[aria-pressed='true'] {
+  color: #1651b0;
+}
+
+.part-studio-hole-dialog__reverse svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+/* 终止行可见标签（aria 名仍为「终止条件」）。 */
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__end-bound {
+  grid-template-columns: 62px minmax(0, 1fr);
+}
+
+.part-studio-feature-dialog[data-feature='hole'] .part-studio-feature-dialog__end-bound .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 12px;
+}
+
+/* ── fillet/chamfer 参数行（2026-11-15 live）：12px 标签 + 右对齐 13.3333px
+ * 值 + mm 单位 + 禁用的参数状态 ±；下划线 1px #d7d7d7。测量/控制保持禁用
+ * （title=未实现），倒角类型仍可编辑。 */
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='measurement'] .part-studio-feature-dialog__select,
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='control'] .part-studio-feature-dialog__select,
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='measurement'] .part-studio-feature-dialog__select,
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='chamfer-type'] .part-studio-feature-dialog__select {
+  text-align: end;
+}
+
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='measurement'] .part-studio-feature-dialog__select:disabled,
+.part-studio-feature-dialog[data-feature='fillet'] [data-field='control'] .part-studio-feature-dialog__select:disabled,
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='measurement'] .part-studio-feature-dialog__select:disabled {
+  color: #333333;
+  background: transparent;
+}
+
+/* 倒角角度：与长度行同构（label / 右对齐值 / 状态 ±；无 mm 单位）。 */
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='chamfer-angle'] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-block-size: 27px;
+  padding: 0 3px;
+  gap: 6px;
+}
+
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='chamfer-angle'] .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog[data-feature='chamfer'] [data-field='chamfer-angle'] .part-studio-feature-dialog__input {
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: transparent;
+  text-align: end;
+}
+
+/* 参数状态 ±：复用禁用计算器样式（透明底、禁用降透明度、诚实 title）。 */
+.part-studio-feature-dialog__parameter-state {
+  color: #333333;
+  font-size: 14px;
+  line-height: 1;
 }

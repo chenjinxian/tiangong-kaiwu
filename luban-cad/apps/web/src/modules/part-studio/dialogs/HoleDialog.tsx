@@ -350,6 +350,15 @@ export function HoleDialog({
   const [locationsOpen, setLocationsOpen] = React.useState(false);
   const selectedLabels = (options ?? []).filter((o) => selected.has(o.key)).map((o) => o.label);
   const activeBodies = bodies.filter((b) => b.active && b.authored !== false);
+  // 标题摘要（Onshape live 2026-11-15：`Ø 0.25 in ↧ 0.5 in`；沉头孔追加
+  // `| ⌴Ø … ↧ …`；倒角孔摘要无 live 证据，只显示简单段）。数值按当前单位
+  // 4 位小数截断（numberText），不改变载荷/默认值。
+  const unitText = unit === 'mm' ? 'mm' : 'in';
+  const formatDisplay = (value: string): string => (value.trim() === '' ? '' : numberText(Number(value)));
+  const summarySimple = `Ø ${formatDisplay(diameter)} ${unitText} ↧ ${formatDisplay(depth)} ${unitText}`;
+  const summary = holeStyle === 'counterbore'
+    ? `${summarySimple} | ⌴Ø ${formatDisplay(counterboreDiameter)} ${unitText} ↧ ${formatDisplay(counterboreDepth)} ${unitText}`
+    : summarySimple;
   const tabClass = (active: boolean, disabled = false): string => [
     'part-studio-feature-dialog__tab',
     active ? 'part-studio-feature-dialog__tab--active' : '',
@@ -367,7 +376,9 @@ export function HoleDialog({
       className="part-studio-feature-dialog"
     >
       <header className="part-studio-feature-dialog__header">
-        <h2 className="part-studio-feature-dialog__title">{featureName}</h2>
+        <h2 className="part-studio-feature-dialog__title" aria-label={featureName}>
+          <span className="part-studio-hole-dialog__summary" data-testid="part-studio-hole-summary">{summary}</span>
+        </h2>
         <DialogHeaderButtons disabled={submitDisabled} onConfirm={() => void confirm()} onCancel={() => onCancel?.()} />
       </header>
       <div className="part-studio-feature-dialog__body">
@@ -390,35 +401,50 @@ export function HoleDialog({
         </div>
 
         <section className="part-studio-feature-dialog__entities" data-testid="hole-locations-field">
-          <div className="part-studio-feature-dialog__entities-header">
-            <span className="part-studio-feature-dialog__entities-label">{t('partStudio.holeDialog.locations')}</span>
-            {sketches.length > 1 && (
-              <select id="hole-sketch" data-testid="hole-sketch-select" className="part-studio-feature-dialog__select part-studio-hole-dialog__sketch"
-                value={sketchId} onChange={(e) => setSketchId(e.target.value)}>
-                {sketches.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
-            )}
-            {sketches.length === 1 && (
-              <select id="hole-sketch" data-testid="hole-sketch-select" aria-label={t('partStudio.holeDialog.locations')}
-                className="part-studio-hole-dialog__hidden-select" tabIndex={-1} value={sketchId}
-                onChange={(e) => setSketchId(e.target.value)}>
-                {sketches.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
-            )}
+          <div className="part-studio-hole-dialog__locations-row">
+            <button
+              type="button"
+              className={`part-studio-feature-dialog__profile-field part-studio-hole-dialog__locations-field${selectedLabels.length > 0 ? ' is-selected' : ' is-empty'}`}
+              aria-expanded={locationsOpen}
+              onClick={() => setLocationsOpen((v) => !v)}
+              data-testid="hole-locations-toggle"
+            >
+              <span className="part-studio-feature-dialog__query-label">{t('partStudio.holeDialog.locations')}</span>
+              {selectedLabels.length > 0 && (
+                <span className="part-studio-feature-dialog__chips">
+                  {selectedLabels.map((label, index) => (
+                    <span key={`${label}-${index}`} className="part-studio-feature-dialog__profile-chip">{label}</span>
+                  ))}
+                </span>
+              )}
+            </button>
+            {/* live：时钟在字段外侧右方；无弹层通道 → 装饰性禁用（aria-hidden）。 */}
+            <button
+              type="button"
+              className="part-studio-hole-dialog__clock"
+              aria-hidden="true"
+              disabled
+              tabIndex={-1}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" />
+                <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
-          <button
-            type="button"
-            className="part-studio-feature-dialog__profile-field"
-            aria-expanded={locationsOpen}
-            onClick={() => setLocationsOpen((v) => !v)}
-            data-testid="hole-locations-toggle"
-          >
-            {selectedLabels.length > 0
-              ? selectedLabels.map((label, index) => (
-                <span key={`${label}-${index}`} className="part-studio-feature-dialog__profile-chip">{label}</span>
-              ))
-              : <span className="part-studio-feature-dialog__profile-empty">{t('partStudio.holeDialog.locations')}</span>}
-          </button>
+          {sketches.length > 1 && (
+            <select id="hole-sketch" data-testid="hole-sketch-select" className="part-studio-feature-dialog__select part-studio-hole-dialog__sketch"
+              value={sketchId} onChange={(e) => setSketchId(e.target.value)}>
+              {sketches.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          )}
+          {sketches.length === 1 && (
+            <select id="hole-sketch" data-testid="hole-sketch-select" aria-label={t('partStudio.holeDialog.locations')}
+              className="part-studio-hole-dialog__hidden-select" tabIndex={-1} value={sketchId}
+              onChange={(e) => setSketchId(e.target.value)}>
+              {sketches.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          )}
           {pointsError && <span className="part-studio-feature-dialog__hint">{pointsError}</span>}
           {locationsOpen && options && options.length > 0 && (
             <div data-testid="hole-points" className="part-studio-hole-dialog__locations-list">
@@ -438,33 +464,72 @@ export function HoleDialog({
           )}
         </section>
 
-        <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__merge-scope">
-          <label htmlFor="hole-target" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.mergeScope')}</label>
-          <select id="hole-target" className="part-studio-feature-dialog__select" value={targetBodyId} onChange={(e) => setTargetBodyId(e.target.value)}>
+        <div
+          className={`part-studio-feature-dialog__profile-field part-studio-hole-dialog__merge-scope${targetBodyId === '' ? ' is-empty' : ' is-selected'}`}
+          data-testid="hole-merge-scope-field"
+        >
+          <label htmlFor="hole-target" className="part-studio-feature-dialog__query-label">{t('partStudio.holeDialog.mergeScope')}</label>
+          <select
+            id="hole-target"
+            className="part-studio-hole-dialog__merge-select"
+            value={targetBodyId}
+            aria-label={t('partStudio.holeDialog.mergeScope')}
+            onChange={(e) => setTargetBodyId(e.target.value)}
+          >
             <option value="">{t('partStudio.holeDialog.autoTarget')}</option>
             {activeBodies.map((b) => (
               <option key={b.bodyKey} value={b.bodyKey}>{b.name ?? b.bodyKey}</option>
             ))}
           </select>
-        </section>
+        </div>
 
         <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__type">
           <span className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.holeTypeLabel')}</span>
-          <select className="part-studio-feature-dialog__select" disabled value="drill" aria-label={t('partStudio.holeDialog.holeTypeLabel')}>
+          <select className="part-studio-feature-dialog__select" disabled value="drill"
+            aria-label={t('partStudio.holeDialog.holeTypeLabel')} title={t('partStudio.featureDialog.notImplemented')}>
             <option value="drill">{t('partStudio.holeDialog.holeTypeDrill')}</option>
           </select>
         </section>
         <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__size">
           <span className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.holeSizeLabel')}</span>
-          <select className="part-studio-feature-dialog__select" disabled value="custom" aria-label={t('partStudio.holeDialog.holeSizeLabel')}>
+          <select className="part-studio-feature-dialog__select" disabled value="custom"
+            aria-label={t('partStudio.holeDialog.holeSizeLabel')} title={t('partStudio.featureDialog.notImplemented')}>
             <option value="custom">{t('partStudio.holeDialog.holeSizeCustom', { value: diameter })}</option>
           </select>
         </section>
-        <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
-          <label htmlFor="hole-diameter" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.diameter')}</label>
+        <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row part-studio-hole-dialog__icon-row part-studio-hole-dialog__diameter-row">
+          <span
+            className="part-studio-hole-dialog__value-icon"
+            title={`${t('partStudio.holeDialog.diameterTooltip')}: ${formatDisplay(diameter)} ${unitText}`}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" />
+              <path d="M3 8h10M4.75 6l-2 2 2 2M11.25 6l2 2-2 2" fill="none" stroke="currentColor" />
+            </svg>
+          </span>
           <input id="hole-diameter" data-testid="hole-diameter" className="part-studio-feature-dialog__input" inputMode="decimal"
+            aria-label={t('partStudio.holeDialog.diameter')}
             value={diameter} onChange={(e) => setDiameter(e.target.value)} />
-          <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
+          <span className="part-studio-hole-dialog__unit">{unitText}</span>
+          <button
+            type="button"
+            className="part-studio-feature-dialog__calculator"
+            aria-label={t('partStudio.featureDialog.calculatorLabel')}
+            disabled
+            title={t('partStudio.featureDialog.notImplemented')}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+              <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+              <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+              <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+              <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+            </svg>
+          </button>
         </section>
         {holeStyle === 'counterbore' && (
           <>
@@ -499,10 +564,21 @@ export function HoleDialog({
           </>
         )}
         <section className="part-studio-feature-dialog__distance">
-          <span className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.startPlane')}</span>
-          <span className="part-studio-feature-dialog__static-value">{t('partStudio.holeDialog.startFromPart')}</span>
+          <label htmlFor="hole-start-plane" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.startPlane')}</label>
+          <select
+            id="hole-start-plane"
+            data-testid="hole-start-plane"
+            className="part-studio-feature-dialog__select"
+            disabled
+            value="part"
+            aria-label={t('partStudio.holeDialog.startPlane')}
+            title={t('partStudio.featureDialog.notImplemented')}
+          >
+            <option value="part">{t('partStudio.holeDialog.startFromPart')}</option>
+          </select>
         </section>
         <section className="part-studio-feature-dialog__end-bound">
+          <span className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.end')}</span>
           <select id="hole-end" data-testid="hole-end-bound" className="part-studio-feature-dialog__select" value={endBound}
             onChange={(e) => setEndBound(e.target.value as HoleEndBound)} aria-label={t('partStudio.holeDialog.endBound')}>
             <option value="blind">{t('partStudio.holeDialog.blind')}</option>
@@ -510,38 +586,72 @@ export function HoleDialog({
             <option value="throughAll">{t('partStudio.holeDialog.throughAll')}</option>
           </select>
         </section>
-        <section className="part-studio-feature-dialog__distance">
-          <label htmlFor="hole-direction" className="part-studio-feature-dialog__distance-label">
-            {t('partStudio.featureDialog.direction')}
-          </label>
-          <select
-            id="hole-direction"
-            data-testid="hole-direction"
-            className="part-studio-feature-dialog__select"
-            value={direction}
-            onChange={(e) => setDirection(e.target.value as 'forward' | 'backward')}
-          >
-            <option value="forward">{t('partStudio.featureDialog.directionOptions.forward')}</option>
-            <option value="backward">{t('partStudio.featureDialog.directionOptions.backward')}</option>
-          </select>
-        </section>
         {endBound === 'blind' && (
-          <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
-            <label htmlFor="hole-depth" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.depth')}</label>
+          <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row part-studio-hole-dialog__icon-row part-studio-hole-dialog__depth-row">
+            <span
+              className="part-studio-hole-dialog__value-icon"
+              title={`${t('partStudio.holeDialog.depthTooltip')}: ${formatDisplay(depth)} ${unitText}`}
+              aria-hidden="true"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M8 2v8.5M5.5 8.5 8 11l2.5-2.5M3 13.5h10" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
             <input id="hole-depth" data-testid="hole-depth" className="part-studio-feature-dialog__input" inputMode="decimal"
+              aria-label={t('partStudio.holeDialog.depth')}
               value={depth} onChange={(e) => setDepth(e.target.value)} />
-            <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
+            <span className="part-studio-hole-dialog__unit">{unitText}</span>
+            <button
+              type="button"
+              className="part-studio-feature-dialog__calculator"
+              aria-label={t('partStudio.featureDialog.calculatorLabel')}
+              disabled
+              title={t('partStudio.featureDialog.notImplemented')}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="part-studio-hole-dialog__reverse"
+              data-testid="hole-reverse"
+              aria-label={t('partStudio.holeDialog.reverse')}
+              aria-pressed={direction === 'backward'}
+              title={t('partStudio.holeDialog.reverse')}
+              onClick={() => setDirection((prev) => (prev === 'forward' ? 'backward' : 'forward'))}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <path d="M2.5 8h10M9.5 5l3 3-3 3" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </section>
         )}
-        <section className="part-studio-feature-dialog__distance">
-          <label htmlFor="hole-tip-angle" className="part-studio-feature-dialog__distance-label">
-            {t('partStudio.holeDialog.tipAngle')}
-          </label>
+        <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__icon-row part-studio-hole-dialog__tip-row">
+          <span
+            className="part-studio-hole-dialog__value-icon"
+            title={t('partStudio.holeDialog.tipAngleStyle')}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M3 3h10l-5 10z" fill="none" stroke="currentColor" strokeLinejoin="round" />
+              <path d="M3 3h10" fill="none" stroke="currentColor" />
+            </svg>
+          </span>
           <select
             id="hole-tip-angle"
             data-testid="hole-tip-angle"
             className="part-studio-feature-dialog__select"
             value={String(tipAngleDeg)}
+            aria-label={t('partStudio.holeDialog.tipAngle')}
+            title={t('partStudio.holeDialog.tipAngleStyle')}
             onChange={(e) => setTipAngleDeg(Number(e.target.value))}
           >
             <option value="118">{t('partStudio.holeDialog.tipDrill')}</option>

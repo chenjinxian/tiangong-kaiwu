@@ -181,7 +181,7 @@ test.describe('孔（ADR-0006 切片 A/A2/A3）真栈', () => {
     await backwardDialog.getByLabel('点 1').check();
     await backwardDialog.getByTestId('hole-end-bound').selectOption('blind');
     await backwardDialog.getByTestId('hole-depth').fill('4');
-    await backwardDialog.getByTestId('hole-direction').selectOption('backward');
+    await backwardDialog.getByRole('button', { name: '反向' }).click();
     await backwardDialog.getByRole('button', { name: '确认' }).click();
     await expect(backwardDialog).toBeHidden({ timeout: 90_000 });
     const backwardMass = await getMassPropertiesRpc(ctx, token);

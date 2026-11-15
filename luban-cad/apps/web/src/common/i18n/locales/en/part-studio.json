@@ -1906,12 +1906,17 @@
     "startPlane": "Start plane",
     "startFromPart": "Start from part",
     "tipAngle": "Tip angle",
-    "tipDrill": "118° (standard drill point)",
-    "tipFlat": "180° (flat)",
+    "tipDrill": "118 deg",
+    "tipFlat": "180 deg",
     "mergeScope": "Merge scope",
     "autoTarget": "Automatic (active part)",
     "submitSuccess": "{{name}} created",
-    "submitFailed": "Hole submission failed"
+    "submitFailed": "Hole submission failed",
+    "end": "End",
+    "reverse": "Reverse",
+    "diameterTooltip": "Diameter",
+    "depthTooltip": "Depth",
+    "tipAngleStyle": "Tip angle style"
   },
   "shellDialog": {
     "facesLabel": "Faces to shell",

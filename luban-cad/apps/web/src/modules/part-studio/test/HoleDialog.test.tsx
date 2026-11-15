@@ -90,6 +90,17 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     expect(mocks.getSketch).toHaveBeenCalledWith('conn-1', 'sketch-1', 'ps-1');
   });
 
+  it('标题摘要：简单孔 Ø 直径 ↧ 深度（当前单位 4 位小数截断）', () => {
+    renderDialog();
+    expect(screen.getByTestId('part-studio-hole-summary').textContent).toBe('Ø 5 mm ↧ 10 mm');
+    fireEvent.change(screen.getByTestId('hole-diameter'), { target: { value: '6.25' } });
+    fireEvent.change(screen.getByTestId('hole-depth'), { target: { value: '12' } });
+    expect(screen.getByTestId('part-studio-hole-summary').textContent).toBe('Ø 6.25 mm ↧ 12 mm');
+    // live 字面量「Inch」（zh-CN 旧值「英寸」已按 2026-11-15 证据更正）。
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    expect(screen.getByTestId('part-studio-hole-summary').textContent).toBe('Ø 0.2461 in ↧ 0.4724 in');
+  });
+
   it('blind 提交 hole insertFeature 载荷（不含 inch 换算字段）', async () => {
     const { applyOp } = renderDialog();
     openLocations();
@@ -216,7 +227,12 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     fireEvent.click(await screen.findByLabelText('点 1'));
     fireEvent.click(screen.getByText('沉头孔').closest('button')!);
     expect(screen.getByTestId('hole-cbore-diameter')).toBeTruthy();
+    // 沉头孔摘要追加 `| ⌴Ø … ↧ …`（live 证据；单位随当前单位）。
+    expect(screen.getByTestId('part-studio-hole-summary').textContent)
+      .toBe('Ø 5 mm ↧ 10 mm | ⌴Ø 10 mm ↧ 5 mm');
     fireEvent.change(screen.getByTestId('hole-cbore-depth'), { target: { value: '3' } });
+    expect(screen.getByTestId('part-studio-hole-summary').textContent)
+      .toBe('Ø 5 mm ↧ 10 mm | ⌴Ø 10 mm ↧ 3 mm');
     fireEvent.click(screen.getByRole('button', { name: '确认' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
     expect(applyOp.mock.calls[0]![0]).toEqual({
@@ -262,12 +278,14 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     });
   });
 
-  it('方向反向：选 backward → 载荷 direction=backward（live「反向」控件）', async () => {
+  it('反向按钮：点击 → 载荷 direction=backward（live「反向」图标控件）', async () => {
     const { applyOp } = renderDialog();
     openLocations();
     fireEvent.click(await screen.findByLabelText('点 1'));
-    expect((screen.getByTestId('hole-direction') as HTMLSelectElement).value).toBe('forward');
-    fireEvent.change(screen.getByTestId('hole-direction'), { target: { value: 'backward' } });
+    const reverse = screen.getByRole('button', { name: '反向' });
+    expect(reverse.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(reverse);
+    expect(reverse.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: '确认' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
     expect(applyOp.mock.calls[0]![0]).toMatchObject({
@@ -283,6 +301,9 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     fireEvent.click(await screen.findByLabelText('点 1'));
     const tip = screen.getByTestId('hole-tip-angle') as HTMLSelectElement;
     expect(tip.value).toBe('118');
+    // live 选项文案「118 度 / 180 度」（值仍 118/180）。
+    expect(screen.getByRole('option', { name: '118 度' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: '180 度' })).toBeTruthy();
     fireEvent.change(tip, { target: { value: '180' } });
     fireEvent.click(screen.getByRole('button', { name: '确认' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
