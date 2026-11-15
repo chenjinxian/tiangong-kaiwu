@@ -41,8 +41,8 @@
   gap: 2px;
 }
 
-/* Onshape live（2026-11-12 像素采样）：✓=实心绿 #419228 / ✗=实心红 #ae3c3e，
-   28×28 圆角方块 + 白色图标；平面未选时 ✓ 为浅绿禁用底 #d9e9d4。 */
+/* Onshape live（2026-11-15 复核）：✓=实心绿 rgb(0,148,0) / ✗=透明底红 X，
+   28×28；禁用 ✓ 同底色 + opacity 0.2（旧浅绿底 #d9e9d4 已纠正）。 */
 .part-studio-sketch-dialog__confirm,
 .part-studio-sketch-dialog__cancel {
   display: inline-flex;
@@ -58,15 +58,16 @@
 }
 
 .part-studio-sketch-dialog__confirm {
-  background: #419228;
+  background: #009400;
 }
 
 .part-studio-sketch-dialog__confirm:enabled:hover {
-  background: #37801f;
+  background: #008200;
 }
 
 .part-studio-sketch-dialog__confirm:disabled {
-  background: #d9e9d4;
+  background: #009400;
+  opacity: 0.2;
   cursor: not-allowed;
 }
 
@@ -288,16 +289,18 @@
 
 .part-studio-sketch-dialog__header {
   min-block-size: 29px;
-  padding: 0 0 0 4px;
+  padding: 0 0 0 6px;
   gap: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: #ffffff;
 }
 
 .part-studio-sketch-dialog__title {
   overflow: hidden;
-  /* Onshape live f4/f5 像素采样（2026-11-13）：标题 rgb(51,51,51)、500 16px
-     （旧值为深红 #9c3132 / 14px，已按 live 复核修正）。 */
-  color: #333333;
-  font-size: 16px;
+  /* Onshape live computedStyles（2026-11-15）：标题 500 13px rgb(170,37,45)；
+     旧 16px #333 采到的是容器字号而非标题 span。 */
+  color: #aa252d;
+  font-size: 13px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -349,9 +352,9 @@
   line-height: 18px;
 }
 
-/* Onshape live f4/f5（2026-11-13 像素采样）：字段堆叠——小号「草图平面」标签 +
-   值行；空态底 #e2f0fa / 2px 边框 rgb(40,80,170)，已选态底 #fbfdfe / 1px
-   rgb(149,149,149) 边框。 */
+/* Onshape live（2026-11-15 复核）：空态单行 26px、底 rgb(222,241,251)、
+   1px 边框 rgb(22,81,176)、2px 圆角；已选态 42px（12px 小标签 + 13.3333px
+   值行）、白底、1px 边框 rgb(215,215,215)。旧值 42px/#e2f0fa/2px 蓝边已纠正。 */
 .part-studio-sketch-dialog__plane-row {
   display: flex;
   flex-direction: row;
@@ -370,15 +373,17 @@
   min-inline-size: 0;
   min-block-size: 42px;
   padding: 0 2px 0 6px;
-  border: 1px solid #959595;
-  border-radius: 0;
-  background: #fbfdfe;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
 }
 
 .part-studio-sketch-dialog__plane-field[data-state='empty'] {
+  min-block-size: 26px;
   padding: 0 4px;
-  border: 2px solid #2850aa;
-  background: #e2f0fa;
+  border: 1px solid #1651b0;
+  border-radius: 2px;
+  background: #def1fb;
 }
 
 /* Onshape live：时钟在字段框右侧之外（装饰，不参与交互；创建/编辑均显示）。 */
@@ -420,7 +425,7 @@
 }
 
 .part-studio-sketch-dialog__plane-field-label {
-  color: #666666;
+  color: #555555;
   font-size: 12px;
   line-height: 16px;
 }

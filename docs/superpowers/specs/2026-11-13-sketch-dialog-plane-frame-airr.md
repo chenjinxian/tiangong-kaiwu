@@ -21,7 +21,7 @@
 | 项 | 值 |
 |---|---|
 | 对话框标题 | `rgb(51,51,51)`，`500 16px`，header 高 29px（f4/f5/f6） |
-| ✓ 按钮 | 28×28，启用底 `rgb(65,146,40)`（#419228），禁用底 `rgb(217,233,212)`（#d9e9d4），白色 sprite 对勾 `ok-button` |
+| ✓ 按钮 | 28×28，启用底 `rgb(0,148,0)`（#009400），禁用同底色 + opacity 0.2（2026-11-15 live 重校准；旧 #419228/#d9e9d4 为错误采样），白色 sprite 对勾 `ok-button` |
 | ✗ 按钮 | 28×28，**透明底** + 红色 sprite X `cancel-button`（#BD3039）——旧实心红方块不符 |
 | 平面字段（空态） | 42px 堆叠字段：底色 `rgb(226,240,250)`（#e2f0fa），2px 边框 `rgb(40,80,170)`；标签「草图平面」 |
 | 平面字段（已选/编辑） | 底 `rgb(251,253,254)`，1px 边框 `rgb(149,149,149)`；堆叠「草图平面」小标签 + 值 + × |
@@ -70,7 +70,8 @@
 
 - 统一 9 个对话框（FeatureDialog/SketchDialog/Hole/CPlane/Shell/MoveFace/
   SplitPart/Transform/FeaturePattern）头部 ✓/✗ 为 Onshape sprite
-  `ok-button`/`cancel-button`；✗ 透明底；标题 500 16px #333。
+  `ok-button`/`cancel-button`；✗ 透明底；标题 500 **13px rgb(170,37,45)**
+  （2026-11-15 live 重校准；旧 16px #333 采到了容器字号）。
 - `onshape-icons.tsx` 新增 sprite：ok-button、cancel-button、edit-button、
   sketch-analysis-tools（+ 下述草图图标）。
 
@@ -92,7 +93,7 @@
   `ViewCube.test.tsx`（相机菜单「正视草图平面」命令）；web 全量
   **139 files / 1848 passed**；tsc（src/e2e）/eslint 绿。
 - 真栈：`e2e/sketch-create-parity.spec.ts` **1 passed**（创建态计算样式/
-  字号 16/12/13.3333px/平面框像素+`data-frame-label`+正视后投影宽高比
+  字号 13/12/13.3333px/平面框像素+`data-frame-label`+正视后投影宽高比
   1.5–2.0（排除正方形）/取消删除/编辑成品/飞菜单 5+15 项图标）；
   `sketch-edit`、`sketch-camera-parity`、
   `sketch-camera-fit`、`sketch-region-fill`、`sketch-chamfer`、

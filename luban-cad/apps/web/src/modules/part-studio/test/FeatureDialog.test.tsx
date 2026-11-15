@@ -3509,13 +3509,14 @@ describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点�
     expect(block).not.toContain('--iui-color-text-accent');
   });
 
-  it('✓（__confirm）禁用 → Onshape 浅绿底 + not-allowed；enabled=实心绿 #419228；✗ 透明底红 X', () => {
+  it('✓（__confirm）禁用 → 同底色 + opacity 0.2 + not-allowed；enabled=实心绿 #009400；✗ 透明底红 X', () => {
     const block = cssRuleBlock('.part-studio-feature-dialog__confirm:disabled');
-    expect(block).toContain('#d9e9d4');
+    expect(block).toContain('opacity: 0.2');
+    expect(block).toContain('#009400');
     expect(block).toContain('cursor: not-allowed');
-    // enabled 规则（Onshape live 2026-11-12 像素采样）=实心绿。
+    // enabled 规则（Onshape live 2026-11-15 复核）=实心绿 #009400。
     const enabled = cssRuleBlock('.part-studio-feature-dialog__confirm');
-    expect(enabled).toContain('#419228');
+    expect(enabled).toContain('#009400');
     // 2026-11-13 live 复核：✗ 为透明底 + sprite 红 X（不再是实心红方块）。
     expect(featureDialogCss).toMatch(/\.part-studio-feature-dialog__cancel\s*\{\s*background: transparent;/);
     expect(featureDialogCss).not.toContain('background: #ae3c3e;');

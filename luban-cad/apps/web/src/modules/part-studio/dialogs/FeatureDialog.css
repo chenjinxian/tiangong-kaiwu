@@ -41,9 +41,9 @@
   gap: 2px;
 }
 
-/* Onshape live（f4/f5/f6 像素采样 2026-11-13 复核）：✓=实心绿 #419228（像素
-   rgb(65,146,40)）+ 白色 sprite 对勾；✗=**透明底** + 红色 sprite X（#BD3039，
-   不是实心红方块）；禁用 ✓ 为浅绿底 #d9e9d4（像素 rgb(217,233,212)）。 */
+/* Onshape live（2026-11-15 复核）：✓ = 28×28 实心绿 **rgb(0,148,0)** +
+   白色 sprite 对勾；禁用态同底色、整钮 **opacity 0.2**（不是浅绿底）；
+   ✗ = 透明底 + 红色 sprite X。此前 #419228/#d9e9d4 是旧采样，已纠正。 */
 .part-studio-feature-dialog__confirm,
 .part-studio-feature-dialog__cancel {
   display: inline-flex;
@@ -59,15 +59,16 @@
 }
 
 .part-studio-feature-dialog__confirm {
-  background: #419228;
+  background: #009400;
 }
 
 .part-studio-feature-dialog__confirm:enabled:hover {
-  background: #37801f;
+  background: #008200;
 }
 
 .part-studio-feature-dialog__confirm:disabled {
-  background: #d9e9d4;
+  background: #009400;
+  opacity: 0.2;
   cursor: not-allowed;
 }
 
@@ -565,14 +566,17 @@
 
 .part-studio-feature-dialog__header {
   min-block-size: 29px;
-  padding: 0 0 0 4px;
+  padding: 0 0 0 6px;
   gap: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: #ffffff;
 }
 
 .part-studio-feature-dialog__title {
-  /* Onshape live computedStyles（2026-11-13）：500 16px rgb(51,51,51)。 */
-  color: #333333;
-  font-size: 16px;
+  /* Onshape live computedStyles（2026-11-15）：500 13px rgb(170,37,45)；
+     旧值 16px #333 采错了元素（容器而非标题 span）。 */
+  color: #aa252d;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;

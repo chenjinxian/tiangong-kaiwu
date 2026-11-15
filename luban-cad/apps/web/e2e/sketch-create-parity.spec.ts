@@ -1,9 +1,10 @@
 /**
  * 2026-11-13 真栈验收：草图创建对话框 Onshape 对齐（f4/f5 live 复核）。
  *
- * 1) 新建草图对话框：标题泛称「草图」；平面字段空态（#e2f0fa / 2px rgb(40,80,170)，
- *    42px 堆叠布局）；✓ 禁用浅绿；✗ 透明底（sprite 红 X）；底栏=草图分析工具 + ?，
- *    不显示「成品」。
+ * 1) 新建草图对话框：标题泛称「草图」；平面字段空态（rgb(222,241,251) /
+ *    1px rgb(22,81,176)，26px 单行）；✓ 禁用=同底色 opacity 0.2；✗ 透明底
+ *    （sprite 红 X）；底栏=草图分析工具 + ?，不显示「成品」。
+ *    （2026-11-15 复核纠正：旧断言 #e2f0fa/2px/42px/浅绿底为错误采样。）
  * 2) 选 Front 平面 → pending 草图（树行出现）+ 浅蓝草图平面框在视口渲染
  *    （SketchPlanePicker overlay 有像素）+ 平面 chip/清除 ×/时钟。
  * 3) ✗ 取消 = 删除本对话框新建的 pending 草图（树行消失）；已有草图编辑的 ✗
@@ -129,7 +130,8 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     const dialog = page.getByTestId('part-studio-sketch-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveText('草图');
-    await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveCSS('font-size', '16px');
+    await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveCSS('font-size', '13px');
+    await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveCSS('color', 'rgb(170, 37, 45)');
     // Onshape live：平面字段没有下拉选择；创建态也没有「正视草图平面」按钮。
     await expect(dialog.getByRole('listbox')).toHaveCount(0);
     await expect(dialog.getByTestId('sketch-view-normal')).toHaveCount(0);
@@ -147,15 +149,17 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
         border: s.borderColor,
         height: s.height,
         okBg: getComputedStyle(ok).backgroundColor,
+        okOpacity: getComputedStyle(ok).opacity,
         cancelBg: getComputedStyle(cancel).backgroundColor,
       };
     });
     expect(emptyField).toMatchObject({
       state: 'empty',
-      bg: 'rgb(226, 240, 250)',
-      border: 'rgb(40, 80, 170)',
-      height: '42px',
-      okBg: 'rgb(217, 233, 212)',
+      bg: 'rgb(222, 241, 251)',
+      border: 'rgb(22, 81, 176)',
+      height: '26px',
+      okBg: 'rgb(0, 148, 0)',
+      okOpacity: '0.2',
       cancelBg: 'rgba(0, 0, 0, 0)',
     });
 
@@ -207,8 +211,8 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     });
     expect(selectedField).toEqual({
       state: 'selected',
-      bg: 'rgb(251, 253, 254)',
-      border: 'rgb(149, 149, 149)',
+      bg: 'rgb(255, 255, 255)',
+      border: 'rgb(215, 215, 215)',
     });
 
     // ── 2b) 字段 × 清除：删 pending 草壳但**不关闭对话框**（用户复核）────
