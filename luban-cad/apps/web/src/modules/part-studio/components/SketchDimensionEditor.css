@@ -67,11 +67,13 @@
   pointer-events: none;
 }
 
-/* 选中非尺寸约束 glyph 高亮（Onshape live：仅浅蓝填充 #e2f0fa，无边框/圆角，
-   见 ui-evidence/sketch-constraint-glyphs-20261112/14-single-origin.png）。 */
+/* 选中非尺寸约束 glyph 高亮（Onshape live：浅蓝填充 #e2f0fa、符号仍可见、
+   无边框/圆角；chip 为 canvas 绘制，HTML 填充必须用 multiply 混合，否则
+   不透明浅蓝会盖住下层符号）。 */
 .part-studio-constraint-glyph-highlight {
   position: absolute;
   z-index: 19;
   background: #e2f0fa;
+  mix-blend-mode: multiply;
   pointer-events: none;
 }

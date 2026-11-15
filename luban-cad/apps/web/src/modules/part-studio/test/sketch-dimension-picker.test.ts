@@ -145,6 +145,8 @@ describe('内联编辑/live 皮肤钉', () => {
     expect(unit).toContain('pointer-events: none');
     const glyph = cssBlock('.part-studio-constraint-glyph-highlight');
     expect(glyph).toContain('background: #e2f0fa');
+    // live 选中 chip 的符号仍可见：HTML 填充必须 multiply 混合（canvas 在下层）。
+    expect(glyph).toContain('mix-blend-mode: multiply');
     expect(glyph).not.toContain('border');
     expect(glyph).not.toContain('border-radius');
   });
