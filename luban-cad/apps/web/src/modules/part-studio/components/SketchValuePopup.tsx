@@ -12,6 +12,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SketchConstraintDto } from '@luban-cad/shared';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { nextConstraintId } from '../tools/sketch/sketch-constraint-logic.js';
 import {
@@ -32,6 +33,19 @@ type Pending =
 
 const DEFAULT_ANCHOR: SketchToolAnchor = { x: 340, y: 180 };
 
+/**
+ * 实测值预填文本：4 位小数去尾零（与偏移初值同口径；Onshape live 弹层为
+ * 6 dp 显示，但画布标注 4 dp——这里保持产品既有精度）。
+ */
+function formatMeasuredValue(value: number): string {
+  return String(Number(value.toFixed(4)));
+}
+
+/** 值弹层单位后缀：产品固定 mm；角度候选（预留通道）显示 °。 */
+export function dimensionUnitSuffix(kind: string): 'mm' | '°' {
+  return kind === 'angle' ? '°' : 'mm';
+}
+
 export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const [pending, setPending] = React.useState<Pending | undefined>(undefined);
@@ -41,7 +55,15 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
 
   React.useEffect(() => {
     const offDimension = sketchToolEvents.on('dimensionCandidate', (candidate) => {
-      setPending({ kind: 'dimension', candidate, value: '', anchor: candidate.anchor ?? DEFAULT_ANCHOR });
+      setPending({
+        kind: 'dimension',
+        candidate,
+        // Onshape live：尺寸弹层预填实测值并整段选中；几何不可测时保持空输入。
+        value: candidate.measuredValue !== undefined && Number.isFinite(candidate.measuredValue)
+          ? formatMeasuredValue(candidate.measuredValue)
+          : '',
+        anchor: candidate.anchor ?? DEFAULT_ANCHOR,
+      });
       setSubmitting(false);
     });
     const offOffset = sketchToolEvents.on('offsetCandidate', (candidate) => {
@@ -66,14 +88,17 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
     setSubmitting(false);
   }, [activeSketchId]);
 
+  // 每个新候选（含同种类连续候选）都重新聚焦并整段选中预填文本；输入过程中
+  // pending.candidate 引用不变，不会抢焦点。
+  const pendingCandidate = pending?.candidate;
   React.useEffect(() => {
-    if (!pending) return;
+    if (!pendingCandidate) return;
     const id = window.requestAnimationFrame(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
     });
     return () => window.cancelAnimationFrame(id);
-  }, [pending?.kind]);
+  }, [pendingCandidate]);
 
   const confirm = React.useCallback(async () => {
     const current = pending;
@@ -141,7 +166,10 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
       <input
         ref={inputRef}
         className="part-studio-sketch-value-popup__input"
-        type="number"
+        // text + inputMode=decimal：数字键输入体验不变，但 select() 可整段选中
+        // 预填值（type=number 在浏览器/jsdom 中不支持文本选择——Onshape live
+        // 打开即全选）。解析/校验仍走 Number(text)。
+        type="text"
         inputMode="decimal"
         value={pending.value}
         placeholder={t('partStudio.sketch.panel.dimensionPlaceholder')}
@@ -164,6 +192,11 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
           }
         }}
       />
+      {pending.kind === 'dimension' && (
+        <span className="part-studio-sketch-value-popup__unit" data-testid="sketch-value-unit" aria-hidden="true">
+          {dimensionUnitSuffix(pending.candidate.kind)}
+        </span>
+      )}
       <button
         type="button"
         className="part-studio-sketch-value-popup__confirm"
@@ -173,7 +206,7 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
         data-testid="sketch-value-confirm"
         onClick={() => void confirm()}
       >
-        ✓
+        <OnshapeIcon name="ok-button" size={14} />
       </button>
       <button
         type="button"
@@ -184,7 +217,7 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
         data-testid="sketch-value-cancel"
         onClick={cancel}
       >
-        ×
+        <OnshapeIcon name="cancel-button" size={14} />
       </button>
       {pending.error && (
         <span className="part-studio-sketch-value-popup__error" role="alert" data-testid="sketch-value-error">

@@ -32,7 +32,7 @@ import type { SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
 import { sketchToolEvents } from './sketch-tool-events.js';
 import type { SketchDimensionCandidate, SketchDimensionKind } from './sketch-tool-events.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
-import { registerUnifiedDimensionTool } from './SketchDimensionTool.js';
+import { measureSketchDimension, registerUnifiedDimensionTool } from './SketchDimensionTool.js';
 
 export { sketchToolEvents } from './sketch-tool-events.js';
 export type { SketchDimensionCandidate, SketchDimensionKind } from './sketch-tool-events.js';
@@ -162,10 +162,17 @@ export abstract class SketchAddDimensionTool extends PrimitiveTool {
     }
 
     // 满槽 → 候选移交面板（绝不直接提交；value>0 校验与 applyUpdate 均属面板）。
+    const refs = this._picks.map((p) => p.ref);
+    // 旧槽位工具只在槽形无歧义时给预填初值（线长/圆或弧半径）；distance 槽
+    // 由点-点/点-线/线-线混合，不在本切片内猜测。
+    const measuredValue = this.dimensionKind === 'length' || this.dimensionKind === 'radius'
+      ? measureSketchDimension(this.dimensionKind, refs, sketch.entities)
+      : undefined;
     sketchToolEvents.emit('dimensionCandidate', {
       kind: this.dimensionKind,
-      refs: this._picks.map((p) => p.ref),
+      refs,
       entityIds: this._picks.flatMap((p) => (p.entityId === undefined ? [] : [p.entityId])),
+      ...(measuredValue !== undefined ? { measuredValue } : {}),
     } satisfies SketchDimensionCandidate);
     await this.exitTool();
     return EventHandled.No;

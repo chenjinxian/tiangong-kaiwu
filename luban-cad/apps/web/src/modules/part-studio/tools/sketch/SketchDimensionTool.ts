@@ -19,6 +19,7 @@ import {
   OutputMessagePriority,
   PrimitiveTool,
 } from '@itwin/core-frontend';
+import type { SketchEntityDto, SketchRef } from '@luban-cad/shared';
 import i18next from 'i18next';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { pickHitLocal, resolveSketchPlaneFrame } from './SketchAddConstraintTool.js';
@@ -27,11 +28,226 @@ import { resolveNearestPick } from './sketch-constraint-logic.js';
 import type { SketchPick } from './sketch-constraint-logic.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 import { sketchToolEvents } from './sketch-tool-events.js';
+import type { SketchDimensionKind } from './sketch-tool-events.js';
 import { inferDimensionCompletion } from './sketch-dimension-logic.js';
 import type { DimensionCompletion } from './sketch-dimension-logic.js';
 
 /** 实体拾取半径（屏幕像素）：空白放置点击不受本阈值影响。 */
 const PICK_RADIUS_PIXELS = 8;
+
+// ---------------------------------------------------------------------------
+// 值确认框实测值（2026-11-15 Onshape live E1）：候选弹出时预填已解算尺寸，
+// 用户确认即用该值。纯几何、显示单位（长度/半径/直径 mm，角度 °）；
+// 解算坐标缺失/形态不可测 → undefined（不猜、不伪造）。
+// ---------------------------------------------------------------------------
+
+/** 尺寸候选可测量种类；angle 目前无候选通道（两线推断为 distance），仅预留测量。 */
+export type MeasurableDimensionKind = SketchDimensionKind | 'angle';
+
+interface MeasuredPoint { x: number; y: number }
+type MeasuredItem =
+  | { kind: 'point'; p: MeasuredPoint }
+  | { kind: 'line'; a: MeasuredPoint; b: MeasuredPoint }
+  | { kind: 'circle'; radius: number };
+
+const MEASURE_EPS = 1e-9;
+
+function finitePoint(x: number | undefined, y: number | undefined): MeasuredPoint | undefined {
+  return x !== undefined && y !== undefined && Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+}
+
+function resolveInlinePoint(
+  ref: number | { x: number; y: number } | undefined,
+  points: ReadonlyMap<number, MeasuredPoint>,
+): MeasuredPoint | undefined {
+  if (ref === undefined) return undefined;
+  return typeof ref === 'number' ? points.get(ref) : finitePoint(ref.x, ref.y);
+}
+
+function validRadius(entity: SketchEntityDto | undefined): number | undefined {
+  if (!entity || (entity.kind !== 'circle' && entity.kind !== 'arc')) return undefined;
+  return entity.radius !== undefined && Number.isFinite(entity.radius) && entity.radius > 0 ? entity.radius : undefined;
+}
+
+/** 整实体引用（数字 id）：点/线/圆整引用；样条无尺寸语义。 */
+function resolveWholeEntity(entity: SketchEntityDto, points: ReadonlyMap<number, MeasuredPoint>): MeasuredItem | undefined {
+  switch (entity.kind) {
+    case 'point': {
+      const p = finitePoint(entity.x, entity.y);
+      return p ? { kind: 'point', p } : undefined;
+    }
+    case 'line': {
+      const a = resolveInlinePoint(entity.p1, points);
+      const b = resolveInlinePoint(entity.p2, points);
+      return a && b ? { kind: 'line', a, b } : undefined;
+    }
+    case 'circle':
+    case 'arc': {
+      const radius = validRadius(entity);
+      return radius === undefined ? undefined : { kind: 'circle', radius };
+    }
+    case 'spline':
+      return undefined;
+  }
+  return undefined;
+}
+
+/** 子实体引用（start/end/center/point/handle）→ 局部点。 */
+function resolveEntityPart(
+  entity: SketchEntityDto,
+  ref: Exclude<SketchRef, number | { origin: true }>,
+  points: ReadonlyMap<number, MeasuredPoint>,
+): MeasuredItem | undefined {
+  switch (ref.part) {
+    case 'center': {
+      if (entity.kind !== 'circle' && entity.kind !== 'arc') return undefined;
+      const center = resolveInlinePoint(entity.center, points);
+      return center ? { kind: 'point', p: center } : undefined;
+    }
+    case 'start':
+    case 'end': {
+      if (entity.kind === 'point') {
+        const p = finitePoint(entity.x, entity.y);
+        return p ? { kind: 'point', p } : undefined;
+      }
+      if (entity.kind === 'line') {
+        const p = resolveInlinePoint(ref.part === 'start' ? entity.p1 : entity.p2, points);
+        return p ? { kind: 'point', p } : undefined;
+      }
+      if (entity.kind === 'arc') {
+        const center = resolveInlinePoint(entity.center, points);
+        const radius = validRadius(entity);
+        if (!center || radius === undefined || entity.startAngle === undefined || entity.sweepAngle === undefined)
+          return undefined;
+        const angle = ref.part === 'start' ? entity.startAngle : entity.startAngle + entity.sweepAngle;
+        return { kind: 'point', p: { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) } };
+      }
+      if (entity.kind === 'spline') {
+        const control = entity.controlPoints;
+        const p = ref.part === 'start' ? control[0] : control[control.length - 1];
+        return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { kind: 'point', p: { x: p.x, y: p.y } } : undefined;
+      }
+      return undefined;
+    }
+    case 'point':
+    case 'handle': {
+      if (entity.kind !== 'spline') return undefined;
+      const source = ref.part === 'point' ? (entity.fitPoints ?? entity.controlPoints) : entity.controlPoints;
+      const p = source[ref.index];
+      return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { kind: 'point', p: { x: p.x, y: p.y } } : undefined;
+    }
+  }
+  return undefined;
+}
+
+function resolveMeasuredItem(
+  ref: SketchRef,
+  entities: ReadonlyMap<number, SketchEntityDto>,
+  points: ReadonlyMap<number, MeasuredPoint>,
+): MeasuredItem | undefined {
+  if (typeof ref === 'number') {
+    const entity = entities.get(ref);
+    return entity ? resolveWholeEntity(entity, points) : undefined;
+  }
+  if ('origin' in ref) return { kind: 'point', p: { x: 0, y: 0 } };
+  const entity = entities.get(ref.entity);
+  return entity ? resolveEntityPart(entity, ref, points) : undefined;
+}
+
+/** 点到无限长直线距离（点-线尺寸语义，不是线段截断）。 */
+function pointToLineDistance(p: MeasuredPoint, line: { a: MeasuredPoint; b: MeasuredPoint }): number | undefined {
+  const dx = line.b.x - line.a.x;
+  const dy = line.b.y - line.a.y;
+  const len = Math.hypot(dx, dy);
+  if (!(len > MEASURE_EPS)) return undefined;
+  return Math.abs((p.x - line.a.x) * dy - (p.y - line.a.y) * dx) / len;
+}
+
+/** 两平行线垂距；非平行/退化 → undefined（距离语义未定，不猜）。 */
+function parallelLineDistance(
+  a: { a: MeasuredPoint; b: MeasuredPoint },
+  b: { a: MeasuredPoint; b: MeasuredPoint },
+): number | undefined {
+  const adx = a.b.x - a.a.x;
+  const ady = a.b.y - a.a.y;
+  const bdx = b.b.x - b.a.x;
+  const bdy = b.b.y - b.a.y;
+  const lenA = Math.hypot(adx, ady);
+  const lenB = Math.hypot(bdx, bdy);
+  if (!(lenA > MEASURE_EPS) || !(lenB > MEASURE_EPS)) return undefined;
+  if (Math.abs(adx * bdy - ady * bdx) > MEASURE_EPS * lenA * lenB) return undefined;
+  return Math.abs((b.a.x - a.a.x) * ady - (b.a.y - a.a.y) * adx) / lenA;
+}
+
+/** 两线夹角（度，0–90 锐角口径；方向向量符号不参与）。 */
+function lineAngleDeg(a: { a: MeasuredPoint; b: MeasuredPoint }, b: { a: MeasuredPoint; b: MeasuredPoint }): number | undefined {
+  const adx = a.b.x - a.a.x;
+  const ady = a.b.y - a.a.y;
+  const bdx = b.b.x - b.a.x;
+  const bdy = b.b.y - b.a.y;
+  const lenA = Math.hypot(adx, ady);
+  const lenB = Math.hypot(bdx, bdy);
+  if (!(lenA > MEASURE_EPS) || !(lenB > MEASURE_EPS)) return undefined;
+  const cos = Math.abs(adx * bdx + ady * bdy) / (lenA * lenB);
+  return (Math.acos(Math.min(1, Math.max(0, cos))) * 180) / Math.PI;
+}
+
+/** 距离尺寸实测值：点-点/点-线/平行线；其余形态 undefined。 */
+function measureDistance(a: MeasuredItem, b: MeasuredItem): number | undefined {
+  if (a.kind === 'point' && b.kind === 'point') return Math.hypot(a.p.x - b.p.x, a.p.y - b.p.y);
+  if (a.kind === 'point' && b.kind === 'line') return pointToLineDistance(a.p, b);
+  if (a.kind === 'line' && b.kind === 'point') return pointToLineDistance(b.p, a);
+  if (a.kind === 'line' && b.kind === 'line') return parallelLineDistance(a, b);
+  return undefined;
+}
+
+/**
+ * 尺寸候选实测值（显示单位）：length=线长 mm；distance=点-点/点-线/平行线 mm；
+ * radius=半径 mm；diameter=2×半径 mm；angle=两线夹角 °。
+ * 引用解析失败或几何退化 → undefined（值确认框保持空输入 + 占位）。
+ */
+export function measureSketchDimension(
+  kind: MeasurableDimensionKind,
+  refs: readonly SketchRef[],
+  entities: readonly SketchEntityDto[],
+): number | undefined {
+  const entityMap = new Map<number, SketchEntityDto>();
+  const points = new Map<number, MeasuredPoint>();
+  for (const entity of entities) {
+    entityMap.set(entity.id, entity);
+    if (entity.kind === 'point') {
+      const p = finitePoint(entity.x, entity.y);
+      if (p) points.set(entity.id, p);
+    }
+  }
+  const resolve = (ref: SketchRef | undefined): MeasuredItem | undefined =>
+    ref === undefined ? undefined : resolveMeasuredItem(ref, entityMap, points);
+
+  switch (kind) {
+    case 'length': {
+      const item = resolve(refs[0]);
+      return item?.kind === 'line' ? Math.hypot(item.b.x - item.a.x, item.b.y - item.a.y) : undefined;
+    }
+    case 'radius': {
+      const item = resolve(refs[0]);
+      return item?.kind === 'circle' ? item.radius : undefined;
+    }
+    case 'diameter': {
+      const item = resolve(refs[0]);
+      return item?.kind === 'circle' ? item.radius * 2 : undefined;
+    }
+    case 'distance': {
+      const a = resolve(refs[0]);
+      const b = resolve(refs[1]);
+      return a && b ? measureDistance(a, b) : undefined;
+    }
+    case 'angle': {
+      const a = resolve(refs[0]);
+      const b = resolve(refs[1]);
+      return a?.kind === 'line' && b?.kind === 'line' ? lineAngleDeg(a, b) : undefined;
+    }
+  }
+}
 
 export class SketchDimensionTool extends PrimitiveTool {
   public static override namespace = 'LubanCad';
@@ -108,19 +324,23 @@ export class SketchDimensionTool extends PrimitiveTool {
     }
 
     // Onshape 在完成点击的位置弹出尺寸值确认框（不是左侧常驻面板）。
-    await this.emitCandidate(completion, { x: ev.viewPoint.x, y: ev.viewPoint.y });
+    await this.emitCandidate(completion, { x: ev.viewPoint.x, y: ev.viewPoint.y }, sketch.entities);
     return EventHandled.No;
   }
 
   private async emitCandidate(
     completion: Exclude<DimensionCompletion, { kind: 'pending' } | { kind: 'invalid' }>,
     anchor: { x: number; y: number },
+    entities: readonly SketchEntityDto[],
   ): Promise<void> {
+    // 实测值只做输入框初值；提交仍以用户确认的输入文本为准（无契约变更）。
+    const measuredValue = measureSketchDimension(completion.kind, completion.refs, entities);
     sketchToolEvents.emit('dimensionCandidate', {
       kind: completion.kind,
       refs: completion.refs,
       entityIds: completion.entityIds,
       anchor,
+      ...(measuredValue !== undefined ? { measuredValue } : {}),
     });
     await this.exitTool();
   }

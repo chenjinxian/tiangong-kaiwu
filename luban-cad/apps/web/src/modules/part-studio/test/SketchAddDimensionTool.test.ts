@@ -8,7 +8,37 @@
  * 任何提交通道，满槽只经 sketchToolEvents 发候选（SketchValuePopup.test 验收
  * 面板收值→提交的另一半；工具交互态归真实栈冒烟，诚实登记不覆盖）。
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SketchEntityDto } from '@luban-cad/shared';
+import type { BeButtonEvent } from '@itwin/core-frontend';
+
+// 工具交互态夹具（E1 实测值）：取点/平面架/草图系统全部打桩，工具只保留
+// 槽位判定 + 候选事件；几何分辨走真实 resolveNearestPick（纯函数）。
+const mockState = vi.hoisted(() => ({
+  hit: { u: 0, v: 0 },
+  entities: [] as unknown[],
+}));
+
+vi.mock('../hooks/useSketchSystem.js', () => ({
+  getSketchSystem: () => ({
+    activeSketch: {
+      id: 'sk-1',
+      entities: mockState.entities,
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [],
+    },
+    loading: false,
+    applyUpdate: async () => ({ ok: true, featureId: 'sk-1' }),
+    applyConstraintValue: async () => ({ ok: true, featureId: 'sk-1' }),
+    refresh: async () => undefined,
+  }),
+}));
+
+vi.mock('../tools/sketch/SketchAddConstraintTool.js', () => ({
+  pickHitLocal: () => mockState.hit,
+  resolveSketchPlaneFrame: () => ({}),
+}));
 
 vi.mock('@itwin/core-frontend', () => {
   class Tool {
@@ -49,9 +79,11 @@ import {
   acceptDimensionPick,
   DIMENSION_SLOTS,
   DistanceAddTool,
+  LengthAddTool,
   RadiusAddTool,
   registerSketchDimensionTools,
 } from '../tools/sketch/SketchAddDimensionTool.js';
+import { measureSketchDimension, SketchDimensionTool } from '../tools/sketch/SketchDimensionTool.js';
 import { sketchToolEvents } from '../tools/sketch/sketch-tool-events.js';
 import type { SketchDimensionCandidate } from '../tools/sketch/sketch-tool-events.js';
 
@@ -139,5 +171,156 @@ describe('M6-b T5：尺寸 2 工具 toolId 与注册接线', () => {
     expect(typeof registerSketchDimensionTools).toBe('function');
     registerSketchDimensionTools();
     registerSketchDimensionTools(); // 幂等不抛
+  });
+});
+
+// ── E1（2026-11-15 Onshape live）：尺寸候选实测值 ────────────────────────────
+// 弹层预填值由已解算草图实体计算；解算坐标缺失/形态不可测 → undefined。
+
+const ENTITIES: Record<string, SketchEntityDto> = {
+  line345: { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 3, y: 4 } },
+  pointA: { kind: 'point', id: 10, x: 1, y: 0 },
+  pointB: { kind: 'point', id: 11, x: 4, y: 4 },
+  // 点 (20,10) 到 x 轴的垂足在段外（无限长直线语义仍为 10）。
+  axisLine: { kind: 'line', id: 12, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+  farPoint: { kind: 'point', id: 13, x: 20, y: 10 },
+  circleR7: { kind: 'circle', id: 20, center: { x: 0, y: 0 }, radius: 7 },
+  arcR25: { kind: 'arc', id: 21, center: { x: 0, y: 0 }, radius: 2.5, startAngle: 0, sweepAngle: Math.PI },
+  parallelLine: { kind: 'line', id: 40, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+  parallelLine5: { kind: 'line', id: 41, p1: { x: 0, y: 5 }, p2: { x: 10, y: 5 } },
+  verticalLine: { kind: 'line', id: 42, p1: { x: 0, y: 0 }, p2: { x: 0, y: 10 } },
+  diagonalLine: { kind: 'line', id: 43, p1: { x: 0, y: 0 }, p2: { x: 10, y: 10 } },
+  unresolvedLine: { kind: 'line', id: 50, p1: 999, p2: { x: 1, y: 0 } },
+  radiuslessCircle: { kind: 'circle', id: 51, center: { x: 0, y: 0 } },
+};
+
+function entities(...keys: (keyof typeof ENTITIES)[]): SketchEntityDto[] {
+  return keys.map((key) => ENTITIES[key]!);
+}
+
+describe('E1：measureSketchDimension 实测值（纯几何）', () => {
+  it('单线 → 长度（mm）', () => {
+    expect(measureSketchDimension('length', [1], entities('line345'))).toBeCloseTo(5, 10);
+  });
+
+  it('点-点 → 距离；点-线 → 无限长直线垂距', () => {
+    expect(measureSketchDimension('distance', [10, 11], entities('pointA', 'pointB'))).toBeCloseTo(5, 10);
+    expect(measureSketchDimension('distance', [13, 12], entities('farPoint', 'axisLine'))).toBeCloseTo(10, 10);
+    expect(measureSketchDimension('distance', [12, 13], entities('farPoint', 'axisLine'))).toBeCloseTo(10, 10);
+  });
+
+  it('圆/弧 → 半径；直径=2×半径', () => {
+    expect(measureSketchDimension('radius', [20], entities('circleR7'))).toBe(7);
+    expect(measureSketchDimension('diameter', [20], entities('circleR7'))).toBe(14);
+    expect(measureSketchDimension('radius', [21], entities('arcR25'))).toBe(2.5);
+    expect(measureSketchDimension('diameter', [21], entities('arcR25'))).toBe(5);
+  });
+
+  it('平行线 → 垂距；非平行线 distance 不猜（undefined）', () => {
+    expect(measureSketchDimension('distance', [40, 41], entities('parallelLine', 'parallelLine5'))).toBeCloseTo(5, 10);
+    expect(measureSketchDimension('distance', [40, 42], entities('parallelLine', 'verticalLine'))).toBeUndefined();
+  });
+
+  it('两线 → 夹角（度，0–90 锐角口径；angle 为预留测量通道）', () => {
+    expect(measureSketchDimension('angle', [40, 42], entities('parallelLine', 'verticalLine'))).toBeCloseTo(90, 10);
+    expect(measureSketchDimension('angle', [40, 43], entities('parallelLine', 'diagonalLine'))).toBeCloseTo(45, 10);
+    expect(measureSketchDimension('angle', [40], entities('parallelLine'))).toBeUndefined();
+  });
+
+  it('引用未解算/退化 → undefined（不伪造值）', () => {
+    expect(measureSketchDimension('length', [50], entities('unresolvedLine'))).toBeUndefined();
+    expect(measureSketchDimension('radius', [51], entities('radiuslessCircle'))).toBeUndefined();
+    expect(measureSketchDimension('length', [999], entities('line345'))).toBeUndefined();
+    expect(measureSketchDimension('distance', [10, 999], entities('pointA'))).toBeUndefined();
+  });
+});
+
+/** 工具交互夹具：点击 → 候选事件收集。 */
+function buttonEvent(x: number, y: number): BeButtonEvent {
+  return { viewPoint: { x, y }, point: { x, y } } as unknown as BeButtonEvent;
+}
+
+describe('E1：尺寸工具候选事件携带 measuredValue', () => {
+  const listeners: (() => void)[] = [];
+
+  afterEach(() => {
+    while (listeners.length > 0) listeners.pop()!();
+    mockState.entities = [];
+  });
+
+  function capture(): SketchDimensionCandidate[] {
+    const received: SketchDimensionCandidate[] = [];
+    listeners.push(sketchToolEvents.on('dimensionCandidate', (candidate) => received.push(candidate)));
+    return received;
+  }
+
+  async function click(tool: SketchDimensionTool | LengthAddTool | RadiusAddTool | DistanceAddTool, u: number, v: number): Promise<void> {
+    mockState.hit = { u, v };
+    await tool.onDataButtonDown(buttonEvent(u, v));
+  }
+
+  it('单尺寸工具：线长 / 点-点距离 / 圆直径 / 弧半径', async () => {
+    // 单线 + 空白放置 → length 5
+    mockState.entities = entities('line345');
+    const lineTool = new SketchDimensionTool();
+    await lineTool.onPostInstall();
+    const lineCandidates = capture();
+    await click(lineTool, 1.5, 2); // 拾线
+    await click(lineTool, 100, 100); // 空白放置
+    expect(lineCandidates).toHaveLength(1);
+    expect(lineCandidates[0]).toMatchObject({ kind: 'length', measuredValue: 5 });
+
+    // 两点 → distance 5
+    mockState.entities = entities('pointA', 'pointB');
+    const pointTool = new SketchDimensionTool();
+    await pointTool.onPostInstall();
+    const pointCandidates = capture();
+    await click(pointTool, 1, 0);
+    await click(pointTool, 4, 4);
+    expect(pointCandidates).toHaveLength(1);
+    expect(pointCandidates[0]).toMatchObject({ kind: 'distance', measuredValue: 5 });
+
+    // 圆 + 空白放置 → diameter 2×r
+    mockState.entities = [{ kind: 'circle', id: 20, center: { x: 0, y: 0 }, radius: 2 }];
+    const circleTool = new SketchDimensionTool();
+    await circleTool.onPostInstall();
+    const circleCandidates = capture();
+    await click(circleTool, 0, 2);
+    await click(circleTool, 100, 100);
+    expect(circleCandidates[0]).toMatchObject({ kind: 'diameter', measuredValue: 4 });
+
+    // 弧 + 空白放置 → radius
+    mockState.entities = [ENTITIES.arcR25!];
+    const arcTool = new SketchDimensionTool();
+    await arcTool.onPostInstall();
+    const arcCandidates = capture();
+    await click(arcTool, 0, 2.5);
+    await click(arcTool, 100, 100);
+    expect(arcCandidates[0]).toMatchObject({ kind: 'radius', measuredValue: 2.5 });
+  });
+
+  it('旧槽位工具：length/radius 预填；distance 槽形混合不预填', async () => {
+    mockState.entities = entities('line345');
+    const lengthTool = new LengthAddTool();
+    await lengthTool.onPostInstall();
+    const lengthCandidates = capture();
+    await click(lengthTool, 1.5, 2);
+    expect(lengthCandidates[0]).toMatchObject({ kind: 'length', measuredValue: 5 });
+
+    mockState.entities = [ENTITIES.arcR25!];
+    const radiusTool = new RadiusAddTool();
+    await radiusTool.onPostInstall();
+    const radiusCandidates = capture();
+    await click(radiusTool, 0, 2.5);
+    expect(radiusCandidates[0]).toMatchObject({ kind: 'radius', measuredValue: 2.5 });
+
+    mockState.entities = entities('pointA', 'pointB');
+    const distanceTool = new DistanceAddTool();
+    await distanceTool.onPostInstall();
+    const distanceCandidates = capture();
+    await click(distanceTool, 1, 0);
+    await click(distanceTool, 4, 4);
+    expect(distanceCandidates[0]!.kind).toBe('distance');
+    expect(distanceCandidates[0]!.measuredValue).toBeUndefined();
   });
 });

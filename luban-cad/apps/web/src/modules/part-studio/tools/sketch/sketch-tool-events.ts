@@ -28,6 +28,9 @@ export interface SketchDimensionCandidate {
   entityIds: number[];
   /** 标注位置屏幕锚点（Onshape 在放置位置弹出值确认框）。 */
   anchor?: SketchToolAnchor;
+  /** 解算后实测值（显示单位：长度/半径/直径 mm，角度 °）；缺省=几何不可测，
+   * 值确认框保持空输入 + 占位。只作预填初值，不参与提交契约。 */
+  measuredValue?: number;
 }
 
 /**

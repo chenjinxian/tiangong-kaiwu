@@ -2,11 +2,15 @@
 //
 // Onshape 草图值确认弹层（2026-11-03）：尺寸/偏移工具完成后在标注位置弹出
 // 数字输入框，确认后经 applyUpdate/commit 提交；不使用常驻 SketchPanel。
+// 2026-11-15 E1 live 校准：尺寸候选预填实测值并整段选中、只读单位后缀、
+// 白卡片/100×26/22×22 实心圆按钮（样式钉走 CSS 文本断言，jsdom 不算样式）。
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SketchDto } from '@luban-cad/shared';
-import { SketchValuePopup } from '../components/SketchValuePopup.js';
+import { dimensionUnitSuffix, SketchValuePopup } from '../components/SketchValuePopup.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { sketchToolEvents } from '../tools/sketch/sketch-tool-events.js';
 
@@ -28,12 +32,24 @@ function fakeSystem(overrides: Partial<UseSketchSystem> = {}): UseSketchSystem {
   } as UseSketchSystem;
 }
 
+const popupCss = readFileSync(resolve(__dirname, '../components/SketchValuePopup.css'), 'utf8');
+
+/** 取选择器所属规则体（单层大括号；本仓 CSS 无嵌套——同 FeatureDialog.test 先例）。
+ * 取**最后一个**匹配：confirm/cancel 先出现在共享规则的选择器组里，独立规则在后。 */
+function cssRuleBlock(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, String.fromCharCode(92) + '$&');
+  const matches = [...popupCss.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
+  const match = matches[matches.length - 1];
+  if (!match) throw new Error(`rule not found: ${selector}`);
+  return match[1] ?? '';
+}
+
 describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('尺寸候选：在 anchor 位置弹出输入框，确认后追加约束并关闭', async () => {
+  it('尺寸候选（无实测值）：anchor 位置弹出空输入 + 占位 + mm 后缀，确认后追加约束并关闭', async () => {
     const system = fakeSystem();
     render(<SketchValuePopup sketchSystem={system} />);
     act(() => {
@@ -49,13 +65,60 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
     expect((popup as HTMLElement).style.left).toBe('154px');
     expect((popup as HTMLElement).style.top).toBe('102px');
     const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    // 几何不可测：保持既有空输入 + 占位行为。
+    expect(input.value).toBe('');
+    expect(input.placeholder).not.toBe('');
+    expect(screen.getByTestId('sketch-value-unit').textContent).toBe('mm');
+    const confirm = screen.getByTestId('sketch-value-confirm');
+    expect(confirm.className).toBe('part-studio-sketch-value-popup__confirm');
+    expect(confirm.querySelector('svg')).not.toBeNull();
+    expect(confirm.textContent).toBe('');
+    const cancel = screen.getByTestId('sketch-value-cancel');
+    expect(cancel.className).toBe('part-studio-sketch-value-popup__cancel');
+    expect(cancel.querySelector('svg')).not.toBeNull();
+    expect(cancel.textContent).toBe('');
     fireEvent.change(input, { target: { value: '42' } });
-    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    fireEvent.click(confirm);
     await waitFor(() => expect(system.applyUpdate).toHaveBeenCalledTimes(1));
     expect((system.applyUpdate as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toEqual([
       { kind: 'length', id: expect.any(Number), refs: [{ entity: 7, part: 'start' }], value: 42 },
     ]);
     await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+  });
+
+  it('尺寸候选带 measuredValue：预填 4 位小数并整段选中，确认提交预填值', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'length',
+        refs: [{ entity: 7, part: 'start' }],
+        entityIds: [7],
+        anchor: { x: 140, y: 120 },
+        measuredValue: 12.345678,
+      });
+    });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('12.3457');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(input);
+      expect(input.selectionStart).toBe(0);
+      expect(input.selectionEnd).toBe('12.3457'.length);
+    });
+    // Enter 提交（保留既有键盘行为；输入文本即预填值）。
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(system.applyUpdate).toHaveBeenCalledTimes(1));
+    expect((system.applyUpdate as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toEqual([
+      { kind: 'length', id: expect.any(Number), refs: [{ entity: 7, part: 'start' }], value: 12.3457 },
+    ]);
+  });
+
+  it('单位后缀：长度/距离/半径/直径 mm；角度 °（预留通道）', () => {
+    expect(dimensionUnitSuffix('length')).toBe('mm');
+    expect(dimensionUnitSuffix('distance')).toBe('mm');
+    expect(dimensionUnitSuffix('radius')).toBe('mm');
+    expect(dimensionUnitSuffix('diameter')).toBe('mm');
+    expect(dimensionUnitSuffix('angle')).toBe('°');
   });
 
   it('非法值：就地错误，不提交；Escape 关闭', async () => {
@@ -77,7 +140,7 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
     await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
   });
 
-  it('偏移候选：预填实测距，确认调用工具 commit；拒收保持并显示错误', async () => {
+  it('偏移候选：预填实测距（无单位后缀），确认调用工具 commit；拒收保持并显示错误', async () => {
     const commit = vi.fn(async (value: number) => (value > 10 ? '偏移过大' : undefined));
     render(<SketchValuePopup sketchSystem={fakeSystem()} />);
     act(() => {
@@ -89,9 +152,43 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
     });
     const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
     expect(input.value).toBe('8');
+    expect(screen.queryByTestId('sketch-value-unit')).toBeNull();
     fireEvent.change(input, { target: { value: '12' } });
     fireEvent.click(screen.getByTestId('sketch-value-confirm'));
     await waitFor(() => expect(commit).toHaveBeenCalledWith(12));
     await waitFor(() => expect(screen.getByTestId('sketch-value-error').textContent).toBe('偏移过大'));
+  });
+});
+
+// ── E1 live 样式钉（2026-11-15 证据：白卡片/100×26/22×22 实心圆按钮）─────────
+// jsdom 不计算布局/颜色，样式层按仓内既有 CSS 文本断言先例落在文本层。
+describe('E1 live 值弹层样式', () => {
+  it('卡片：白底 + 1px #cccccc + 半径 2 + 最小高 34 + 4px 间距', () => {
+    const card = cssRuleBlock('.part-studio-sketch-value-popup');
+    expect(card).toContain('background: #ffffff');
+    expect(card).toContain('border: 1px solid #cccccc');
+    expect(card).toContain('border-radius: 2px');
+    expect(card).toContain('min-block-size: 34px');
+    expect(card).toContain('gap: 4px');
+  });
+
+  it('输入：100×26 / 13.3333px；聚焦下划线 #2850aa', () => {
+    const input = cssRuleBlock('.part-studio-sketch-value-popup__input');
+    expect(input).toContain('inline-size: 100px');
+    expect(input).toContain('block-size: 26px');
+    expect(input).toContain('font-size: 13.3333px');
+    expect(cssRuleBlock('.part-studio-sketch-value-popup__input:focus')).toContain('#2850aa');
+  });
+
+  it('确认/取消：22×22 实心圆，绿 #419228 / 红 #ae3c3e，白色 sprite', () => {
+    expect(popupCss).toMatch(
+      /\.part-studio-sketch-value-popup__confirm,[\s\S]*?\.part-studio-sketch-value-popup__cancel\s*\{[^}]*inline-size: 22px;[^}]*block-size: 22px;[^}]*border-radius: 50%;/,
+    );
+    expect(cssRuleBlock('.part-studio-sketch-value-popup__confirm')).toContain('background: #419228');
+    const confirm = cssRuleBlock('.part-studio-sketch-value-popup__confirm');
+    expect(confirm).toContain('--os-icon-fill-primary--static: #ffffff');
+    const cancel = cssRuleBlock('.part-studio-sketch-value-popup__cancel');
+    expect(cancel).toContain('background: #ae3c3e');
+    expect(cancel).toContain('--os-icon-accent-cancel: #ffffff');
   });
 });
