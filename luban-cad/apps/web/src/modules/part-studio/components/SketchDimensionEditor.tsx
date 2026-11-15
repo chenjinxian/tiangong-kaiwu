@@ -14,6 +14,11 @@
  * 2026-11-12（Onshape 约束 glyph 对拍）：非尺寸约束 glyph（⊥/∥/=/—/|/中点/
  * 重合/镜像…）同样可单击选中、Delete 删除——命中区由 viewer 同一布局纯函数
  * 给出，选中高亮浅蓝（live 截图口径），删除走宿主 updateSketch 移除该约束。
+ *
+ * 2026-11-15（dialog-audit extra/item6-fillet-radius-popup-detail 对拍）：
+ * 输入框贴标签左侧（垂直居中于标签矩形，标签保持可见；无标签矩形回退双击点）、
+ * 100×26 白底 1px #2850aa 无阴影、只读单位后缀（长度类 mm / 角度 °，仅视觉，
+ * 解析仍用数值文本）；选中 glyph 高亮=纯 #e2f0fa 填充（无边框/圆角）。
  */
 import React from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
@@ -65,8 +70,58 @@ interface EditorState {
   constraintId: number;
   kind: SketchConstraintDto['kind'];
   value: string;
-  clientX: number;
-  clientY: number;
+  /** position:fixed 元素的 client 坐标（垂直以 translateY(-50%) 居中）。 */
+  left: number;
+  top: number;
+}
+
+/** 内联输入框尺寸（与 CSS 同值；纯布局计算用）。 */
+export const DIMENSION_EDITOR_WIDTH = 100;
+/** 输入框右缘与标签左缘的间距（px，live 口径「紧贴标签左侧」）。 */
+export const DIMENSION_EDITOR_GAP = 4;
+
+export interface ScreenRectLike {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+export interface ScreenPointLike {
+  x: number;
+  y: number;
+}
+
+/**
+ * 内联输入框放置（纯几何，ADR-0018 S1e 2026-11-15 Onshape 对拍）：
+ * 有标签矩形时输入框右缘贴标签左缘左侧 gap、垂直中心对齐标签中心（标签
+ * 保持可见不被覆盖）；无标签矩形回退到双击点（水平/垂直居中，与旧行为
+ * 等价的视觉位置）。返回 client 坐标，CSS 侧 `translateY(-50%)` 完成垂直居中。
+ */
+export function computeDimensionEditorPlacement(input: {
+  labelRect?: ScreenRectLike | null;
+  /** 画布 getBoundingClientRect()（标签矩形是画布局部坐标）。 */
+  canvasRect: { left: number; top: number };
+  /** 双击点 client 坐标（回退放置）。 */
+  click: ScreenPointLike;
+  width?: number;
+  gap?: number;
+}): { left: number; top: number } {
+  const width = input.width ?? DIMENSION_EDITOR_WIDTH;
+  const gap = input.gap ?? DIMENSION_EDITOR_GAP;
+  const { labelRect, canvasRect, click } = input;
+  if (labelRect) {
+    return {
+      left: canvasRect.left + labelRect.left - gap - width,
+      top: canvasRect.top + (labelRect.top + labelRect.bottom) / 2,
+    };
+  }
+  return { left: click.x - width / 2, top: click.y };
+}
+
+/** 只读单位后缀（视觉仅显示；解析/载荷仍是数值文本）：角度 °，其余 mm。 */
+export function dimensionEditorUnit(kind: SketchConstraintDto['kind']): 'mm' | '°' {
+  return kind === 'angle' ? '°' : 'mm';
 }
 
 export function SketchDimensionEditor({
@@ -175,12 +230,17 @@ export function SketchDimensionEditor({
       }
       setFailed(false);
       onSelectConstraintRef.current?.(constraintId);
+      const placement = computeDimensionEditorPlacement({
+        labelRect: label.rect,
+        canvasRect: rect,
+        click: { x: event.clientX, y: event.clientY },
+      });
       setEditor({
         constraintId,
         kind: constraint.kind,
         value: formatConstraintEditorValue(constraint),
-        clientX: event.clientX,
-        clientY: event.clientY,
+        left: placement.left,
+        top: placement.top,
       });
     };
     window.addEventListener('dblclick', onDoubleClick, true);
@@ -355,38 +415,49 @@ export function SketchDimensionEditor({
         );
       })}
       {editor && (
-        <input
-          ref={inputRef}
-          type="text"
-          inputMode="decimal"
-          data-testid="sketch-dimension-input"
-          data-error={failed ? 'true' : 'false'}
-          className="part-studio-dimension-editor"
-          style={{ left: editor.clientX, top: editor.clientY }}
-          value={editor.value}
-          onChange={(event) => {
-            setEditor({ ...editor, value: event.target.value });
-            setFailed(false);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              void commit();
-              return;
-            }
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              setEditor(null);
+        <span
+          className="part-studio-dimension-editor-wrap"
+          style={{ left: editor.left, top: editor.top }}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            inputMode="decimal"
+            data-testid="sketch-dimension-input"
+            data-error={failed ? 'true' : 'false'}
+            className="part-studio-dimension-editor"
+            value={editor.value}
+            onChange={(event) => {
+              setEditor({ ...editor, value: event.target.value });
               setFailed(false);
-            }
-          }}
-          onBlur={() => {
-            // Enter 提交过程中的失焦不打断；点击别处取消（不静默改值）。
-            if (!committingRef.current)
-              setEditor(null);
-          }}
-        />
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void commit();
+                return;
+              }
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                setEditor(null);
+                setFailed(false);
+              }
+            }}
+            onBlur={() => {
+              // Enter 提交过程中的失焦不打断；点击别处取消（不静默改值）。
+              if (!committingRef.current)
+                setEditor(null);
+            }}
+          />
+          <span
+            className="part-studio-dimension-editor-unit"
+            data-testid="sketch-dimension-unit"
+            aria-hidden="true"
+          >
+            {dimensionEditorUnit(editor.kind)}
+          </span>
+        </span>
       )}
     </React.Fragment>
   );

@@ -1,25 +1,46 @@
-/* 草图尺寸数值内联编辑（ADR-0018 S1e，Onshape 双击尺寸改值）。 */
+/* 草图尺寸数值内联编辑（ADR-0018 S1e，Onshape 双击尺寸改值）。
+   live 口径（ui-evidence/dialog-audit-20261115/extra/item6-fillet-radius-popup-detail）：
+   输入 100×26、白底、1px #2850aa、radius 2、无阴影、字号 13.3333px；贴标签左侧。 */
 
-.part-studio-dimension-editor {
+.part-studio-dimension-editor-wrap {
   position: fixed;
   z-index: 40;
-  transform: translate(-50%, -50%);
-  width: 88px;
-  height: 20px;
-  padding: 0 4px;
-  border: 1px solid #2b6cb0;
+  width: 100px;
+  height: 26px;
+  transform: translateY(-50%);
+  font: 13.3333px "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+.part-studio-dimension-editor {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0 24px 0 6px;
+  border: 1px solid #2850aa;
   border-radius: 2px;
   outline: none;
   background: #ffffff;
   color: #1f252c;
-  box-shadow: 0 1px 4px rgba(24, 52, 84, 0.25);
-  font: 12px "Segoe UI", "Microsoft YaHei", sans-serif;
-  text-align: center;
+  box-shadow: none;
+  font: inherit;
+  text-align: left;
+}
+
+/* 只读单位后缀（mm / °）：压在输入框右侧内边距上，仅视觉，不参与解析。 */
+.part-studio-dimension-editor-unit {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #1f252c;
+  font: inherit;
+  pointer-events: none;
+  user-select: none;
 }
 
 .part-studio-dimension-editor[data-error='true'] {
   border-color: #c0392b;
-  box-shadow: 0 0 0 1px rgba(192, 57, 43, 0.35);
+  box-shadow: none;
 }
 
 /* e2e/观测标记：不占布局、不拦截指针。 */
@@ -46,13 +67,11 @@
   pointer-events: none;
 }
 
-/* 选中非尺寸约束 glyph 高亮（Onshape live：浅蓝底 + 蓝边，见
-   ui-evidence/sketch-constraint-glyphs-20261112/10-postman-sketch1.png）。 */
+/* 选中非尺寸约束 glyph 高亮（Onshape live：仅浅蓝填充 #e2f0fa，无边框/圆角，
+   见 ui-evidence/sketch-constraint-glyphs-20261112/14-single-origin.png）。 */
 .part-studio-constraint-glyph-highlight {
   position: absolute;
   z-index: 19;
-  border: 1px solid #4a90d9;
-  border-radius: 2px;
-  background: rgba(199, 226, 250, 0.6);
+  background: #e2f0fa;
   pointer-events: none;
 }
