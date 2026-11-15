@@ -10,6 +10,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SketchEntityDto } from '@luban-cad/shared';
+import { EventHandled } from '@itwin/core-frontend';
 import type { BeButtonEvent } from '@itwin/core-frontend';
 
 // 工具交互态夹具（E1 实测值）：取点/平面架/草图系统全部打桩，工具只保留
@@ -44,8 +45,9 @@ vi.mock('@itwin/core-frontend', () => {
   class Tool {
     static toolId = '';
     static iconSpec = '';
+    /** E1：实例级退出 spy——验证「弹层关闭后才 exitTool」。 */
+    readonly exitTool = vi.fn(async (): Promise<void> => undefined);
     async run(): Promise<boolean> { return true; }
-    async exitTool(): Promise<void> { /* noop */ }
   }
   class PrimitiveTool extends Tool {
     async onPostInstall(): Promise<void> { /* noop */ }
@@ -245,6 +247,9 @@ describe('E1：尺寸工具候选事件携带 measuredValue', () => {
 
   afterEach(() => {
     while (listeners.length > 0) listeners.pop()!();
+    // 候选发出后工具进入「等待值弹层关闭」态：用例结束补发关闭事件，
+    // 退订各工具实例的 dimensionPopupClosed 监听（防跨用例陈旧监听）。
+    sketchToolEvents.emit('dimensionPopupClosed');
     mockState.entities = [];
   });
 
@@ -322,5 +327,92 @@ describe('E1：尺寸工具候选事件携带 measuredValue', () => {
     await click(distanceTool, 4, 4);
     expect(distanceCandidates[0]!.kind).toBe('distance');
     expect(distanceCandidates[0]!.measuredValue).toBeUndefined();
+  });
+});
+
+// ── E1（2026-11-15 Onshape live）：链式标注第一步——工具等值弹层关闭才退出 ────
+// 弹层打开期间工具保持安装（不再发完候选即 exitTool），且忽略画布拾取；
+// 弹层确认成功/取消（dimensionPopupClosed）后才退出。第二尺寸自动开始需
+// live 探针，本切片不做。
+describe('E1：尺寸工具等待值弹层关闭（dimensionPopupClosed）后退出', () => {
+  const listeners: (() => void)[] = [];
+
+  afterEach(() => {
+    while (listeners.length > 0) listeners.pop()!();
+    sketchToolEvents.emit('dimensionPopupClosed');
+    mockState.entities = [];
+  });
+
+  function capture(): SketchDimensionCandidate[] {
+    const received: SketchDimensionCandidate[] = [];
+    listeners.push(sketchToolEvents.on('dimensionCandidate', (candidate) => received.push(candidate)));
+    return received;
+  }
+
+  function exitSpy(tool: SketchDimensionTool | LengthAddTool): ReturnType<typeof vi.fn> {
+    return (tool as unknown as { exitTool: ReturnType<typeof vi.fn> }).exitTool;
+  }
+
+  async function click(tool: SketchDimensionTool | LengthAddTool, u: number, v: number): Promise<EventHandled> {
+    mockState.hit = { u, v };
+    return tool.onDataButtonDown(buttonEvent(u, v));
+  }
+
+  it('单尺寸工具：发候选后不退出、忽略画布拾取；弹层关闭后才 exitTool（一次）', async () => {
+    mockState.entities = entities('line345');
+    const tool = new SketchDimensionTool();
+    await tool.onPostInstall();
+    const exits = exitSpy(tool);
+    const candidates = capture();
+
+    await click(tool, 1.5, 2); // 拾线
+    await click(tool, 100, 100); // 空白放置 → length 候选
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ kind: 'length' });
+    expect(exits).not.toHaveBeenCalled();
+
+    // 等待弹层期间：画布拾取被忽略（Yes），不产生第二个候选、不退出。
+    expect(await click(tool, 1.5, 2)).toBe(EventHandled.Yes);
+    expect(candidates).toHaveLength(1);
+    expect(exits).not.toHaveBeenCalled();
+
+    // 弹层关闭（确认成功/取消同通道）→ 退出一次；重复发射不再触发（已退订）。
+    sketchToolEvents.emit('dimensionPopupClosed');
+    expect(exits).toHaveBeenCalledTimes(1);
+    sketchToolEvents.emit('dimensionPopupClosed');
+    expect(exits).toHaveBeenCalledTimes(1);
+  });
+
+  it('旧槽位工具（LengthAddTool）：同样等弹层关闭后才退出', async () => {
+    mockState.entities = entities('line345');
+    const tool = new LengthAddTool();
+    await tool.onPostInstall();
+    const exits = exitSpy(tool);
+    const candidates = capture();
+
+    await click(tool, 1.5, 2);
+    expect(candidates).toHaveLength(1);
+    expect(exits).not.toHaveBeenCalled();
+    expect(await click(tool, 1.5, 2)).toBe(EventHandled.Yes);
+    expect(candidates).toHaveLength(1);
+    expect(exits).not.toHaveBeenCalled();
+
+    sketchToolEvents.emit('dimensionPopupClosed');
+    expect(exits).toHaveBeenCalledTimes(1);
+  });
+
+  it('onCleanup：退订等待监听，之后弹层关闭不再 exitTool（无陈旧监听）', async () => {
+    mockState.entities = entities('line345');
+    const tool = new SketchDimensionTool();
+    await tool.onPostInstall();
+    const exits = exitSpy(tool);
+    capture();
+
+    await click(tool, 1.5, 2);
+    await click(tool, 100, 100);
+    await tool.onCleanup();
+
+    sketchToolEvents.emit('dimensionPopupClosed');
+    expect(exits).not.toHaveBeenCalled();
   });
 });

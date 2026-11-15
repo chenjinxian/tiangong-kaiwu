@@ -4,11 +4,13 @@
 // 数字输入框，确认后经 applyUpdate/commit 提交；不使用常驻 SketchPanel。
 // 2026-11-15 E1 live 校准：尺寸候选预填实测值并整段选中、只读单位后缀、
 // 白卡片/100×26/22×22 实心圆按钮（样式钉走 CSS 文本断言，jsdom 不算样式）。
+// E1 链式标注第一步：弹层关闭 dimension 候选（确认成功/取消/草图切换）时发
+// dimensionPopupClosed 通知等待中的工具；offset 候选与错误路径不发射。
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SketchDto } from '@luban-cad/shared';
 import { dimensionUnitSuffix, SketchValuePopup } from '../components/SketchValuePopup.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
@@ -45,8 +47,18 @@ function cssRuleBlock(selector: string): string {
 }
 
 describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
+  /** 弹层关闭通知（E1：dimension 候选关闭才发射；工具等它才退出）。 */
+  const closed = vi.fn();
+  let offClosed: (() => void) | undefined;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    offClosed = sketchToolEvents.on('dimensionPopupClosed', closed);
+  });
+
+  afterEach(() => {
+    offClosed?.();
+    offClosed = undefined;
   });
 
   it('尺寸候选（无实测值）：anchor 位置弹出空输入 + 占位 + mm 后缀，确认后追加约束并关闭', async () => {
@@ -77,6 +89,8 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
     expect(cancel.className).toBe('part-studio-sketch-value-popup__cancel');
     expect(cancel.querySelector('svg')).not.toBeNull();
     expect(cancel.textContent).toBe('');
+    // 候选打开期间不得发射关闭事件（工具仍在等待）。
+    expect(closed).not.toHaveBeenCalled();
     fireEvent.change(input, { target: { value: '42' } });
     fireEvent.click(confirm);
     await waitFor(() => expect(system.applyUpdate).toHaveBeenCalledTimes(1));
@@ -84,6 +98,8 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
       { kind: 'length', id: expect.any(Number), refs: [{ entity: 7, part: 'start' }], value: 42 },
     ]);
     await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    // 确认成功关闭 dimension 候选 → 恰好一次关闭通知。
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 
   it('尺寸候选带 measuredValue：预填 4 位小数并整段选中，确认提交预填值', async () => {
@@ -136,8 +152,13 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
     fireEvent.click(screen.getByTestId('sketch-value-confirm'));
     expect(screen.getByTestId('sketch-value-error')).toBeDefined();
     expect(system.applyUpdate).not.toHaveBeenCalled();
+    // 非法值：弹层保持打开，不得通知工具退出。
+    expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
+    expect(closed).not.toHaveBeenCalled();
+    // Escape 取消 → 关闭一次并恰好通知一次。
     fireEvent.keyDown(screen.getByTestId('sketch-value-input'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 
   it('偏移候选：预填实测距（无单位后缀），确认调用工具 commit；拒收保持并显示错误', async () => {
@@ -157,6 +178,62 @@ describe('SketchValuePopup（Onshape 标注位置值确认框）', () => {
     fireEvent.click(screen.getByTestId('sketch-value-confirm'));
     await waitFor(() => expect(commit).toHaveBeenCalledWith(12));
     await waitFor(() => expect(screen.getByTestId('sketch-value-error').textContent).toBe('偏移过大'));
+    // 偏移候选由工具自持（commit 回调）：错误与取消都不得发射关闭通知。
+    expect(closed).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('sketch-value-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  // ── E1：dimensionPopupClosed 通知面（工具等待退出）─────────────────────────
+  it('提交失败（applyUpdate 拒收）：弹层保持、不通知；取消才通知一次', async () => {
+    const system = fakeSystem({
+      applyUpdate: vi.fn(async () => ({ ok: false, error: '求解失败' })),
+    });
+    render(<SketchValuePopup sketchSystem={system} />);
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'length',
+        refs: [{ entity: 7, part: 'start' }],
+        entityIds: [7],
+        anchor: { x: 140, y: 120 },
+      });
+    });
+    fireEvent.change(screen.getByTestId('sketch-value-input'), { target: { value: '10' } });
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(screen.getByTestId('sketch-value-error').textContent).toBe('求解失败'));
+    expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
+    expect(closed).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('sketch-value-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('草图切换：dimension 候选打开时关闭并通知一次；无候选时不通知', () => {
+    const system = fakeSystem();
+    const { rerender } = render(<SketchValuePopup sketchSystem={system} />);
+    // 挂载（activeSketchId effect 首次运行）没有候选 → 不发射。
+    expect(closed).not.toHaveBeenCalled();
+
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'radius',
+        refs: [{ entity: 3, part: 'center' }],
+        entityIds: [3],
+        anchor: { x: 50, y: 60 },
+      });
+    });
+    expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
+
+    const switched = fakeSystem({ activeSketch: { ...system.activeSketch!, id: 'sk-2' } });
+    rerender(<SketchValuePopup sketchSystem={switched} />);
+    expect(screen.queryByTestId('sketch-value-popup')).toBeNull();
+    expect(closed).toHaveBeenCalledTimes(1);
+
+    // 无候选时再次切换草图：不重复通知。
+    const switchedAgain = fakeSystem({ activeSketch: { ...system.activeSketch!, id: 'sk-3' } });
+    rerender(<SketchValuePopup sketchSystem={switchedAgain} />);
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 });
 

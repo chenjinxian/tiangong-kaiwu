@@ -258,6 +258,10 @@ export class SketchDimensionTool extends PrimitiveTool {
   private _plane!: SketchPlaneFrame;
   private _cursorView?: { x: number; y: number };
   private _hintText?: string;
+  /** 值弹层等待态（E1 链式标注）：弹层打开期间工具保持安装、忽略画布拾取。 */
+  private _awaitingPopup = false;
+  /** dimensionPopupClosed 订阅退订（弹层关闭/清理即退订，防陈旧监听）。 */
+  private _offPopupClosed?: () => void;
 
   public override requireWriteableTarget(): boolean { return true; }
 
@@ -269,6 +273,7 @@ export class SketchDimensionTool extends PrimitiveTool {
   }
 
   public override async onCleanup(): Promise<void> {
+    this._clearPopupWait();
     clearSketchToolFeedback(this.toolId);
     await super.onCleanup();
   }
@@ -280,6 +285,9 @@ export class SketchDimensionTool extends PrimitiveTool {
   }
 
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
+    // 值弹层打开期间忽略画布拾取（Onshape：弹层模态收值，工具保持安装）。
+    if (this._awaitingPopup) return EventHandled.Yes;
+
     const sketchSystem = getSketchSystem();
     const sketch = sketchSystem?.activeSketch;
     if (!sketchSystem || !sketch || sketch.entities.length === 0) {
@@ -342,7 +350,29 @@ export class SketchDimensionTool extends PrimitiveTool {
       anchor,
       ...(measuredValue !== undefined ? { measuredValue } : {}),
     });
-    await this.exitTool();
+    // E1 链式标注第一步：弹层打开期间保持本工具安装（不立即 exitTool），
+    // 等弹层关闭（确认成功/取消/草图切换）后在事件回调里退出。
+    this._awaitPopupClose();
+  }
+
+  /**
+   * 等待值弹层关闭再退出：订阅一次 dimensionPopupClosed；到达时清等待态、
+   * 退订并 exitTool。重复调用先退旧订阅（重启/重装不留陈旧监听）。
+   */
+  private _awaitPopupClose(): void {
+    this._offPopupClosed?.();
+    this._awaitingPopup = true;
+    this._offPopupClosed = sketchToolEvents.on('dimensionPopupClosed', () => {
+      this._clearPopupWait();
+      void this.exitTool();
+    });
+  }
+
+  /** 清理等待态（幂等；onCleanup/事件到达时调用）。 */
+  private _clearPopupWait(): void {
+    this._awaitingPopup = false;
+    this._offPopupClosed?.();
+    this._offPopupClosed = undefined;
   }
 
   public override async onResetButtonUp(_ev: BeButtonEvent): Promise<EventHandled> {

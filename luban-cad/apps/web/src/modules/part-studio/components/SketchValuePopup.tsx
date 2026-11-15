@@ -53,6 +53,27 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const activeSketchId = sketchSystem.activeSketch?.id;
 
+  // 最新 pending 的镜像：closePending 零依赖读取，供草图切换 effect 判断
+  // 「是否有 dimension 候选仍在等值」。
+  const pendingRef = React.useRef<Pending | undefined>(undefined);
+  React.useEffect(() => {
+    pendingRef.current = pending;
+  }, [pending]);
+
+  /**
+   * 关闭值弹层（E1 链式标注第一步）：仅当关闭的候选是 dimension 时通知发
+   * 候选的工具（工具收到 dimensionPopupClosed 才 exitTool；弹层打开期间
+   * 工具保持安装并忽略画布拾取）。offset 候选由工具自持，不通知。
+   * 错误路径（非法值/提交失败）不关闭、不通知，弹层保持打开。
+   */
+  const closePending = React.useCallback((): void => {
+    const current = pendingRef.current;
+    pendingRef.current = undefined;
+    setPending(undefined);
+    setSubmitting(false);
+    if (current?.kind === 'dimension') sketchToolEvents.emit('dimensionPopupClosed');
+  }, []);
+
   React.useEffect(() => {
     const offDimension = sketchToolEvents.on('dimensionCandidate', (candidate) => {
       setPending({
@@ -82,11 +103,11 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
     };
   }, []);
 
-  // 草图切换/退出：候选不跨草图泄漏。
+  // 草图切换/退出：候选不跨草图泄漏；若关闭的是 dimension 候选，同步通知
+  // 等待中的工具退出（没有候选打开时 closePending 不发射）。
   React.useEffect(() => {
-    setPending(undefined);
-    setSubmitting(false);
-  }, [activeSketchId]);
+    closePending();
+  }, [activeSketchId, closePending]);
 
   // 每个新候选（含同种类连续候选）都重新聚焦并整段选中预填文本；输入过程中
   // pending.candidate 引用不变，不会抢焦点。
@@ -137,16 +158,16 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
           return;
         }
       }
-      setPending(undefined);
+      closePending();
     } finally {
       setSubmitting(false);
     }
-  }, [pending, sketchSystem, submitting, t]);
+  }, [closePending, pending, sketchSystem, submitting, t]);
 
   const cancel = React.useCallback(() => {
     if (submitting) return;
-    setPending(undefined);
-  }, [submitting]);
+    closePending();
+  }, [closePending, submitting]);
 
   if (!pending) return null;
 
