@@ -2367,8 +2367,37 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
     expect((screen.getByRole('option', { name: '选中的面' }) as HTMLOptionElement).disabled).toBe(true);
     expect(screen.queryByRole('textbox', { name: '距离' })).toBeNull(); // mirror 无距离量
     expect(screen.getByTestId('part-studio-feature-dialog-mirror-scope-hint')).toBeDefined();
+    // 2026-11-15 live：模式行 = 真实作用域选择器（零件/特征/面镜像），面镜像禁用。
+    const scope = screen.getByTestId('part-studio-feature-dialog-mirror-scope') as HTMLSelectElement;
+    expect(scope.value).toBe('body');
+    expect(within(scope).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      '零件镜像', '特征镜像', '面镜像',
+    ]);
+    const faceScope = within(scope).getByRole('option', { name: '面镜像' }) as HTMLOptionElement;
+    expect(faceScope.disabled).toBe(true);
+    expect(faceScope.getAttribute('title')).toBe('该能力尚未实现');
+    // 旧重复「镜像范围」行已删除。
+    expect(screen.queryByRole('combobox', { name: '镜像范围' })).toBeNull();
+    // 实体字段 = live query field（12px 标签；无 bodies → 26px 空态）。
+    const entities = screen.getByTestId('part-studio-feature-dialog-mirror-entities');
+    expect(entities.textContent).toContain('要镜像的图元');
+    expect(entities.className).toContain('is-empty');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('实体 query field：active bodies 渲染为只读 chips（无假 ×）+ 整件作用范围 title', () => {
+    renderMirrorDialog(makeApplyOp(), {
+      bodies: [
+        { bodyKey: '0x15', name: 'Part 1', active: true, authored: true, sourceFeatureId: 'f1' },
+        { bodyKey: '0x18', name: 'Part 2', active: true, authored: true, sourceFeatureId: 'f2' },
+      ],
+    });
+    const field = screen.getByTestId('part-studio-feature-dialog-mirror-entities');
+    expect(field.className).not.toContain('is-empty');
+    expect(field.getAttribute('title')).toContain('全部上游实体');
+    expect(within(field).getAllByRole('listitem').map((chip) => chip.textContent)).toEqual(['Part 1', 'Part 2']);
+    expect(within(field).queryByRole('button')).toBeNull();
   });
 
   it('打开即触发 previewOp insertFeature mirror（默认 XZ，2026-11-08）', async () => {
@@ -2488,12 +2517,20 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
 
   // Onshape live + 审计（2026-11-15）：mirror 只保留已接线的「镜像操作」页签，
   // 不再叠加通用「布尔作用域」行（旧行为两行冲突，且前者为可点击 no-op）。
-  it('仅一枚 tablist：「镜像操作」（无「布尔作用域」通用页签；Onshape live + 审计 2026-11-15）', () => {
+  it('仅一枚 tablist：「镜像操作」；无重复「镜像范围」行，页签在实体字段之前', () => {
     renderMirrorDialog(makeApplyOp());
     const tablists = screen.getAllByRole('tablist');
     expect(tablists).toHaveLength(1);
     expect(tablists[0]!.getAttribute('aria-label')).toBe('镜像操作');
     expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: '镜像范围' })).toBeNull();
+    // 作用域选择器即 live 模式行控件（非旧「镜像范围」行）。
+    const scope = screen.getByTestId('part-studio-feature-dialog-mirror-scope');
+    expect(scope.closest('.part-studio-feature-dialog__mode-row')).not.toBeNull();
+    // 页签紧随作用域下拉、位于实体 query field 之前。
+    const entities = screen.getByTestId('part-studio-feature-dialog-mirror-entities');
+    expect(tablists[0]!.compareDocumentPosition(entities) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
   });
 
   it('v1.48 编辑回显：stored operation=intersect → 相交页签选中；世界平面镜像编辑通道保持可改', () => {
@@ -2561,6 +2598,20 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
     expect(screen.queryByRole('tablist', { name: '镜像操作' })).toBeNull();
     expect(screen.queryByRole('option', { name: '选中的面' })).toBeNull();
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('特征镜像：源特征之后显示禁用的「重新应用特征」行（无后端通道）', async () => {
+    const { user } = renderMirrorDialog(makeApplyOp(), {
+      features: [{ id: 'f-ext', label: '拉伸 1', featureType: 'extrude' }],
+    });
+    expect(screen.queryByTestId('part-studio-feature-dialog-mirror-reapply-features')).toBeNull();
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-scope'), 'feature');
+    const row = screen.getByTestId('part-studio-feature-dialog-mirror-reapply-features');
+    const checkbox = within(row).getByRole('checkbox') as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+    expect(checkbox.checked).toBe(false);
+    expect(row.getAttribute('title')).toBe('该能力尚未实现');
+    expect(row.textContent).toContain('重新应用特征');
   });
 
   it('特征镜像：选源特征 + YZ 平面 → insertFeature featureMirror planeLine(过原点/法向 X)', async () => {
@@ -4039,7 +4090,7 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     featureRpc.getSketch.mockReset();
   });
 
-  it('字段与缺省：目标实体单选（consumed 不入选项/目标行禁用）、工具多选、运算缺省并集（相交可用）、保留工具体缺省未勾+消费提示', () => {
+  it('字段与缺省：目标实体单选（consumed 不入选项/目标行禁用）、工具多选、运算缺省并集（相交可用）、保留工具缺省未勾+消费提示', () => {
     renderBooleanDialog(makeApplyOp(), { bodies: [...THREE_BODIES, BODY_CONSUMED] });
     const target = screen.getByRole('combobox', { name: '目标实体' }) as HTMLSelectElement;
     expect(target.value).toBe('0x15');
@@ -4055,7 +4106,12 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     // T12（2026-11-07）：后端/契约支持 intersect，UI 同步启用（不再禁用/降级）。
     expect((screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByTestId('part-studio-feature-dialog-boolean-intersect-hint')).toBeNull();
-    const keepTools = screen.getByRole('checkbox', { name: '保留工具体' }) as HTMLInputElement;
+    // 2026-11-15 live：工具字段 = 12px「工具」标签字段框；操作唯一权威是顶部
+    // 页签——旧重复「运算」下拉已删除（单选 tablist，无 operation combobox）。
+    expect(screen.getByRole('group', { name: '工具' })).toBeDefined();
+    expect(screen.getAllByRole('tablist')).toHaveLength(1);
+    expect(screen.queryByRole('combobox', { name: '运算' })).toBeNull();
+    const keepTools = screen.getByRole('checkbox', { name: '保留工具' }) as HTMLInputElement;
     expect(keepTools.checked).toBe(false);
     expect(screen.getByTestId('part-studio-feature-dialog-boolean-consume-hint').textContent).toContain('消费');
     expect(screen.queryByTestId('part-studio-feature-dialog-boolean-tool-lock-hint')).toBeNull();
@@ -4091,6 +4147,8 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     // 体布尔固定实体结果，只渲染运算页签（并集/差集/相交）。
     expect(screen.queryByRole('tablist', { name: '结果类型' })).toBeNull();
     expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
+    expect(screen.getAllByRole('tablist')).toHaveLength(1);
+    expect(screen.queryByRole('combobox', { name: '运算' })).toBeNull();
     expect((screen.getByRole('tab', { name: '并集' }) as HTMLButtonElement).getAttribute('aria-selected')).toBe('true');
     const intersect = screen.getByRole('tab', { name: '相交' }) as HTMLButtonElement;
     expect(intersect.disabled).toBe(false);
@@ -4168,7 +4226,7 @@ describe('B6 M-A4.2a body boolean（booleanBodies）对话框', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('checkbox', { name: 'Body 2' }));
     await user.click(screen.getByRole('tab', { name: '差集' }));
-    await user.click(screen.getByRole('checkbox', { name: '保留工具体' }));
+    await user.click(screen.getByRole('checkbox', { name: '保留工具' }));
     expect(screen.getByTestId('part-studio-feature-dialog-boolean-tool-lock-hint').textContent).toContain('删除该布尔');
     expect(screen.queryByTestId('part-studio-feature-dialog-boolean-consume-hint')).toBeNull();
     await user.click(confirmButton());

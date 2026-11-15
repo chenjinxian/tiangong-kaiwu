@@ -197,7 +197,7 @@
  *   若目标后来被改成已选工具，冲突行保持可点以便解选）+ operation（unite/subtract；
  *   intersect 自 T12（2026-11-07）后端解锁后同步启用，不再禁用/降级）+ keepTools
  *   （缺省 false=成功后消费工具；true=保留并给出 I3 源链锁提示——编辑被引用的
- *   工具实体须先删除该布尔特征）。
+ *   工具须先删除该布尔特征）。
  * - 载荷 `{targets:[{bodyKey}], tools:[{bodyKey}...], operation, keepTools}`；目标
  *   只经 params.targets（M4.1 planBooleanInsert 的唯一真源）——op 层**不发**
  *   targetBodyId（通用手动目标下拉对本通道关闭），避免双来源/不一致拒收。
@@ -2700,10 +2700,11 @@ export function FeatureDialog({
       </header>
 
       {/* Onshape live 页签面：extrude/revolve = 结果类型 + 布尔作用域；
-          pattern/mirror = 仅模式字段（不渲染布尔作用域，Onshape live + 审计
-          2026-11-15：其载荷不读取 scope）；booleanBodies = 并集/差集/相交；
+          pattern = 模式字段；mirror = 作用域下拉（零件/特征/面镜像）+ 镜像操作
+          页签（零件作用域；不渲染布尔作用域，Onshape live + 审计 2026-11-15：
+          其载荷不读取 scope）；booleanBodies = 并集/差集/相交；
           fillet = 边/全圆角；chamfer 无页签。 */}
-      {((patternChannel && !patternUpstreamMissing) || (mirrorChannel && !mirrorUpstreamMissing)) && (
+      {((patternChannel && !patternUpstreamMissing) || mirrorChannel) && (
         <div className="part-studio-feature-dialog__mode-row">
           {featureType === 'pattern' ? (
             <select
@@ -2730,16 +2731,79 @@ export function FeatureDialog({
               <option value="circular">{t('partStudio.featureDialog.patternModeOptions.circular')}</option>
             </select>
           ) : (
+            // 2026-11-15 live：模式行即真实作用域选择器（零件镜像/特征镜像/
+            // 面镜像）；面镜像无面→平面通道，禁用并给出未实现理由。
             <select
               aria-label={t('partStudio.featureDialog.mirrorModeLabel')}
               className="part-studio-feature-dialog__select part-studio-feature-dialog__mode-select"
-              value="part"
-              disabled
+              value={mirrorScope}
+              disabled={submitting || mode === 'edit'}
+              onChange={(event) => {
+                const next = event.target.value as 'body' | 'feature';
+                setMirrorScope(next);
+                if (next === 'feature' && mirrorPlaneChoice === 'FACE')
+                  setMirrorPlaneChoice('XZ');
+                if (next === 'body')
+                  setMirrorSourceFeatureId('');
+              }}
+              data-testid="part-studio-feature-dialog-mirror-scope"
             >
-              <option value="part">{t('partStudio.featureDialog.mirrorModeLabel')}</option>
+              <option value="body">{t('partStudio.featureDialog.mirrorScopeOptions.body')}</option>
+              <option value="feature">{t('partStudio.featureDialog.mirrorScopeOptions.feature')}</option>
+              <option value="face" disabled title={t('partStudio.featureDialog.notImplemented')}>
+                {t('partStudio.featureDialog.mirrorScopeOptions.face')}
+              </option>
             </select>
           )}
         </div>
+      )}
+      {/* 2026-11-15 live：镜像操作页签紧随作用域下拉、位于实体字段之前
+          （零件作用域唯一操作权威；新建=独立镜像体无通道，禁用并给出理由）。 */}
+      {mirrorChannel && mirrorScope === 'body' && !mirrorUpstreamMissing && (
+        <React.Fragment>
+          <div
+            role="tablist"
+            aria-label={t('partStudio.featureDialog.mirrorOperationTabs')}
+            className="part-studio-feature-dialog__tablist part-studio-feature-dialog__tablist--top"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={false}
+              disabled
+              title={t('partStudio.featureDialog.mirrorOperationHint')}
+              className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--disabled"
+            >
+              {t('partStudio.featureDialog.booleanScopes.new')}
+            </button>
+            {(['unite', 'subtract', 'intersect'] as const).map((operation) => {
+              const labelKey = operation === 'unite' ? 'add' : operation === 'subtract' ? 'remove' : 'intersect';
+              return (
+                <button
+                  key={operation}
+                  type="button"
+                  role="tab"
+                  aria-selected={mirrorOperation === operation}
+                  disabled={submitting}
+                  className={[
+                    'part-studio-feature-dialog__tab',
+                    mirrorOperation === operation ? 'part-studio-feature-dialog__tab--active' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => setMirrorOperation(operation)}
+                >
+                  {t(`partStudio.featureDialog.booleanScopes.${labelKey}`)}
+                </button>
+              );
+            })}
+          </div>
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint"
+            data-testid="part-studio-feature-dialog-mirror-operation-hint"
+          >
+            {t('partStudio.featureDialog.mirrorOperationHint')}
+          </p>
+        </React.Fragment>
       )}
       {featureType === 'fillet' && (
         <div role="tablist" aria-label={t('partStudio.featureDialog.filletTabsLabel')}
@@ -3997,42 +4061,42 @@ export function FeatureDialog({
           className="part-studio-feature-dialog__entities"
           data-channel={sketchChannel ? 'sketch' : undefined}
         >
-          <div className="part-studio-feature-dialog__entities-header">
-            {/* 草图通道（拉伸/旋转）：标签移入字段内部（Onshape query field
-                形态，空态 26px 蓝底 / 已选态 42px 白底）。 */}
-            {!sketchChannel && (
-              <span className="part-studio-feature-dialog__entities-label">
-                {booleanBodiesChannel
-                  ? t('partStudio.featureDialog.booleanBodiesParametersLabel')
-                  : chamferChannel
-                  ? t('partStudio.featureDialog.chamferEdgesLabel')
-                  : filletChannel
-                  ? t('partStudio.featureDialog.filletEdgesLabel')
-                  : patternChannel
-                    ? t('partStudio.featureDialog.patternParametersLabel')
-                    : mirrorChannel
-                      ? t('partStudio.featureDialog.mirrorPlaneLabel')
-                      : sweepChannel
-                        ? t('partStudio.featureDialog.sweepSketchesLabel')
-                        : loftChannel
-                          ? t('partStudio.featureDialog.loftSectionsLabel')
-                          : t('partStudio.featureDialog.entitiesLabel')}
-              </span>
-            )}
-            {!sketchChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
-              && !patternChannel && !booleanBodiesChannel && (
-              <button
-                type="button"
-                className="part-studio-feature-dialog__fast-pick"
-                onClick={handleFastPick}
-              >
-                {t('partStudio.featureDialog.fastPick')}
-              </button>
-            )}
-          </div>
+          {/* mirror：实体字段单独渲染为 live query field（标签在字段内），
+              booleanBodies：工具字段自带「工具」标签——两者都不渲染旧表头。 */}
+          {!mirrorChannel && !booleanBodiesChannel && (
+            <div className="part-studio-feature-dialog__entities-header">
+              {/* 草图通道（拉伸/旋转）：标签移入字段内部（Onshape query field
+                  形态，空态 26px 蓝底 / 已选态 42px 白底）。 */}
+              {!sketchChannel && (
+                <span className="part-studio-feature-dialog__entities-label">
+                  {chamferChannel
+                    ? t('partStudio.featureDialog.chamferEdgesLabel')
+                    : filletChannel
+                      ? t('partStudio.featureDialog.filletEdgesLabel')
+                      : patternChannel
+                        ? t('partStudio.featureDialog.patternParametersLabel')
+                        : sweepChannel
+                          ? t('partStudio.featureDialog.sweepSketchesLabel')
+                          : loftChannel
+                            ? t('partStudio.featureDialog.loftSectionsLabel')
+                            : t('partStudio.featureDialog.entitiesLabel')}
+                </span>
+              )}
+              {!sketchChannel && !edgePickChannel && !loftChannel && !sweepChannel
+                && !patternChannel && (
+                <button
+                  type="button"
+                  className="part-studio-feature-dialog__fast-pick"
+                  onClick={handleFastPick}
+                >
+                  {t('partStudio.featureDialog.fastPick')}
+                </button>
+              )}
+            </div>
+          )}
 
-          {/* Onshape 实体字段：阵列/镜像作用于整件，显示 active authored body 芯片。 */}
-          {(patternChannel || mirrorChannel) && activeBodies.length > 0 && (
+          {/* pattern：实体字段显示 active authored body 芯片（整件阵列）。 */}
+          {patternChannel && activeBodies.length > 0 && (
             <div className="part-studio-feature-dialog__profile-field" data-testid="part-studio-feature-dialog-body-chips">
               <ul className="part-studio-feature-dialog__chips">
                 {activeBodies.map((body, index) => (
@@ -4041,6 +4105,30 @@ export function FeatureDialog({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Onshape live（2026-11-15）：mirror 实体字段 = `要镜像的图元` query
+              field（12px 标签 + 42px 选中 chips；无体=26px 浅蓝空态）。整件镜像
+              无逐体子集通道，chips 只读（无假 ×）——title 说明作用范围。 */}
+          {mirrorChannel && (
+            <div
+              className={`part-studio-feature-dialog__profile-field${activeBodies.length === 0 ? ' is-empty' : ''}`}
+              data-testid="part-studio-feature-dialog-mirror-entities"
+              title={t('partStudio.featureDialog.mirrorEntitiesReadOnlyHint')}
+            >
+              <span className="part-studio-feature-dialog__query-label">
+                {t('partStudio.featureDialog.mirrorEntitiesLabel')}
+              </span>
+              {activeBodies.length > 0 && (
+                <ul className="part-studio-feature-dialog__chips">
+                  {activeBodies.map((body, index) => (
+                    <li key={body.bodyKey} className="part-studio-feature-dialog__chip">
+                      <span className="part-studio-feature-dialog__chip-label">{bodyOptionLabel(body, index)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
@@ -4140,12 +4228,16 @@ export function FeatureDialog({
                   </select>
                 </section>
 
+                {/* 2026-11-15 live：工具字段 = 12px「工具」标签 + 逐体复选
+                    （无 query picker 证据，不造多选拾取）。操作唯一权威在顶部
+                    并集/差集/相交页签（旧「运算」下拉已删除）。 */}
                 <div
                   role="group"
                   aria-label={t('partStudio.featureDialog.booleanBodiesToolsLabel')}
                   data-testid="part-studio-feature-dialog-boolean-tools"
+                  className="part-studio-feature-dialog__boolean-tools-field"
                 >
-                  <span className="part-studio-feature-dialog__entities-label">
+                  <span className="part-studio-feature-dialog__query-label">
                     {t('partStudio.featureDialog.booleanBodiesToolsLabel')}
                   </span>
                   {activeBodies.map((body, index) => {
@@ -4170,6 +4262,22 @@ export function FeatureDialog({
                     );
                   })}
                 </div>
+
+                <label
+                  className="part-studio-feature-dialog__checkbox"
+                  data-testid="part-studio-feature-dialog-boolean-keep-tools"
+                >
+                  <input
+                    type="checkbox"
+                    checked={booleanKeepTools}
+                    disabled={submitting}
+                    onChange={(event) => setBooleanKeepTools(event.target.checked)}
+                  />
+                  <span>{t('partStudio.featureDialog.booleanBodiesKeepToolsLabel')}</span>
+                </label>
+
+                {/* live 行序：工具组 → 保留工具 → 目标/工具体提示行收尾。
+                    目标在工具（alert）/未选工具（hint）不静默。 */}
                 {booleanBodiesTargetInTools ? (
                   <p
                     role="alert"
@@ -4187,50 +4295,6 @@ export function FeatureDialog({
                     {t('partStudio.featureDialog.booleanBodiesToolsMissingHint')}
                   </p>
                 ) : null}
-
-                <section className="part-studio-feature-dialog__distance">
-                  <label
-                    className="part-studio-feature-dialog__distance-label"
-                    htmlFor="part-studio-feature-dialog-boolean-operation"
-                  >
-                    {t('partStudio.featureDialog.booleanBodiesOperationLabel')}
-                  </label>
-                  <select
-                    id="part-studio-feature-dialog-boolean-operation"
-                    aria-label={t('partStudio.featureDialog.booleanBodiesOperationLabel')}
-                    className="part-studio-feature-dialog__select part-studio-feature-dialog__boolean-operation"
-                    value={booleanOperation}
-                    disabled={submitting}
-                    onChange={(event) =>
-                      setBooleanOperation(event.target.value as BooleanBodiesParams['operation'])}
-                  >
-                    <option value="unite">
-                      {t('partStudio.featureDialog.booleanBodiesOperationOptions.unite')}
-                    </option>
-                    <option value="subtract">
-                      {t('partStudio.featureDialog.booleanBodiesOperationOptions.subtract')}
-                    </option>
-                    {/* v1.48（T12，2026-11-07）：intersect 后端/契约已落地
-                        （BooleanBodiesFlow + boolean-intersect 真栈绿）；UI 同步启用，
-                        不再禁用/降级。 */}
-                    <option value="intersect">
-                      {t('partStudio.featureDialog.booleanBodiesOperationOptions.intersect')}
-                    </option>
-                  </select>
-                </section>
-
-                <label
-                  className="part-studio-feature-dialog__checkbox"
-                  data-testid="part-studio-feature-dialog-boolean-keep-tools"
-                >
-                  <input
-                    type="checkbox"
-                    checked={booleanKeepTools}
-                    disabled={submitting}
-                    onChange={(event) => setBooleanKeepTools(event.target.checked)}
-                  />
-                  <span>{t('partStudio.featureDialog.booleanBodiesKeepToolsLabel')}</span>
-                </label>
                 {/* 消费语义（false）/ I3 工具链锁（true）二选一提示——不静默。 */}
                 {booleanKeepTools ? (
                   <p
@@ -4269,31 +4333,8 @@ export function FeatureDialog({
               ) : (
                 <React.Fragment>
                   {/* 2026-11-08 live 证据 mirror-feature-scope-20261108：作用域
-                      零件镜像/特征镜像；面镜像产品缺 face→planeLine 解析，不渲染假选项。 */}
-                  <section className="part-studio-feature-dialog__distance" data-field="mirror-scope">
-                    <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-mirror-scope">
-                      {t('partStudio.featureDialog.mirrorScopeLabel')}
-                    </label>
-                    <select
-                      id="part-studio-feature-dialog-mirror-scope"
-                      aria-label={t('partStudio.featureDialog.mirrorScopeLabel')}
-                      className="part-studio-feature-dialog__select"
-                      value={mirrorScope}
-                      disabled={submitting || mode === 'edit'}
-                      onChange={(event) => {
-                        const next = event.target.value as 'body' | 'feature';
-                        setMirrorScope(next);
-                        if (next === 'feature' && mirrorPlaneChoice === 'FACE')
-                          setMirrorPlaneChoice('XZ');
-                        if (next === 'body')
-                          setMirrorSourceFeatureId('');
-                      }}
-                      data-testid="part-studio-feature-dialog-mirror-scope"
-                    >
-                      <option value="body">{t('partStudio.featureDialog.mirrorScopeOptions.body')}</option>
-                      <option value="feature">{t('partStudio.featureDialog.mirrorScopeOptions.feature')}</option>
-                    </select>
-                  </section>
+                      零件镜像/特征镜像/面镜像——选择器已上移到 live 模式行
+                      （页面顶部），此处不再重复「镜像范围」行。 */}
                   {mirrorScope === 'feature' && (
                     <React.Fragment>
                       <section className="part-studio-feature-dialog__distance" data-field="mirror-source-feature">
@@ -4378,57 +4419,12 @@ export function FeatureDialog({
                       {t('partStudio.featureDialog.mirrorFaceOwnerMismatchHint')}
                     </p>
                   )}
-                  {/* v1.48（ADR-0011 切片 2c）：Onshape 镜像操作页签——新建/加入/移除/相交。
-                      新建=独立镜像体，需多体输出（ADR-0015），当前禁用并提示；其余直通后端。
-                      2026-11-08：仅零件作用域；特征镜像无 operation 键。 */}
-                  {mirrorScope === 'body' && (<React.Fragment>
-                  <div
-                    role="tablist"
-                    aria-label={t('partStudio.featureDialog.mirrorOperationTabs')}
-                    className="part-studio-feature-dialog__tablist part-studio-feature-dialog__tablist--top"
-                  >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={false}
-                      disabled
-                      title={t('partStudio.featureDialog.mirrorOperationHint')}
-                      className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--disabled"
-                    >
-                      {t('partStudio.featureDialog.booleanScopes.new')}
-                    </button>
-                    {(['unite', 'subtract', 'intersect'] as const).map((operation) => {
-                      const labelKey = operation === 'unite' ? 'add' : operation === 'subtract' ? 'remove' : 'intersect';
-                      return (
-                        <button
-                          key={operation}
-                          type="button"
-                          role="tab"
-                          aria-selected={mirrorOperation === operation}
-                          disabled={submitting}
-                          className={[
-                            'part-studio-feature-dialog__tab',
-                            mirrorOperation === operation ? 'part-studio-feature-dialog__tab--active' : '',
-                          ].filter(Boolean).join(' ')}
-                          onClick={() => setMirrorOperation(operation)}
-                        >
-                          {t(`partStudio.featureDialog.booleanScopes.${labelKey}`)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p
-                    role="note"
-                    className="part-studio-feature-dialog__hint"
-                    data-testid="part-studio-feature-dialog-mirror-operation-hint"
-                  >
-                    {t('partStudio.featureDialog.mirrorOperationHint')}
-                  </p>
-                  </React.Fragment>)}
-                  <section className="part-studio-feature-dialog__distance" data-field="mirror-plane">
-                    <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-mirror-plane">
+                  {/* 镜像平面 = live query field 外壳（12px 标签 + 无边框世界
+                      平面下拉 + 装饰时钟）。planeLine/faceRef 只读语义不变。 */}
+                  <section className="part-studio-feature-dialog__axis-field" data-field="mirror-plane">
+                    <span className="part-studio-feature-dialog__query-label">
                       {t('partStudio.featureDialog.mirrorPlaneLabel')}
-                    </label>
+                    </span>
                     <select
                       id="part-studio-feature-dialog-mirror-plane"
                       aria-label={t('partStudio.featureDialog.mirrorPlaneLabel')}
@@ -4446,7 +4442,25 @@ export function FeatureDialog({
                         </option>
                       )}
                     </select>
+                    <span className="part-studio-feature-dialog__axis-clock" aria-hidden="true">
+                      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" />
+                        <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeLinecap="round" />
+                      </svg>
+                    </span>
                   </section>
+                  {/* 特征镜像 live 行（SCOPE08）：镜像平面之后 = 重新应用特征；
+                      后端无该通道——禁用未勾选 + 未实现理由。 */}
+                  {mirrorScope === 'feature' && (
+                    <label
+                      className="part-studio-feature-dialog__checkbox"
+                      data-testid="part-studio-feature-dialog-mirror-reapply-features"
+                      title={t('partStudio.featureDialog.notImplemented')}
+                    >
+                      <input type="checkbox" checked={false} disabled />
+                      <span>{t('partStudio.featureDialog.mirrorReapplyFeaturesLabel')}</span>
+                    </label>
+                  )}
                   {mirrorPlaneChoice === 'FACE' && mirrorFaceRef !== undefined && (
                     <p
                       role="note"

@@ -774,7 +774,8 @@
     "mirrorScopeLabel": "镜像范围",
     "mirrorScopeOptions": {
       "body": "零件镜像",
-      "feature": "特征镜像"
+      "feature": "特征镜像",
+      "face": "面镜像"
     },
     "mirrorSourceFeatureLabel": "要镜像的特征",
     "mirrorSourceFeaturePlaceholder": "选择特征",
@@ -867,20 +868,20 @@
     "unownedTargetHint": "该特征暂无法自动确定目标实体（工具体未接线），提交已禁用",
     "booleanBodiesParametersLabel": "布尔实体",
     "booleanBodiesTargetLabel": "目标实体",
-    "booleanBodiesToolsLabel": "工具实体",
+    "booleanBodiesToolsLabel": "工具",
     "booleanBodiesOperationLabel": "运算",
     "booleanBodiesOperationOptions": {
       "unite": "并集",
       "subtract": "差集",
       "intersect": "相交"
     },
-    "booleanBodiesKeepToolsLabel": "保留工具体",
-    "booleanBodiesConsumeHint": "未勾选「保留工具体」时，提交成功后工具实体将被消费（隐藏，可撤销恢复）",
-    "booleanBodiesToolLockHint": "布尔存在期间，所选工具实体的源链被锁定；编辑工具体需先删除该布尔特征",
+    "booleanBodiesKeepToolsLabel": "保留工具",
+    "booleanBodiesConsumeHint": "未勾选「保留工具」时，提交成功后工具实体将被消费（隐藏，可撤销恢复）",
+    "booleanBodiesToolLockHint": "布尔存在期间，所选工具的源链被锁定；编辑工具体需先删除该布尔特征",
     "booleanBodiesNeedsTwoHint": "体布尔需要至少两个活动实体：请先创建实体",
-    "booleanBodiesUnavailableHint": "实体列表不可用：无法选择目标/工具实体，暂时不能提交；请在零件段重试",
-    "booleanBodiesToolsMissingHint": "请至少选择一个工具实体",
-    "booleanBodiesTargetInToolsError": "目标实体不能同时作为工具实体",
+    "booleanBodiesUnavailableHint": "实体列表不可用：无法选择目标/工具，暂时不能提交；请在零件段重试",
+    "booleanBodiesToolsMissingHint": "请至少选择一个工具",
+    "booleanBodiesTargetInToolsError": "目标实体不能同时作为工具",
     "submitSuccess": "{{name}} 已创建",
     "submitEvalFailed": "{{name}} 已提交但求值失败：{{message}}——特征已入特征树，几何未生成",
     "leaseBusy": "写租约被其他会话持有，提交将等待租约",
@@ -976,7 +977,9 @@
     "mergeScopeLabel": "合并范围",
     "mergeScopeUnresolvedHint": "存在多个实体且未指定目标实体：合并范围未确定（不提交该参数）",
     "thinThickness2Label": "厚度 2",
-    "thinThickness2Unsupported": "第二厚度暂无产品通道（不提交该值）"
+    "thinThickness2Unsupported": "第二厚度暂无产品通道（不提交该值）",
+    "mirrorReapplyFeaturesLabel": "重新应用特征",
+    "mirrorEntitiesReadOnlyHint": "整件镜像作用于全部上游实体；图元只读（不支持逐体移除）"
   },
   "filletPick": {
     "prompt": "点击拾取要圆角的边",

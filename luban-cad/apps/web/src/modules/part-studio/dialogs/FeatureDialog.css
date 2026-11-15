@@ -1045,8 +1045,7 @@
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-new-body'] {
   display: none;
 }
-.part-studio-feature-dialog__pattern-kind,
-.part-studio-feature-dialog__boolean-operation {
+.part-studio-feature-dialog__pattern-kind {
   display: none;
 }
 
@@ -1115,7 +1114,18 @@
 .part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-angle'] { order: 3; }
 .part-studio-feature-dialog[data-feature='pattern'] [data-field='pattern-count'] { order: 4; }
 .part-studio-feature-dialog[data-feature='pattern'] [data-testid='part-studio-feature-dialog-pattern-scope-hint'] { order: 5; }
-.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__mirror-plane { order: 2; }
+
+/* 镜像 live 对齐（2026-11-15）：实体字段=独立 query field（标签在字段内），
+ * 外层 section 不再承担字段框；镜像平面走共享 axis-field 外壳（标签/下拉/时钟
+ * 按 DOM 顺序，不再用 order 抢先）。 */
+.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.part-studio-feature-dialog[data-feature='mirror'] .part-studio-feature-dialog__entities-label {
+  display: none;
+}
 
 /* fillet/chamfer 边查询字段（2026-11-15 live）：空态 26px 蓝底单行 / 已选态
  * 42px 白底（12px 标签 + 13.3333px chips 值行）。字段本体即拾取入口。 */
@@ -2125,4 +2135,29 @@
 .part-studio-feature-dialog__axis-clock svg {
   inline-size: 15px;
   block-size: 15px;
+}
+
+/* ── booleanBodies live 对齐（2026-11-15 dialog-audit group-d §3）─────────
+ * 工具字段 = 白底 1px #d7d7d7 字段框 + 12px「工具」标签 + 逐体复选行；
+ * 无 query picker 证据，不造假拾取入口。行序：工具 → 保留工具 → 提示。 */
+.part-studio-feature-dialog__boolean-tools-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 2px 3px;
+  padding: 2px 6px;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-feature-dialog__boolean-tools-field .part-studio-feature-dialog__query-label {
+  padding-block-start: 0;
+  color: #555555;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.part-studio-feature-dialog__boolean-tools-field .part-studio-feature-dialog__checkbox {
+  min-block-size: 24px;
 }

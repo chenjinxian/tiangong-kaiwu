@@ -774,7 +774,8 @@
     "mirrorScopeLabel": "Mirror scope",
     "mirrorScopeOptions": {
       "body": "Part mirror",
-      "feature": "Feature mirror"
+      "feature": "Feature mirror",
+      "face": "Face mirror"
     },
     "mirrorSourceFeatureLabel": "Features to mirror",
     "mirrorSourceFeaturePlaceholder": "Select a feature",
@@ -867,20 +868,20 @@
     "unownedTargetHint": "The target body for this feature cannot be determined yet (tool interface not wired); submission is disabled",
     "booleanBodiesParametersLabel": "Boolean bodies",
     "booleanBodiesTargetLabel": "Target body",
-    "booleanBodiesToolsLabel": "Tool bodies",
+    "booleanBodiesToolsLabel": "Tools",
     "booleanBodiesOperationLabel": "Operation",
     "booleanBodiesOperationOptions": {
       "unite": "Unite",
       "subtract": "Subtract",
       "intersect": "Intersect"
     },
-    "booleanBodiesKeepToolsLabel": "Keep tool bodies",
-    "booleanBodiesConsumeHint": "With “Keep tool bodies” unchecked, tool bodies are consumed on success (hidden; undo restores them)",
-    "booleanBodiesToolLockHint": "While this boolean exists, the source chain of the selected tool bodies is locked; delete the boolean before editing those bodies",
+    "booleanBodiesKeepToolsLabel": "Keep tools",
+    "booleanBodiesConsumeHint": "With “Keep tools” unchecked, tool bodies are consumed on success (hidden; undo restores them)",
+    "booleanBodiesToolLockHint": "While this boolean exists, the source chain of the selected tools is locked; delete the boolean before editing those bodies",
     "booleanBodiesNeedsTwoHint": "Body boolean requires at least two active bodies: create bodies first",
-    "booleanBodiesUnavailableHint": "Body list unavailable: target/tool bodies cannot be selected, so submission is disabled. Retry from the Parts section.",
-    "booleanBodiesToolsMissingHint": "Select at least one tool body",
-    "booleanBodiesTargetInToolsError": "The target body cannot also be a tool body",
+    "booleanBodiesUnavailableHint": "Body list unavailable: target/tools cannot be selected, so submission is disabled. Retry from the Parts section.",
+    "booleanBodiesToolsMissingHint": "Select at least one tool",
+    "booleanBodiesTargetInToolsError": "The target body cannot also be a tool",
     "submitSuccess": "{{name}} created",
     "submitEvalFailed": "{{name}} committed but evaluation failed: {{message}} — feature added to tree, geometry not generated",
     "leaseBusy": "The write lease is held by another session; submitting will wait for the lease",
@@ -976,7 +977,9 @@
     "mergeScopeLabel": "Merge scope",
     "mergeScopeUnresolvedHint": "Multiple bodies with no explicit target: merge scope unresolved (not submitted)",
     "thinThickness2Label": "Thickness 2",
-    "thinThickness2Unsupported": "Second thickness has no product channel yet (not submitted)"
+    "thinThickness2Unsupported": "Second thickness has no product channel yet (not submitted)",
+    "mirrorReapplyFeaturesLabel": "Reapply features",
+    "mirrorEntitiesReadOnlyHint": "Whole-body mirror applies to all upstream bodies; entities are read-only (per-body removal is unsupported)"
   },
   "filletPick": {
     "prompt": "Click edges to fillet in the canvas",
