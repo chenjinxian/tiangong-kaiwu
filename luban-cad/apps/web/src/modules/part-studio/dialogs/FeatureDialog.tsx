@@ -3120,6 +3120,31 @@ export function FeatureDialog({
               disabled={submitting || effectiveEndBound !== 'blind'}
               onChange={(event) => setDistance(event.target.value)}
             />
+            {featureType === 'extrude' && (
+              <span className="part-studio-feature-dialog__value-unit">mm</span>
+            )}
+            {featureType === 'extrude' && (
+              // Onshape live（2026-11-15）：数值行右侧计算器图标；本产品尚未
+              // 实现计算器弹层——诚实禁用并标注，不伪造可点。
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
+            )}
           </section>
         )}
 
@@ -3305,7 +3330,10 @@ export function FeatureDialog({
                   if (event.target.checked) setDraftEnabled(false);
                 }}
               />
-              <span>{t('partStudio.featureDialog.secondDirectionLabel')}</span>
+              {/* Onshape live（2026-11-15 extrude-secondEnd-open）：该行标签为
+                  「第二个终止位置」，展开后含终止条件 + 深度 + 拔模。拔模后端
+                  无第二方向通道 → 诚实禁用。 */}
+              <span>{t('partStudio.featureDialog.secondEndLabel')}</span>
             </label>
             {secondDirectionEnabled && !symmetric && (
               <section className="part-studio-feature-dialog__distance">
@@ -3326,6 +3354,7 @@ export function FeatureDialog({
                   disabled={submitting || secondDirectionEndBound === 'throughAll'}
                   onChange={(event) => setSecondDirectionDepth(event.target.value)}
                 />
+                <span className="part-studio-feature-dialog__value-unit">mm</span>
                 <select
                   aria-label={t('partStudio.featureDialog.secondDirectionEndLabel')}
                   className="part-studio-feature-dialog__select"
@@ -3338,6 +3367,13 @@ export function FeatureDialog({
                   <option value="blind">{t('partStudio.featureDialog.blindLabel')}</option>
                   <option value="throughAll">{t('partStudio.featureDialog.throughAllLabel')}</option>
                 </select>
+                <label
+                  className="part-studio-feature-dialog__checkbox"
+                  title={t('partStudio.featureDialog.notImplemented')}
+                >
+                  <input type="checkbox" disabled aria-label={t('partStudio.featureDialog.draftLabel')} />
+                  <span>{t('partStudio.featureDialog.draftLabel')}</span>
+                </label>
               </section>
             )}
           </React.Fragment>
@@ -3547,25 +3583,32 @@ export function FeatureDialog({
             「Sketch 1 的 面」形态）；无草图/无面域 → 诚实提示 + 提交禁用。
             M6-b T6 分叉：fillet 新建 = 边 chips + 添加边（对话框驱动拾取）。
             其余（edit/非通道特征/壳期）保持通用 chips + 快速拾取不动。 */}
-        <section className="part-studio-feature-dialog__entities">
+        <section
+          className="part-studio-feature-dialog__entities"
+          data-channel={sketchChannel ? 'sketch' : undefined}
+        >
           <div className="part-studio-feature-dialog__entities-header">
-            <span className="part-studio-feature-dialog__entities-label">
-              {booleanBodiesChannel
-                ? t('partStudio.featureDialog.booleanBodiesParametersLabel')
-                : chamferChannel
-                ? t('partStudio.featureDialog.chamferEdgesLabel')
-                : filletChannel
-                ? t('partStudio.featureDialog.filletEdgesLabel')
-                : patternChannel
-                  ? t('partStudio.featureDialog.patternParametersLabel')
-                  : mirrorChannel
-                    ? t('partStudio.featureDialog.mirrorPlaneLabel')
-                    : sweepChannel
-                      ? t('partStudio.featureDialog.sweepSketchesLabel')
-                      : loftChannel
-                        ? t('partStudio.featureDialog.loftSectionsLabel')
-                        : t('partStudio.featureDialog.entitiesLabel')}
-            </span>
+            {/* 草图通道（拉伸/旋转）：标签移入字段内部（Onshape query field
+                形态，空态 26px 蓝底 / 已选态 42px 白底）。 */}
+            {!sketchChannel && (
+              <span className="part-studio-feature-dialog__entities-label">
+                {booleanBodiesChannel
+                  ? t('partStudio.featureDialog.booleanBodiesParametersLabel')
+                  : chamferChannel
+                  ? t('partStudio.featureDialog.chamferEdgesLabel')
+                  : filletChannel
+                  ? t('partStudio.featureDialog.filletEdgesLabel')
+                  : patternChannel
+                    ? t('partStudio.featureDialog.patternParametersLabel')
+                    : mirrorChannel
+                      ? t('partStudio.featureDialog.mirrorPlaneLabel')
+                      : sweepChannel
+                        ? t('partStudio.featureDialog.sweepSketchesLabel')
+                        : loftChannel
+                          ? t('partStudio.featureDialog.loftSectionsLabel')
+                          : t('partStudio.featureDialog.entitiesLabel')}
+              </span>
+            )}
             {!sketchChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
               && !patternChannel && !booleanBodiesChannel && (
               <button
@@ -4516,14 +4559,27 @@ export function FeatureDialog({
           )}
 
           {sketchChannel && sketchOptions.length === 0 ? (
-            /* 无草图门禁（M6-a T6）：先创建草图（不再发空 profile 裸奔）。 */
-            <p
-              role="note"
-              className="part-studio-feature-dialog__hint"
-              data-testid="part-studio-feature-dialog-no-sketch-hint"
-            >
-              {t('partStudio.featureDialog.noSketchHint')}
-            </p>
+            /* 无草图门禁（M6-a T6）：先创建草图（不再发空 profile 裸奔）。
+               Onshape live：字段本身仍在（空态），标签可见——不因无草图而消失。 */
+            <React.Fragment>
+              <div
+                className="part-studio-feature-dialog__profile-field is-empty"
+                data-testid="part-studio-feature-dialog-profile-field"
+              >
+                <label className="part-studio-feature-dialog__query-label">
+                  {revolveChannel
+                    ? t('partStudio.featureDialog.revolveEntitiesLabel')
+                    : t('partStudio.featureDialog.entitiesLabel')}
+                </label>
+              </div>
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-no-sketch-hint"
+              >
+                {t('partStudio.featureDialog.noSketchHint')}
+              </p>
+            </React.Fragment>
           ) : null}
 
           {sketchChannel && sketchOptions.length > 0 && (
@@ -4532,9 +4588,16 @@ export function FeatureDialog({
                   草图自动取最近一张，面域在视口中点击增删，每个选中面域显示
                   一个「草图 N 的面」chip（可 X 移除）。 */}
               <div
-                className="part-studio-feature-dialog__profile-field"
+                className={`part-studio-feature-dialog__profile-field${selectedRegions.length > 0 ? ' is-selected' : ' is-empty'}`}
                 data-testid="part-studio-feature-dialog-profile-field"
               >
+                {/* Onshape live（2026-11-15）：字段内小标签 + 值行；空态只显示
+                    标签（26px 蓝底），提示文案保留为视觉隐藏（可访问/测试锚点）。 */}
+                <label className="part-studio-feature-dialog__query-label">
+                  {revolveChannel
+                    ? t('partStudio.featureDialog.revolveEntitiesLabel')
+                    : t('partStudio.featureDialog.entitiesLabel')}
+                </label>
                 {selectedRegions.length > 0 ? (
                   <ul className="part-studio-feature-dialog__chips">
                     {selectedRegions.map((index) => (

@@ -1242,3 +1242,144 @@
   border: 1px solid #9aa4ae;
   background: #ffffff;
 }
+
+/* ── Onshape live（2026-11-15 全量审计）实体/草图面域 query field ─────────
+ * 空态 26px 单行、底 rgb(222,241,251)、1px 边框 rgb(22,81,176)、2px 圆角；
+ * 已选态 42px（12px 小标签 + 13.3333px 值行）、白底、1px #d7d7d7。 */
+.part-studio-feature-dialog__profile-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 42px;
+  margin: 2px 3px;
+  padding: 0 6px;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-feature-dialog__profile-field.is-empty {
+  min-block-size: 26px;
+  justify-content: center;
+  border-color: #1651b0;
+  background: #def1fb;
+}
+
+.part-studio-feature-dialog__query-label {
+  color: #555555;
+  font-size: 12px;
+  line-height: 16px;
+  padding-block-start: 2px;
+}
+
+.part-studio-feature-dialog__profile-field.is-empty .part-studio-feature-dialog__query-label {
+  padding-block: 0;
+  line-height: 24px;
+}
+
+.part-studio-feature-dialog__profile-field .part-studio-feature-dialog__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-block-size: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.part-studio-feature-dialog__profile-chip {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 13.3333px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+/* live 空态字段内只显示标签；提示保留在 DOM（可访问/测试锚点），视觉隐藏。 */
+.part-studio-feature-dialog__profile-empty {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Onshape live 数值行：12px 标签 + 右对齐值 + 单位 + 计算器；底部 1px 下划线。 */
+.part-studio-feature-dialog__distance {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  min-block-size: 27px;
+  padding: 0 3px;
+  gap: 6px;
+}
+
+.part-studio-feature-dialog__distance > .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog__distance > .part-studio-feature-dialog__input {
+  text-align: end;
+}
+
+.part-studio-feature-dialog__input {
+  block-size: 22px;
+  padding: 0 2px;
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 13.3333px;
+  line-height: 20px;
+}
+
+.part-studio-feature-dialog__select {
+  block-size: 22px;
+  padding: 0 2px;
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 13.3333px;
+}
+
+.part-studio-feature-dialog__value-unit {
+  color: #333333;
+  font-size: 13.3333px;
+  line-height: 20px;
+}
+
+.part-studio-feature-dialog__calculator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1651b0;
+}
+
+.part-studio-feature-dialog__calculator:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.part-studio-feature-dialog__calculator svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
+/* 草图通道（拉伸/旋转）：外层 section 不再是字段框——字段框由内部
+ * `__profile-field` 承担（Onshape live query field），避免双层边框。 */
+.part-studio-feature-dialog__entities[data-channel='sketch'] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
