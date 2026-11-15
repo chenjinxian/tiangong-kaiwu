@@ -168,6 +168,9 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     await page.getByRole('button', { name: 'Front', exact: true }).click();
     await expect.poll(sketchCount, { timeout: 60_000, intervals: [1000, 2000, 5000] }).toBe(2);
     await expect(dialog.getByTestId('sketch-plane-chip')).toHaveText('Front 平面');
+    // 2026-11-15 live 两态：未选平面（has-regen-error）标题红；选好平面后健康态
+    // #333（sketch-dialog-initial 红 / sketch-dialog-front #333）。
+    await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveCSS('color', 'rgb(51, 51, 51)');
     await expect(dialog.locator('.part-studio-sketch-dialog__plane-clock')).toBeVisible();
     await expect(dialog.locator('.part-studio-sketch-dialog__plane-clear')).toBeVisible();
     await expect(dialog.getByTestId('sketch-finish')).toHaveCount(0);
@@ -220,6 +223,8 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId('sketch-plane-chip')).toHaveCount(0);
     await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveText('草图');
+    // 清除平面后回到不可求值态 → 标题红（live has-regen-error 两态）。
+    await expect(dialog.locator('.part-studio-sketch-dialog__title')).toHaveCSS('color', 'rgb(170, 37, 45)');
     await expect.poll(sketchCount, { timeout: 60_000, intervals: [1000, 2000, 5000] }).toBe(1);
     // 重新选 Front → 再次自动创建 pending 草图（对话框仍在）。
     await page.getByRole('button', { name: 'Front', exact: true }).click();

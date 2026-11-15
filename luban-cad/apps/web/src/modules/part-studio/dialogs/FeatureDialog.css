@@ -573,14 +573,20 @@
 }
 
 .part-studio-feature-dialog__title {
-  /* Onshape live computedStyles（2026-11-15）：500 13px rgb(170,37,45)；
-     旧值 16px #333 采错了元素（容器而非标题 span）。 */
-  color: #aa252d;
+  /* Onshape live computedStyles（2026-11-15）：500 13px；健康态 #333，带
+     has-regen-error（特征不可求值/必填未选）时 #AA252D——空态探针全红、
+     已选轮廓/边/面后转 #333（feature-extrude-filled / chamfer-edges /
+     shell-face / move-face-face），不是恒定红。 */
+  color: #333333;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.part-studio-feature-dialog__title--error {
+  color: #aa252d;
 }
 
 .part-studio-feature-dialog__header-actions {

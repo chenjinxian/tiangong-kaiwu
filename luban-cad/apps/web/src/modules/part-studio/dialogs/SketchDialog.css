@@ -297,13 +297,18 @@
 
 .part-studio-sketch-dialog__title {
   overflow: hidden;
-  /* Onshape live computedStyles（2026-11-15）：标题 500 13px rgb(170,37,45)；
-     旧 16px #333 采到的是容器字号而非标题 span。 */
-  color: #aa252d;
+  /* Onshape live computedStyles（2026-11-15）：标题 500 13px；健康态 #333，
+     带 has-regen-error（未选平面/求值错误）时 #AA252D——两态都有实测样本
+     （sketch-dialog-front #333 / sketch-dialog-initial 红），不是恒定红。 */
+  color: #333333;
   font-size: 13px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.part-studio-sketch-dialog__title--error {
+  color: #aa252d;
 }
 
 .part-studio-sketch-dialog__header-actions {

@@ -221,6 +221,19 @@ describe('SketchDialog 非模态结构（os-30）', () => {
     expect(screen.getByRole('dialog', { name: 'Sketch 1' })).toBeDefined();
   });
 
+  // 2026-11-15 live 两态（sketch-dialog-initial 红 has-regen-error /
+  // sketch-dialog-front #333 健康）：标题不是恒定红。
+  it('标题错误态：未选平面 → --error；受控 planeId=front → 健康态', () => {
+    const { rerender } = render(
+      <SketchDialog planeId={null} onPlaneChange={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const title = (): Element => document.querySelector('.part-studio-sketch-dialog__title')!;
+    expect(title().className).toContain('part-studio-sketch-dialog__title--error');
+    rerender(<SketchDialog planeId="front" onPlaneChange={vi.fn()} onCancel={vi.fn()} />);
+    expect(title().className).toContain('part-studio-sketch-dialog__title');
+    expect(title().className).not.toContain('--error');
+  });
+
   it('✓/✗ 在标题行；草图分析工具/帮助在底栏（Onshape live f4 布局）', () => {
     renderDialog();
     const dialog = screen.getByRole('dialog', { name: /^草图( 1)?$/ });

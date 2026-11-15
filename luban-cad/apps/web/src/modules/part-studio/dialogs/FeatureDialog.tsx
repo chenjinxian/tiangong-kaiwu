@@ -1744,6 +1744,13 @@ export function FeatureDialog({
     // B6 M-A4.2a：body boolean 通道门禁（体不足/读面不可用/工具空/目标在工具）。
     || !booleanBodiesReady;
 
+  // 2026-11-15 live：Onshape 标题健康态 #333，带 has-regen-error（特征不可求值/
+  // 未选必填输入）时 #AA252D。空态探针对话框全为红、已选轮廓/边/面后转 #333
+  // （feature-extrude-filled / chamfer-edges / shell-face / move-face-face）。
+  // 我们的等价口径：可编辑但当前不可提交，或已有提交错误 → 红。
+  const titleHasError = error !== undefined
+    || (submitDisabled && !submitting && !editReadOnly && canEdit);
+
   // 预览（v1.21 起；2026-11-08 扩到 chamfer/loft/sweep/mirror/pattern）：后端影子
   // 求值（不落库）→ 前端 TileRpc 动态图形。150ms debounce + 序列号守卫；短租约
   // 预算失败只静默不出预览，不阻塞参数编辑。effect 放在派生就绪量之后，直接复用
@@ -2760,7 +2767,15 @@ export function FeatureDialog({
     >
       {/* 顶置标题行：特征名 + ✓确认/✗取消（os-31）。 */}
       <header className="part-studio-feature-dialog__header">
-        <h2 className="part-studio-feature-dialog__title">{featureName}</h2>
+        <h2
+          className={
+            titleHasError
+              ? 'part-studio-feature-dialog__title part-studio-feature-dialog__title--error'
+              : 'part-studio-feature-dialog__title'
+          }
+        >
+          {featureName}
+        </h2>
         <DialogHeaderButtons disabled={submitDisabled} onConfirm={handleConfirm} onCancel={() => onCancel?.()} />
       </header>
 

@@ -223,6 +223,30 @@ describe('FeatureDialog 非模态结构（os-31）', () => {
     expect(within(header as HTMLElement).getByRole('button', { name: '取消' })).toBeDefined();
   });
 
+  // 2026-11-15 live 两态：空态特征对话框标题红（has-regen-error），可求值/
+  // 健康态 #333（feature-extrude-filled / chamfer-edges 等）。我们以
+  // 「可编辑但当前不可提交」为红态等价口径。
+  it('标题错误态：新拉伸可编辑但未就绪 → --error；普通无通道对话框健康', () => {
+    const { unmount } = render(
+      <FeatureDialog
+        featureName="拉伸 1"
+        featureType="extrude"
+        mode="new"
+        entities={[]}
+        applyOp={vi.fn(async (): Promise<FeatureOpResult> => ({ ok: true }))}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    const title = (): Element => document.querySelector('.part-studio-feature-dialog__title')!;
+    expect(title().className).toContain('part-studio-feature-dialog__title--error');
+    unmount();
+
+    render(<FeatureDialog featureName="Extrude 1" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+    expect(title().className).toContain('part-studio-feature-dialog__title');
+    expect(title().className).not.toContain('--error');
+  });
+
   it('默认载荷：solid/new/entities 初始/direction=forward/偏移空/无对称/拔模空/透明度=0', async () => {
     const { onConfirm } = renderDialog({ entities: ENTITIES });
     await userEvent.setup().click(screen.getByRole('button', { name: '确认' }));

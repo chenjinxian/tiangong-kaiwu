@@ -407,7 +407,13 @@ export function SketchDialog({
     >
       {/* 顶置标题行：草图名 + ✓/✗（Onshape sprite 图标；✗ 透明底红 X）。 */}
       <header className="part-studio-sketch-dialog__header">
-        <h2 className="part-studio-sketch-dialog__title">
+        <h2
+          className={
+            error !== undefined || plane === ''
+              ? 'part-studio-sketch-dialog__title part-studio-sketch-dialog__title--error'
+              : 'part-studio-sketch-dialog__title'
+          }
+        >
           {dialogTitle}
         </h2>
         <div className="part-studio-sketch-dialog__header-actions">
