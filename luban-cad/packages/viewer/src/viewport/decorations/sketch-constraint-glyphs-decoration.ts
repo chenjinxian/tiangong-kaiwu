@@ -3,7 +3,9 @@
  * Licensed under the MIT License.
  *
  * 活动草图非尺寸约束 glyph（Onshape live，2026-11-12）：
- * 屏幕空间小方块（约 18px，固定像素大小，不随相机缩放），内含约束符号。
+ * 屏幕空间小方块（固定像素大小，不随相机缩放），内含约束符号。
+ * 2026-11-15 live 复测（dpr=2 截图量取）：选中 chip 的浅蓝填充为 40×40 设备像素
+ * = **20×20 CSS px**，据此将方块尺寸对齐到 20。
  * 锚点由 web 层从草图约束解析成世界坐标（与尺寸标注同源）；本装饰器只负责
  * 投影、碰撞避让与制图样式，因此与草图求解/数据契约解耦。
  *
@@ -42,7 +44,7 @@ export interface SketchConstraintGlyphAnnotation {
   position: Point3d;
 }
 
-export const CONSTRAINT_GLYPH_SIZE = 18;
+export const CONSTRAINT_GLYPH_SIZE = 20;
 const GLYPH_OFFSET_Y = -16;
 const GLYPH_STEP_X = CONSTRAINT_GLYPH_SIZE + 2;
 
