@@ -2379,3 +2379,171 @@
   inline-size: 15px;
   block-size: 15px;
 }
+
+/* ── CPlane live 对齐（2026-11-15 dialog-audit group-d §2；仅 cplane 作用域）────
+ * 图元 = Onshape query field 两态（空 26px 浅蓝 rgb(222,241,251)/rgb(22,81,176)；
+ * 已选 42px 白底/1px #d7d7d7）+ 字段内 12px「图元」标签 + 13.3333px 值行 + ×，
+ * 右侧外置装饰时钟（aria-hidden）；偏移 = live 值行（标签左 12px #666 / 值右
+ * 13.3333px #333、透明 + 1px #d7d7d7 下划线、原生 caret）；偏移距离 = 右对齐值
+ * + mm + 禁用计算器。载荷/默认值/校验/预览/高级定义守卫不变。 */
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__reference-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  inline-size: 100%;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__reference-field {
+  flex: 1 1 auto;
+  inline-size: auto;
+  margin: 2px 0;
+  padding: 0 6px;
+  border-radius: 2px;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__reference-field.is-empty {
+  min-block-size: 26px;
+  justify-content: center;
+  border: 1px solid #1651b0;
+  border-radius: 2px;
+  background: #def1fb;
+}
+
+/* 高于通用 :has(.profile-chip) accent 规则，保证 live 白底灰边。 */
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__reference-field.is-selected {
+  min-block-size: 42px;
+  justify-content: center;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-cplane__reference-value {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+/* 空态：整字段即点击热区（文本由 profile-empty 视觉隐藏，字段内只显示「图元」）。 */
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__reference-field.is-empty .part-studio-cplane__reference-value {
+  position: absolute;
+  inset: 0;
+  padding: 0 6px;
+}
+
+.part-studio-cplane__reference-trigger {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #333333;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__reference-field.is-empty .part-studio-cplane__reference-trigger {
+  inline-size: 100%;
+  /* 空态占位文本是视觉隐藏元素（sr-only），按钮自身无内容高度；显式撑满
+     整字段热区，否则 Playwright/真实点击都命中 0 高度按钮（2026-11-15
+     cplane-point 真栈实测 element not visible）。 */
+  block-size: 100%;
+  min-block-size: 24px;
+}
+
+.part-studio-cplane__reference-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.part-studio-cplane__reference-chip-text {
+  overflow: hidden;
+  color: #333333;
+  font-size: 13.3333px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 已选态 ×：13.3333px（live query field 值行字号）。 */
+.part-studio-cplane__reference-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 14px;
+  block-size: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 13.3333px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.part-studio-cplane__reference-clear:enabled:hover {
+  color: #333333;
+}
+
+/* 图元字段右外置时钟：装饰（无表达式/拾取通道），aria-hidden。 */
+.part-studio-cplane__clock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 20px;
+  block-size: 20px;
+  color: #6d7d8c;
+}
+
+.part-studio-cplane__clock svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+/* 偏移 enable 下拉 = live select 值行：12px #666 标签左 + 13.3333px #333 值右，
+ * 透明底 + 1px #d7d7d7 下划线 + 原生 caret。 */
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__offset-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  min-block-size: 27px;
+  padding: 0 3px;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__offset-row .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__offset-row .part-studio-feature-dialog__select {
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: transparent;
+  color: #333333;
+  font-size: 13.3333px;
+  text-align: end;
+}
+
+/* 偏移距离 = live 数值行：标签左 / 值右对齐 + mm + 禁用计算器 + 下划线。 */
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__distance-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  min-block-size: 27px;
+  padding: 0 3px;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__distance-row .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog[data-feature='cplane'] .part-studio-cplane__distance-row .part-studio-feature-dialog__input {
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: transparent;
+  text-align: end;
+}

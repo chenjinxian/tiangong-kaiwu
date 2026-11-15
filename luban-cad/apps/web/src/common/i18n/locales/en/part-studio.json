@@ -2022,7 +2022,8 @@
       "linePoint": "Line-point plane",
       "threePoint": "Three-point plane"
     },
-    "advancedReadonlyHint": "This plane uses an advanced definition ({{definition}}). This dialog only supports datum-plane offset or world-origin editing; delete this plane and recreate it."
+    "advancedReadonlyHint": "This plane uses an advanced definition ({{definition}}). This dialog only supports datum-plane offset or world-origin editing; delete this plane and recreate it.",
+    "modeRowTitle": "Type is a product extension: Reference plane = selected datum plane + offset; Plane point = world-origin subset (reference normal + custom world origin X/Y/Z). Onshape live infers the reference type from the entity, so there is no separate type row."
   },
   "appearances": {
     "title": "Appearances",

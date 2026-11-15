@@ -348,8 +348,19 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
 - 载荷/预览/多分量守卫不变。真栈 transform-ui/transform/transform-scale/
   transform-nonuniform **5 passed（1.9m）**。
 
-后续按 W5d（基准面）→ W6（放样/扫掠）→
-W7 其余（内联编辑定位/CSS、约束选中浅蓝、顶部提示 pill、fillet 徽标）串行实施。
+**W5d 基准面（已完成）**：
+- 「图元」改为 Onshape query field 两态外壳（空 26px 浅蓝只显示字段标签、
+  整字段可点；已选 42px 白底 chip + ×），右侧外置装饰时钟；空态触发按钮
+  显式撑满字段（修复真栈 element-not-visible 回归）。
+- 偏移/偏移距离改为 live 值行样式：12px 标签、右对齐值、1px #d7d7d7 下划线、
+  mm 后缀、禁用计算器；偏移选项维持产品的 无/偏移（live 选项列表未采集）。
+- 类型行保留为产品扩展（平面点=世界原点子集）并加 title 说明；底栏滑杆
+  诚实禁用；高级平面只读保护不回退。
+- 真栈：cplane-line-angle/line-point/three-point 通过；cplane-point 修好空态
+  热区后 **4000.000 mm³ 通过**（此前因 0 高度触发按钮超时）。
+
+后续按 W6（放样/扫掠）→ W7 其余（内联编辑定位/CSS、约束选中浅蓝、
+顶部提示 pill、fillet 徽标）串行实施。
 
 ## 10. 当前状态
 

@@ -7,6 +7,12 @@
  *   图元（参考基准面芯片 + ×）、偏移（复选）、偏移距离、反转法线（复选）。
  * live 的「偏移」下拉多模式/表达式入口/「成品」按钮未采集，本切片不做；不静默伪造。
  *
+ * 2026-11-15（dialog-audit group-d §2）：图元收进 Onshape query field 两态外壳
+ *（空 26px 浅蓝 / 已选 42px 白底；字段内 12px「图元」标签 + 右侧装饰时钟）；
+ * 偏移/偏移距离改 live 值行皮肤（标签左/值右 + 下划线 + mm + 禁用计算器）；
+ * 类型行保留（产品扩展：平面点=世界原点子集）并加 title；底栏滑杆诚实禁用。
+ * 载荷 / 默认值 / 校验 / 反转法线 / 预览 / 高级定义只读守卫均不变。
+ *
  * 提交走 FeatureService 的 cPlane 特征（insertFeature / updateParams）；平面三向量不在后端
  * 计算——前端 internal/cplane.ts 在草图插入时派生快照（含 sourceFeatureId）。
  */
@@ -205,8 +211,14 @@ export function CPlaneDialog({
 
         {!advancedReadOnly && (
         <React.Fragment>
-        {/* v1.31：平面点模式（Onshape「平面点」的 B2a 子集：世界参考法线 + 世界原点）。 */}
-        <section className="part-studio-feature-dialog__distance part-studio-cplane__mode">
+        {/* v1.31：平面点模式（Onshape「平面点」的 B2a 子集：世界参考法线 + 世界原点）。
+            live 无独立类型行（参考类型由图元推断，且参考类型列表未能采集）；本行是
+            产品扩展，title 说明「平面点」映射到世界原点子集。 */}
+        <section
+          className="part-studio-feature-dialog__distance part-studio-cplane__mode"
+          data-testid="cplane-mode-row"
+          title={t('partStudio.cPlaneDialog.modeRowTitle')}
+        >
           <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-mode">
             {t('partStudio.cPlaneDialog.mode')}
           </label>
@@ -224,43 +236,68 @@ export function CPlaneDialog({
           </select>
         </section>
 
-        {/* Onshape live：图元是浅蓝实体字段；偏移是整行下拉；偏移距离是数值行。 */}
+        {/* Onshape live：图元是 query field 两态外壳（空 26px 浅蓝 / 已选 42px 白底，
+            字段内 12px 标签 + 13.3333px 值行 + ×），右外置装饰时钟；偏移是整行
+            下拉；偏移距离是数值行（右对齐 + mm + 禁用计算器）。 */}
         <section className="part-studio-feature-dialog__entities">
-          <div className="part-studio-feature-dialog__entities-header">
-            <span id="cplane-reference-label" className="part-studio-feature-dialog__entities-label">
-              {t('partStudio.cPlaneDialog.reference')}
-            </span>
-            <button
-              type="button"
-              aria-labelledby="cplane-reference-label"
-              aria-haspopup="listbox"
-              aria-expanded={menuOpen}
-              data-testid="cplane-reference-chip"
-              disabled={!canEdit}
-              className="part-studio-feature-dialog__profile-field part-studio-cplane__reference-field"
-              onClick={() => setMenuOpen((open) => !open)}
+          <div className="part-studio-cplane__reference-row">
+            <div
+              className={`part-studio-feature-dialog__profile-field part-studio-cplane__reference-field${reference === undefined ? ' is-empty' : ' is-selected'}`}
+              data-testid="cplane-reference-field"
             >
-              <span className={reference === undefined ? 'part-studio-feature-dialog__profile-empty' : undefined}>
-                {reference === undefined
-                  ? t('partStudio.cPlaneDialog.referencePlaceholder')
-                  : t(`partStudio.cPlaneDialog.planes.${reference}`)}
+              <span id="cplane-reference-label" className="part-studio-feature-dialog__query-label">
+                {t('partStudio.cPlaneDialog.reference')}
               </span>
-            </button>
-          </div>
-          {reference !== undefined && canEdit && (
-            <button
-              type="button"
-              aria-label={t('partStudio.cPlaneDialog.clearReference')}
-              data-testid="cplane-reference-clear"
-              className="part-studio-feature-dialog__chip-remove"
-              onClick={() => {
-                setReference(undefined);
-                setMenuOpen(false);
-              }}
+              <span className="part-studio-cplane__reference-value">
+                <button
+                  type="button"
+                  aria-labelledby="cplane-reference-label"
+                  aria-haspopup="listbox"
+                  aria-expanded={menuOpen}
+                  data-testid="cplane-reference-chip"
+                  disabled={!canEdit}
+                  className="part-studio-cplane__reference-trigger"
+                  onClick={() => setMenuOpen((open) => !open)}
+                >
+                  {reference === undefined
+                    ? (
+                      <span className="part-studio-feature-dialog__profile-empty">
+                        {t('partStudio.cPlaneDialog.referencePlaceholder')}
+                      </span>
+                    )
+                    : (
+                      <span className="part-studio-cplane__reference-chip-text">
+                        {t(`partStudio.cPlaneDialog.planes.${reference}`)}
+                      </span>
+                    )}
+                </button>
+                {reference !== undefined && canEdit && (
+                  <button
+                    type="button"
+                    aria-label={t('partStudio.cPlaneDialog.clearReference')}
+                    data-testid="cplane-reference-clear"
+                    className="part-studio-cplane__reference-clear"
+                    onClick={() => {
+                      setReference(undefined);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            </div>
+            <span
+              className="part-studio-cplane__clock"
+              data-testid="cplane-reference-clock"
+              aria-hidden="true"
             >
-              ×
-            </button>
-          )}
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            </span>
+          </div>
           {menuOpen && canEdit && (
             <ul
               role="listbox"
@@ -290,7 +327,7 @@ export function CPlaneDialog({
         </section>
 
         {planeMode === 'reference' && (
-          <section className="part-studio-feature-dialog__distance part-studio-cplane__mode">
+          <section className="part-studio-feature-dialog__distance part-studio-cplane__offset-row">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-offset-mode">
               {t('partStudio.cPlaneDialog.offset')}
             </label>
@@ -310,7 +347,7 @@ export function CPlaneDialog({
         )}
 
         {planeMode === 'reference' && offsetEnabled && (
-          <section className="part-studio-feature-dialog__distance">
+          <section className="part-studio-feature-dialog__distance part-studio-cplane__distance-row">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="cplane-offset-distance">
               {t('partStudio.cPlaneDialog.offsetDistance')}
             </label>
@@ -324,6 +361,26 @@ export function CPlaneDialog({
               disabled={!canEdit}
               onChange={(event) => setOffset(event.target.value)}
             />
+            <span className="part-studio-feature-dialog__value-unit">mm</span>
+            <button
+              type="button"
+              className="part-studio-feature-dialog__calculator"
+              data-testid="cplane-offset-calculator"
+              aria-label={t('partStudio.featureDialog.calculatorLabel')}
+              disabled
+              title={t('partStudio.featureDialog.notImplemented')}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+              </svg>
+            </button>
           </section>
         )}
 
@@ -373,6 +430,7 @@ export function CPlaneDialog({
             min={0}
             max={100}
             defaultValue={0}
+            disabled
             aria-label={t('partStudio.featureDialog.transparencyLabel')}
             className="part-studio-feature-dialog__transparency-slider"
           />
