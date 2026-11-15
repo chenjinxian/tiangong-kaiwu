@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { SketchConstraintDto } from '@luban-cad/shared';
 import type { SketchDimensionLabel } from '@luban-cad/viewer';
 import {
   constraintIdFromDimensionLabel,
@@ -14,6 +15,7 @@ import {
   DIMENSION_EDITOR_GAP,
   DIMENSION_EDITOR_WIDTH,
   computeDimensionEditorPlacement,
+  constraintEntityIds,
   dimensionEditorUnit,
 } from '../components/SketchDimensionEditor.js';
 
@@ -99,6 +101,30 @@ describe('computeDimensionEditorPlacement（贴标签左侧）', () => {
       gap: 12,
     });
     expect(placement.left).toBe(20 + 300 - 12 - 80);
+  });
+});
+
+describe('constraintEntityIds（E5：约束 glyph 悬停高亮实体集）', () => {
+  const makeConstraint = (refs: SketchConstraintDto['refs']): SketchConstraintDto =>
+    ({ id: 1, kind: 'coincident', refs });
+
+  it('数字引用 + 带 entity 的对象引用都收集；去重后升序', () => {
+    expect(constraintEntityIds(makeConstraint([
+      { entity: 5, part: 'start' },
+      5,
+      { entity: 2, part: 'center' },
+      { entity: 9, part: 'handle', index: 1 },
+    ]))).toEqual([2, 5, 9]);
+  });
+
+  it('忽略 {origin:true}（原点不是可高亮草图实体）', () => {
+    expect(constraintEntityIds(makeConstraint([{ origin: true }, 3]))).toEqual([3]);
+    expect(constraintEntityIds(makeConstraint([{ origin: true }]))).toEqual([]);
+  });
+
+  it('畸形/非实体引用不抛、不收集', () => {
+    const refs = [null, 'x', { foo: 1 }, 4] as unknown as SketchConstraintDto['refs'];
+    expect(constraintEntityIds(makeConstraint(refs))).toEqual([4]);
   });
 });
 

@@ -17,6 +17,8 @@ import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
 export interface SketchCurvePolyline {
   sketchId: string;
   points: Point3d[];
+  /** 草图实体 id（E5 约束 glyph 悬停高亮按它匹配；树 params 回退路径同样携带）。 */
+  entityId?: number;
   construction?: boolean;
 }
 
@@ -246,6 +248,7 @@ export function sketchEntriesToWorldPolylines(entries: readonly FeatureTreeEntry
       polylines.push({
         sketchId: entry.id,
         points: entityPolyline.points,
+        entityId: entityPolyline.entityId,
         ...(entityPolyline.construction ? { construction: true } : {}),
       });
     }

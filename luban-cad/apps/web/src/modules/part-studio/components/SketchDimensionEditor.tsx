@@ -64,6 +64,11 @@ export interface SketchDimensionEditorProps {
    * 常叠在实体线上，实体层必须让位给覆盖层（2026-11-12 实测）。
    */
   overlayHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => boolean) | null>;
+  /**
+   * 2026-11-15 E5：悬停非尺寸约束 glyph → 其引用实体 id（升序去重；离开/未
+   * 命中 glyph 时回调空数组）。仅显示联动，不改变选择。缺省不监听。
+   */
+  onGlyphHover?: (entityIds: readonly number[]) => void;
 }
 
 interface EditorState {
@@ -124,6 +129,31 @@ export function dimensionEditorUnit(kind: SketchConstraintDto['kind']): 'mm' | '
   return kind === 'angle' ? '°' : 'mm';
 }
 
+/**
+ * 2026-11-15 E5：约束引用到的草图实体 id（悬停 glyph 高亮联动）。
+ * - 数字引用（旧形态）= 实体 id；带 `entity` 的对象引用（start/end/center/
+ *   point/handle）= 该实体 id；
+ * - `{origin:true}`（原点）与无法识别的非实体引用忽略；
+ * - 去重后升序（调用方按数组内容判变化，顺序必须稳定）。
+ */
+export function constraintEntityIds(constraint: SketchConstraintDto): number[] {
+  const refs = Array.isArray(constraint.refs) ? constraint.refs : [];
+  const ids = new Set<number>();
+  for (const ref of refs) {
+    if (typeof ref === 'number') {
+      if (Number.isFinite(ref))
+        ids.add(ref);
+      continue;
+    }
+    if (ref && typeof ref === 'object' && 'entity' in ref) {
+      const entity = (ref as { entity?: unknown }).entity;
+      if (typeof entity === 'number' && Number.isFinite(entity))
+        ids.add(entity);
+    }
+  }
+  return [...ids].sort((a, b) => a - b);
+}
+
 export function SketchDimensionEditor({
   viewport,
   annotations,
@@ -136,6 +166,7 @@ export function SketchDimensionEditor({
   onSelectConstraint,
   onDeleteConstraint,
   overlayHitTestRef,
+  onGlyphHover,
 }: SketchDimensionEditorProps): React.JSX.Element | null {
   const [viewVersion, setViewVersion] = React.useState(0);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
@@ -186,6 +217,10 @@ export function SketchDimensionEditor({
   onSelectConstraintRef.current = onSelectConstraint;
   const onDeleteConstraintRef = React.useRef(onDeleteConstraint);
   onDeleteConstraintRef.current = onDeleteConstraint;
+  const onGlyphHoverRef = React.useRef(onGlyphHover);
+  onGlyphHoverRef.current = onGlyphHover;
+  /** 上一次发出的悬停实体集（数组内容判变化，避免 mousemove 高频重渲染）。 */
+  const glyphHoverRef = React.useRef<readonly number[]>([]);
 
   // 相机变化 → 重算标签（标记位置可用）。
   React.useEffect(() => {
@@ -246,6 +281,51 @@ export function SketchDimensionEditor({
     window.addEventListener('dblclick', onDoubleClick, true);
     return () => window.removeEventListener('dblclick', onDoubleClick, true);
   }, [viewport]);
+
+  // 2026-11-15 E5（Onshape live）：悬停非尺寸约束 glyph → 高亮其引用实体。
+  // 仅在可编辑时监听；命中 glyph 时按约束 id 反查约束并收集实体 id（升序去重），
+  // 与上次相同则不回调（mousemove 高频不驱动重渲染）；未命中/离开画布回调 []。
+  // 本层只做显示联动，不拦截事件、不改变选择。
+  React.useEffect(() => {
+    const canvas = viewport?.canvas;
+    if (!viewport || !canvas || !canEdit)
+      return;
+    const emit = (entityIds: number[]): void => {
+      const previous = glyphHoverRef.current;
+      if (previous.length === entityIds.length && previous.every((id, index) => id === entityIds[index]))
+        return;
+      glyphHoverRef.current = entityIds;
+      onGlyphHoverRef.current?.(entityIds);
+    };
+    const onMouseMove = (event: MouseEvent): void => {
+      const rect = canvas.getBoundingClientRect();
+      const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const glyph = hitTestSketchConstraintGlyph(glyphLayoutsRef.current, point);
+      if (!glyph) {
+        emit([]);
+        return;
+      }
+      const constraintId = constraintIdFromGlyphId(glyph.annotation.id);
+      const constraint = constraintId === null
+        ? undefined
+        : constraintsRef.current?.find((candidate) => candidate.id === constraintId);
+      emit(constraint ? constraintEntityIds(constraint) : []);
+    };
+    const onMouseLeave = (): void => { emit([]); };
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseleave', onMouseLeave);
+    return () => {
+      canvas.removeEventListener('mousemove', onMouseMove);
+      canvas.removeEventListener('mouseleave', onMouseLeave);
+      // 卸载/失活时清掉残留高亮（canEdit 翻转 → 本 effect 重订阅）。
+      if (glyphHoverRef.current.length > 0) {
+        glyphHoverRef.current = [];
+        onGlyphHoverRef.current?.([]);
+      }
+    };
+    // onGlyphHover 身份变化（工具激活/退出切换回调与 undefined）→ 重订阅并
+    // 复位上次发出集，避免「工具期间悬停记录 → 退出后同 glyph 不再回调」。
+  }, [viewport, canEdit, onGlyphHover]);
 
   // 单击尺寸数值 = 选中（Onshape）；点击画布空白清除约束选择。Delete/Backspace
   // 删除选中尺寸（宿主 updateSketch 移除该约束）。输入框聚焦时不吃键。

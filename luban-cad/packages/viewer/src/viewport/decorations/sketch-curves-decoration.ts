@@ -26,6 +26,15 @@ const ACTIVE_ERROR_STYLE = '#c0392b';
 /** 控制点：蓝色小圆点（Onshape live：端点/圆心/弧起止中点/样条控制点）。 */
 const CONTROL_POINT_STYLE = '#1a1acc';
 const CONTROL_POINT_RADIUS = 2.4;
+/**
+ * 2026-11-15 E5（Onshape live 悬停非尺寸约束 glyph）：被引用曲线黄绿色
+ * 高亮（dpr-2 裁切像素采样 rgb(232,245,136)≈#e8f588）+ 控制点橙色圆点
+ * （rgb(240,185,63)≈#f0b93f，与圆角悬停标记同一橙色族）。仅显示层。
+ */
+const HIGHLIGHTED_CURVE_STYLE = '#e8f588';
+const HIGHLIGHTED_CURVE_WIDTH = 3.2;
+const HIGHLIGHTED_CONTROL_POINT_STYLE = '#f0b93f';
+const HIGHLIGHTED_CONTROL_POINT_RADIUS = 3.6;
 /** 封闭面域填充：Onshape live 像素采样 rgb(228,230,233)。 */
 const REGION_FILL_STYLE = 'rgb(228, 230, 233)';
 
@@ -35,6 +44,8 @@ export type SketchConstraintState = 'underconstrained' | 'constrained' | 'error'
 export interface SketchCurveGeometry {
   points: readonly Point3d[];
   sketchId?: string;
+  /** 草图实体 id（约束 glyph 悬停高亮按它匹配；缺省不参与高亮）。 */
+  entityId?: number;
   /** v1.23（ADR-0004）：构造曲线在活动草图内也画虚线。 */
   construction?: boolean;
 }
@@ -43,6 +54,8 @@ export interface SketchCurveGeometry {
 export interface SketchControlPointGeometry {
   position: Point3d;
   sketchId?: string;
+  /** 所属草图实体 id（高亮时控制点变橙色；缺省保持常规蓝色）。 */
+  entityId?: number;
 }
 
 /**
@@ -61,6 +74,11 @@ export interface SketchCurveOptions {
   controlPoints?: readonly SketchControlPointGeometry[];
   /** 活动草图封闭面域填充。 */
   regionFills?: readonly SketchRegionFillGeometry[];
+  /**
+   * 2026-11-15 E5：约束 glyph 悬停高亮的实体 id 集（显示层，仅活动草图生效）。
+   * 空/缺省 = 无高亮（与旧调用等价）。
+   */
+  highlightedEntityIds?: readonly number[];
 }
 
 function activeStrokeStyle(state: SketchConstraintState): string {
@@ -74,6 +92,31 @@ function activeStrokeStyle(state: SketchConstraintState): string {
   }
 }
 
+/** 世界折线 → 屏幕折线并描边（当前 strokeStyle/lineWidth/lineDash 由调用方设定）。 */
+function strokeWorldPolyline(
+  ctx: CanvasRenderingContext2D,
+  vp: ScreenViewport,
+  points: readonly Point3d[],
+): boolean {
+  ctx.beginPath();
+  let started = false;
+  for (const world of points) {
+    const view = vp.worldToView(world);
+    if (!Number.isFinite(view.x) || !Number.isFinite(view.y))
+      continue;
+    if (started)
+      ctx.lineTo(view.x, view.y);
+    else {
+      ctx.moveTo(view.x, view.y);
+      started = true;
+    }
+  }
+  if (!started)
+    return false;
+  ctx.stroke();
+  return true;
+}
+
 export class SketchCurvesDecoration {
   private readonly _viewport: ScreenViewport;
   private _polylines: readonly SketchCurveGeometry[] = [];
@@ -81,6 +124,7 @@ export class SketchCurvesDecoration {
   private _constraintState: SketchConstraintState = 'underconstrained';
   private _controlPoints: readonly SketchControlPointGeometry[] = [];
   private _regionFills: readonly SketchRegionFillGeometry[] = [];
+  private _highlightedEntityIds: readonly number[] = [];
   private readonly _removeListener?: () => void;
 
   public constructor(
@@ -95,6 +139,7 @@ export class SketchCurvesDecoration {
     this._constraintState = options?.constraintState ?? 'underconstrained';
     this._controlPoints = options?.controlPoints ?? [];
     this._regionFills = options?.regionFills ?? [];
+    this._highlightedEntityIds = options?.highlightedEntityIds ?? [];
     this._removeListener = IModelApp.viewManager.addDecorator(this);
   }
 
@@ -108,7 +153,19 @@ export class SketchCurvesDecoration {
     this._constraintState = options?.constraintState ?? 'underconstrained';
     this._controlPoints = options?.controlPoints ?? [];
     this._regionFills = options?.regionFills ?? [];
+    this._highlightedEntityIds = options?.highlightedEntityIds ?? [];
     this._viewport.invalidateScene();
+  }
+
+  /** 2026-11-15 E5：约束 glyph 悬停高亮实体集（显示层；更新即重绘）。 */
+  public setHighlightedEntities(ids: readonly number[]): void {
+    this._highlightedEntityIds = ids;
+    this._viewport.invalidateScene();
+  }
+
+  /** 当前高亮实体集（测试/观测面）。 */
+  public get highlightedEntityIds(): readonly number[] {
+    return this._highlightedEntityIds;
   }
 
   public dispose(): void {
@@ -171,35 +228,42 @@ export class SketchCurvesDecoration {
           ctx.strokeStyle = active ? activeStrokeStyle(this._constraintState) : SKETCH_CURVE_STYLE;
           ctx.lineWidth = active ? 1.8 : 1.1;
           ctx.setLineDash(active && !polyline.construction ? [] : SKETCH_CURVE_DASH);
-          ctx.beginPath();
-          let started = false;
-          for (const world of polyline.points) {
-            const view = vp.worldToView(world);
-            if (!Number.isFinite(view.x) || !Number.isFinite(view.y))
+          strokeWorldPolyline(ctx, vp, polyline.points);
+        }
+        // 2026-11-15 E5：约束 glyph 悬停高亮——活动草图中命中实体集的曲线
+        // 在常规绘制之后叠画黄绿粗线（只显示，不参与拾取/选择）。
+        const highlighted = this._highlightedEntityIds.length > 0
+          ? new Set(this._highlightedEntityIds)
+          : undefined;
+        if (highlighted && this._activeSketchId !== undefined) {
+          for (const polyline of this._polylines) {
+            if (polyline.points.length < 2)
               continue;
-            if (started)
-              ctx.lineTo(view.x, view.y);
-            else {
-              ctx.moveTo(view.x, view.y);
-              started = true;
-            }
+            if (polyline.sketchId !== this._activeSketchId
+              || polyline.entityId === undefined
+              || !highlighted.has(polyline.entityId))
+              continue;
+            ctx.strokeStyle = HIGHLIGHTED_CURVE_STYLE;
+            ctx.lineWidth = HIGHLIGHTED_CURVE_WIDTH;
+            ctx.setLineDash([]);
+            strokeWorldPolyline(ctx, vp, polyline.points);
           }
-          if (started)
-            ctx.stroke();
         }
         // Onshape live：活动草图控制点=蓝色小圆点（端点/圆心/弧起止中点/样条控制点）。
         if (this._activeSketchId === undefined)
           return;
         ctx.setLineDash([]);
-        ctx.fillStyle = CONTROL_POINT_STYLE;
         for (const controlPoint of this._controlPoints) {
           if (controlPoint.sketchId !== undefined && controlPoint.sketchId !== this._activeSketchId)
             continue;
           const view = vp.worldToView(controlPoint.position);
           if (!Number.isFinite(view.x) || !Number.isFinite(view.y))
             continue;
+          // E5：被约束引用的实体控制点 = 橙色大圆点（live #f0b93f / r≈3.6）。
+          const hot = controlPoint.entityId !== undefined && highlighted?.has(controlPoint.entityId) === true;
+          ctx.fillStyle = hot ? HIGHLIGHTED_CONTROL_POINT_STYLE : CONTROL_POINT_STYLE;
           ctx.beginPath();
-          ctx.arc(view.x, view.y, CONTROL_POINT_RADIUS, 0, Math.PI * 2);
+          ctx.arc(view.x, view.y, hot ? HIGHLIGHTED_CONTROL_POINT_RADIUS : CONTROL_POINT_RADIUS, 0, Math.PI * 2);
           ctx.fill();
         }
       },

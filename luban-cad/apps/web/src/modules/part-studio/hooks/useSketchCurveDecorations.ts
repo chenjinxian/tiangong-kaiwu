@@ -37,6 +37,11 @@ export function useSketchCurveDecorations(
   activeSketch?: SketchDto | null,
   /** S1c：拖拽预览实体（显示层覆盖；缺省用 activeSketch.entities）。 */
   previewEntities?: readonly SketchEntityDto[] | null,
+  /**
+   * 2026-11-15 E5：约束 glyph 悬停高亮实体集（仅显示层；活动草图曲线黄绿
+   * 描边 + 控制点橙色）。空/缺省 = 无高亮。
+   */
+  highlightedEntityIds?: readonly number[],
 ): void {
   const activeSketchForId = sketchActive && activeSketch !== undefined && activeSketch !== null
     && (activeSketchId === undefined || activeSketchId === null || activeSketch.id === activeSketchId)
@@ -53,6 +58,7 @@ export function useSketchCurveDecorations(
     ).map((entry) => ({
       points: entry.points,
       sketchId: activeSketchForId.id,
+      entityId: entry.entityId,
       ...(entry.construction ? { construction: true } : {}),
     })) : undefined;
     const converted = fromActive ?? sketchEntriesToWorldPolylines(entries);
@@ -62,6 +68,7 @@ export function useSketchCurveDecorations(
     return visible.map((entry) => ({
       points: entry.points,
       sketchId: entry.sketchId,
+      ...(entry.entityId !== undefined ? { entityId: entry.entityId } : {}),
       ...(entry.construction ? { construction: true } : {}),
     }));
   }, [entries, activeId, activeSketchForId, activeEntities]);
@@ -72,6 +79,7 @@ export function useSketchCurveDecorations(
     return sketchControlPointsToWorld(activeEntities, activeSketchForId.plane).map((point) => ({
       position: point.position,
       sketchId: activeSketchForId.id,
+      entityId: point.entityId,
     }));
   }, [activeSketchForId, activeEntities]);
 
@@ -93,6 +101,7 @@ export function useSketchCurveDecorations(
       constraintState,
       controlPoints,
       regionFills,
+      highlightedEntityIds,
     });
     decorationRef.current = decoration;
     return () => {
@@ -103,6 +112,11 @@ export function useSketchCurveDecorations(
   }, [viewport]);
 
   useEffect(() => {
-    decorationRef.current?.setPolylines(polylines, activeId, { constraintState, controlPoints, regionFills });
-  }, [polylines, activeId, constraintState, controlPoints, regionFills]);
+    decorationRef.current?.setPolylines(polylines, activeId, {
+      constraintState,
+      controlPoints,
+      regionFills,
+      highlightedEntityIds,
+    });
+  }, [polylines, activeId, constraintState, controlPoints, regionFills, highlightedEntityIds]);
 }

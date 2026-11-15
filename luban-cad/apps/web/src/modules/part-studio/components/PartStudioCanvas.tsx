@@ -236,6 +236,16 @@ export function PartStudioCanvas({
     if (!sketchActiveForDecorations)
       setSketchPreviewEntities(null);
   }, [sketchActiveForDecorations]);
+  // 2026-11-15 E5（Onshape live）：悬停非尺寸约束 glyph → 高亮其引用实体
+  //（活动草图曲线黄绿 + 控制点橙色；纯显示层，不写模型/选择）。
+  const [glyphHoverEntityIds, setGlyphHoverEntityIds] = React.useState<readonly number[]>([]);
+  const handleGlyphHover = React.useCallback((entityIds: readonly number[]) => {
+    setGlyphHoverEntityIds(entityIds);
+  }, []);
+  // 草图退出 / 切换活动草图时清空（编辑器自身在 mouseleave 时回调 []）。
+  React.useEffect(() => {
+    setGlyphHoverEntityIds((previous) => (previous.length === 0 ? previous : []));
+  }, [sketchActiveForDecorations, activeSketchIdForDecorations]);
   const commitSketchDrag = React.useCallback(async (entities: SketchEntityDto[]) => {
     if (!sketchSystem?.activeSketch)
       return;
@@ -257,6 +267,8 @@ export function PartStudioCanvas({
     sketchSystem?.activeSketch,
     // S1c：拖拽预览覆盖显示（事实源不变）。
     sketchPreviewEntities,
+    // E5：约束 glyph 悬停高亮实体集（显示层）。
+    glyphHoverEntityIds,
   );
   // 2026-11-02 Onshape live：活动草图尺寸标注（长度/距离/半径）视口绘制。
   // ADR-0018 S1g：`显示约束` 关闭时尺寸标注与非尺寸 glyph 一起隐藏（live 证据）。
@@ -281,6 +293,13 @@ export function PartStudioCanvas({
   const canvasSelectionForSketchPlane = usePartStudioStore((s) => s.canvas.selection);
   const setCanvasSelection = usePartStudioStore((s) => s.setCanvasSelection);
   const activeToolIdForSketchPicker = usePartStudioStore((s) => s.tool.activeToolId);
+  // E5 悬停联动只在「无草图绘制工具」时启用（工具期间光标反馈归工具，且
+  // glyph 点击仍归编辑器）；工具激活瞬间清掉残留高亮，不打断工具反馈。
+  React.useEffect(() => {
+    if (activeToolIdForSketchPicker == null)
+      return;
+    setGlyphHoverEntityIds((previous) => (previous.length === 0 ? previous : []));
+  }, [activeToolIdForSketchPicker]);
   // 2026-11-13 Onshape live：草图工具激活时右键菜单首项「退出 <工具>」。
   const activeSketchToolLabel = React.useMemo(() => {
     if (!activeToolIdForSketchPicker)
@@ -1169,6 +1188,8 @@ export function PartStudioCanvas({
           selectedConstraintId={sketchConstraintSelection}
           onSelectConstraint={selectSketchConstraint}
           onDeleteConstraint={deleteSelectedSketchConstraint}
+          // E5：无绘制工具时悬停非尺寸约束 glyph → 高亮引用实体（显示层）。
+          onGlyphHover={activeToolIdForSketchPicker == null ? handleGlyphHover : undefined}
         />
       )}
       {dialog.active === 'sketch' && sketchDraftPlane === null && (

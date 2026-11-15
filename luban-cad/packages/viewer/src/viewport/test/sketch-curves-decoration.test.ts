@@ -42,6 +42,43 @@ function makeContext(viewport: ScreenViewport, isSpatial = true): {
   return { context, addCanvasDecoration };
 }
 
+/** 记录型 canvas 桩：按 stroke()/fill() 时点的样式取样（E5 高亮断言用）。 */
+function makeRecordingCtx(): {
+  ctx: Record<string, unknown>;
+  strokes: { style: string; width: number }[];
+  fills: { style: string; radius: number }[];
+} {
+  let strokeStyle = '';
+  let lineWidth = 0;
+  let fillStyle = '';
+  let lastRadius = 0;
+  const strokes: { style: string; width: number }[] = [];
+  const fills: { style: string; radius: number }[] = [];
+  const ctx: Record<string, unknown> = {
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    setLineDash: vi.fn(),
+    stroke: vi.fn(() => { strokes.push({ style: strokeStyle, width: lineWidth }); }),
+    arc: vi.fn((_x: number, _y: number, radius: number) => { lastRadius = radius; }),
+    fill: vi.fn(() => { fills.push({ style: fillStyle, radius: lastRadius }); }),
+    closePath: vi.fn(),
+  };
+  Object.defineProperty(ctx, 'strokeStyle', {
+    get: () => strokeStyle,
+    set: (value: string) => { strokeStyle = value; },
+  });
+  Object.defineProperty(ctx, 'lineWidth', {
+    get: () => lineWidth,
+    set: (value: number) => { lineWidth = value; },
+  });
+  Object.defineProperty(ctx, 'fillStyle', {
+    get: () => fillStyle,
+    set: (value: string) => { fillStyle = value; },
+  });
+  return { ctx, strokes, fills };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   addDecoratorMock.mockReturnValue(removeListenerMock);
@@ -164,6 +201,77 @@ describe('SketchCurvesDecoration', () => {
     expect(ctx.arc).toHaveBeenCalledWith(0, 0, 2.4, 0, Math.PI * 2);
     expect(ctx.fillStyle).toBe('#1a1acc');
     expect(ctx.fill).toHaveBeenCalledTimes(1);
+  });
+
+  it('E5：被引用实体在活动草图叠画黄绿高亮（#e8f588 / 3.2），未引用/非活动草图不画', () => {
+    const { viewport } = makeViewport();
+    const line = [Point3d.create(0, 0, 0), Point3d.create(1, 0, 0)];
+    const deco = new SketchCurvesDecoration(
+      viewport,
+      [
+        { sketchId: 'sk-active', entityId: 7, points: line },
+        { sketchId: 'sk-active', entityId: 8, points: [Point3d.create(0, 1, 0), Point3d.create(1, 1, 0)] },
+        // 非活动草图的同 id 曲线不参与高亮。
+        { sketchId: 'sk-other', entityId: 7, points: [Point3d.create(0, 2, 0), Point3d.create(1, 2, 0)] },
+      ],
+      'sk-active',
+      { highlightedEntityIds: [7] },
+    );
+    expect(deco.highlightedEntityIds).toEqual([7]);
+
+    const { context, addCanvasDecoration } = makeContext(viewport);
+    deco.decorate(context);
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
+    const { ctx, strokes } = makeRecordingCtx();
+    decoration.drawDecoration(ctx);
+
+    // 常规 pass 3 条 + 高亮 pass 1 条（entity 7 活动草图）。
+    const highlight = strokes.filter((entry) => entry.style === '#e8f588');
+    expect(highlight).toHaveLength(1);
+    expect(highlight[0].width).toBe(3.2);
+    expect(strokes).toHaveLength(4);
+  });
+
+  it('E5：高亮实体控制点=橙色 r3.6；普通控制点仍是蓝色 r2.4', () => {
+    const { viewport } = makeViewport();
+    const deco = new SketchCurvesDecoration(
+      viewport,
+      [{ sketchId: 'sk-active', entityId: 7, points: [Point3d.create(0, 0, 0), Point3d.create(1, 0, 0)] }],
+      'sk-active',
+      {
+        highlightedEntityIds: [7],
+        controlPoints: [
+          { sketchId: 'sk-active', entityId: 7, position: Point3d.create(0, 0, 0) },
+          { sketchId: 'sk-active', entityId: 8, position: Point3d.create(1, 0, 0) },
+        ],
+      },
+    );
+    const { context, addCanvasDecoration } = makeContext(viewport);
+    deco.decorate(context);
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
+    const { ctx, fills } = makeRecordingCtx();
+    decoration.drawDecoration(ctx);
+
+    expect(fills).toEqual([
+      { style: '#f0b93f', radius: 3.6 },
+      { style: '#1a1acc', radius: 2.4 },
+    ]);
+  });
+
+  it('setHighlightedEntities 更新高亮集并 invalidateScene（setPolylines 选项同源）', () => {
+    const { viewport, invalidate } = makeViewport();
+    const deco = new SketchCurvesDecoration(viewport);
+    deco.setHighlightedEntities([3, 4]);
+    expect(deco.highlightedEntityIds).toEqual([3, 4]);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+
+    deco.setPolylines([], undefined, { highlightedEntityIds: [9] });
+    expect(deco.highlightedEntityIds).toEqual([9]);
+    expect(invalidate).toHaveBeenCalledTimes(2);
+
+    deco.setPolylines([]);
+    expect(deco.highlightedEntityIds).toEqual([]);
+    expect(invalidate).toHaveBeenCalledTimes(3);
   });
 
   it('setPolylines invalidates; empty set / non-spatial view draw nothing', () => {
