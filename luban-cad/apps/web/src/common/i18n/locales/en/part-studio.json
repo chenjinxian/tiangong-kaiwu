@@ -1118,6 +1118,9 @@
     "entityMenuAlignVertical": "Align view with vertical axis",
     "deleteFailed": "Delete failed: {{message}}",
     "constraintsOverlay": "Constraints",
+    "status": {
+      "point": "Point"
+    },
     "live": {
       "length": "Length",
       "width": "Width",
