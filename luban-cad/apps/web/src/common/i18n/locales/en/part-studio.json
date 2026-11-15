@@ -705,7 +705,7 @@
       "thinWall": "Thin wall"
     },
     "resultTypeUnsupported": "This result body type has no product channel yet (no fake entry)",
-    "thinThicknessLabel": "Thickness",
+    "thinThicknessLabel": "Thickness 1",
     "thinMidPlaneLabel": "Mid plane",
     "thinThicknessInvalid": "Thin-wall thickness must be a finite positive number",
     "thinWallHint": "Thin wall: offsets the closed profile inward by this thickness to form a hollow body; first slice is one-sided (second thickness/mid-plane not supported)",
@@ -974,7 +974,9 @@
     "directionFieldLabel": "Extrude direction",
     "mergeAllLabel": "Merge all",
     "mergeScopeLabel": "Merge scope",
-    "mergeScopeUnresolvedHint": "Multiple bodies with no explicit target: merge scope unresolved (not submitted)"
+    "mergeScopeUnresolvedHint": "Multiple bodies with no explicit target: merge scope unresolved (not submitted)",
+    "thinThickness2Label": "Thickness 2",
+    "thinThickness2Unsupported": "Second thickness has no product channel yet (not submitted)"
   },
   "filletPick": {
     "prompt": "Click edges to fillet in the canvas",

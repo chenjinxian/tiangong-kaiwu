@@ -656,9 +656,10 @@ export function FeatureDialog({
   const [resultType, setResultType] = React.useState<FeatureResultType>(() =>
     editParams?.bodyType === 'THIN' ? 'thinWall' : 'solid');
   // v1.53（ADR-0005 Phase 6）：薄壁厚度（mm）；v1.55 增中间平面（厚度以边界为中心）。
-  // 第二厚度未实现（live 证据有此行，但产品无对应通道，不渲染假控件）。
+  // 默认 5 mm 对齐旧 mm 文档 live 证据（extrude-upto2-thin.png）。
+  // 第二厚度未实现（live 证据有此行，但产品无对应通道 → 禁用值行，不参与载荷）。
   const [thinThickness, setThinThickness] = React.useState(
-    () => storedNumberString((editParams as { thinThicknessMm?: unknown } | undefined)?.thinThicknessMm) ?? '1');
+    () => storedNumberString((editParams as { thinThicknessMm?: unknown } | undefined)?.thinThicknessMm) ?? '5');
   const [thinMidPlane, setThinMidPlane] = React.useState(
     () => (editParams as { thinMidPlane?: unknown } | undefined)?.thinMidPlane === true);
   const [booleanScope, setBooleanScope] = React.useState<FeatureBooleanScope>(() => {
@@ -3292,9 +3293,12 @@ export function FeatureDialog({
 
         {/* v1.53（ADR-0005 Phase 6）：薄壁厚度；v1.55 中间平面。live 证据
             extrude-upto2-thin.png 行序：中间平面 / 厚度 1 / 厚度 2 / 给定深度；
-            第二厚度无产品通道，不渲染假控件。 */}
+            第二厚度无产品通道 → 诚实禁用值行（0 mm，不参与提交）。 */}
         {thinWallActive && (
-          <section className="part-studio-feature-dialog__distance" data-field="thin-thickness">
+          <section
+            className="part-studio-feature-dialog__distance part-studio-feature-dialog__thin-wall"
+            data-field="thin-thickness"
+          >
             <label className="part-studio-feature-dialog__checkbox" data-field="thin-mid-plane">
               <input
                 type="checkbox"
@@ -3305,19 +3309,77 @@ export function FeatureDialog({
               />
               <span>{t('partStudio.featureDialog.thinMidPlaneLabel')}</span>
             </label>
-            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-thin-thickness">
-              {t('partStudio.featureDialog.thinThicknessLabel')}
-            </label>
-            <input
-              id="part-studio-feature-dialog-thin-thickness"
-              type="text"
-              inputMode="decimal"
-              aria-label={t('partStudio.featureDialog.thinThicknessLabel')}
-              className="part-studio-feature-dialog__input"
-              value={thinThickness}
-              disabled={submitting}
-              onChange={(event) => setThinThickness(event.target.value)}
-            />
+            <div className="part-studio-feature-dialog__distance" data-field="thin-thickness-1">
+              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-thin-thickness">
+                {t('partStudio.featureDialog.thinThicknessLabel')}
+              </label>
+              <input
+                id="part-studio-feature-dialog-thin-thickness"
+                type="text"
+                inputMode="decimal"
+                aria-label={t('partStudio.featureDialog.thinThicknessLabel')}
+                className="part-studio-feature-dialog__input"
+                value={thinThickness}
+                disabled={submitting}
+                onChange={(event) => setThinThickness(event.target.value)}
+              />
+              <span className="part-studio-feature-dialog__value-unit">mm</span>
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+            <div
+              className="part-studio-feature-dialog__distance"
+              data-field="thin-thickness-2"
+              title={t('partStudio.featureDialog.thinThickness2Unsupported')}
+            >
+              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-thin-thickness-2">
+                {t('partStudio.featureDialog.thinThickness2Label')}
+              </label>
+              <input
+                id="part-studio-feature-dialog-thin-thickness-2"
+                type="text"
+                inputMode="decimal"
+                aria-label={t('partStudio.featureDialog.thinThickness2Label')}
+                className="part-studio-feature-dialog__input"
+                value="0"
+                disabled
+              />
+              <span className="part-studio-feature-dialog__value-unit">mm</span>
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={t('partStudio.featureDialog.thinThickness2Unsupported')}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
             <p
               role="note"
               className="part-studio-feature-dialog__hint"
@@ -3428,11 +3490,26 @@ export function FeatureDialog({
             </label>
             {secondDirectionEnabled && !symmetric && (
               <section className="part-studio-feature-dialog__distance" data-field="second-direction">
+                {/* Onshape live（2026-11-15 extrude-secondEnd-open）：展开组行序 =
+                    终止下拉 → 深度值行 → 拔模（禁用）。深度输入 aria 名保持
+                    「第二方向深度」（测试锚点），可见行标签为「深度」。 */}
+                <select
+                  aria-label={t('partStudio.featureDialog.secondDirectionEndLabel')}
+                  className="part-studio-feature-dialog__select"
+                  data-testid="part-studio-feature-dialog-second-end"
+                  value={secondDirectionEndBound}
+                  disabled={submitting}
+                  onChange={(event) =>
+                    setSecondDirectionEndBound(event.target.value as 'blind' | 'throughAll')}
+                >
+                  <option value="blind">{t('partStudio.featureDialog.blindLabel')}</option>
+                  <option value="throughAll">{t('partStudio.featureDialog.throughAllLabel')}</option>
+                </select>
                 <label
                   htmlFor="part-studio-feature-dialog-second-depth"
                   className="part-studio-feature-dialog__distance-label"
                 >
-                  {t('partStudio.featureDialog.secondDirectionDepthLabel')}
+                  {t('partStudio.featureDialog.depthLabel')}
                 </label>
                 <input
                   id="part-studio-feature-dialog-second-depth"
@@ -3446,18 +3523,24 @@ export function FeatureDialog({
                   onChange={(event) => setSecondDirectionDepth(event.target.value)}
                 />
                 <span className="part-studio-feature-dialog__value-unit">mm</span>
-                <select
-                  aria-label={t('partStudio.featureDialog.secondDirectionEndLabel')}
-                  className="part-studio-feature-dialog__select"
-                  data-testid="part-studio-feature-dialog-second-end"
-                  value={secondDirectionEndBound}
-                  disabled={submitting}
-                  onChange={(event) =>
-                    setSecondDirectionEndBound(event.target.value as 'blind' | 'throughAll')}
+                <button
+                  type="button"
+                  className="part-studio-feature-dialog__calculator"
+                  aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                  disabled
+                  title={t('partStudio.featureDialog.notImplemented')}
                 >
-                  <option value="blind">{t('partStudio.featureDialog.blindLabel')}</option>
-                  <option value="throughAll">{t('partStudio.featureDialog.throughAllLabel')}</option>
-                </select>
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                    <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                    <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                    <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                    <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                  </svg>
+                </button>
                 <label
                   className="part-studio-feature-dialog__checkbox"
                   title={t('partStudio.featureDialog.notImplemented')}
@@ -4830,25 +4913,48 @@ export function FeatureDialog({
                 )}
               </div>
 
-              {/* 旋转轴下拉（M6-b T4 revolve 通道；M6-c T5 判型命名）：选项
-                  「竖直线/水平线/斜线 N」（端点解算坐标判向；unknown 回退
-                  「线 {id}」——id=草图内实体 id，与载荷 axis.sketchEntityId
-                  同值）；缺省首条（见轴缺省 effect）。revolve 专属——extrude
-                  无轴语义不渲染。 */}
+              {/* 旋转轴下拉（M6-b T4 revolve 通道；M6-c T5 判型命名）：Onshape
+                  live（2026-11-15 feature-revolve-empty）= 白色 26px 边框字段，
+                  内含 12px 标签「旋转轴」+ 边框内联下拉 + 右侧装饰时钟（无弹层
+                  通道 → 禁用/aria-hidden）。select 的可访问名仍为「旋转轴」。 */}
               {revolveChannel && axisLines.length > 0 && (
-                <select
-                  aria-label={t('partStudio.featureDialog.axisLabel')}
-                  className="part-studio-feature-dialog__select"
-                  value={selectedAxisId ?? ''} /* ?? ''=恒受控（缺省 effect 落定前的过渡帧防 uncontrolled 警告；未选态提交由 sketchReady 拦） */
-                  disabled={submitting}
-                  onChange={(event) => setSelectedAxisId(Number(event.target.value))}
+                <div
+                  className="part-studio-feature-dialog__axis-field"
+                  data-testid="part-studio-feature-dialog-axis-field"
                 >
-                  {axisLines.map((line) => (
-                    <option key={`axis-${line.id}`} value={line.id}>
-                      {axisOptionLabel(line)}
-                    </option>
-                  ))}
-                </select>
+                  <label
+                    className="part-studio-feature-dialog__query-label"
+                    htmlFor="part-studio-feature-dialog-axis"
+                  >
+                    {t('partStudio.featureDialog.axisLabel')}
+                  </label>
+                  <select
+                    id="part-studio-feature-dialog-axis"
+                    aria-label={t('partStudio.featureDialog.axisLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value={selectedAxisId ?? ''} /* ?? ''=恒受控（缺省 effect 落定前的过渡帧防 uncontrolled 警告；未选态提交由 sketchReady 拦） */
+                    disabled={submitting}
+                    onChange={(event) => setSelectedAxisId(Number(event.target.value))}
+                  >
+                    {axisLines.map((line) => (
+                      <option key={`axis-${line.id}`} value={line.id}>
+                        {axisOptionLabel(line)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__axis-clock"
+                    aria-hidden="true"
+                    disabled
+                    tabIndex={-1}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" />
+                      <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
               )}
 
               {/* 无旋转轴门禁（M6-b T4）：选中草图读得实体集但无 line →

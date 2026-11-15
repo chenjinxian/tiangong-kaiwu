@@ -705,7 +705,7 @@
       "thinWall": "薄壁"
     },
     "resultTypeUnsupported": "该结果体类型尚无产品通道（不提供假入口）",
-    "thinThicknessLabel": "壁厚",
+    "thinThicknessLabel": "厚度 1",
     "thinMidPlaneLabel": "中间平面",
     "thinThicknessInvalid": "薄壁厚度须为有限正数",
     "thinWallHint": "薄壁：沿闭合轮廓向内偏置该厚度成空心体；首版单侧厚度，第二厚度/中间平面未支持",
@@ -746,7 +746,7 @@
     "axisOptionHorizontal": "水平线 {{index}}",
     "axisOptionSlanted": "斜线 {{index}}",
     "noAxisHint": "草图无可用旋转轴",
-    "fullRevolveLabel": "全方位",
+    "fullRevolveLabel": "全方位旋转",
     "angleLabel": "角度（度）",
     "angleInvalid": "请输入有效的旋转角度（大于 0 且不超过 360）",
     "loftSectionsLabel": "截面草图",
@@ -974,7 +974,9 @@
     "directionFieldLabel": "拉伸方向",
     "mergeAllLabel": "全部合并",
     "mergeScopeLabel": "合并范围",
-    "mergeScopeUnresolvedHint": "存在多个实体且未指定目标实体：合并范围未确定（不提交该参数）"
+    "mergeScopeUnresolvedHint": "存在多个实体且未指定目标实体：合并范围未确定（不提交该参数）",
+    "thinThickness2Label": "厚度 2",
+    "thinThickness2Unsupported": "第二厚度暂无产品通道（不提交该值）"
   },
   "filletPick": {
     "prompt": "点击拾取要圆角的边",

@@ -721,15 +721,19 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
       .toContain('2');
   });
 
-  it('v1.53 薄壁：曲面页签禁用、薄壁启用；厚度输入 + 载荷 bodyType/THIN，冲突控件禁用', async () => {
+  it('v1.53 薄壁：曲面页签禁用、薄壁启用；厚度 1（默认 5）+ 禁用厚度 2 行 + 载荷 bodyType/THIN，冲突控件禁用', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyDialog(applyOp);
     expect((screen.getByRole('tab', { name: '曲面' }) as HTMLButtonElement).disabled).toBe(true);
     const thinTab = screen.getByRole('tab', { name: '薄壁' }) as HTMLButtonElement;
     expect(thinTab.disabled).toBe(false);
     await user.click(thinTab);
-    const thickness = screen.getByRole('textbox', { name: '壁厚' });
-    expect((thickness as HTMLInputElement).value).toBe('1');
+    const thickness = screen.getByRole('textbox', { name: '厚度 1' });
+    expect((thickness as HTMLInputElement).value).toBe('5');
+    // live 行序：厚度 1 值行（mm + 禁用计算器）后接无通道的厚度 2 值行（0 mm，禁用）。
+    const thickness2 = screen.getByRole('textbox', { name: '厚度 2' }) as HTMLInputElement;
+    expect(thickness2.value).toBe('0');
+    expect(thickness2.disabled).toBe(true);
     expect(screen.getByTestId('part-studio-feature-dialog-thin-wall-hint').textContent)
       .toContain('单侧厚度');
     expect((screen.getByTestId('part-studio-feature-dialog-symmetric-flat').querySelector('input') as HTMLInputElement).disabled).toBe(true);
@@ -761,9 +765,11 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
       featureType: 'extrude',
       params: {
         profile: [], distance: 10, sketchId: 'sk-1', regions: [0], operation: 'new',
-        bodyType: 'THIN', thinThicknessMm: 1, thinMidPlane: true,
+        bodyType: 'THIN', thinThicknessMm: 5, thinMidPlane: true,
       },
     });
+    // 厚度 2 无产品通道：不进载荷（只有 thinThicknessMm 单键）。
+    expect('thinThickness2Mm' in (applyOp.mock.calls[0]![0] as { params: object }).params).toBe(false);
   });
 
   it('v1.55 薄壁中间平面：edit 回显 + updateParams 合并键', async () => {
@@ -776,7 +782,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
       },
     });
     expect((screen.getByRole('checkbox', { name: '中间平面' }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByRole('textbox', { name: '壁厚' }) as HTMLInputElement).value).toBe('2');
+    expect((screen.getByRole('textbox', { name: '厚度 1' }) as HTMLInputElement).value).toBe('2');
     await user.click(screen.getByRole('button', { name: '确认' }));
     const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
     expect(op.kind).toBe('updateParams');
@@ -788,7 +794,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyDialog(applyOp);
     await user.click(screen.getByRole('tab', { name: '薄壁' }));
-    const thickness = screen.getByRole('textbox', { name: '壁厚' });
+    const thickness = screen.getByRole('textbox', { name: '厚度 1' });
     await user.clear(thickness);
     await user.type(thickness, '0');
     expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
@@ -817,7 +823,16 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     const secondToggle = screen.getByTestId('part-studio-feature-dialog-second-direction')
       .querySelector('input') as HTMLInputElement;
     await user.click(secondToggle);
+    // Onshape live（2026-11-15 extrude-secondEnd-open）：展开组行序=终止下拉 →
+    // 深度值行 → 拔模；深度可见标签为「深度」，aria 名保持「第二方向深度」。
+    const secondGroup = screen.getByTestId('part-studio-feature-dialog-second-end').closest('[data-field="second-direction"]') as HTMLElement;
     const secondDepth = screen.getByRole('textbox', { name: '第二方向深度' });
+    expect(within(secondGroup).getByText('深度')).toBeDefined();
+    expect(within(secondGroup).getByText('mm')).toBeDefined();
+    expect((within(secondGroup).getByRole('button', { name: '计算器' }) as HTMLButtonElement).disabled).toBe(true);
+    const secondEndSelect = screen.getByTestId('part-studio-feature-dialog-second-end');
+    expect(secondEndSelect.compareDocumentPosition(secondDepth) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await user.clear(secondDepth);
     await user.type(secondDepth, '3');
     // 勾选对称 → 第二方向禁用并自动关闭（后端 zod 互斥）。
@@ -1585,10 +1600,17 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
     const axisSelect = screen.getByRole('combobox', { name: '旋转轴' }) as HTMLSelectElement;
     await waitFor(() => expect(axisSelect.value).toBe('3')); // 缺省首条 line
+    // Onshape live（2026-11-15 feature-revolve-empty）：轴 = query-field 壳
+    // （12px 标签「旋转轴」+ 无边框 select + 右侧装饰时钟，时钟禁用/aria-hidden）。
+    const axisField = screen.getByTestId('part-studio-feature-dialog-axis-field');
+    expect(within(axisField).getByText('旋转轴')).toBeDefined();
+    expect(axisField.contains(axisSelect)).toBe(true);
+    const clock = axisField.querySelector('button[aria-hidden="true"]') as HTMLButtonElement;
+    expect(clock.disabled).toBe(true);
     // M6-c T5 判型命名：两线端点 y 相等 → 水平线 1/水平线 2（id 与载荷同值可对账）。
     expect(within(axisSelect).getByRole('option', { name: '水平线 1' })).toBeDefined();
     expect(within(axisSelect).getByRole('option', { name: '水平线 2' })).toBeDefined();
-    expect((screen.getByRole('checkbox', { name: '全方位' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('checkbox', { name: '全方位旋转' }) as HTMLInputElement).checked).toBe(true);
     expect(screen.queryByRole('textbox', { name: '角度（度）' })).toBeNull();
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledTimes(1);
@@ -1669,7 +1691,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
   it('角度换算 π 精度：取消全方位 → 角度输入现（缺省 360）→ 改 180 → 载荷 angle=Math.PI（fullRevolve=false）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
-    await user.click(screen.getByRole('checkbox', { name: '全方位' }));
+    await user.click(screen.getByRole('checkbox', { name: '全方位旋转' }));
     const angle = screen.getByRole('textbox', { name: '角度（度）' }) as HTMLInputElement;
     expect(angle.value).toBe('360');
     await user.clear(angle);
@@ -1692,7 +1714,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
   it('角度换算 90° → Math.PI/2（弧度载荷契约的另一半锚点）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
-    await user.click(screen.getByRole('checkbox', { name: '全方位' }));
+    await user.click(screen.getByRole('checkbox', { name: '全方位旋转' }));
     const angle = screen.getByRole('textbox', { name: '角度（度）' });
     await user.clear(angle);
     await user.type(angle, '90');
@@ -1720,7 +1742,7 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
   it('非法角度（0 / 超 360 / 空）→ 校验 Alert 就地 + 不发起 op（弧度域 (0,2π] 的度制门）', async () => {
     const applyOp = makeApplyOp();
     const { user } = await renderRevolveDialog(applyOp, revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION));
-    await user.click(screen.getByRole('checkbox', { name: '全方位' }));
+    await user.click(screen.getByRole('checkbox', { name: '全方位旋转' }));
     const angle = screen.getByRole('textbox', { name: '角度（度）' });
     for (const bad of ['0', '400', '']) {
       await user.clear(angle);
@@ -3611,6 +3633,34 @@ describe('extrude 行序（Onshape live 2026-11-15）', () => {
     expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     // 非 extrude 特征不受行序规则影响（无 order 声明 → 视 CSS 级联；此处钉作用域）。
     expect(featureDialogCss).not.toContain(".part-studio-feature-dialog[data-feature='revolve'] [data-testid='part-studio-feature-dialog-merge-scope-group']");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-11-15 对话框审计切片（薄壁 / 第二端 / 旋转轴）样式钉。
+// ---------------------------------------------------------------------------
+describe('对齐切片样式（薄壁组 / 第二端深度行 / 旋转轴字段壳）', () => {
+  it('旋转轴壳：白色 26px 边框字段（1px #d7d7d7 / 2px 圆角）+ 12px 标签 + 无边框 select', () => {
+    const block = cssRuleBlock('.part-studio-feature-dialog__axis-field');
+    expect(block).toContain('min-block-size: 26px');
+    expect(block).toContain('border: 1px solid #d7d7d7');
+    expect(block).toContain('border-radius: 2px');
+    expect(block).toContain('background: #ffffff');
+    // 标签 12px（该选择器有多条规则——取任一含 font-size 的规则体）。
+    expect(featureDialogCss).toMatch(/\.part-studio-feature-dialog__query-label\s*\{[^}]*font-size: 12px/);
+    const select = cssRuleBlock('.part-studio-feature-dialog__axis-field .part-studio-feature-dialog__select');
+    expect(select).toContain('border: 0');
+  });
+
+  it('薄壁组单列（中间平面→厚度 1→厚度 2→提示）；第二端展开组=终止/拔模整行 + 深度值行 4 列', () => {
+    const thin = cssRuleBlock('.part-studio-feature-dialog__thin-wall');
+    expect(thin).toContain('flex-direction: column');
+    // 该选择器先有 order:9 规则；取含 grid-template 的规则体。
+    expect(featureDialogCss).toMatch(/\[data-field='second-direction'\]\s*\{[^}]*grid-template-columns: auto minmax\(0, 1fr\) auto auto/);
+    // 终止 select 与拔模 checkbox 同规则整行（逗号组取最后一条选择器可命中规则体）。
+    expect(cssRuleBlock(".part-studio-feature-dialog[data-feature='extrude'] [data-field='second-direction'] > .part-studio-feature-dialog__checkbox"))
+      .toContain('grid-column: 1 / -1');
+    expect(featureDialogCss).toContain("[data-field='second-direction'] > .part-studio-feature-dialog__select,");
   });
 });
 

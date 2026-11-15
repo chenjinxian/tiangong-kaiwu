@@ -91,8 +91,13 @@ test.describe('Extrude 薄壁 UI（ADR-0005 Phase 6）', () => {
     const thinTab = dialog.getByRole('tab', { name: '薄壁' });
     await expect(thinTab).toBeEnabled({ timeout: 15_000 });
     await thinTab.click();
-    const thickness = dialog.getByRole('textbox', { name: '壁厚' });
-    await expect(thickness).toHaveValue('1');
+    // 2026-11-15 live 对齐：标签「厚度 1」、默认 5 mm；厚度 2 为禁用值行（0 mm，无通道）。
+    const thickness = dialog.getByRole('textbox', { name: '厚度 1' });
+    await expect(thickness).toHaveValue('5');
+    const thickness2 = dialog.getByRole('textbox', { name: '厚度 2' });
+    await expect(thickness2).toHaveValue('0');
+    await expect(thickness2).toBeDisabled();
+    await thickness.fill('1');
     await expect(dialog.getByTestId('part-studio-feature-dialog-thin-wall-hint')).toBeVisible();
     const confirm = dialog.getByRole('button', { name: '确认' });
     await expect(confirm).toBeEnabled({ timeout: 15_000 });
@@ -148,6 +153,8 @@ test.describe('Extrude 薄壁 UI（ADR-0005 Phase 6）', () => {
     await dialog.getByRole('tab', { name: '薄壁' }).click();
     await expect(dialog.getByRole('checkbox', { name: '中间平面' })).not.toBeChecked();
     await dialog.getByRole('checkbox', { name: '中间平面' }).check();
+    // 默认厚度已改为 5 mm（live 对齐）；本用例维持 1 mm 以钉 400 mm³。
+    await dialog.getByRole('textbox', { name: '厚度 1' }).fill('1');
     const confirm = dialog.getByRole('button', { name: '确认' });
     await expect(confirm).toBeEnabled({ timeout: 15_000 });
     await confirm.click({ timeout: 30_000 });

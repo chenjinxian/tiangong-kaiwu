@@ -2054,3 +2054,75 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ── 2026-11-15 对话框审计切片：薄壁 / 第二端 / 旋转轴（作用域样式）────────
+ * 薄壁组 = 单列（中间平面 → 厚度 1 → 厚度 2 → hint），每条厚度为一行
+ * 值行（12px 标签 + 右对齐值 + mm + 禁用计算器）；厚度 2 无通道 → 禁用。
+ * 第二端展开组 = 终止下拉整行 → 深度值行 → 拔模整行（禁用）。
+ * 旋转轴 = 白色 26px 边框字段（12px 标签 + 无边框下拉 + 装饰时钟）。 */
+.part-studio-feature-dialog__thin-wall {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.part-studio-feature-dialog__thin-wall > .part-studio-feature-dialog__distance {
+  /* 组内行序按 DOM（避免命中 body 级 order:3 规则把 hint 提前）。 */
+  order: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.part-studio-feature-dialog[data-feature='extrude'] [data-field='second-direction'] {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.part-studio-feature-dialog[data-feature='extrude'] [data-field='second-direction'] > .part-studio-feature-dialog__select,
+.part-studio-feature-dialog[data-feature='extrude'] [data-field='second-direction'] > .part-studio-feature-dialog__checkbox {
+  grid-column: 1 / -1;
+}
+
+.part-studio-feature-dialog__axis-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 26px;
+  margin: 2px 3px;
+  padding: 0 6px;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-feature-dialog__axis-field .part-studio-feature-dialog__query-label {
+  flex: 0 0 auto;
+  padding-block-start: 0;
+  line-height: 24px;
+}
+
+.part-studio-feature-dialog__axis-field .part-studio-feature-dialog__select {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.part-studio-feature-dialog__axis-clock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6d7d8c;
+}
+
+.part-studio-feature-dialog__axis-clock svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
