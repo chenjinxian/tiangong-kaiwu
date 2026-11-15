@@ -1113,6 +1113,8 @@ export function FeatureDialog({
   // B2 loft 通道（v1.69 多截面）：≥2 截面草图有序选择（数组序=截面顺序）；
   // 全部选满且互不相同才可提交——同草图重复是退化放样，服务端 zod 同口径拒收。
   const [loftSketchIds, setLoftSketchIds] = React.useState<string[]>(['', '']);
+  // 2026-11-15 live：`终止形态` 是可折叠组（仅展示；内部下拉无产品通道）。
+  const [loftTerminationExpanded, setLoftTerminationExpanded] = React.useState(true);
   const setLoftSection = (index: number, value: string): void => {
     setLoftSketchIds((ids) => ids.map((id, i) => (i === index ? value : id)));
   };
@@ -2682,6 +2684,69 @@ export function FeatureDialog({
     </button>
   );
 
+  // 2026-11-15 live：loft/sweep 与 extrude/revolve 共用两行页签壳，但 LoftParams/
+  // SweepParams 没有 resultType/operation 字段——全部页签只作信息展示（实体/新建
+  // 选中），一律 disabled + 未实现 title，绝不提供可点击 no-op。aria 名带特征前缀
+  // 与 extrude 的「结果类型/布尔作用域」区分。
+  const informationalTabRows = (loftChannel || sweepChannel) && (
+    <React.Fragment>
+      <div
+        role="tablist"
+        aria-label={t(loftChannel
+          ? 'partStudio.featureDialog.loftResultTypeTabs'
+          : 'partStudio.featureDialog.sweepResultTypeTabs')}
+        className="part-studio-feature-dialog__tablist"
+        data-testid="part-studio-feature-dialog-informational-result-tabs"
+      >
+        {RESULT_TYPES.map((type) => (
+          <button
+            key={type}
+            type="button"
+            role="tab"
+            aria-selected={type === 'solid'}
+            aria-disabled="true"
+            disabled
+            title={t('partStudio.featureDialog.notImplemented')}
+            className={[
+              'part-studio-feature-dialog__tab',
+              type === 'solid' ? 'part-studio-feature-dialog__tab--active' : '',
+              'part-studio-feature-dialog__tab--disabled',
+            ].filter(Boolean).join(' ')}
+          >
+            {t(`partStudio.featureDialog.resultTypes.${type}`)}
+          </button>
+        ))}
+      </div>
+      <div
+        role="tablist"
+        aria-label={t(loftChannel
+          ? 'partStudio.featureDialog.loftBooleanScopeTabs'
+          : 'partStudio.featureDialog.sweepBooleanScopeTabs')}
+        className="part-studio-feature-dialog__tablist"
+        data-testid="part-studio-feature-dialog-informational-boolean-tabs"
+      >
+        {BOOLEAN_SCOPES.map((scope) => (
+          <button
+            key={scope}
+            type="button"
+            role="tab"
+            aria-selected={scope === 'new'}
+            aria-disabled="true"
+            disabled
+            title={t('partStudio.featureDialog.notImplemented')}
+            className={[
+              'part-studio-feature-dialog__tab',
+              scope === 'new' ? 'part-studio-feature-dialog__tab--active' : '',
+              'part-studio-feature-dialog__tab--disabled',
+            ].filter(Boolean).join(' ')}
+          >
+            {t(`partStudio.featureDialog.booleanScopes.${scope}`)}
+          </button>
+        ))}
+      </div>
+    </React.Fragment>
+  );
+
   return (
     <div
       ref={rootRef}
@@ -2929,6 +2994,7 @@ export function FeatureDialog({
               })}
             </div>
           )}
+          {informationalTabRows}
         </div>
       )}
       {featureType === 'booleanBodies' && (
@@ -4094,7 +4160,8 @@ export function FeatureDialog({
         >
           {/* mirror/pattern：实体字段单独渲染为 live query field（标签在字段内），
               booleanBodies：工具字段自带「工具」标签——都不渲染旧表头。 */}
-          {!mirrorChannel && !booleanBodiesChannel && !patternChannel && (
+          {!mirrorChannel && !booleanBodiesChannel && !patternChannel
+            && !loftChannel && !sweepChannel && (
             <div className="part-studio-feature-dialog__entities-header">
               {/* 草图通道（拉伸/旋转）：标签移入字段内部（Onshape query field
                   形态，空态 26px 蓝底 / 已选态 42px 白底）。 */}
@@ -4767,7 +4834,10 @@ export function FeatureDialog({
 
           {/* B2 loft 通道（v1.69 多截面）：≥2 截面草图按序选择（每草图取最大面域）。
               不足两张 → 诚实提示 + 提交禁用；截面互不相同（同草图重复=退化放样，
-              服务端 zod 同口径拒收）。无 guides/端条件/sections UI；截面顺序=数组序。 */}
+              服务端 zod 同口径拒收）。
+              2026-11-15 live 对齐：有序截面 = `轮廓` query field（42px 选中皮肤）；
+              其下 `终止形态` 可折叠组 + 引导线/路径/连接/等参线禁用行——LoftParams
+              无这些字段，全部诚实禁用（title=未实现），不提供假通道。 */}
           {loftChannel && (
             <React.Fragment>
               {sketchOptions.length < 2 ? (
@@ -4780,47 +4850,55 @@ export function FeatureDialog({
                 </p>
               ) : (
                 <React.Fragment>
-                  {loftSketchIds.map((sectionId, index) => (
-                    <div key={index} className="part-studio-feature-dialog__loft-section-row">
-                      <select
-                        aria-label={t('partStudio.featureDialog.loftSectionLabel', { index: index + 1 })}
-                        className="part-studio-feature-dialog__select"
-                        value={sectionId}
-                        disabled={submitting}
-                        onChange={(event) => setLoftSection(index, event.target.value)}
-                      >
-                        <option value="" disabled>
-                          {t('partStudio.featureDialog.sketchPlaceholder')}
-                        </option>
-                        {sketchOptions.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      {loftSketchIds.length > 2 && (
-                        <button
-                          type="button"
-                          className="part-studio-feature-dialog__loft-remove"
-                          aria-label={t('partStudio.featureDialog.loftRemoveSection', { index: index + 1 })}
-                          title={t('partStudio.featureDialog.loftRemoveSection', { index: index + 1 })}
-                          disabled={submitting}
-                          onClick={() => removeLoftSection(index)}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="part-studio-feature-dialog__loft-add"
-                    data-testid="part-studio-feature-dialog-loft-add-section"
-                    disabled={submitting || loftSketchIds.length >= sketchOptions.length}
-                    onClick={addLoftSection}
+                  <div
+                    className="part-studio-feature-dialog__profile-field part-studio-feature-dialog__profile-field--query is-selected"
+                    data-testid="part-studio-feature-dialog-loft-profile-field"
                   >
-                    {t('partStudio.featureDialog.loftAddSection')}
-                  </button>
+                    <span className="part-studio-feature-dialog__query-label">
+                      {t('partStudio.featureDialog.loftProfileFieldLabel')}
+                    </span>
+                    {loftSketchIds.map((sectionId, index) => (
+                      <div key={index} className="part-studio-feature-dialog__loft-section-row">
+                        <select
+                          aria-label={t('partStudio.featureDialog.loftSectionLabel', { index: index + 1 })}
+                          className="part-studio-feature-dialog__select"
+                          value={sectionId}
+                          disabled={submitting}
+                          onChange={(event) => setLoftSection(index, event.target.value)}
+                        >
+                          <option value="" disabled>
+                            {t('partStudio.featureDialog.sketchPlaceholder')}
+                          </option>
+                          {sketchOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        {loftSketchIds.length > 2 && (
+                          <button
+                            type="button"
+                            className="part-studio-feature-dialog__loft-remove"
+                            aria-label={t('partStudio.featureDialog.loftRemoveSection', { index: index + 1 })}
+                            title={t('partStudio.featureDialog.loftRemoveSection', { index: index + 1 })}
+                            disabled={submitting}
+                            onClick={() => removeLoftSection(index)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="part-studio-feature-dialog__loft-add"
+                      data-testid="part-studio-feature-dialog-loft-add-section"
+                      disabled={submitting || loftSketchIds.length >= sketchOptions.length}
+                      onClick={addLoftSection}
+                    >
+                      {t('partStudio.featureDialog.loftAddSection')}
+                    </button>
+                  </div>
                   {loftDuplicate && (
                     <p
                       role="note"
@@ -4839,14 +4917,88 @@ export function FeatureDialog({
                       {t('partStudio.featureDialog.loftSelectionStaleHint')}
                     </p>
                   )}
-                  {/* 范围提示（服务端 op 边界对不平行截面同口径拒收）。 */}
+                  {/* 范围提示（服务端 op 边界对不平行截面同口径拒收）——Onshape
+                      不显示范围说明：视觉隐藏（sr-only），测试/可访问锚点保留。 */}
                   <p
                     role="note"
-                    className="part-studio-feature-dialog__hint"
+                    className="part-studio-feature-dialog__hint part-studio-feature-dialog__sr-hint"
                     data-testid="part-studio-feature-dialog-loft-parallel-hint"
                   >
                     {t('partStudio.featureDialog.loftParallelHint')}
                   </p>
+
+                  {/* live `终止形态` 折叠组（chevron + label）；内含两个禁用形态
+                      下拉（值 `无`）——后端无端条件通道。折叠/展开是本组唯一行为。 */}
+                  <div className="part-studio-feature-dialog__loft-termination">
+                    <button
+                      type="button"
+                      aria-expanded={loftTerminationExpanded}
+                      className="part-studio-feature-dialog__loft-termination-toggle"
+                      data-testid="part-studio-feature-dialog-loft-termination-toggle"
+                      onClick={() => setLoftTerminationExpanded((expanded) => !expanded)}
+                    >
+                      <span>{t('partStudio.featureDialog.loftTerminationGroupLabel')}</span>
+                    </button>
+                    {loftTerminationExpanded && (
+                      <div className="part-studio-feature-dialog__loft-termination-body">
+                        {(['loftStartProfileFormLabel', 'loftEndProfileFormLabel'] as const).map((labelKey) => {
+                          const label = t(`partStudio.featureDialog.${labelKey}`);
+                          return (
+                            <label
+                              key={labelKey}
+                              className="part-studio-feature-dialog__select-row"
+                              data-testid={`part-studio-feature-dialog-${labelKey === 'loftStartProfileFormLabel' ? 'loft-start' : 'loft-end'}-profile-form`}
+                            >
+                              <span>{label}</span>
+                              <select
+                                aria-label={label}
+                                className="part-studio-feature-dialog__select"
+                                value="none"
+                                disabled
+                                title={t('partStudio.featureDialog.notImplemented')}
+                              >
+                                <option value="none">{t('partStudio.featureDialog.noneOption')}</option>
+                              </select>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* live 四行禁用占位（无 guides/connectors/isoparametric 通道）。 */}
+                  <label
+                    className="part-studio-feature-dialog__checkbox"
+                    data-testid="part-studio-feature-dialog-loft-guides"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.loftGuidesLabel')}</span>
+                  </label>
+                  <label
+                    className="part-studio-feature-dialog__checkbox"
+                    data-testid="part-studio-feature-dialog-loft-path"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.loftPathLabel')}</span>
+                  </label>
+                  <label
+                    className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat"
+                    data-testid="part-studio-feature-dialog-loft-connections"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.loftConnectionLabel')}</span>
+                  </label>
+                  <label
+                    className="part-studio-feature-dialog__checkbox"
+                    data-testid="part-studio-feature-dialog-loft-show-isoparametric"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.loftShowIsoparametricLabel')}</span>
+                  </label>
                 </React.Fragment>
               )}
             </React.Fragment>
@@ -4855,7 +5007,9 @@ export function FeatureDialog({
           {/* B3 sweep 通道：轮廓草图 + 路径草图双选择器（首版单闭合轮廓沿单直线路径）。
               草图不足两张 → 诚实提示 + 提交禁用；两键互不相同（同草图=退化扫掠/同平面
               路径，服务端 zod 同口径拒收）。路径直线语义由服务端 op 边界守卫兜底，
-              前端只做范围提示（不做草图几何读取——路径合法性不需要面域读面）。 */}
+              前端只做范围提示（不做草图几何读取——路径合法性不需要面域读面）。
+              2026-11-15 live 对齐：两个 query field（`要扫掠的面和草图面域` /
+              红框必填 `扫掠路径`）+ 延伸/轮廓控制/扭曲/缩放禁用行（无后端通道）。 */}
           {sweepChannel && (
             <React.Fragment>
               {sketchOptions.length < 2 ? (
@@ -4868,38 +5022,61 @@ export function FeatureDialog({
                 </p>
               ) : (
                 <React.Fragment>
-                  <select
-                    aria-label={t('partStudio.featureDialog.sweepProfileLabel')}
-                    className="part-studio-feature-dialog__select"
-                    value={sweepProfileSketchId}
-                    disabled={submitting}
-                    onChange={(event) => setSweepProfileSketchId(event.target.value)}
+                  <div
+                    className="part-studio-feature-dialog__profile-field part-studio-feature-dialog__profile-field--query is-selected"
+                    data-testid="part-studio-feature-dialog-sweep-profile-field"
                   >
-                    <option value="" disabled>
-                      {t('partStudio.featureDialog.sketchPlaceholder')}
-                    </option>
-                    {sketchOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
+                    <label className="part-studio-feature-dialog__query-label" htmlFor="part-studio-feature-dialog-sweep-profile">
+                      {t('partStudio.featureDialog.sweepProfileFieldLabel')}
+                    </label>
+                    <select
+                      id="part-studio-feature-dialog-sweep-profile"
+                      aria-label={t('partStudio.featureDialog.sweepProfileLabel')}
+                      className="part-studio-feature-dialog__select"
+                      value={sweepProfileSketchId}
+                      disabled={submitting}
+                      onChange={(event) => setSweepProfileSketchId(event.target.value)}
+                    >
+                      <option value="" disabled>
+                        {t('partStudio.featureDialog.sketchPlaceholder')}
                       </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label={t('partStudio.featureDialog.sweepPathLabel')}
-                    className="part-studio-feature-dialog__select"
-                    value={sweepPathSketchId}
-                    disabled={submitting}
-                    onChange={(event) => setSweepPathSketchId(event.target.value)}
+                      {sketchOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div
+                    className={[
+                      'part-studio-feature-dialog__profile-field',
+                      'part-studio-feature-dialog__profile-field--query',
+                      'is-selected',
+                      sweepPathSketchId === '' ? 'part-studio-feature-dialog__profile-field--required' : '',
+                    ].filter(Boolean).join(' ')}
+                    data-testid="part-studio-feature-dialog-sweep-path-field"
                   >
-                    <option value="" disabled>
-                      {t('partStudio.featureDialog.sketchPlaceholder')}
-                    </option>
-                    {sketchOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
+                    <label className="part-studio-feature-dialog__query-label" htmlFor="part-studio-feature-dialog-sweep-path">
+                      {t('partStudio.featureDialog.sweepPathFieldLabel')}
+                    </label>
+                    <select
+                      id="part-studio-feature-dialog-sweep-path"
+                      aria-label={t('partStudio.featureDialog.sweepPathLabel')}
+                      className="part-studio-feature-dialog__select"
+                      value={sweepPathSketchId}
+                      disabled={submitting}
+                      onChange={(event) => setSweepPathSketchId(event.target.value)}
+                    >
+                      <option value="" disabled>
+                        {t('partStudio.featureDialog.sketchPlaceholder')}
                       </option>
-                    ))}
-                  </select>
+                      {sketchOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   {sweepDuplicate && (
                     <p
                       role="note"
@@ -4918,14 +5095,57 @@ export function FeatureDialog({
                       {t('partStudio.featureDialog.sweepSelectionStaleHint')}
                     </p>
                   )}
-                  {/* 首版范围提示（服务端 op 边界对非直线/零长路径同口径拒收）。 */}
+                  {/* 首版范围提示（服务端 op 边界对非直线/零长路径同口径拒收）——
+                      Onshape 不显示范围说明：视觉隐藏（sr-only），锚点保留。 */}
                   <p
                     role="note"
-                    className="part-studio-feature-dialog__hint"
+                    className="part-studio-feature-dialog__hint part-studio-feature-dialog__sr-hint"
                     data-testid="part-studio-feature-dialog-sweep-path-hint"
                   >
                     {t('partStudio.featureDialog.sweepPathHint')}
                   </p>
+
+                  {/* live 行序：延伸至完整路径 → 轮廓控制 → 扭曲 → 缩放。
+                      均无后端通道：禁用 + title，不提供假入口。 */}
+                  <label
+                    className="part-studio-feature-dialog__checkbox"
+                    data-testid="part-studio-feature-dialog-sweep-extend-full-path"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.sweepExtendToFullPathLabel')}</span>
+                  </label>
+                  <label
+                    className="part-studio-feature-dialog__select-row"
+                    data-testid="part-studio-feature-dialog-sweep-profile-control"
+                  >
+                    <span>{t('partStudio.featureDialog.sweepProfileControlLabel')}</span>
+                    <select
+                      aria-label={t('partStudio.featureDialog.sweepProfileControlLabel')}
+                      className="part-studio-feature-dialog__select"
+                      value="none"
+                      disabled
+                      title={t('partStudio.featureDialog.notImplemented')}
+                    >
+                      <option value="none">{t('partStudio.featureDialog.noneOption')}</option>
+                    </select>
+                  </label>
+                  <label
+                    className="part-studio-feature-dialog__section-toggle part-studio-feature-dialog__section-toggle--flat"
+                    data-testid="part-studio-feature-dialog-sweep-twist"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.sweepTwistLabel')}</span>
+                  </label>
+                  <label
+                    className="part-studio-feature-dialog__checkbox"
+                    data-testid="part-studio-feature-dialog-sweep-scale"
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                    <span>{t('partStudio.featureDialog.sweepScaleLabel')}</span>
+                  </label>
                 </React.Fragment>
               )}
             </React.Fragment>

@@ -2547,3 +2547,142 @@
   background: transparent;
   text-align: end;
 }
+
+/* ── 2026-11-15 对话框审计 group-b §3/§4：loft / sweep live 对齐（作用域）────
+ * loft：`轮廓` query field（有序截面 + 添加/移除）→ `终止形态` 折叠组 →
+ * 引导线/路径/连接/等参线禁用行；sweep：两个 query field（路径空值红框）→
+ * 延伸/轮廓控制/扭曲/缩放禁用行。仅样式，不接任何后端通道。 */
+.part-studio-feature-dialog[data-feature='loft'] .part-studio-feature-dialog__entities,
+.part-studio-feature-dialog[data-feature='sweep'] .part-studio-feature-dialog__entities {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* query-field 壳内的 select = 无边框值行（12px 标签在壳内）。 */
+.part-studio-feature-dialog__profile-field--query .part-studio-feature-dialog__select {
+  min-inline-size: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* sweep `扫掠路径` 空值 = live 红框必填。 */
+.part-studio-feature-dialog__profile-field--required {
+  border-color: #aa252d;
+}
+
+/* loft 有序截面行：select + 行尾移除钮。 */
+.part-studio-feature-dialog__loft-section-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 22px;
+}
+
+.part-studio-feature-dialog__loft-section-row .part-studio-feature-dialog__select {
+  flex: 1 1 auto;
+}
+
+.part-studio-feature-dialog__loft-remove {
+  flex: 0 0 auto;
+  inline-size: 20px;
+  block-size: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 13.3333px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+/* `添加截面` = 行内文本动作。 */
+.part-studio-feature-dialog__loft-add {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1651b0;
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__loft-add:disabled {
+  color: #9aa4ae;
+  cursor: default;
+}
+
+/* `终止形态` 折叠组：chevron 由 aria-expanded 驱动（唯一行为=展开/收起）。 */
+.part-studio-feature-dialog__loft-termination {
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-feature-dialog__loft-termination-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  inline-size: 100%;
+  min-block-size: 27px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 12px;
+  font-weight: 400;
+  text-align: start;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog__loft-termination-toggle::before {
+  content: '▾';
+  display: inline-block;
+  inline-size: 14px;
+  color: #555555;
+}
+
+.part-studio-feature-dialog__loft-termination-toggle[aria-expanded='false']::before {
+  content: '▸';
+}
+
+.part-studio-feature-dialog__loft-termination-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-inline-start: 14px;
+}
+
+/* 12px 标签左 + 值下拉右（终止形态 / 轮廓控制行）。 */
+.part-studio-feature-dialog__select-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  min-block-size: 24px;
+  padding: 0 3px;
+}
+
+.part-studio-feature-dialog__select-row > span {
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog__select-row .part-studio-feature-dialog__select {
+  min-inline-size: 0;
+  text-align: end;
+}
+
+/* 范围说明在 live 不可见（sr-only），testid/文本仍可访问。 */
+.part-studio-feature-dialog__sr-hint {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

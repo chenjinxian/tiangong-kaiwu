@@ -2188,6 +2188,66 @@ describe('B2 loft 通道（双截面草图选择器）', () => {
     expect(screen.queryByRole('combobox', { name: '截面草图 3' })).toBeNull();
     expect(screen.getByRole('combobox', { name: '截面草图 2' })).toBeDefined();
   });
+
+  // 2026-11-15 dialog audit group-b §3：loft 信息页签 + query field + 禁用行。
+  it('live 信息页签：实体/新建选中且全部禁用，aria 名与 extrude 的页签不冲突', () => {
+    renderLoftDialog(makeApplyOp());
+    const resultTabs = screen.getByRole('tablist', { name: '放样结果类型' });
+    const booleanTabs = screen.getByRole('tablist', { name: '放样布尔作用域' });
+    expect(screen.queryByRole('tablist', { name: '结果类型' })).toBeNull();
+    expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
+    expect(within(resultTabs).getByRole('tab', { name: '实体' }).getAttribute('aria-selected')).toBe('true');
+    for (const tab of within(resultTabs).getAllByRole('tab')) {
+      expect((tab as HTMLButtonElement).disabled).toBe(true);
+      expect(tab.getAttribute('aria-disabled')).toBe('true');
+      expect(tab.getAttribute('title')).toBe('该能力尚未实现');
+    }
+    expect(within(booleanTabs).getByRole('tab', { name: '新建' }).getAttribute('aria-selected')).toBe('true');
+    for (const tab of within(booleanTabs).getAllByRole('tab')) {
+      expect((tab as HTMLButtonElement).disabled).toBe(true);
+      expect(tab.getAttribute('aria-disabled')).toBe('true');
+      expect(tab.getAttribute('title')).toBe('该能力尚未实现');
+    }
+  });
+
+  it('live query field：`轮廓` 标签 + 有序截面/添加按钮在 42px 选中壳内', () => {
+    renderLoftDialog(makeApplyOp());
+    const field = screen.getByTestId('part-studio-feature-dialog-loft-profile-field');
+    expect(field.textContent).toContain('轮廓');
+    expect(within(field).getByRole('combobox', { name: '截面草图 1' })).toBeDefined();
+    expect(within(field).getByRole('combobox', { name: '截面草图 2' })).toBeDefined();
+    expect(within(field).getByTestId('part-studio-feature-dialog-loft-add-section')).toBeDefined();
+    expect(field.className).toContain('is-selected');
+  });
+
+  it('live 终止形态组 + 四条禁用行：title=未实现，组可折叠', async () => {
+    const { user } = renderLoftDialog(makeApplyOp());
+    const toggle = screen.getByTestId('part-studio-feature-dialog-loft-termination-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    const start = screen.getByRole('combobox', { name: '起始轮廓形态' }) as HTMLSelectElement;
+    const end = screen.getByRole('combobox', { name: '终止轮廓形态' }) as HTMLSelectElement;
+    for (const select of [start, end]) {
+      expect(select.disabled).toBe(true);
+      expect(select.value).toBe('none');
+      expect((select.selectedOptions[0] as HTMLOptionElement).textContent).toBe('无');
+      expect(select.getAttribute('title')).toBe('该能力尚未实现');
+    }
+    for (const id of ['loft-guides', 'loft-path', 'loft-connections', 'loft-show-isoparametric']) {
+      const row = screen.getByTestId(`part-studio-feature-dialog-${id}`);
+      expect(row.getAttribute('title')).toBe('该能力尚未实现');
+      expect((within(row).getByRole('checkbox') as HTMLInputElement).disabled).toBe(true);
+    }
+    await user.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('combobox', { name: '起始轮廓形态' })).toBeNull();
+  });
+
+  it('范围提示视觉隐藏（sr-only）但 testid/文本保留', () => {
+    renderLoftDialog(makeApplyOp());
+    const hint = screen.getByTestId('part-studio-feature-dialog-loft-parallel-hint');
+    expect(hint.className).toContain('part-studio-feature-dialog__sr-hint');
+    expect(hint.textContent).toBe('首版放样要求两张截面草图平行');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2321,6 +2381,63 @@ describe('B3 sweep 通道（轮廓草图 + 路径草图双选择器）', () => {
   it('edit 模式/壳期不渲染 sweep 选择器（new + applyOp 才进入通道）', () => {
     renderDialog({ featureType: 'sweep' });
     expect(screen.queryByRole('combobox', { name: '轮廓草图' })).toBeNull();
+  });
+
+  // 2026-11-15 dialog audit group-b §4：sweep 信息页签 + 双 query field + 禁用行。
+  it('live 信息页签：实体/新建选中且全部禁用，aria 名与 extrude 的页签不冲突', () => {
+    renderSweepDialog(makeApplyOp());
+    const resultTabs = screen.getByRole('tablist', { name: '扫掠结果类型' });
+    const booleanTabs = screen.getByRole('tablist', { name: '扫掠布尔作用域' });
+    expect(screen.queryByRole('tablist', { name: '结果类型' })).toBeNull();
+    expect(screen.queryByRole('tablist', { name: '布尔作用域' })).toBeNull();
+    expect(within(resultTabs).getByRole('tab', { name: '实体' }).getAttribute('aria-selected')).toBe('true');
+    for (const tab of within(resultTabs).getAllByRole('tab')) {
+      expect((tab as HTMLButtonElement).disabled).toBe(true);
+      expect(tab.getAttribute('aria-disabled')).toBe('true');
+      expect(tab.getAttribute('title')).toBe('该能力尚未实现');
+    }
+    expect(within(booleanTabs).getByRole('tab', { name: '新建' }).getAttribute('aria-selected')).toBe('true');
+    for (const tab of within(booleanTabs).getAllByRole('tab')) {
+      expect((tab as HTMLButtonElement).disabled).toBe(true);
+      expect(tab.getAttribute('aria-disabled')).toBe('true');
+      expect(tab.getAttribute('title')).toBe('该能力尚未实现');
+    }
+  });
+
+  it('live query fields：轮廓/路径标签；路径未选时红框必填，选中后移除', async () => {
+    const { user } = renderSweepDialog(makeApplyOp());
+    const profileField = screen.getByTestId('part-studio-feature-dialog-sweep-profile-field');
+    expect(profileField.textContent).toContain('要扫掠的面和草图面域');
+    expect(within(profileField).getByRole('combobox', { name: '轮廓草图' })).toBeDefined();
+    const pathField = screen.getByTestId('part-studio-feature-dialog-sweep-path-field');
+    expect(pathField.textContent).toContain('扫掠路径');
+    expect(within(pathField).getByRole('combobox', { name: '路径草图' })).toBeDefined();
+    expect(pathField.className).toContain('part-studio-feature-dialog__profile-field--required');
+    await user.selectOptions(screen.getByRole('combobox', { name: '路径草图' }), 'sk-path');
+    expect(screen.getByTestId('part-studio-feature-dialog-sweep-path-field').className)
+      .not.toContain('part-studio-feature-dialog__profile-field--required');
+  });
+
+  it('live 禁用行：延伸至完整路径/轮廓控制(无)/扭曲/缩放（title=未实现）', () => {
+    renderSweepDialog(makeApplyOp());
+    for (const id of ['sweep-extend-full-path', 'sweep-twist', 'sweep-scale']) {
+      const row = screen.getByTestId(`part-studio-feature-dialog-${id}`);
+      expect(row.getAttribute('title')).toBe('该能力尚未实现');
+      expect((within(row).getByRole('checkbox') as HTMLInputElement).disabled).toBe(true);
+    }
+    const controlRow = screen.getByTestId('part-studio-feature-dialog-sweep-profile-control');
+    const control = within(controlRow).getByRole('combobox', { name: '轮廓控制' }) as HTMLSelectElement;
+    expect(control.disabled).toBe(true);
+    expect(control.value).toBe('none');
+    expect((control.selectedOptions[0] as HTMLOptionElement).textContent).toBe('无');
+    expect(control.getAttribute('title')).toBe('该能力尚未实现');
+  });
+
+  it('路径范围提示视觉隐藏（sr-only）但 testid/文本保留', () => {
+    renderSweepDialog(makeApplyOp());
+    const hint = screen.getByTestId('part-studio-feature-dialog-sweep-path-hint');
+    expect(hint.className).toContain('part-studio-feature-dialog__sr-hint');
+    expect(hint.textContent).toBe('首版扫掠要求路径草图恰为一条直线（曲线/多段路径暂不支持）');
   });
 });
 
