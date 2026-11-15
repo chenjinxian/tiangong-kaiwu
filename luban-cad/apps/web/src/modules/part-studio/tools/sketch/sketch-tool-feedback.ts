@@ -19,6 +19,13 @@ export interface SketchToolFeedback {
   measures: readonly SketchLiveMeasure[];
   /** 视口坐标（CSS px，相对画布左上角）。 */
   cursor?: { x: number; y: number };
+  /**
+   * 视口锚点徽标（CSS px，相对画布左上角；与 `cursor` 同一坐标空间）。
+   * 2026-11-15 E3 Onshape live：草图圆角悬停角点时，画布在角点画橙色圆点 +
+   * 右上角浅褐 `R0.25` 标签；产品以本字段驱动只读 HTML 覆盖层。旧发布方
+   * 不带该字段仍合法（覆盖层不渲染徽标）。
+   */
+  badge?: { x: number; y: number; text: string };
 }
 
 let current: SketchToolFeedback | undefined;
@@ -55,7 +62,7 @@ export function subscribeSketchToolFeedback(listener: () => void): () => void {
   };
 }
 
-/** 只发阶段提示的便捷入口（尺寸/约束/偏移工具复用）。 */
+/** 只发阶段提示的便捷入口（尺寸/约束/偏移工具复用；不携带 badge）。 */
 export function publishSketchToolHint(toolId: string, hint: string, cursor?: { x: number; y: number }): void {
   publishSketchToolFeedback({ toolId, hint, measures: [], ...(cursor ? { cursor } : {}) });
 }

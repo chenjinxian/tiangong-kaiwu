@@ -108,7 +108,16 @@ test.describe('草图圆角（Onshape 对拍）', () => {
     // 草图 ribbon「圆角」（Onshape 点击角点立即生成）。
     await page.getByRole('button', { name: '草图圆角', exact: true }).click();
     const corner = await project({ x: 0, y: 0 });
+    // E3（2026-11-15 Onshape live）：悬停可倒角角点先显示橙色圆点 + R5 徽标
+    // （只读视觉层，不参与拾取）；圆角生成后移开鼠标徽标消失。
+    const badge = page.getByTestId('sketch-tool-badge');
+    await page.mouse.move(corner.x, corner.y);
+    await expect(badge).toBeVisible({ timeout: 15_000 });
+    await expect(badge).toContainText('R5');
     await page.mouse.click(corner.x, corner.y);
+    // 移开 >HOVER_PX（走画布内部，避开 ViewCube/对话框覆盖层）后徽标消失。
+    await page.mouse.move(corner.x + 60, corner.y + 60);
+    await expect(badge).toBeHidden({ timeout: 15_000 });
 
     await expect.poll(async () => {
       const sketch = await getSketchRpc(ctx, sketchId, token);

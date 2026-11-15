@@ -27,6 +27,44 @@
   flex: none;
 }
 
+/* 悬停角点锚点徽标（2026-11-15 E3 Onshape live：草图圆角悬停可倒角角点 =
+   橙色实心圆点 + 右上角纯文本 R 标签，无底色/描边）。私有证据
+   item6-current-before-typing.png / item6-after-esc-fillet.png 实测
+   #f0b93f / #cfa574。纯视觉、不挡拾取。 */
+.part-studio-sketch-hint-badge {
+  position: absolute;
+  z-index: 24;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+}
+
+.part-studio-sketch-hint-badge__dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f0b93f;
+}
+
+/* 圆点中心 = (x, y)：标签左边缘在圆点右 10px、底边在圆点中心上方 8px。
+   9px 圆点盒下换算为 left 100%+5.5px / bottom 100%+3.5px。 */
+.part-studio-sketch-hint-badge__label {
+  position: absolute;
+  left: calc(100% + 5.5px);
+  bottom: calc(100% + 3.5px);
+  color: #cfa574;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff;
+}
+
 /* 光标旁实时尺寸卡片（Onshape live；2026-11-02）。纯视觉、不挡拾取。
    2026-11-15 E4：阶段提示移入顶部 pill，本卡片只承载 measures。 */
 .part-studio-sketch-feedback {

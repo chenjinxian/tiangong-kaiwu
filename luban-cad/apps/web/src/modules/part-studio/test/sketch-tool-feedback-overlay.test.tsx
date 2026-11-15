@@ -81,6 +81,36 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
     expect(screen.queryByTestId('sketch-tool-hint')).toBeNull();
   });
 
+  it('badge + hint + measures：徽标按 (x,y) 渲染，含圆点/文本，且不在尺寸卡片内', () => {
+    publishSketchToolFeedback({
+      toolId: 'Sketch.Fillet',
+      hint: '点击圆角移除',
+      measures: [{ labelKey: 'partStudio.sketch.live.width', value: '82.55' }],
+      cursor: { x: 500, y: 300 },
+      badge: { x: 260, y: 240, text: 'R5' },
+    });
+    render(<SketchToolFeedbackOverlay />);
+
+    const badge = screen.getByTestId('sketch-tool-badge');
+    expect(badge.getAttribute('aria-hidden')).toBe('true');
+    expect(badge.style.left).toBe('260px');
+    expect(badge.style.top).toBe('240px');
+    expect(badge.textContent).toContain('R5');
+    expect(badge.querySelector('.part-studio-sketch-hint-badge__dot')).not.toBeNull();
+    expect(screen.getByTestId('sketch-tool-hint').textContent).toContain('点击圆角移除');
+
+    const card = screen.getByTestId('sketch-tool-feedback');
+    expect(card.contains(badge)).toBe(false);
+  });
+
+  it('无 badge 的反馈：不渲染徽标', () => {
+    publishSketchToolHint('Sketch.Fillet', '点击圆角移除', { x: 100, y: 100 });
+    render(<SketchToolFeedbackOverlay />);
+
+    expect(screen.getByTestId('sketch-tool-hint')).not.toBeNull();
+    expect(screen.queryByTestId('sketch-tool-badge')).toBeNull();
+  });
+
   it('measures 无 cursor：不渲染卡片（保持既有行为）', () => {
     publishSketchToolFeedback({
       toolId: 'Sketch.Line',
@@ -117,5 +147,18 @@ describe('SketchToolFeedbackOverlay 样式钉版（CSS 文本）', () => {
   it('光标旁卡片保留白底（尺寸承载方）', () => {
     const card = cssRuleBlock('.part-studio-sketch-feedback');
     expect(card).toMatch(/background:\s*rgba\(255,\s*255,\s*255,\s*0\.97\)/);
+  });
+
+  it('悬停角点徽标：Onshape live token（圆点 #f0b93f 9px、标签 #cfa574 13px + 白描边）', () => {
+    const dot = cssRuleBlock('.part-studio-sketch-hint-badge__dot');
+    expect(dot).toMatch(/background:\s*#f0b93f/);
+    expect(dot).toMatch(/width:\s*9px/);
+    expect(dot).toMatch(/height:\s*9px/);
+
+    const label = cssRuleBlock('.part-studio-sketch-hint-badge__label');
+    expect(label).toMatch(/color:\s*#cfa574/);
+    expect(label).toMatch(/font-size:\s*13px/);
+    expect(label).toMatch(/white-space:\s*nowrap/);
+    expect(label).toMatch(/text-shadow:\s*0 0 2px #ffffff,\s*0 0 2px #ffffff/);
   });
 });

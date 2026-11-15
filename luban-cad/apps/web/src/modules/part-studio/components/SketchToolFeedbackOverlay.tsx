@@ -69,6 +69,21 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
     </div>
   ) : null;
 
+  // 2026-11-15 E3 Onshape live：草图圆角悬停角点的橙色圆点 + R 标签。只读
+  // 视觉层（pointer-events:none / aria-hidden），与光标坐标同一 CSS px 空间。
+  const badge = feedback.badge ? (
+    <div
+      className="part-studio-sketch-hint-badge"
+      data-testid="sketch-tool-badge"
+      data-tool={feedback.toolId}
+      style={{ left: feedback.badge.x, top: feedback.badge.y }}
+      aria-hidden="true"
+    >
+      <span className="part-studio-sketch-hint-badge__dot" />
+      <span className="part-studio-sketch-hint-badge__label">{feedback.badge.text}</span>
+    </div>
+  ) : null;
+
   // 光标旁卡片只承载实时尺寸：无尺寸（或没有光标）时不渲染空白卡片。
   let measuresCard: React.JSX.Element | null = null;
   const cursor = feedback.cursor;
@@ -110,10 +125,11 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
     );
   }
 
-  if (!hintPill && !measuresCard) return null;
+  if (!hintPill && !measuresCard && !badge) return null;
   return (
     <>
       {hintPill}
+      {badge}
       {measuresCard}
     </>
   );

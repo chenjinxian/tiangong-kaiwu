@@ -32,7 +32,12 @@ import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import { resolveSketchPlaneFrame } from './SketchAddConstraintTool.js';
 import type { SketchPlaneFrame } from './sketch-plane.js';
-import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
+import {
+  clearSketchToolFeedback,
+  publishSketchToolFeedback,
+  publishSketchToolHint,
+  type SketchToolFeedback,
+} from './sketch-tool-feedback.js';
 import {
   computeFilletGeometry,
   computeFilletLineArcGeometry,
@@ -97,8 +102,41 @@ export class SketchFilletTool extends PrimitiveTool {
   public override async onMouseMotion(ev: BeButtonEvent): Promise<void> {
     await super.onMouseMotion(ev);
     this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
-    if (this._hintText)
-      publishSketchToolHint(this.toolId, this._hintText, this._cursorView);
+    if (!this._hintText)
+      return;
+    // Onshape live 2026-11-15 E3：悬停可倒角角点时，画布在角点画橙色圆点 +
+    // 右上角 R 标签。徽标只随鼠标移动发布（不逐帧发布），角点消失即回落为
+    // 纯提示（badge 缺省）。
+    const badge = this._hoverBadge(ev.viewPoint);
+    if (badge) {
+      publishSketchToolFeedback({
+        toolId: this.toolId,
+        hint: this._hintText,
+        measures: [],
+        cursor: this._cursorView,
+        badge,
+      });
+      return;
+    }
+    publishSketchToolHint(this.toolId, this._hintText, this._cursorView);
+  }
+
+  /** 悬停角点（直线-直线或直线-圆弧）的视口锚点徽标；无角点/无视口=undefined。 */
+  private _hoverBadge(viewPoint: { x: number; y: number }): SketchToolFeedback['badge'] {
+    const sketch = getSketchSystem()?.activeSketch;
+    if (!sketch)
+      return undefined;
+    const corner = this._nearestCorner(sketch, viewPoint, HOVER_PX)
+      ?? this._nearestLineArcCorner(sketch, viewPoint, HOVER_PX);
+    if (!corner)
+      return undefined;
+    const viewport = IModelApp.viewManager.selectedView;
+    if (!viewport)
+      return undefined;
+    const view = viewport.worldToView(
+      this._plane.toWorld({ u: corner.point.x, v: corner.point.y }),
+    );
+    return { x: view.x, y: view.y, text: `R${DEFAULT_SKETCH_FILLET_RADIUS_MM}` };
   }
 
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {

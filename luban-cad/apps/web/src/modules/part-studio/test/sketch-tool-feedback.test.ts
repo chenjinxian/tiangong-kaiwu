@@ -52,4 +52,18 @@ describe('sketch tool feedback bus', () => {
     expect(feedback?.hint).toBe('拾取第一条线');
     expect(feedback?.cursor).toEqual({ x: 20, y: 30 });
   });
+
+  it('badge 随反馈往返；hint-only 便捷入口不携带 badge', () => {
+    publishSketchToolFeedback({
+      toolId: 'Sketch.Fillet',
+      hint: '点击圆角移除',
+      measures: [],
+      cursor: { x: 100, y: 200 },
+      badge: { x: 120, y: 180, text: 'R5' },
+    });
+    expect(getSketchToolFeedback()?.badge).toEqual({ x: 120, y: 180, text: 'R5' });
+
+    publishSketchToolHint('Sketch.Fillet', '点击圆角移除', { x: 100, y: 200 });
+    expect(getSketchToolFeedback()?.badge).toBeUndefined();
+  });
 });
