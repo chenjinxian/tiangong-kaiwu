@@ -1954,7 +1954,8 @@
     "reFillet": "重新应用圆角",
     "reFilletUnavailable": "「重新应用圆角」当前后端未支持，已禁用",
     "perFaceReadOnly": "该特征使用逐面距离（distancesMm），当前对话框只读；请用 RPC/参数面板编辑",
-    "submitSuccess": "{{name}} 已创建"
+    "submitSuccess": "{{name}} 已创建",
+    "removeFace": "移除面"
   },
   "featurePatternDialog": {
     "sourceLabel": "要阵列化的特征",
@@ -2127,7 +2128,7 @@
     "noBodies": "无活动实体：请先创建实体",
     "needsBody": "分割需要已有实体：请先拉伸或旋转创建实体",
     "tool": "用于分割的图元",
-    "toolWorldPlane": "世界平面（XY/YZ/XZ）",
+    "toolWorldPlane": "世界平面（{{plane}}）",
     "plane": "分割平面",
     "offset": "平面偏移（mm）",
     "keepSide": "保留侧",
@@ -2140,7 +2141,12 @@
     "useTrimmedUnsupported": "未支持",
     "keepBothSides": "保留两侧",
     "keepBothSidesUnsupported": "未支持（需多体输出，ADR-0015）",
-    "submitSuccess": "{{name}} 已更新"
+    "submitSuccess": "{{name}} 已更新",
+    "splitTypeFace": "面",
+    "removeTarget": "移除目标",
+    "toolPickUnsupported": "实体/面/曲线拾取暂无后端通道；当前仅支持世界平面工具",
+    "worldPlaneGroup": "世界平面工具（产品通道）",
+    "worldPlaneGroupHint": "产品专有通道：世界平面 + 平面偏移 + 保留侧；不是 live 图元拾取器。"
   },
   "autosave": {
     "failed": "自动保存失败：{{message}}"

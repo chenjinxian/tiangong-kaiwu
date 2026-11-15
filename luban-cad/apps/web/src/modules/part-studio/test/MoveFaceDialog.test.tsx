@@ -76,18 +76,38 @@ beforeEach(() => {
 });
 
 describe('MoveFaceDialog', () => {
-  it('无面选择：确认禁用 + 空态提示 + 重新应用圆角禁用', () => {
+  it('无面选择：确认禁用 + 空态字段 + 移动类型/终止类型禁用 + 重新应用圆角禁用', () => {
     renderDialog();
     expect(screen.getByTestId('part-studio-move-face-faces')).toBeTruthy();
+    const facesField = screen.getByTestId('part-studio-move-face-faces-field');
+    expect(facesField.className).toContain('is-empty');
+    expect(facesField.querySelector('.part-studio-feature-dialog__query-label')?.textContent).toBe('要移动的面');
     expect((screen.getByTestId('part-studio-move-face-confirm') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('part-studio-move-face-refillet-hint').textContent).toContain('未支持');
     const refillet = screen.getByRole('checkbox', { name: '重新应用圆角' }) as HTMLInputElement;
     expect(refillet.disabled).toBe(true);
+    expect(refillet.checked).toBe(false);
+    // live：偏移/终止类型为单一禁用下拉（无重复静态值行），理由在 title。
+    const moveType = screen.getByRole('combobox', { name: '偏移' }) as HTMLSelectElement;
+    expect(moveType.disabled).toBe(true);
+    expect(moveType.value).toBe('offset');
+    expect(moveType.title).toBe('该能力尚未实现');
+    const termination = screen.getByRole('combobox', { name: '终止类型' }) as HTMLSelectElement;
+    expect(termination.disabled).toBe(true);
+    expect(termination.value).toBe('blind');
+    expect(termination.title).toBe('该能力尚未实现');
+    // 目标实体可见行已删除；逐面只读提示与圆角行保留。
+    expect(screen.queryByText('目标实体')).toBeNull();
   });
 
   it('向外偏移：insertFeature 载荷为正距离 + faces + owner target', async () => {
     mocks.selection = [face('body-1', 7, 11)];
     const { applyOp } = renderDialog();
+    const facesField = screen.getByTestId('part-studio-move-face-faces-field');
+    expect(facesField.className).toContain('is-selected');
+    expect(facesField.getAttribute('title')).toContain('目标实体: Body 1');
+    const direction = screen.getByTestId('part-studio-move-face-direction') as HTMLButtonElement;
+    expect(direction.getAttribute('aria-pressed')).toBe('true');
     fireEvent.change(screen.getByTestId('part-studio-move-face-distance'), { target: { value: '5' } });
     fireEvent.click(screen.getByTestId('part-studio-move-face-confirm'));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
@@ -99,16 +119,38 @@ describe('MoveFaceDialog', () => {
     });
   });
 
-  it('向内偏移 + 同 body 多面：距离取负，faces 全保留', async () => {
+  it('向内偏移 + 同 body 多面：方向箭头切换符号，faces 全保留', async () => {
     mocks.selection = [face('body-1', 7, 11), face('body-1', 7, 12)];
     const { applyOp } = renderDialog();
     fireEvent.change(screen.getByTestId('part-studio-move-face-distance'), { target: { value: '2.5' } });
-    fireEvent.change(screen.getByTestId('part-studio-move-face-direction'), { target: { value: 'inward' } });
+    const direction = screen.getByTestId('part-studio-move-face-direction') as HTMLButtonElement;
+    fireEvent.click(direction);
+    expect(direction.getAttribute('aria-pressed')).toBe('false');
+    expect(direction.getAttribute('aria-label')).toBe('向内');
+    fireEvent.click(direction);
+    expect(direction.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(direction);
     fireEvent.click(screen.getByTestId('part-studio-move-face-confirm'));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
     expect((applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>).params).toMatchObject({
       faces: [{ nodeId: 7, entityId: 11 }, { nodeId: 7, entityId: 12 }],
       distanceMm: -2.5,
+    });
+  });
+
+  it('面 chip ×：仅本地过滤提交 faces（不改载荷语义）', async () => {
+    mocks.selection = [face('body-1', 7, 11), face('body-1', 7, 12)];
+    const { applyOp } = renderDialog();
+    const removes = screen.getAllByTestId('part-studio-move-face-face-remove');
+    expect(removes).toHaveLength(2);
+    fireEvent.click(removes[0]!);
+    expect(screen.getAllByTestId('part-studio-move-face-face-remove')).toHaveLength(1);
+    fireEvent.change(screen.getByTestId('part-studio-move-face-distance'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('part-studio-move-face-confirm'));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect((applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>).params).toMatchObject({
+      faces: [{ nodeId: 7, entityId: 12 }],
+      distanceMm: 1,
     });
   });
 

@@ -9,11 +9,16 @@
  * 修剪到面边界、保留两侧。
  *
  * 首切片只渲染后端契约（shared 1.39）精确支持的单侧世界平面形态：
- * - 分割类型固定「零件」（面分割未支持）；
- * - 目标实体插入单选（N≤1 自动）、编辑只读；
- * - 分割工具 = 世界平面 XY/YZ/XZ + 偏移；保留正/负侧；
- * - 「保留工具」「修剪到面边界」「保留两侧」为未支持项（假控件不渲染，静态提示）；
- *   双侧需要多体输出（ADR-0015），不冒充。
+ * - 分割类型页签「零件」活动、「面」诚实禁用（title=notImplemented）；
+ * - 目标实体单字段两态 query field（空 26px 蓝 / 选中 42px 白 + chip + ×），
+ *   插入单选（N≤1 自动）、编辑只读；
+ * - 分割工具 = 世界平面 XY/YZ/XZ + 偏移；保留正/负侧；平面/偏移/保留侧
+ *   收进明确标注的产品通道分组（不伪装成 live 图元拾取器）；
+ * - 「保留工具」「修剪到面边界」「保留两侧」为未支持项（disabled 未勾选
+ *   checkbox + title）；双侧需要多体输出（ADR-0015），不冒充。
+ *
+ * 2026-11-15 live 对齐（dialog-audit group-c §4）：真实 tablist、目标/工具
+ * query field、三行改 disabled checkbox、补底栏；载荷/校验/多体选择逻辑不变。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -217,53 +222,116 @@ export function SplitPartDialog({
             {error}
           </p>
         )}
-        <section className="part-studio-feature-dialog__distance" data-field="split-type">
-          <span className="part-studio-feature-dialog__distance-label">
-            {t('partStudio.splitPartDialog.splitType')}
-          </span>
-          <span className="part-studio-feature-dialog__static-value">
+        {/* live：零件/面真实页签；面分割无后端通道 → disabled + title，
+            诚实提示保留在可访问树内（测试锚不变）。 */}
+        <div
+          role="tablist"
+          aria-label={t('partStudio.splitPartDialog.splitType')}
+          className="part-studio-feature-dialog__tablist part-studio-split-part-dialog__tablist"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected
+            className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--active"
+          >
             {t('partStudio.splitPartDialog.splitTypePart')}
-          </span>
-        </section>
-        <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-split-part-type-hint">
-          {t('partStudio.splitPartDialog.faceUnsupported')}
-        </p>
-        <section className="part-studio-feature-dialog__distance" data-field="split-target">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-target">
-            {t('partStudio.splitPartDialog.targets')}
-          </label>
-          {editMode ? (
-            <span className="part-studio-feature-dialog__static-value" data-testid="part-studio-split-part-target-fixed">
-              {t('partStudio.splitPartDialog.targetFixed')}
-            </span>
-          ) : noBodies ? (
-            <span className="part-studio-feature-dialog__static-value" data-testid="part-studio-split-part-no-bodies">
-              {t('partStudio.splitPartDialog.noBodies')}
-            </span>
-          ) : activeBodies.length === 1 ? (
-            <span className="part-studio-feature-dialog__static-value" data-testid="part-studio-split-part-target">
-              {targetLabel}
-            </span>
-          ) : (
-            <select
-              id="part-studio-split-part-target"
-              aria-label={t('partStudio.splitPartDialog.targets')}
-              className="part-studio-feature-dialog__select"
-              value={targetBodyKey ?? ''}
-              disabled={busy || !canEdit}
-              onChange={(event) => setTargetBodyKey(event.target.value === '' ? undefined : event.target.value)}
-              data-testid="part-studio-split-part-target"
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={false}
+            disabled
+            title={t('partStudio.featureDialog.notImplemented')}
+            aria-describedby="part-studio-split-part-type-hint"
+            className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--disabled"
+          >
+            {t('partStudio.splitPartDialog.splitTypeFace')}
+            <span
+              id="part-studio-split-part-type-hint"
+              data-testid="part-studio-split-part-type-hint"
+              className="part-studio-split-part-dialog__sr-hint"
             >
-              <option value="">{t('partStudio.splitPartDialog.targetPlaceholder')}</option>
-              {activeBodies.map((body) => (
-                <option key={body.bodyKey} value={body.bodyKey}>
-                  {body.name && body.name.trim() !== '' ? `${body.name} (${body.bodyKey})` : body.bodyKey}
-                </option>
-              ))}
-            </select>
-          )}
+              {t('partStudio.splitPartDialog.faceUnsupported')}
+            </span>
+          </button>
+        </div>
+
+        {/* 目标实体：单字段两态 query field（空 26px 蓝 / 选中 42px 白 + chip）。 */}
+        <section className="part-studio-feature-dialog__entities" data-field="split-target">
+          <div
+            className={`part-studio-feature-dialog__profile-field part-studio-split-part-dialog__target-field${editMode || targetBody !== undefined ? ' is-selected' : ' is-empty'}`}
+            data-testid="part-studio-split-part-target-field"
+          >
+            <span className="part-studio-feature-dialog__query-label">
+              {t('partStudio.splitPartDialog.targets')}
+            </span>
+            {editMode ? (
+              <span className="part-studio-feature-dialog__chips">
+                <span className="part-studio-split-part-dialog__target-chip">
+                  <span
+                    className="part-studio-feature-dialog__profile-chip"
+                    data-testid="part-studio-split-part-target-fixed"
+                  >
+                    {t('partStudio.splitPartDialog.targetFixed')}
+                  </span>
+                  <button
+                    type="button"
+                    className="part-studio-split-part-dialog__chip-remove"
+                    aria-label={t('partStudio.splitPartDialog.removeTarget')}
+                    title={t('partStudio.featureDialog.notImplemented')}
+                    disabled
+                  >
+                    ×
+                  </button>
+                </span>
+              </span>
+            ) : targetBody !== undefined ? (
+              <span className="part-studio-feature-dialog__chips">
+                <span className="part-studio-split-part-dialog__target-chip">
+                  <span className="part-studio-feature-dialog__profile-chip" data-testid="part-studio-split-part-target">
+                    {targetLabel}
+                  </span>
+                  <button
+                    type="button"
+                    className="part-studio-split-part-dialog__chip-remove"
+                    data-testid="part-studio-split-part-target-remove"
+                    aria-label={`${t('partStudio.splitPartDialog.removeTarget')}: ${targetLabel ?? ''}`}
+                    disabled={busy || !canEdit}
+                    onClick={() => setTargetBodyKey(undefined)}
+                  >
+                    ×
+                  </button>
+                </span>
+              </span>
+            ) : noBodies ? (
+              <span
+                className="part-studio-feature-dialog__profile-empty"
+                data-testid="part-studio-split-part-no-bodies"
+              >
+                {t('partStudio.splitPartDialog.noBodies')}
+              </span>
+            ) : (
+              <select
+                id="part-studio-split-part-target"
+                aria-label={t('partStudio.splitPartDialog.targets')}
+                className="part-studio-split-part-dialog__target-select"
+                value={targetBodyKey ?? ''}
+                disabled={busy || !canEdit}
+                onChange={(event) => setTargetBodyKey(event.target.value === '' ? undefined : event.target.value)}
+                data-testid="part-studio-split-part-target"
+              >
+                <option value="">{t('partStudio.splitPartDialog.targetPlaceholder')}</option>
+                {activeBodies.map((body) => (
+                  <option key={body.bodyKey} value={body.bodyKey}>
+                    {body.name && body.name.trim() !== '' ? `${body.name} (${body.bodyKey})` : body.bodyKey}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </section>
-        {!editMode && activeBodies.length > 1 && targetBody === undefined && (
+        {targetMissing && (
           <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-split-part-target-missing">
             {t('partStudio.splitPartDialog.targetMissing')}
           </p>
@@ -273,92 +341,147 @@ export function SplitPartDialog({
             {t('partStudio.splitPartDialog.needsBody')}
           </p>
         )}
-        <section className="part-studio-feature-dialog__distance" data-field="split-tool">
-          <span className="part-studio-feature-dialog__distance-label">
-            {t('partStudio.splitPartDialog.tool')}
-          </span>
-          <span className="part-studio-feature-dialog__static-value">
-            {t('partStudio.splitPartDialog.toolWorldPlane')}
-          </span>
-        </section>
-        <section className="part-studio-feature-dialog__distance" data-field="split-plane">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-plane">
-            {t('partStudio.splitPartDialog.plane')}
-          </label>
-          <select
-            id="part-studio-split-part-plane"
-            aria-label={t('partStudio.splitPartDialog.plane')}
-            className="part-studio-feature-dialog__select"
-            value={plane}
-            disabled={busy || !canEdit}
-            onChange={(event) => setPlane(event.target.value as SplitPlane)}
-            data-testid="part-studio-split-part-plane"
+
+        {/* 用于分割的图元：唯一可用工具=世界平面；实体/面/曲线拾取无通道 →
+            字段本体只读 + title 诚实说明。 */}
+        <section className="part-studio-feature-dialog__entities" data-field="split-tool">
+          <div
+            className="part-studio-feature-dialog__profile-field part-studio-split-part-dialog__tool-field is-selected"
+            data-testid="part-studio-split-part-tool-field"
+            title={t('partStudio.splitPartDialog.toolPickUnsupported')}
           >
-            <option value="XY">{t('partStudio.featureDialog.mirrorPlaneOptions.XY')}</option>
-            <option value="YZ">{t('partStudio.featureDialog.mirrorPlaneOptions.YZ')}</option>
-            <option value="XZ">{t('partStudio.featureDialog.mirrorPlaneOptions.XZ')}</option>
-          </select>
+            <span className="part-studio-feature-dialog__query-label">
+              {t('partStudio.splitPartDialog.tool')}
+            </span>
+            <span className="part-studio-feature-dialog__chips">
+              <span className="part-studio-feature-dialog__profile-chip" data-testid="part-studio-split-part-tool">
+                {t('partStudio.splitPartDialog.toolWorldPlane', { plane })}
+              </span>
+            </span>
+          </div>
         </section>
-        <section className="part-studio-feature-dialog__distance" data-field="split-offset">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-offset">
-            {t('partStudio.splitPartDialog.offset')}
-          </label>
+
+        {/* live 无平面/偏移/保留侧控件；产品通道（shared 1.39）单独成组，
+            不冒充 live 图元拾取器。 */}
+        <section className="part-studio-split-part-dialog__world-plane" data-field="split-world-plane">
+          <h3 className="part-studio-split-part-dialog__group-title">
+            {t('partStudio.splitPartDialog.worldPlaneGroup')}
+          </h3>
+          <p className="part-studio-split-part-dialog__group-hint">
+            {t('partStudio.splitPartDialog.worldPlaneGroupHint')}
+          </p>
+          <section className="part-studio-feature-dialog__distance" data-field="split-plane">
+            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-plane">
+              {t('partStudio.splitPartDialog.plane')}
+            </label>
+            <select
+              id="part-studio-split-part-plane"
+              aria-label={t('partStudio.splitPartDialog.plane')}
+              className="part-studio-feature-dialog__select"
+              value={plane}
+              disabled={busy || !canEdit}
+              onChange={(event) => setPlane(event.target.value as SplitPlane)}
+              data-testid="part-studio-split-part-plane"
+            >
+              <option value="XY">{t('partStudio.featureDialog.mirrorPlaneOptions.XY')}</option>
+              <option value="YZ">{t('partStudio.featureDialog.mirrorPlaneOptions.YZ')}</option>
+              <option value="XZ">{t('partStudio.featureDialog.mirrorPlaneOptions.XZ')}</option>
+            </select>
+          </section>
+          <section className="part-studio-feature-dialog__distance" data-field="split-offset">
+            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-offset">
+              {t('partStudio.splitPartDialog.offset')}
+            </label>
+            <input
+              id="part-studio-split-part-offset"
+              aria-label={t('partStudio.splitPartDialog.offset')}
+              className="part-studio-feature-dialog__input"
+              inputMode="decimal"
+              value={offset}
+              disabled={busy || !canEdit}
+              onChange={(event) => setOffset(event.target.value)}
+              data-testid="part-studio-split-part-offset"
+            />
+          </section>
+          <section className="part-studio-feature-dialog__distance" data-field="split-keep-side">
+            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-keep-side">
+              {t('partStudio.splitPartDialog.keepSide')}
+            </label>
+            <select
+              id="part-studio-split-part-keep-side"
+              aria-label={t('partStudio.splitPartDialog.keepSide')}
+              className="part-studio-feature-dialog__select"
+              value={keepSide}
+              disabled={busy || !canEdit}
+              onChange={(event) => setKeepSide(event.target.value as KeepSide)}
+              data-testid="part-studio-split-part-keep-side"
+            >
+              <option value="positive">{t('partStudio.splitPartDialog.keepPositive')}</option>
+              <option value="negative">{t('partStudio.splitPartDialog.keepNegative')}</option>
+            </select>
+          </section>
+          <p role="note" className="part-studio-split-part-dialog__group-hint" data-testid="part-studio-split-part-plane-hint">
+            {t('partStudio.splitPartDialog.planeHint')}
+          </p>
+        </section>
+
+        {/* live：三行复选框全部禁用且未勾选（保留两侧不得显示已勾选）。 */}
+        <label
+          className="part-studio-feature-dialog__checkbox part-studio-split-part-dialog__option"
+          title={t('partStudio.splitPartDialog.keepToolsUnsupported')}
+        >
           <input
-            id="part-studio-split-part-offset"
-            aria-label={t('partStudio.splitPartDialog.offset')}
-            className="part-studio-feature-dialog__input"
-            inputMode="decimal"
-            value={offset}
-            disabled={busy || !canEdit}
-            onChange={(event) => setOffset(event.target.value)}
-            data-testid="part-studio-split-part-offset"
+            type="checkbox"
+            data-testid="part-studio-split-part-keep-tools"
+            aria-label={t('partStudio.splitPartDialog.keepTools')}
+            disabled
           />
-        </section>
-        <section className="part-studio-feature-dialog__distance" data-field="split-keep-side">
-          <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-keep-side">
-            {t('partStudio.splitPartDialog.keepSide')}
-          </label>
-          <select
-            id="part-studio-split-part-keep-side"
-            aria-label={t('partStudio.splitPartDialog.keepSide')}
-            className="part-studio-feature-dialog__select"
-            value={keepSide}
-            disabled={busy || !canEdit}
-            onChange={(event) => setKeepSide(event.target.value as KeepSide)}
-            data-testid="part-studio-split-part-keep-side"
-          >
-            <option value="positive">{t('partStudio.splitPartDialog.keepPositive')}</option>
-            <option value="negative">{t('partStudio.splitPartDialog.keepNegative')}</option>
-          </select>
-        </section>
-        <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-split-part-plane-hint">
-          {t('partStudio.splitPartDialog.planeHint')}
-        </p>
-        <section className="part-studio-feature-dialog__distance" data-field="split-keep-tools">
-          <span className="part-studio-feature-dialog__distance-label">
-            {t('partStudio.splitPartDialog.keepTools')}
-          </span>
-          <span className="part-studio-feature-dialog__static-value">
-            {t('partStudio.splitPartDialog.keepToolsUnsupported')}
-          </span>
-        </section>
-        <section className="part-studio-feature-dialog__distance" data-field="split-use-trimmed">
-          <span className="part-studio-feature-dialog__distance-label">
-            {t('partStudio.splitPartDialog.useTrimmed')}
-          </span>
-          <span className="part-studio-feature-dialog__static-value">
-            {t('partStudio.splitPartDialog.useTrimmedUnsupported')}
-          </span>
-        </section>
-        <section className="part-studio-feature-dialog__distance" data-field="split-keep-both">
-          <span className="part-studio-feature-dialog__distance-label">
+          <span>{t('partStudio.splitPartDialog.keepTools')}</span>
+        </label>
+        <label
+          className="part-studio-feature-dialog__checkbox part-studio-split-part-dialog__option"
+          title={t('partStudio.splitPartDialog.useTrimmedUnsupported')}
+        >
+          <input
+            type="checkbox"
+            data-testid="part-studio-split-part-use-trimmed"
+            aria-label={t('partStudio.splitPartDialog.useTrimmed')}
+            disabled
+          />
+          <span>{t('partStudio.splitPartDialog.useTrimmed')}</span>
+        </label>
+        <label
+          className="part-studio-feature-dialog__checkbox part-studio-split-part-dialog__option"
+          title={t('partStudio.splitPartDialog.keepBothSidesUnsupported')}
+        >
+          <input
+            type="checkbox"
+            data-testid="part-studio-split-part-keep-both"
+            aria-label={t('partStudio.splitPartDialog.keepBothSides')}
+            disabled
+          />
+          <span data-testid="part-studio-split-part-both-unsupported">
             {t('partStudio.splitPartDialog.keepBothSides')}
+            <span className="part-studio-split-part-dialog__sr-hint">
+              {t('partStudio.splitPartDialog.keepBothSidesUnsupported')}
+            </span>
           </span>
-          <span className="part-studio-feature-dialog__static-value" data-testid="part-studio-split-part-both-unsupported">
-            {t('partStudio.splitPartDialog.keepBothSidesUnsupported')}
-          </span>
-        </section>
+        </label>
       </div>
+      <footer className="part-studio-feature-dialog__footer">
+        <div className="part-studio-feature-dialog__transparency">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            defaultValue={0}
+            disabled
+            aria-label={t('partStudio.featureDialog.transparencyLabel')}
+            className="part-studio-feature-dialog__transparency-slider"
+          />
+        </div>
+        <button type="button" className="part-studio-feature-dialog__help" aria-label={t('partStudio.featureDialog.help')}>?</button>
+      </footer>
       {previewHost !== null && dynamicPreview !== undefined && createPortal(
         <FeaturePreviewOverlay
           viewport={viewport ?? null}

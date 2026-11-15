@@ -1793,3 +1793,217 @@
 .part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__direction[data-direction='inward'] svg {
   transform: rotate(180deg);
 }
+
+/* ── MoveFace live 对齐（2026-11-15 dialog-audit group-c §3；仅 moveFace 作用域）──
+ * 「要移动的面」单字段两态（空 26px 蓝 / 选中 42px 白）+ 逐面 ×（本地过滤）；
+ * `偏移`/`终止类型` 单一禁用下拉；距离行右对齐 mm + 禁用计算器 + 方向箭头
+ * （向外=正/向内=负，符号映射不变）。载荷/校验/预览语义不变。 */
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-feature-dialog__entities {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__faces-field {
+  margin: 2px 3px;
+  cursor: default;
+}
+
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__faces-field.is-empty {
+  min-block-size: 26px;
+  padding: 0 6px;
+  justify-content: center;
+  border: 1px solid #1651b0;
+  border-radius: 2px;
+  background: #def1fb;
+}
+
+/* 高于通用 :has(.profile-chip) accent 规则（0,2,0），保证 live 白底灰边。 */
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__faces-field.is-selected {
+  min-block-size: 42px;
+  padding: 0 6px;
+  justify-content: center;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__face-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 逐面 ×：仅本地移除该面（提交 faces 过滤），不改 shared 契约。 */
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 14px;
+  block-size: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 13.3333px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+/* 距离行：label / 右对齐值 / mm / 计算器 / 方向箭头。 */
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__distance-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+}
+
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__distance-row .part-studio-feature-dialog__input {
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: transparent;
+  text-align: end;
+}
+
+/* 方向箭头（替换旧「方向」下拉；向外=正 / 向内=负）。 */
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__direction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__direction[aria-pressed='true'] {
+  color: #1651b0;
+}
+
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__direction svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.part-studio-feature-dialog[data-feature='moveFace'] .part-studio-move-face-dialog__direction[data-direction='inward'] svg {
+  transform: rotate(180deg);
+}
+
+/* ── SplitPart live 对齐（2026-11-15 dialog-audit group-c §4；仅 splitPart 作用域）──
+ * 真实 tablist（面禁用）；目标/工具 query field（两态）；平面/偏移/保留侧收进
+ * 产品通道分组；三行未支持项改 disabled 未勾选 checkbox；补底栏。载荷不变。 */
+.part-studio-split-part-dialog__tablist {
+  margin: 2px 3px;
+}
+
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-feature-dialog__entities {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__target-field,
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__tool-field {
+  margin: 2px 3px;
+  cursor: default;
+}
+
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__target-field.is-empty {
+  min-block-size: 26px;
+  padding: 0 6px;
+  justify-content: center;
+  border: 1px solid #1651b0;
+  border-radius: 2px;
+  background: #def1fb;
+}
+
+/* 高于通用 :has(.profile-chip) accent 规则（0,2,0），保证 live 白底灰边。 */
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__target-field.is-selected,
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__tool-field.is-selected {
+  min-block-size: 42px;
+  padding: 0 6px;
+  justify-content: center;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-split-part-dialog__target-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.part-studio-split-part-dialog__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 14px;
+  block-size: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 13.3333px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.part-studio-split-part-dialog__chip-remove:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 目标空态内层控件（多体时选目标）。 */
+.part-studio-split-part-dialog__target-select {
+  block-size: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  font-size: 13.3333px;
+}
+
+/* 产品通道分组：与 live 无关的世界平面/偏移/保留侧明确标注。 */
+.part-studio-split-part-dialog__world-plane {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 3px 0;
+  padding-block-start: 4px;
+  border-block-start: 1px solid #d7d7d7;
+}
+
+.part-studio-split-part-dialog__group-title {
+  margin: 0 0 2px;
+  color: #555555;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.part-studio-split-part-dialog__group-hint {
+  margin: 0 0 2px;
+  color: #6d7d8c;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+/* 未支持复选项：disabled + 未勾选；title 承载能力理由。 */
+.part-studio-split-part-dialog__option {
+  min-block-size: 21px;
+  padding-inline-start: 3px;
+  color: #666666;
+  font-size: 13.3333px;
+  accent-color: #1651b0;
+}
+
+/* 测试/可访问锚点：诚实说明保留在 DOM/无障碍树，不占 live 版式。 */
+.part-studio-split-part-dialog__sr-hint {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

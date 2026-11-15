@@ -64,6 +64,14 @@ describe('SplitPartDialog', () => {
   it('新建 YZ x=20 保留正侧：insertFeature + 目标实体，预览同载荷', async () => {
     const { applyOp, previewOp, onConfirm, user } = renderDialog();
     expect(screen.getByTestId('part-studio-split-part-target').textContent).toContain('Body 1');
+    const targetField = screen.getByTestId('part-studio-split-part-target-field');
+    expect(targetField.className).toContain('is-selected');
+    expect(targetField.querySelector('.part-studio-feature-dialog__query-label')?.textContent)
+      .toBe('要分割的零件、曲面或曲线');
+    // 工具字段唯一可用值=世界平面 chip（产品通道，非 live 拾取器）。
+    expect(screen.getByTestId('part-studio-split-part-tool').textContent).toContain('世界平面（XY）');
+    expect(screen.getByTestId('part-studio-split-part-tool-field').getAttribute('title'))
+      .toContain('暂无后端通道');
     await user.selectOptions(screen.getByRole('combobox', { name: '分割平面' }), 'YZ');
     await user.clear(screen.getByRole('textbox', { name: '平面偏移（mm）' }));
     await user.type(screen.getByRole('textbox', { name: '平面偏移（mm）' }), '20');
@@ -124,5 +132,42 @@ describe('SplitPartDialog', () => {
     expect(confirm().disabled).toBe(true);
     await user.type(offset, '10');
     expect(confirm().disabled).toBe(false);
+  });
+
+  it('页签：零件活动 / 面禁用；三复选项禁用且未勾选；底栏滑杆 + ?', () => {
+    renderDialog();
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(expect.arrayContaining(['零件', expect.stringContaining('面')]));
+    expect((tabs[0] as HTMLButtonElement).disabled).toBe(false);
+    expect(tabs[0]!.getAttribute('aria-selected')).toBe('true');
+    expect((tabs[1] as HTMLButtonElement).disabled).toBe(true);
+    expect(tabs[1]!.getAttribute('aria-selected')).toBe('false');
+    expect(tabs[1]!.getAttribute('title')).toBe('该能力尚未实现');
+    expect(screen.getByRole('tablist')).toBeTruthy();
+    expect(screen.queryByText('分割类型')).toBeNull();
+
+    const keepTools = screen.getByRole('checkbox', { name: '保留工具' }) as HTMLInputElement;
+    expect(keepTools.disabled).toBe(true);
+    expect(keepTools.checked).toBe(false);
+    expect(keepTools.closest('label')?.getAttribute('title')).toContain('世界平面不是实体工具');
+    const trimmed = screen.getByRole('checkbox', { name: '修剪到面边界' }) as HTMLInputElement;
+    expect(trimmed.disabled).toBe(true);
+    expect(trimmed.checked).toBe(false);
+    const keepBoth = screen.getByRole('checkbox', { name: '保留两侧' }) as HTMLInputElement;
+    expect(keepBoth.disabled).toBe(true);
+    expect(keepBoth.checked).toBe(false);
+    expect(keepBoth.closest('label')?.getAttribute('title')).toContain('多体');
+
+    expect((screen.getByRole('slider', { name: '透明度' }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: '帮助' })).toBeTruthy();
+  });
+
+  it('目标 chip ×：仅本地清除 → 空态 + 目标缺失错误', async () => {
+    const { user } = renderDialog();
+    const remove = screen.getByTestId('part-studio-split-part-target-remove');
+    await user.click(remove);
+    expect(screen.getByTestId('part-studio-split-part-target-field').className).toContain('is-empty');
+    expect(screen.getByTestId('part-studio-split-part-target-missing')).toBeTruthy();
+    expect(confirm().disabled).toBe(true);
   });
 });

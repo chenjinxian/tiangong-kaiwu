@@ -1954,7 +1954,8 @@
     "reFillet": "Re-apply fillets",
     "reFilletUnavailable": "Re-apply fillets is not supported by the backend yet and is disabled",
     "perFaceReadOnly": "This feature uses per-face distances (distancesMm); this dialog is read-only. Edit via RPC/parameter panel",
-    "submitSuccess": "{{name}} created"
+    "submitSuccess": "{{name}} created",
+    "removeFace": "Remove face"
   },
   "featurePatternDialog": {
     "sourceLabel": "Features to pattern",
@@ -2127,7 +2128,7 @@
     "noBodies": "No active entities: create a solid first",
     "needsBody": "Split requires an existing solid: create one by extrude or revolve first",
     "tool": "Split tool",
-    "toolWorldPlane": "World plane (XY/YZ/XZ)",
+    "toolWorldPlane": "World plane ({{plane}})",
     "plane": "Split plane",
     "offset": "Plane offset (mm)",
     "keepSide": "Side to keep",
@@ -2140,7 +2141,12 @@
     "useTrimmedUnsupported": "Not supported",
     "keepBothSides": "Keep both sides",
     "keepBothSidesUnsupported": "Not supported (needs multi-body output, ADR-0015)",
-    "submitSuccess": "{{name}} updated"
+    "submitSuccess": "{{name}} updated",
+    "splitTypeFace": "Face",
+    "removeTarget": "Remove target",
+    "toolPickUnsupported": "Body/face/curve picking has no backend channel yet; only the world-plane tool is available",
+    "worldPlaneGroup": "World plane tool (product channel)",
+    "worldPlaneGroupHint": "Product-specific channel: world plane + plane offset + side to keep; not a live entity picker."
   },
   "autosave": {
     "failed": "Auto-save failed: {{message}}"
