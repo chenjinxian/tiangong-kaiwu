@@ -450,9 +450,12 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
 - **S4b 右下角状态读数**：新增 `SketchStatusReadout`（画布右下、仅草图
   模式、无数据自隐、pointer-events none）：单条选中曲线显示 `长度`/`半径`
   （尺图标 + 3 位小数 mm），光标世界点显示 `X … mm Y … mm Z … mm`。
-  标签 13.3333px/#666（live `.measurement-name`），值 #333；草图 DTO/世界
-  坐标为米，显示 mm **×1000**（测试钉 20 mm = 0.02）。指针用
-  pointermove + rAF 合帧 + 3 位小数去重，不引入全局状态。
+  标签 13.3333px/#666（live `.measurement-name`），值 #333。
+  **单位口径（代码审查纠正）**：草图 DTO/世界数值即产品固定 **mm**（20×20
+  草图=4000 mm³ 的既有口径），**不 ×1000**；`sketch-plane.ts` 的「米制」
+  注释是遗留误导。指针用 pointermove + rAF 合帧 + 3 位小数去重，且
+  指针订阅放在读数叶子组件内（不重渲染整棵画布）；真栈
+  `sketch-dimension-edit` 增读数格式/量级断言。
 - 验证：viewer **157/157**、web **1957/1957**、tsc(src+e2e)/eslint 绿。
 - 仍待证据：E5 未选态 chip 几何细项、E7 use 候选样式（再次探针仍无可见
   候选）、S1a 下拉菜单（该尺寸禁用）、S3a 内联编辑 blur。未采集前不改。
