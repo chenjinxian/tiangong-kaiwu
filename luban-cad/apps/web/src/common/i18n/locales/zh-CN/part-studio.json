@@ -1924,14 +1924,16 @@
     "useSelection": "使用当前选择",
     "targetBody": "目标实体",
     "editTarget": "沿用已落库实体",
-    "thickness": "壁厚",
+    "thickness": "抽壳厚度",
     "direction": "方向",
     "inward": "向内",
     "outward": "向外",
     "crossBody": "所选面属于多个实体；抽壳要求同一实体",
     "ownerMissing": "无法确定所选面的所属实体，请重新拾取",
     "hollowUnavailable": "空心（不移除面）当前契约未支持，本切片仅支持移除面抽壳",
-    "submitSuccess": "{{name}} 已创建"
+    "submitSuccess": "{{name}} 已创建",
+    "hollow": "挖空",
+    "removeFace": "移除面"
   },
   "moveFaceDialog": {
     "facesLabel": "要移动的面",

@@ -1931,7 +1931,9 @@
     "crossBody": "Selected faces belong to multiple bodies; shell requires one body",
     "ownerMissing": "Unable to determine the owner body of the selected faces; pick again",
     "hollowUnavailable": "Hollow (no faces removed) is not supported by the current contract; this slice removes faces only",
-    "submitSuccess": "{{name}} created"
+    "submitSuccess": "{{name}} created",
+    "hollow": "Hollow",
+    "removeFace": "Remove face"
   },
   "moveFaceDialog": {
     "facesLabel": "Faces to move",

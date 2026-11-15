@@ -8,11 +8,14 @@
  *（私有仓 ui-evidence/shell-help-20261106；字段顺序 Faces to shell → Hollow →
  * thickness → direction → confirm）。
  *
- * 首切片：移除面 + 壁厚 + 方向（内/外）。
+ * 首切片：移除面 + 抽壳厚度 + 方向（内/外）。
  * - 面来自唯一选择权威 `store.canvas.selection`（打开对话框前选中；打开后实时跟随）。
  * - `ShellParams.faces` 命中面用 `distances:0`（内核 0=穿孔移除），其余面用
- *   `defaultDistance=壁厚`；方向=距离符号（负=内缩，正=外扩）。
- * - Hollow（零移除面）当前 shared 契约禁止（faces min 1），不渲染假控件。
+ *   `defaultDistance=抽壳厚度`；方向=距离符号（负=内缩，正=外扩）。
+ * - 2026-11-15 live 对齐（dialog-audit group-c §2）：首行 disabled「挖空」（零移除面
+ *   shared 契约禁止，faces min 1）；「要移除的面」单字段两态 + 逐面 × 本地过滤
+ *   （不改契约）；抽壳厚度行右对齐 mm + 禁用计算器 + 方向箭头；目标实体行改 title。
+ * - 载荷/默认值/校验/预览语义不变。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -155,12 +158,25 @@ export function ShellDialog({
     }),
     [initialFaces],
   );
-  const faces = React.useMemo(() => {
+  const allFaces = React.useMemo(() => {
     if (editMode) return storedFaces;
     const deduped = new Map<string, SelectedFace>();
     for (const face of [...snapshotFaces, ...liveFaces]) deduped.set(face.key, face);
     return Array.from(deduped.values());
   }, [editMode, storedFaces, snapshotFaces, liveFaces]);
+  // live 对齐：面 chip 的 × 仅本地过滤提交集合（不改 shared 契约）。
+  const [removedFaceKeys, setRemovedFaceKeys] = React.useState<ReadonlySet<string>>(() => new Set<string>());
+  const faces = React.useMemo(
+    () => allFaces.filter((face) => !removedFaceKeys.has(face.key)),
+    [allFaces, removedFaceKeys],
+  );
+  const removeFace = React.useCallback((key: string): void => {
+    setRemovedFaceKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, []);
 
   const initialThickness = Math.abs(stored.defaultDistance ?? 2) || 2;
   const [thickness, setThickness] = React.useState(() => numberText(initialThickness) || '2');
@@ -178,6 +194,12 @@ export function ShellDialog({
   const ownerLabel = ownerBody?.name && ownerBody.name.trim() !== ''
     ? ownerBody.name
     : ownerBodyKey;
+  // 目标实体可见行已按 live 删除；owner 名仍经字段 title 可查（诚实错误 alert 保留）。
+  const facesFieldTitle = ownerBodyKey !== undefined
+    ? `${t('partStudio.shellDialog.targetBody')}: ${ownerLabel ?? ownerBodyKey}`
+    : editMode
+      ? `${t('partStudio.shellDialog.targetBody')}: ${t('partStudio.shellDialog.editTarget')}`
+      : undefined;
 
   const parsedThickness = Number(thickness);
   const thicknessValid = thickness.trim() !== '' && Number.isFinite(parsedThickness) && parsedThickness > 0;
@@ -300,17 +322,46 @@ export function ShellDialog({
             {error}
           </p>
         )}
+        {/* live 首行：挖空（未勾选）。零移除面通道 shared 契约未支持（faces min 1）
+            → 诚实禁用 + title，不伪造可点。 */}
+        <label className="part-studio-feature-dialog__checkbox part-studio-shell-dialog__hollow">
+          <input
+            type="checkbox"
+            data-testid="part-studio-shell-hollow"
+            disabled
+            title={t('partStudio.featureDialog.notImplemented')}
+          />
+          <span>{t('partStudio.shellDialog.hollow')}</span>
+        </label>
+
         <section className="part-studio-feature-dialog__entities" data-testid="part-studio-shell-faces">
-          <div className="part-studio-feature-dialog__entities-header">
-            <span className="part-studio-feature-dialog__entities-label">
+          <div
+            className={`part-studio-feature-dialog__profile-field part-studio-shell-dialog__faces-field${faces.length === 0 ? ' is-empty' : ' is-selected'}`}
+            data-testid="part-studio-shell-faces-field"
+            title={facesFieldTitle}
+          >
+            <span className="part-studio-feature-dialog__query-label">
               {t('partStudio.shellDialog.facesLabel')}
             </span>
-          </div>
-          <div className="part-studio-feature-dialog__profile-field">
             {faces.length > 0
-              ? faces.map((face) => (
-                <span key={face.key} className="part-studio-feature-dialog__profile-chip">{face.label}</span>
-              ))
+              ? (
+                <span className="part-studio-feature-dialog__chips">
+                  {faces.map((face) => (
+                    <span key={face.key} className="part-studio-shell-dialog__face-chip">
+                      <span className="part-studio-feature-dialog__profile-chip">{face.label}</span>
+                      <button
+                        type="button"
+                        className="part-studio-shell-dialog__chip-remove"
+                        data-testid="part-studio-shell-face-remove"
+                        aria-label={`${t('partStudio.shellDialog.removeFace')}: ${face.label}`}
+                        onClick={() => removeFace(face.key)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </span>
+              )
               : <span className="part-studio-feature-dialog__profile-empty">
                 {t('partStudio.shellDialog.facesEmpty')}
               </span>}
@@ -327,18 +378,9 @@ export function ShellDialog({
             {t('partStudio.shellDialog.ownerMissing')}
           </p>
         )}
-        {(ownerBodyKey !== undefined || editMode) && (
-          <section className="part-studio-feature-dialog__distance">
-            <span className="part-studio-feature-dialog__distance-label">
-              {t('partStudio.shellDialog.targetBody')}
-            </span>
-            <span className="part-studio-feature-dialog__static-value">
-              {ownerLabel ?? t('partStudio.shellDialog.editTarget')}
-            </span>
-          </section>
-        )}
-
-        <section className="part-studio-feature-dialog__distance">
+        {/* live 数值行：抽壳厚度 + 右对齐 mm + 禁用计算器 + 方向箭头（替换旧
+            方向下拉；defaultDistance 符号映射不变：向内=负）。 */}
+        <section className="part-studio-feature-dialog__distance part-studio-shell-dialog__thickness-row">
           <label htmlFor="shell-thickness" className="part-studio-feature-dialog__distance-label">
             {t('partStudio.shellDialog.thickness')}
           </label>
@@ -351,27 +393,46 @@ export function ShellDialog({
             disabled={!canEdit || busy}
             onChange={(event) => setThickness(event.target.value)}
           />
-          <span className="part-studio-feature-dialog__static-value">mm</span>
-        </section>
-
-        <section className="part-studio-feature-dialog__end-bound">
-          <select
+          <span className="part-studio-feature-dialog__value-unit">mm</span>
+          <button
+            type="button"
+            className="part-studio-feature-dialog__calculator"
+            aria-label={t('partStudio.featureDialog.calculatorLabel')}
+            disabled
+            title={t('partStudio.featureDialog.notImplemented')}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+              <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+              <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+              <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+              <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+            </svg>
+          </button>
+          <button
+            type="button"
             id="shell-direction"
             data-testid="part-studio-shell-direction"
-            className="part-studio-feature-dialog__select"
-            value={direction}
+            className="part-studio-shell-dialog__direction"
+            data-direction={direction}
+            aria-label={direction === 'inward'
+              ? t('partStudio.shellDialog.inward')
+              : t('partStudio.shellDialog.outward')}
+            aria-pressed={direction === 'outward'}
+            title={direction === 'inward'
+              ? t('partStudio.shellDialog.inward')
+              : t('partStudio.shellDialog.outward')}
             disabled={!canEdit || busy}
-            aria-label={t('partStudio.shellDialog.direction')}
-            onChange={(event) => setDirection(event.target.value as ShellDirection)}
+            onClick={() => setDirection((prev) => (prev === 'inward' ? 'outward' : 'inward'))}
           >
-            <option value="inward">{t('partStudio.shellDialog.inward')}</option>
-            <option value="outward">{t('partStudio.shellDialog.outward')}</option>
-          </select>
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M2.5 8h10M9.5 5l3 3-3 3" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </section>
-
-        <p role="note" className="part-studio-feature-dialog__hint">
-          {t('partStudio.shellDialog.hollowUnavailable')}
-        </p>
       </div>
       <footer className="part-studio-feature-dialog__footer">
         <div className="part-studio-feature-dialog__transparency">

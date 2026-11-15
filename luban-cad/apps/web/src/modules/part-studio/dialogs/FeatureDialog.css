@@ -1689,3 +1689,107 @@
   font-size: 14px;
   line-height: 1;
 }
+
+/* ── Shell live 对齐（2026-11-15 dialog-audit group-c §2；仅 shell 作用域）────
+ * 首行 disabled 未勾选「挖空」；「要移除的面」单字段两态（空 26px 蓝 / 选中
+ * 42px 白）+ 逐面 ×（本地过滤，载荷语义不变）；抽壳厚度行右对齐 mm + 禁用
+ * 计算器 + 方向箭头（向内=负，defaultDistance 符号不变）。目标实体可见行已删，
+ * owner 名放字段 title。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__hollow {
+  min-block-size: 21px;
+  padding-inline-start: 3px;
+  color: #666666;
+  font-size: 13.3333px;
+}
+
+/* 外层 section 不再承担字段框（与 hole/cplane 同口径），避免双层边框。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-feature-dialog__entities {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__faces-field {
+  margin: 2px 3px;
+  cursor: default;
+}
+
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__faces-field.is-empty {
+  min-block-size: 26px;
+  padding: 0 6px;
+  justify-content: center;
+  border: 1px solid #1651b0;
+  border-radius: 2px;
+  background: #def1fb;
+}
+
+/* 高于通用 :has(.profile-chip) accent 规则（0,2,0），保证 live 白底灰边。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__faces-field.is-selected {
+  min-block-size: 42px;
+  padding: 0 6px;
+  justify-content: center;
+  border: 1px solid #d7d7d7;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__face-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 逐面 ×：仅本地移除该面（提交 faces 过滤），不改 shared 契约。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 14px;
+  block-size: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 13.3333px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+/* 抽壳厚度：label / 右对齐值 / mm / 计算器 / 方向箭头。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__thickness-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+}
+
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__thickness-row .part-studio-feature-dialog__input {
+  border: 0;
+  border-block-end: 1px solid #d7d7d7;
+  background: transparent;
+  text-align: end;
+}
+
+/* 方向箭头（替换旧「方向」下拉；向内=负距离）。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__direction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #333333;
+  cursor: pointer;
+}
+
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__direction[aria-pressed='true'] {
+  color: #1651b0;
+}
+
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__direction svg {
+  inline-size: 15px;
+  block-size: 15px;
+}
+
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__direction[data-direction='inward'] svg {
+  transform: rotate(180deg);
+}

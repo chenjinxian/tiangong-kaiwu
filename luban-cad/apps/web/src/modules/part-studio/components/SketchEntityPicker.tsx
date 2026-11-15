@@ -746,32 +746,12 @@ export function SketchEntityPicker({
             <button
               type="button"
               role="menuitem"
-              className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
-              data-testid="sketch-entity-menu-delete"
-              onClick={() => {
-                const selection = menu.selection;
-                setMenu(null);
-                void onDeleteRef.current?.([selection]);
-              }}
-            >
-              {t('partStudio.sketch.entityMenuDelete')}
-            </button>
-            <button
-              type="button"
-              role="menuitem"
               className="part-studio-tree-menu__item"
-              data-testid="sketch-entity-menu-construction"
-              onClick={() => {
-                const entityId = menu.selection.entityId;
-                setMenu(null);
-                void onToggleConstructionRef.current?.(entityId);
-              }}
+              data-testid="sketch-entity-menu-confirm"
+              onClick={() => { setMenu(null); onFinishSketch?.(); }}
             >
-              {construction
-                ? t('partStudio.sketch.entityMenuNormalGeometry')
-                : t('partStudio.sketch.entityMenuConstruction')}
+              {t('partStudio.sketch.blankMenuConfirm', { name: sketchName ?? '' })}
             </button>
-            <div className="part-studio-tree-menu__separator" role="separator" />
             <button
               type="button"
               role="menuitem"
@@ -811,6 +791,21 @@ export function SketchEntityPicker({
               type="button"
               role="menuitem"
               className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-construction"
+              onClick={() => {
+                const entityId = menu.selection.entityId;
+                setMenu(null);
+                void onToggleConstructionRef.current?.(entityId);
+              }}
+            >
+              {construction
+                ? t('partStudio.sketch.entityMenuNormalGeometry')
+                : t('partStudio.sketch.entityMenuConstruction')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
               data-testid="sketch-entity-menu-extrude"
               onClick={() => {
                 setMenu(null);
@@ -831,7 +826,6 @@ export function SketchEntityPicker({
             >
               {t('partStudio.sketch.entityMenuRevolve')}
             </button>
-            <div className="part-studio-tree-menu__separator" role="separator" />
             <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
               {t('partStudio.sketch.entityMenuAnalyze')}
             </button>
@@ -893,6 +887,20 @@ export function SketchEntityPicker({
             </button>
             <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
               {t('partStudio.sketch.entityMenuAlignVertical')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
+              data-testid="sketch-entity-menu-delete"
+              onClick={() => {
+                const selection = menu.selection;
+                setMenu(null);
+                void onDeleteRef.current?.([selection]);
+              }}
+            >
+              {t('partStudio.sketch.entityMenuDelete')}
             </button>
           </div>
         );
