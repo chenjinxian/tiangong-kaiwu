@@ -269,7 +269,12 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   kind 不猜线性、无等价物不伪造；Ribbon active = activeToolId 或 dialog 命中
   当前变体）。全量 web **2217/2217**、tsc(src+e2e)/eslint 绿；真栈
   `feature-toolbar-variants` **4 passed（1.2 min，拉伸/圆角/环形阵列
-  open→pressed / Escape→unpressed）**。
+  open→pressed / Escape→unpressed）**。**W30**：组合回归收官（无代码变更）——
+  全量 web **2217/2217**、tsc(src+e2e)/eslint 绿；真栈批次 A/B 各 **9 passed
+  （4.0/3.7 min）**、`tutorial2` 严格 **2 passed（4.5 min，体积/去材不变；
+  首跑 MS 429 retryAfter 164 s，窗口后干净复跑）**。剩余：驱动尺寸/变量
+  （ADR+契约）、拉伸自定义方向（契约/内核）、周边圆 Ø 锚点（规则未定）、
+  选择创建内容/评论/复制草图（能力缺口）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
