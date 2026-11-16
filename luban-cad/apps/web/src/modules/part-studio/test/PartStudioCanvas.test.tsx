@@ -21,7 +21,8 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, SketchDto } from '@luban-cad/shared';
+import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 
 // M6-a T6：面域读面 RPC 替身（FeatureDialog 拉伸草图通道 getSketch 直调）。
 const featureRpc = vi.hoisted(() => ({
@@ -62,6 +63,27 @@ const readBrepFaceHandleMock = vi.hoisted(() => vi.fn());
 vi.mock('../internal/brep-topology.js', () => ({
   readBrepTopology: vi.fn(),
   readBrepFaceHandle: readBrepFaceHandleMock,
+}));
+
+// 2026-11-15 E5：草图曲线装饰 hook 参数捕获——第 7 参 = glyph 悬停高亮实体集
+// （宿主清空/联动语义的观测面；真实装饰器不在 jsdom 断言范围）。
+const curveDecorationCalls = vi.hoisted(() => ({ calls: [] as unknown[][] }));
+vi.mock('../hooks/useSketchCurveDecorations.js', () => ({
+  useSketchCurveDecorations: (...args: unknown[]) => {
+    curveDecorationCalls.calls.push(args);
+  },
+}));
+
+// 真实 SketchDimensionEditor 的替身：捕获宿主下传的 onGlyphHover（工具激活时
+// 宿主应置 undefined 而非继续下传回调）。
+const dimensionEditorProbe = vi.hoisted(() => ({
+  onGlyphHover: null as ((entityIds: readonly number[]) => void) | null | undefined,
+}));
+vi.mock('../components/SketchDimensionEditor.js', () => ({
+  SketchDimensionEditor: (props: { onGlyphHover?: (entityIds: readonly number[]) => void }) => {
+    dimensionEditorProbe.onGlyphHover = props.onGlyphHover;
+    return null;
+  },
 }));
 
 const mocks = vi.hoisted(() => ({
@@ -136,6 +158,7 @@ function resetStore(): void {
   usePartStudioStore.setState({
     canvas: { selection: [], hiddenIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
+    tool: { activeToolId: null },
     dialog: { active: null },
     viewOnly: { isActive: false },
   });
@@ -147,6 +170,8 @@ beforeEach(() => {
   subEntityDeleteMock.mockReset().mockResolvedValue(undefined);
   readBrepFaceHandleMock.mockReset();
   mocks.viewport = null;
+  curveDecorationCalls.calls = [];
+  dimensionEditorProbe.onGlyphHover = null;
   resetStore();
 });
 
@@ -638,6 +663,68 @@ describe('B6 M-A5.2 T5：选中所属实体宿主动作', () => {
     expect(clearOnshapeHighlightMock).toHaveBeenCalledTimes(1);
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual(['0x18']);
     expect(selectionSet.replace).toHaveBeenCalledWith(['0x18']);
+  });
+});
+
+// ── 2026-11-15 E5：约束 glyph 悬停联动的宿主接线 ──────────────────────────
+// 代码评审 P2-4 指出的宿主门禁此前无测试：工具激活时宿主必须把 onGlyphHover
+// 置 undefined（工具期间光标反馈归工具），且活动工具/活动草图变化必须清空
+// 上一次的悬停高亮集（装饰 hook 第 7 参）。
+
+/** 悬停联动用的活动草图（空实体/空约束——只驱动渲染与宿主 effect 依赖）。 */
+const HOVER_SKETCH: SketchDto = {
+  id: 'sk1',
+  entities: [],
+  constraints: [],
+  solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+};
+const HOVER_SKETCH_SYSTEM = {
+  activeSketch: HOVER_SKETCH,
+  loading: false,
+  applyUpdate: vi.fn(),
+  applyConstraintValue: vi.fn(),
+  refresh: vi.fn(),
+} as unknown as UseSketchSystem;
+
+/** 最近一次 useSketchCurveDecorations 收到的 glyph 高亮实体集（第 7 参）。 */
+function lastHighlightedEntityIds(): readonly number[] | undefined {
+  return curveDecorationCalls.calls.at(-1)?.[6] as readonly number[] | undefined;
+}
+
+function renderHoverCanvas(): void {
+  act(() => {
+    usePartStudioStore.getState().enterSketch('sk1');
+  });
+  render(
+    <PartStudioCanvas
+      viewportRef={{ current: null } as RefObject<HTMLDivElement>}
+      sketchSystem={HOVER_SKETCH_SYSTEM}
+    />,
+  );
+}
+
+describe('2026-11-15 E5：约束 glyph 悬停联动的宿主接线', () => {
+  it('无工具时下传 onGlyphHover；工具激活 → prop 置 undefined 且装饰高亮集清空', () => {
+    renderHoverCanvas();
+    expect(typeof dimensionEditorProbe.onGlyphHover).toBe('function');
+
+    // 编辑器回调上呈 → 宿主状态 → 装饰 hook 收到同一实体集。
+    act(() => dimensionEditorProbe.onGlyphHover?.([2, 4]));
+    expect(lastHighlightedEntityIds()).toEqual([2, 4]);
+
+    // 草图工具激活：光标反馈归工具，宿主不再下传回调且清掉残留高亮。
+    act(() => usePartStudioStore.getState().setActiveTool('Sketch.Line'));
+    expect(dimensionEditorProbe.onGlyphHover).toBeUndefined();
+    expect(lastHighlightedEntityIds()).toEqual([]);
+  });
+
+  it('活动草图切换 → 装饰高亮集清空（实体 id 按草图重启，旧高亮不得画到新草图）', () => {
+    renderHoverCanvas();
+    act(() => dimensionEditorProbe.onGlyphHover?.([5, 7]));
+    expect(lastHighlightedEntityIds()).toEqual([5, 7]);
+
+    act(() => usePartStudioStore.getState().enterSketch('sk2'));
+    expect(lastHighlightedEntityIds()).toEqual([]);
   });
 });
 
