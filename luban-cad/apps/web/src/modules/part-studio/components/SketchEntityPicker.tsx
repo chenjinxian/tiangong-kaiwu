@@ -21,6 +21,11 @@
  * **尺寸菜单**（草图空白菜单行 + 首行「更改为驱动尺寸」诚实禁用 + 末行
  * 「删除尺寸」），不拾取实体、不改变选择；命中通道由
  * `SketchDimensionEditor.dimensionLabelHitTestRef` 提供（只返回约束 id）。
+ *
+ * W24（2026-11-17 live）：尺寸菜单按 live 18 行 / 7 条分隔线重排（确认草图为
+ * 独立分组、添加评论/删除尺寸带 17px sprite 图标、选择行由 CSS ► 表示无子菜单
+ * 动作）；皮肤见 `PartStudioPage.css` 的 `.part-studio-sketch-dimension-menu`
+ * 覆盖（其他树菜单不变）。
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -46,6 +51,7 @@ import {
 } from '../internal/sketch-box-select.js';
 import { consumeRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 import { hasSketchClipboard } from '../internal/sketch-clipboard.js';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import './SketchPlanePicker.css';
 
 export type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
@@ -739,75 +745,6 @@ export function SketchEntityPicker({
     );
   };
 
-  /**
-   * 2026-11-16 W20 live：尺寸标签菜单中段行（与草图空白菜单同源，但去掉
-   * 「粘贴草图图元」与两条「选择创建/创建选定内容」前缀，补上 live 的
-   * 「选择 ▸」与「添加评论」）——行序 = 确认草图 / 复制草图 / 全部显示 /
-   * 曲线/曲面分析… / 选择▸ / 选择其他… / 添加评论 / 缩放到合适大小 /
-   * 视图垂直于草图平面。未实现能力一律诚实禁用。
-   */
-  const renderDimensionMenuRows = (close: () => void): React.JSX.Element => {
-    const unsupported = t('partStudio.tree.unsupported');
-    return (
-      <>
-        <button
-          type="button"
-          role="menuitem"
-          className="part-studio-tree-menu__item"
-          data-testid="sketch-dimension-menu-confirm"
-          onClick={() => { close(); onFinishSketch?.(); }}
-        >
-          {t('partStudio.sketch.blankMenuConfirm', { name: sketchName ?? '' })}
-        </button>
-        <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
-          {t('partStudio.sketch.blankMenuCopySketch')}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="part-studio-tree-menu__item"
-          data-testid="sketch-dimension-menu-show-all"
-          disabled={!canShowAll}
-          title={canShowAll ? undefined : t('partStudio.sketch.blankMenuShowAllEmpty')}
-          onClick={() => { close(); onShowAll?.(); }}
-        >
-          {t('partStudio.sketch.blankMenuShowAll')}
-        </button>
-        <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
-          {t('partStudio.sketch.entityMenuAnalyze')}
-        </button>
-        <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
-          {t('partStudio.sketch.entityMenuSelect')}
-          <span className="part-studio-tree-menu__submenu" aria-hidden="true">›</span>
-        </button>
-        <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
-          {t('partStudio.sketch.blankMenuSelectOther')}
-        </button>
-        <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
-          {t('partStudio.sketch.entityMenuAddComment')}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="part-studio-tree-menu__item"
-          data-testid="sketch-dimension-menu-fit"
-          onClick={() => { close(); onFitToSketchRef.current?.(); }}
-        >
-          {t('partStudio.sketch.entityMenuFit')}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="part-studio-tree-menu__item"
-          data-testid="sketch-dimension-menu-view-normal"
-          onClick={() => { close(); onViewNormalRef.current?.(); }}
-        >
-          {t('partStudio.sketch.entityMenuViewNormal')}
-        </button>
-      </>
-    );
-  };
-
   return (
     <React.Fragment>
       <canvas ref={canvasRef} className="part-studio-plane-picker" aria-hidden="true" />
@@ -853,12 +790,13 @@ export function SketchEntityPicker({
         );
       })()}
       {dimensionMenu && (() => {
-        // W20 live：尺寸标签菜单行序 = 更改为驱动尺寸 / 确认草图 / 复制草图 /
-        // 全部显示 / 曲线·曲面分析… / 选择▸ / 选择其他… / 添加评论 / 缩放 /
-        // 视图垂直 / ─ / 删除尺寸。未实现能力诚实禁用。
-        const width = 240;
-        // 夹紧高度 = 空白菜单（380）+ 两行（~22px）+ 分隔线。
-        const height = 440;
+        // W24 live（2026-11-17）：尺寸标签菜单 18 行 / 7 条分隔线，分组 =
+        // 更改为驱动尺寸 ─ 确认草图 ─ 复制草图 ─ 全部显示 / 曲线·曲面分析… ─
+        // 选择▸ / 选择其他… ─ 添加评论 ─ 缩放到合适大小 / 视图垂直于草图平面 ─
+        // 删除尺寸。未实现能力诚实禁用（不提供假动作）。
+        const width = 154;
+        // 夹紧高度 = live 内容 251 + ul margin 2。
+        const height = 253;
         const left = Math.min(dimensionMenu.x, Math.max(8, window.innerWidth - width - 8));
         const top = Math.min(dimensionMenu.y, Math.max(8, window.innerHeight - height - 8));
         const unsupported = t('partStudio.tree.unsupported');
@@ -884,7 +822,74 @@ export function SketchEntityPicker({
             >
               {t('partStudio.sketch.dimensionMenuDriven')}
             </button>
-            {renderDimensionMenuRows(close)}
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-dimension-menu-confirm"
+              onClick={() => { close(); onFinishSketch?.(); }}
+            >
+              {t('partStudio.sketch.blankMenuConfirm', { name: sketchName ?? '' })}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              {t('partStudio.sketch.blankMenuCopySketch')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-dimension-menu-show-all"
+              disabled={!canShowAll}
+              title={canShowAll ? undefined : t('partStudio.sketch.blankMenuShowAllEmpty')}
+              onClick={() => { close(); onShowAll?.(); }}
+            >
+              {t('partStudio.sketch.blankMenuShowAll')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              {t('partStudio.sketch.entityMenuAnalyze')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item part-studio-tree-menu__item--has-submenu"
+              disabled
+              title={unsupported}
+            >
+              {t('partStudio.sketch.entityMenuSelect')}
+            </button>
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              {t('partStudio.sketch.blankMenuSelectOther')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={unsupported}>
+              <span className="part-studio-sketch-dimension-menu__icon" aria-hidden="true">
+                <OnshapeIcon name="add-comment" size={17} />
+              </span>
+              {t('partStudio.sketch.entityMenuAddComment')}
+            </button>
+            <div className="part-studio-tree-menu__separator" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-dimension-menu-fit"
+              onClick={() => { close(); onFitToSketchRef.current?.(); }}
+            >
+              {t('partStudio.sketch.entityMenuFit')}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-dimension-menu-view-normal"
+              onClick={() => { close(); onViewNormalRef.current?.(); }}
+            >
+              {t('partStudio.sketch.entityMenuViewNormal')}
+            </button>
             <div className="part-studio-tree-menu__separator" role="separator" />
             <button
               type="button"
@@ -899,6 +904,9 @@ export function SketchEntityPicker({
                 void onDeleteDimensionRef.current?.(constraintId);
               }}
             >
+              <span className="part-studio-sketch-dimension-menu__icon" aria-hidden="true">
+                <OnshapeIcon name="clear-field-button" size={17} />
+              </span>
               {t('partStudio.sketch.dimensionMenuDelete')}
             </button>
           </div>

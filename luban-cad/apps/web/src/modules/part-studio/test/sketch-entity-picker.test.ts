@@ -317,21 +317,58 @@ describe('草图尺寸标签右键菜单（W20 live）', () => {
     expect(items[0]!.getAttribute('title')).toBe('该操作暂未支持');
     expect(items.at(-1)!.getAttribute('data-testid')).toBe('sketch-dimension-menu-delete');
     expect((items.at(-1) as HTMLButtonElement).disabled).toBe(false);
-    // 复用草图空白菜单行：确认 草图 N 紧随首行，缩放/视图项保留原顺序与文案。
-    expect(items[1]!.textContent).toBe('确认 草图 1');
+    // W24 live：18 行 / 7 条分隔线，分组与行序逐项对齐（选择行无内联 ›）。
     expect(items.map((item) => (item.textContent ?? '').trim())).toEqual([
       '更改为驱动尺寸',
       '确认 草图 1',
       '复制草图',
       '全部显示',
       '曲线/曲面分析…',
-      '选择›',
+      '选择',
       '选择其他…',
       '添加评论',
       '缩放到合适大小',
       '视图垂直于草图平面',
       '删除尺寸',
     ]);
+    expect(within(menu).getAllByRole('separator')).toHaveLength(7);
+    expect(Array.from(menu.children).map((child) =>
+      child.getAttribute('role') === 'separator' ? '─' : (child.textContent ?? '').trim(),
+    )).toEqual([
+      '更改为驱动尺寸', '─',
+      '确认 草图 1', '─',
+      '复制草图', '─',
+      '全部显示', '曲线/曲面分析…', '─',
+      '选择', '选择其他…', '─',
+      '添加评论', '─',
+      '缩放到合适大小', '视图垂直于草图平面', '─',
+      '删除尺寸',
+    ]);
+
+    // 选择行：live 皮肤由 CSS ::after 画 ►，行内不再渲染内联箭头；无子菜单动作。
+    const selectRow = within(menu).getByRole('menuitem', { name: '选择' });
+    expect((selectRow as HTMLButtonElement).disabled).toBe(true);
+    expect(selectRow.classList.contains('part-studio-tree-menu__item--has-submenu')).toBe(true);
+    expect(selectRow.textContent).toBe('选择');
+
+    // 添加评论 / 删除尺寸：17×17 sprite 图标（span 绝对定位，aria-hidden）。
+    const iconSpan = (row: HTMLElement): Element | null =>
+      row.querySelector('span.part-studio-sketch-dimension-menu__icon');
+    for (const [row, label] of [
+      [within(menu).getByRole('menuitem', { name: '添加评论' }), '添加评论'],
+      [within(menu).getByTestId('sketch-dimension-menu-delete'), '删除尺寸'],
+    ] as const) {
+      const span = iconSpan(row);
+      expect(span, `${label} 图标 span`).not.toBeNull();
+      expect(span!.getAttribute('aria-hidden')).toBe('true');
+      const svg = span!.querySelector('svg');
+      expect(svg?.getAttribute('width')).toBe('17');
+      expect(svg?.getAttribute('height')).toBe('17');
+    }
+    // live：该菜单只有 添加评论 / 删除尺寸 两行带图标。
+    expect(menu.querySelectorAll('.part-studio-sketch-dimension-menu__icon')).toHaveLength(2);
+    // 删除行保留原 testid 与可点语义（上方已断言 enabled）。
+    expect((within(menu).getByTestId('sketch-dimension-menu-delete') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('命中标签不改变实体选择（onSelectionChange 不调用）', () => {

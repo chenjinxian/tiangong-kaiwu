@@ -298,6 +298,63 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     await expect(dimensionMenu).toBeVisible({ timeout: 10_000 });
     await expect(dimensionMenu.getByTestId('sketch-dimension-menu-driven')).toBeDisabled();
     await expect(dimensionMenu.getByTestId('sketch-dimension-menu-delete')).toBeEnabled();
+
+    // W24 live（2026-11-17）：尺寸菜单皮肤 154px / 22px 行 / 12px·18px /
+    // #DEF1FB hover / 7 条 #ddd 分隔线 / 17px 图标 / 选择行 CSS ►。
+    const skin = await dimensionMenu.evaluate((el) => {
+      const style = getComputedStyle(el);
+      const row = el.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)');
+      const rowStyle = row ? getComputedStyle(row) : null;
+      const separator = el.querySelector('[role="separator"]');
+      const separatorStyle = separator ? getComputedStyle(separator) : null;
+      const iconSvg = el.querySelector(
+        '[data-testid="sketch-dimension-menu-delete"] .part-studio-sketch-dimension-menu__icon svg',
+      );
+      const iconRect = iconSvg?.getBoundingClientRect();
+      const selectRow = Array.from(el.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+        .find((item) => (item.textContent ?? '').trim() === '选择');
+      const rect = el.getBoundingClientRect();
+      const rowRect = row?.getBoundingClientRect();
+      return {
+        width: Math.round(rect.width),
+        marginTop: style.marginTop,
+        borderTop: style.borderTop,
+        radius: style.borderTopLeftRadius,
+        shadow: style.boxShadow,
+        fontSize: style.fontSize,
+        lineHeight: style.lineHeight,
+        rowHeight: rowRect ? Math.round(rowRect.height) : 0,
+        rowPadding: rowStyle
+          ? `${rowStyle.paddingTop} ${rowStyle.paddingRight} ${rowStyle.paddingBottom} ${rowStyle.paddingLeft}`
+          : '',
+        rowRadius: rowStyle?.borderTopLeftRadius ?? '',
+        separators: el.querySelectorAll('[role="separator"]').length,
+        separatorBorder: separatorStyle?.borderBottom ?? '',
+        iconSize: iconRect ? [Math.round(iconRect.width), Math.round(iconRect.height)] : null,
+        selectText: selectRow?.textContent ?? null,
+        selectSubmenu: selectRow?.classList.contains('part-studio-tree-menu__item--has-submenu') ?? false,
+      };
+    });
+    expect(skin.width).toBe(154);
+    expect(skin.marginTop).toBe('2px');
+    expect(skin.borderTop).toBe('1px solid rgb(204, 204, 204)');
+    expect(skin.radius).toBe('4px');
+    expect(skin.shadow).toBe('rgba(0, 0, 0, 0.2) 0px 5px 10px 0px');
+    expect(skin.fontSize).toBe('12px');
+    expect(skin.lineHeight).toBe('18px');
+    expect(skin.rowHeight).toBe(22);
+    expect(skin.rowPadding).toBe('2px 8px 2px 35px');
+    expect(skin.rowRadius).toBe('0px');
+    expect(skin.separators).toBe(7);
+    expect(skin.separatorBorder).toBe('1px solid rgb(221, 221, 221)');
+    expect(skin.iconSize).toEqual([17, 17]);
+    expect(skin.selectText).toBe('选择');
+    expect(skin.selectSubmenu).toBe(true);
+    await dimensionMenu.getByTestId('sketch-dimension-menu-fit').hover();
+    await expect.poll(async () => dimensionMenu.getByTestId('sketch-dimension-menu-fit')
+      .evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(222, 241, 251)');
+    expect(await dimensionMenu.getByTestId('sketch-dimension-menu-driven')
+      .evaluate((el) => getComputedStyle(el).color)).toBe('rgb(85, 85, 85)');
     await dimensionMenu.getByTestId('sketch-dimension-menu-delete').click();
     await expect.poll(async () => {
       const now = await getSketchRpc(ctx, sketchId, token);

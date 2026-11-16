@@ -150,6 +150,8 @@ export const ONSHAPE_ICON_NAMES = [
   "edit-button",
   "sketch-analysis-tools",
   "hole-tolerance-precision",
+  "add-comment",
+  "clear-field-button",
 ] as const;
 
 export type OnshapeIconName = typeof ONSHAPE_ICON_NAMES[number];
@@ -294,6 +296,9 @@ export const ONSHAPE_ICONS: Record<OnshapeIconName, OnshapeIconData> = {
   "edit-button": { viewBox: "0 0 20 20", html: "<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M8.5 15.5L18.5 5 15 1.5 5 12l-2.4275 5.0436c-.1997.4148.22.8562.6443.6778L8.5 15.5zm-3-2.5l-1.2133 2.277.8198.7819L7.5 15l-2-2zM17 5l-2-2-9 9.5 2 2L17 5z\" fill=\"var(--os-icon-outline-primary, #333333)\"></path>" },
   "sketch-analysis-tools": { viewBox: "0 0 18 18", html: "<path d=\"M3.5 12.625H15v1.25H3.5v-1.25z\" fill=\"var(--os-icon-accent-primary, #1651B0)\"></path><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M17 9c0 1.8487-.6271 3.551-1.6802 4.9057l1.3873 1.3872c.3905.3905.3905 1.0237 0 1.4142-.3905.3905-1.0237.3905-1.4142 0l-1.3873-1.3872C12.551 16.3729 10.8487 17 9 17c-4.4183 0-8-3.5817-8-8s3.5817-8 8-8 8 3.5817 8 8zm-1 0c0 3.866-3.134 7-7 7s-7-3.134-7-7 3.134-7 7-7a6.995 6.995 0 012.1545.3378L8.5 5.1251l-3.75 7.7912 8.125-3.4162 2.719-2.855C15.8569 7.381 16 8.1738 16 9zm-1.0167-3.6351a7.0344 7.0344 0 00-2.5381-2.4598L9.75 5.7501l2.5 2.5 2.7333-2.8852zm-7.375 3.8564L9.125 6.3751l2.5 2.5-2.9919 1.3236-1.0248-.9774z\" fill=\"var(--os-icon-outline-primary, #333333)\"></path>" },
   "hole-tolerance-precision": { viewBox: "0 0 20 20", html: "<path d=\"M3 13.5L6 16v-2h8v2l3-2.5v4.4884h1v-6h-1V13.5L14 11v2H6v-2l-3 2.5zm0 0v4.4884H2v-6h1V13.5z\" fill=\"currentColor\"></path><path d=\"M9.5 2.5a.5.5 0 011 0V4H12a.5.5 0 010 1h-1.5v1.5a.5.5 0 01-1 0V5H8a.5.5 0 010-1h1.5V2.5zM7.5 8a.5.5 0 000 1h5a.5.5 0 000-1h-5z\" fill=\"currentColor\"></path>" },
+  // W24（2026-11-17 live）：尺寸标签菜单图标（添加评论 / 删除尺寸）。
+  "add-comment": { viewBox: "0 0 20 20", html: "<path d=\"M12.9999 1.7062c-.8953-.19-1.8462-.2921-2.8317-.2921-5.3183 0-9.6296 2.9772-9.6296 6.6498 0 2.3457 1.7587 4.4077 4.4153 5.5915L.9425 18.5521l7.3432-3.9654c.6088.0833 1.2382.127 1.8824.127 5.3183 0 9.6296-2.9772 9.6296-6.6498a4.68 4.68 0 00-.1226-1.064h-2.6753v3h-4V7h-3V3h3V1.7062z\" fill=\"var(--os-icon-fill-tertiary, #666666)\"></path><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M11 4h3V1h2v3h3v2h-3v3h-2V6h-3V4z\" fill=\"var(--os-icon-accent-primary, #1651B0)\"></path>" },
+  "clear-field-button": { viewBox: "0 0 20 20", html: "<path d=\"M10 17c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7z\" fill=\"var(--os-icon-fill-secondary--static, #999999)\"></path><path d=\"M9.9971 11.4114l2.7929 2.7929 1.4143-1.4143-2.7929-2.7928 2.7929-2.793L12.79 5.79 9.9972 8.583 7.2041 5.79 5.79 7.2043 8.583 9.997 5.79 12.79l1.4143 1.4143 2.7928-2.7929z\" fill=\"var(--os-icon-fill-primary--static, #FFFFFF)\"></path>" },
 };
 
 export function OnshapeIcon({ name, size = 20, className }: { name: OnshapeIconName; size?: number; className?: string }): React.JSX.Element | null {

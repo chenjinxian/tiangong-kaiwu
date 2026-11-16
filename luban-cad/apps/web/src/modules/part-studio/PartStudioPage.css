@@ -1457,6 +1457,98 @@
   padding-inline-start: calc(var(--iui-size-xs) + var(--iui-size-s));
 }
 
+/* ── 尺寸标签右键菜单皮肤（W24，2026-11-17 Onshape live）────────────────
+   只作用于 `.part-studio-sketch-dimension-menu`；基础 `.part-studio-tree-menu*`
+   规则保持不变（树的空白/实体菜单保持既有皮肤）。live：菜单 154×251、
+   白底 1px #ccc 圆角 4、阴影 0 5px 10px rgba(0,0,0,.2)、12px/18px；
+   行 152×22、左内距 35px（图标位置绝对定位于 10px）；hover #DEF1FB；
+   分隔线 1px #ddd；禁用 = #555 无 hover。 */
+.part-studio-sketch-dimension-menu {
+  inline-size: 154px;
+  box-sizing: border-box;
+  padding: 0;
+  margin-block-start: 2px;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  color: #333333;
+  font-family: Flama, "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.part-studio-sketch-dimension-menu .part-studio-tree-menu__item {
+  block-size: 22px;
+  box-sizing: border-box;
+  /* 行高固定：菜单为 flex 列 + inline maxHeight；overflow:hidden 会把 flex 的
+     自动最小高度压成 0，小视口下必须让菜单滚动而不是压缩行。 */
+  flex: 0 0 22px;
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  padding: 2px 8px 2px 35px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #333333;
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  cursor: pointer;
+}
+
+.part-studio-sketch-dimension-menu .part-studio-tree-menu__item:hover {
+  background: #def1fb;
+}
+
+.part-studio-sketch-dimension-menu .part-studio-tree-menu__item:disabled {
+  color: #555555;
+  opacity: 1;
+  cursor: default;
+}
+
+.part-studio-sketch-dimension-menu .part-studio-tree-menu__item:disabled:hover {
+  background: transparent;
+}
+
+.part-studio-sketch-dimension-menu .part-studio-tree-menu__separator {
+  block-size: 0;
+  margin: 0;
+  padding: 0;
+  border-block-end: 1px solid #dddddd;
+  background: transparent;
+}
+
+.part-studio-sketch-dimension-menu__icon {
+  position: absolute;
+  inset-inline-start: 10px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  inline-size: 17px;
+  block-size: 17px;
+  align-items: center;
+  justify-content: center;
+}
+
+.part-studio-sketch-dimension-menu .part-studio-tree-menu__item--has-submenu {
+  padding-inline-end: 16px;
+}
+
+.part-studio-sketch-dimension-menu .part-studio-tree-menu__item--has-submenu::after {
+  content: "►";
+  position: absolute;
+  inset-inline-end: 7px;
+  margin-block-start: 2px;
+  color: #666666;
+}
+
 /* 零件属性对话框（只读字段）。 */
 .part-studio-tree-properties {
   display: grid;
