@@ -16,8 +16,8 @@ import type { SketchLiveMeasure } from './sketch-live-measures.js';
  * - `edge`：贴在边旁的数值（矩形宽/高、直线长度）。start/end 是边的视口
  *   坐标（CSS px，相对画布左上角；与 `cursor` 同一坐标空间），覆盖层据此
  *   算中点/角度/外偏移并随边旋转；
- * - `point`：点标签（中心点圆直径）。point 是标签中心的视口坐标，水平不
- *   旋转；可见文本 = `prefix` + `value`（如 `Ø20`）。
+ * - `point`：点标签（中心点圆直径、三点圆弧 `R` 半径）。point 是标签中心的
+ *   视口坐标，水平不旋转；可见文本 = `prefix` + `value`（如 `Ø20`、`R1.897`）。
  * 两者都只做显示投影：数值由 sketch-live-measures 产出，位置由工具投影到
  * 视口，不碰 IModelApp、RPC、schema 或草图数据。
  */
@@ -38,7 +38,11 @@ export interface SketchToolEdgeLabel {
   suppressesLabelKeys?: readonly string[];
 }
 
-/** 点标签（中心点圆直径；水平不旋转，落在圆心→光标半径段中点）。 */
+/**
+ * 点标签（中心点圆直径、三点圆弧半径；水平不旋转）。
+ * - 中心点圆：落在圆心→光标半径段中点，前缀 `Ø`；
+ * - 三点圆弧（W15）：落在弧角向中点外侧，前缀 `R`。
+ */
 export interface SketchToolPointLabel {
   kind: 'point';
   /** i18n 键（语义键；可见文本 = `prefix` + `value`，不渲染键名本身）。 */
@@ -47,11 +51,12 @@ export interface SketchToolPointLabel {
   value: string;
   /** 标签中心（视口坐标）。 */
   point: { x: number; y: number };
-  /** 文本前缀（如直径符号 `Ø`）。 */
+  /** 文本前缀（如直径符号 `Ø`、半径 `R`）。 */
   prefix?: string;
   /**
    * 本标签额外抑制的光标卡尺寸键（缺省只抑制同 `labelKey` 的 measure）。
-   * 中心点圆：直径点标签（语义键=`diameter`）抑制 `radius` 卡。
+   * 中心点圆：直径点标签（语义键=`diameter`）抑制 `radius` 卡；
+   * 三点圆弧：`R` 半径点标签抑制同名 `radius` 卡（live 同帧无白卡片）。
    */
   suppressesLabelKeys?: readonly string[];
 }

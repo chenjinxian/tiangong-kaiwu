@@ -2,11 +2,13 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 绘制中数值标签的纯几何（2026-11-16 E6/S5 Onshape live；W12 扩展直线与圆）：
+ * 绘制中数值标签的纯几何（2026-11-16 E6/S5 Onshape live；W12 扩展直线与圆；
+ * W15 扩展三点圆弧）：
  * 矩形拖拽时宽度/高度、直线拖拽时长度的数值贴在对应边旁——边中点、沿边法线
  * 偏移 ~8px，文字随边旋转且保持正立（角度归一到 (−90°, 90°]）；中心点圆拖拽时
- * 直径落在圆心→光标半径段的中点（水平不旋转）。live 实测蓝字 ≈#4a90e2、
- * 13.3333px、无底色/描边/引线；产品数值仍沿用既有 mm 两位去尾零格式。
+ * 直径落在圆心→光标半径段的中点（水平不旋转）；三点圆弧拖拽时 `R` 半径读数
+ * 落在弧角向中点沿「圆心→中点」方向外移 ~8px（水平不旋转）。live 实测蓝字
+ * ≈#4a90e2、13.3333px、无底色/描边/引线；产品数值仍沿用既有 mm 两位去尾零格式。
  *
  * 只做显示投影：数值由 sketch-live-measures 产出，边段/点由工具锚点/光标给出；
  * 不碰 IModelApp、RPC、schema 或草图数据（P0-06 派生显示数据只做投影）。
@@ -127,4 +129,21 @@ export function sketchLineEdgeSegment(start: SketchEdgePoint, end: SketchEdgePoi
  */
 export function sketchPointLabelCenter(center: SketchEdgePoint, cursor: SketchEdgePoint): SketchEdgePoint {
   return { x: (center.x + cursor.x) / 2, y: (center.y + cursor.y) / 2 };
+}
+
+/**
+ * 三点圆弧 `R` 半径点标签中心（视口坐标；W15）：弧角向中点沿「圆心→中点」
+ * 方向外移 offsetPx（与贴边标签同一偏移，live：读数贴弧外侧）。中心与中点的
+ * 视口投影重合（退化弧/极端取景）时回退到中点本身，不产生 NaN 坐标。
+ */
+export function sketchArcPointLabelCenter(
+  center: SketchEdgePoint,
+  midpoint: SketchEdgePoint,
+  offsetPx: number = SKETCH_EDGE_LABEL_OFFSET_PX,
+): SketchEdgePoint {
+  const dx = midpoint.x - center.x;
+  const dy = midpoint.y - center.y;
+  const length = Math.hypot(dx, dy);
+  if (!(length > 1e-9)) return { x: midpoint.x, y: midpoint.y };
+  return { x: midpoint.x + (dx / length) * offsetPx, y: midpoint.y + (dy / length) * offsetPx };
 }

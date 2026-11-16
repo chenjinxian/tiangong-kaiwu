@@ -22,7 +22,8 @@
  *   可用）。2026-11-16 E6/S5：矩形（拐角/中心）拖拽的宽/高改为贴边数值
  *   （sketch-edge-labels，视口投影），覆盖层不再为这两项渲染白卡片；
  *   2026-11-16 W12 同一机制扩展到直线长度（贴线读数）与中心点圆直径
- *   （`Ø` 点标签，落在圆心→光标半径段中点）。
+ *   （`Ø` 点标签，落在圆心→光标半径段中点）；2026-11-16 W15 再扩展到
+ *   三点圆弧半径（`R` 点标签，落在弧角向中点外侧）。
  *   提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
  * - 橡皮筋/构造线：**Dynamics 通道**（PrimitiveTool 标准预览生命周期，
  *   Tool.ts:673-680）——onDynamicFrame 同时绘制工作预览与 editor SketchTools
@@ -70,6 +71,7 @@ import { POLYGON_DEFAULT_SIDES, POLYGON_MAX_SIDES, POLYGON_MIN_SIDES, regularPol
 import { computeSketchLiveMeasures, formatSketchLiveNumber } from './sketch-live-measures.js';
 import type { SketchLiveMeasure } from './sketch-live-measures.js';
 import {
+  sketchArcPointLabelCenter,
   sketchLineEdgeSegment,
   sketchPointLabelCenter,
   sketchRectangleEdgeSegments,
@@ -464,10 +466,12 @@ export abstract class SketchCreateTool extends PrimitiveTool {
   }
 
   /**
-   * 画布数值标签（视口 CSS px；2026-11-16 W12）：
+   * 画布数值标签（视口 CSS px；2026-11-16 W12，W15 扩展三点圆弧）：
    * - 矩形（拐角/中心）：宽/高边段由 `sketchRectangleEdgeSegments` 给出；
    * - 直线：长度贴在线旁，端点经 `sketchLineEdgeSegment` 规范化方位；
-   * - 中心点圆：直径点标签落在圆心→光标半径段中点（水平、`Ø` 前缀）。
+   * - 中心点圆：直径点标签落在圆心→光标半径段中点（水平、`Ø` 前缀）；
+   * - 三点圆弧：起点/终点已锚、光标为弧上点时，`R` 半径点标签落在弧角向
+   *   中点（fraction 0.5）沿「圆心→中点」方向外移（水平、无白卡片）。
    * 边段/点在草图局部坐标给出，经 `_plane.toWorld` + 视口 `worldToView`
    * 投影——与 `_cursorView` 同一坐标空间，不新增第二条投影路径。
    * 非上述工具（含对齐矩形/中点线）/无锚点/无光标/无尺寸/无视口 → undefined
@@ -479,9 +483,12 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     if (!anchor || !cursor) return undefined;
     const viewport = IModelApp.viewManager.selectedView;
     if (!viewport) return undefined;
-    const project = (point: SketchPoint2): { x: number; y: number } => {
-      const view = viewport.worldToView(this._plane.toWorld(point));
+    const projectWorld = (world: Point3d): { x: number; y: number } => {
+      const view = viewport.worldToView(world);
       return { x: view.x, y: view.y };
+    };
+    const project = (point: SketchPoint2): { x: number; y: number } => {
+      return projectWorld(this._plane.toWorld(point));
     };
 
     if (this.sketchKind === 'rectangle' || this.sketchKind === 'centerRectangle') {
@@ -536,6 +543,30 @@ export abstract class SketchCreateTool extends PrimitiveTool {
         value: formatSketchLiveNumber(2 * radiusMm),
         point: sketchPointLabelCenter(project(anchor), project(cursor)),
         prefix: 'Ø',
+      }];
+    }
+
+    if (this.sketchKind === 'arc') {
+      // 2026-11-16 W15 Onshape live：三点圆弧拖拽（起点/终点已锚、光标为弧上点）
+      // 时半径读数以 `R` 点标签落在弧角向中点外侧（水平不旋转，无白卡）。
+      // 阶段 1（仅起点）与共线候选（无半径）不发标签，保持既有提示/卡片回退。
+      const second = this._anchors[1];
+      const radiusMeasure = measures[0];
+      if (!second || radiusMeasure?.labelKey !== 'partStudio.sketch.live.radius') return undefined;
+      // 与预览/`_arcFrom3Points` 同一构造：起点 → 弧上点（光标）→ 终点。
+      const worldArc = this.tryWorldArc3Point(anchor, cursor, second);
+      if (!worldArc) return undefined;
+      return [{
+        kind: 'point',
+        labelKey: radiusMeasure.labelKey,
+        // 白卡片抑制配对：`R` 点标签替代圆弧半径读数（live 同帧无白卡片）。
+        suppressesLabelKeys: [radiusMeasure.labelKey],
+        value: radiusMeasure.value,
+        point: sketchArcPointLabelCenter(
+          projectWorld(worldArc.center),
+          projectWorld(worldArc.fractionToPoint(0.5)),
+        ),
+        prefix: 'R',
       }];
     }
 

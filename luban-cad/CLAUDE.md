@@ -196,7 +196,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   **4 passed（2.1 min）**，360/400/18.712 mm³ 不变。**W14**：起始偏移改为
   live 折叠组（未勾选 chevron 禁用、勾选启用并自动展开；内容缩进=终止选择
   + 深度值行，载荷/禁用原因不变）；web **2073/2073**，真栈
-  `feature-flow-parity` 2 passed（2000.000 mm³ 不变）。
+  `feature-flow-parity` 2 passed（2000.000 mm³ 不变）。**W15**：三点圆弧绘制
+  在弧中点外侧显示水平 `R<半径>`（半径白卡抑制，共线回退白卡）；web
+  **2080/2080**，真栈 `sketch-draw-readout` 2 passed（矩形+直线+圆+圆弧，
+  53.1 s）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

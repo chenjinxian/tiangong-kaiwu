@@ -367,6 +367,38 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
     expect(screen.getByTestId('sketch-draw-point-label-diameter').textContent).toBe('Ø10');
     expect(screen.getByTestId('sketch-tool-feedback').getAttribute('data-measures')).toBe('angle=0.0°');
   });
+
+  it('drawLabels（point·三点圆弧）：R 半径标签水平落在弧中点外侧，半径白卡片被抑制', () => {
+    publishSketchToolFeedback({
+      toolId: 'Sketch.Arc3Point',
+      hint: '点击放置圆弧上的点',
+      measures: [{ labelKey: 'partStudio.sketch.live.radius', value: '1.897' }],
+      cursor: { x: 180, y: 60 },
+      drawLabels: [{
+        kind: 'point',
+        labelKey: 'partStudio.sketch.live.radius',
+        suppressesLabelKeys: ['partStudio.sketch.live.radius'],
+        value: '1.897',
+        point: { x: 140, y: 110 },
+        prefix: 'R',
+      }],
+    });
+    render(<SketchToolFeedbackOverlay />);
+
+    const label = screen.getByTestId('sketch-draw-point-label-radius');
+    expect(label.textContent).toBe('R1.897');
+    expect(label.className).toContain('part-studio-sketch-draw-label');
+    expect(label.getAttribute('aria-hidden')).toBe('true');
+    expect(label.style.left).toBe('140px');
+    expect(label.style.top).toBe('110px');
+    // 水平不旋转：只有居中平移，没有 rotate。
+    expect(label.style.transform).toBe('translate(-50%, -50%)');
+    expect(label.style.transform).not.toContain('rotate');
+
+    // 半径卡被 R 点标签替代（live 同帧无白卡片）；阶段提示 pill 保留。
+    expect(screen.queryByTestId('sketch-tool-feedback')).toBeNull();
+    expect(screen.getByTestId('sketch-tool-hint').textContent).toContain('点击放置圆弧上的点');
+  });
 });
 
 describe('SketchToolFeedbackOverlay 样式钉版（CSS 文本）', () => {

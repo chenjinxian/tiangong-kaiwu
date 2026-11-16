@@ -2,14 +2,15 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 绘制中数值标签纯几何（2026-11-16 E6/S5 + W12 Onshape live）：矩形宽/高
- * 边段（草图局部）、直线长度边段与圆直径点标签位置（视口），以及视口标签
- * 布局（中点法向外移 + 正立旋转）。
+ * 绘制中数值标签纯几何（2026-11-16 E6/S5 + W12 + W15 Onshape live）：
+ * 矩形宽/高边段（草图局部）、直线长度边段、圆直径与三点圆弧半径点标签
+ * 位置（视口），以及视口标签布局（中点法向外移 + 正立旋转）。
  */
 import { describe, expect, it } from 'vitest';
 import {
   SKETCH_EDGE_LABEL_OFFSET_PX,
   layoutSketchEdgeLabel,
+  sketchArcPointLabelCenter,
   sketchLineEdgeSegment,
   sketchPointLabelCenter,
   sketchRectangleEdgeSegments,
@@ -118,5 +119,23 @@ describe('sketchPointLabelCenter（点标签中心；W12）', () => {
 
   it('光标回到圆心：中点=圆心（退化半径由工具侧拒绝发标签）', () => {
     expect(sketchPointLabelCenter({ x: 80, y: 60 }, { x: 80, y: 60 })).toEqual({ x: 80, y: 60 });
+  });
+});
+
+describe('sketchArcPointLabelCenter（三点圆弧 R 标签中心；W15）', () => {
+  it('弧角向中点沿「圆心→中点」方向外移 offset（live：R 读数贴弧外侧）', () => {
+    const point = sketchArcPointLabelCenter({ x: 0, y: 0 }, { x: 0, y: 100 });
+    expect(point).toEqual({ x: 0, y: 100 + SKETCH_EDGE_LABEL_OFFSET_PX });
+  });
+
+  it('方向退化（圆心与角向中点投影重合）回退到中点本身，不产生 NaN', () => {
+    const point = sketchArcPointLabelCenter({ x: 10, y: 20 }, { x: 10, y: 20 });
+    expect(point).toEqual({ x: 10, y: 20 });
+  });
+
+  it('斜向弧：单位方向外移，自定义 offset 可用', () => {
+    const point = sketchArcPointLabelCenter({ x: 0, y: 0 }, { x: 3, y: 4 }, 10);
+    expect(point.x).toBeCloseTo(9, 12);
+    expect(point.y).toBeCloseTo(12, 12);
   });
 });

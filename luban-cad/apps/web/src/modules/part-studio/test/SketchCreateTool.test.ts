@@ -382,6 +382,22 @@ async function driveCreateTool(
   return feedback;
 }
 
+/** 三点工具（W15 圆弧）：安装 → 落起点/终点 → 只移动光标（弧上点，不落点）→ 读反馈。 */
+async function driveThreePointTool(
+  tool: SketchCreateTool,
+  start: SketchPoint2,
+  end: SketchPoint2,
+  cursor: SketchPoint2,
+): Promise<SketchToolFeedback> {
+  await tool.onPostInstall();
+  await tool.onDataButtonDown(makeEvent(start.u, start.v));
+  await tool.onDataButtonDown(makeEvent(end.u, end.v));
+  await tool.onMouseMotion(makeEvent(cursor.u, cursor.v));
+  const feedback = getSketchToolFeedback();
+  if (!feedback) throw new Error('工具未发布反馈');
+  return feedback;
+}
+
 describe('W11：矩形拖拽画布标签（drawLabels 与 measures 配对/边段投影）', () => {
   afterEach(() => {
     clearSketchToolFeedback();
@@ -558,6 +574,76 @@ describe('W12：直线/中心点圆画布标签（drawLabels 发布）', () => {
 
     expect(feedback.drawLabels).toBeUndefined();
     expect(feedback.measures[0]?.labelKey).toBe('partStudio.sketch.live.length');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-11-16 W15：三点圆弧 `R` 半径点标签（工具发布面）
+// 起点/终点已锚、光标为弧上点；半径值与 measures 同源，点标签落在弧角向
+// 中点外侧（假视口恒等投影：1 局部单位 = 1 CSS px）。
+// ---------------------------------------------------------------------------
+describe('W15：三点圆弧 R 半径点标签（drawLabels 发布）', () => {
+  afterEach(() => {
+    clearSketchToolFeedback();
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = undefined;
+  });
+
+  const installViewport = (): void => {
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = fakeViewport;
+  };
+
+  it('起点(10,0)/终点(0,10)/弧上点 45° → R 标签复用半径 measure，落在弧中点外侧', async () => {
+    installViewport();
+    const s45 = Math.SQRT1_2;
+    const feedback = await driveThreePointTool(
+      new SketchArc3PointTool(),
+      { u: 10, v: 0 },
+      { u: 0, v: 10 },
+      { u: 10 * s45, v: 10 * s45 },
+    );
+
+    // 半径 measure 原样保留（其它消费方/白卡片回退不变）。
+    expect(feedback.measures).toEqual([
+      { labelKey: 'partStudio.sketch.live.radius', value: '10' },
+    ]);
+    const label = feedback.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(label?.kind).toBe('point');
+    expect(label?.labelKey).toBe('partStudio.sketch.live.radius');
+    expect(label?.prefix).toBe('R');
+    expect(label?.value).toBe(feedback.measures[0]?.value);
+    expect(label?.value).toBe('10');
+    // 半径卡由同一 R 标签替代（live：拖拽同一帧只有画布读数）。
+    expect(label?.suppressesLabelKeys).toEqual(['partStudio.sketch.live.radius']);
+    // 弧圆心 (0,0)、角向中点 45°→(10/√2,10/√2)；标签再沿圆心→中点外移 8px。
+    const offset = 8 * s45;
+    expect(label?.point.x).toBeCloseTo(10 * s45 + offset, 9);
+    expect(label?.point.y).toBeCloseTo(10 * s45 + offset, 9);
+  });
+
+  it('阶段 1（仅起点）：不发半径标签，保持既有引导线/长度提示', async () => {
+    installViewport();
+    const tool = new SketchArc3PointTool();
+    await tool.onPostInstall();
+    await tool.onDataButtonDown(makeEvent(0, 0));
+    await tool.onMouseMotion(makeEvent(10, 10));
+    const feedback = getSketchToolFeedback();
+    if (!feedback) throw new Error('工具未发布反馈');
+
+    expect(feedback.measures[0]?.labelKey).toBe('partStudio.sketch.live.length');
+    expect(feedback.drawLabels).toBeUndefined();
+  });
+
+  it('共线候选（弧上点与起终点共线）：无半径 → 不发标签，保持既有回退', async () => {
+    installViewport();
+    const feedback = await driveThreePointTool(
+      new SketchArc3PointTool(),
+      { u: 0, v: 0 },
+      { u: 10, v: 0 },
+      { u: 5, v: 0 },
+    );
+
+    expect(feedback.measures).toEqual([]);
+    expect(feedback.drawLabels).toBeUndefined();
   });
 });
 
