@@ -44,4 +44,24 @@ describe('computeSketchLiveMeasures', () => {
   it('样条：不上报伪尺寸（只保留阶段提示）', () => {
     expect(computeSketchLiveMeasures('spline', [{ u: 0, v: 0 }, { u: 10, v: 0 }], { u: 5, v: 5 })).toEqual([]);
   });
+
+  // 2026-11-17 W25（Onshape live）：圆心圆弧两阶段都只给半径读数——阶段 1 由
+  // 圆心→光标给出；阶段 2 由圆心→起点给出（光标只定扫角，不参与读数），
+  // live 阶段 2 不显示角度、无白卡片。
+  it('圆心圆弧阶段 1：圆心已锚，半径=圆心→光标', () => {
+    expect(computeSketchLiveMeasures('centerArc', [{ u: 10, v: 10 }], { u: 13, v: 14 })).toEqual([
+      { labelKey: 'partStudio.sketch.live.radius', value: '5' },
+    ]);
+  });
+
+  it('圆心圆弧阶段 2：半径=圆心→起点，扫角光标不改变读数（无角度 measure）', () => {
+    const anchors = [{ u: 10, v: 10 }, { u: 13, v: 14 }];
+    const startValue = computeSketchLiveMeasures('centerArc', anchors, { u: 10, v: 20 });
+    expect(startValue).toEqual([{ labelKey: 'partStudio.sketch.live.radius', value: '5' }]);
+    // 两个不同象限的扫角光标 → 同一读数（live 2026-11-17：值不变）。
+    expect(computeSketchLiveMeasures('centerArc', anchors, { u: -20, v: 10 })).toEqual(startValue);
+    // 阶段 2 live 只有 R 读数：不产角度 measure（白卡片无内容）。
+    expect(startValue.map((measure) => measure.labelKey))
+      .not.toContain('partStudio.sketch.live.angle');
+  });
 });

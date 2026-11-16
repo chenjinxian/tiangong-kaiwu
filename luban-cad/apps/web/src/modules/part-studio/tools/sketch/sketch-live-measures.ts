@@ -6,6 +6,10 @@
  * 点与当前光标点算成光标旁的即时尺寸（线长/角度、矩形宽高、圆半径、三点弧
  * 半径）。纯函数，不碰 IModelApp——工具负责把结果随光标发给覆盖层。
  *
+ * 圆心圆弧（2026-11-17 W25 Onshape live）：两阶段都只给半径读数——阶段 1
+ * （圆心已锚）半径=圆心→光标；阶段 2（圆心+起点已锚）半径=圆心→起点，光标
+ * 只定扫角、不参与读数（live 阶段 2 不显示角度，标签固定不随光标移动）。
+ *
  * 数值格式与 Onshape 输入框一致：去尾零、最多两位小数（草图单位为 mm）。
  * 样条不臆造尺寸（Onshape 只显示控制多边形），只保留阶段提示。
  */
@@ -136,13 +140,10 @@ export function computeSketchLiveMeasures(
       if (anchors.length === 1) {
         return [{ labelKey: 'partStudio.sketch.live.radius', value: formatSketchLiveNumber(length(first, cursor)) }];
       }
+      // 阶段 2（圆心+起点已锚；2026-11-17 W25 live）：半径由圆心→起点给出，
+      // 光标只定扫角、不参与读数；live 不显示角度（白卡片无内容）。
       const start = anchors[1]!;
-      const startAngle = Math.atan2(start.v - first.v, start.u - first.u);
-      const endAngle = Math.atan2(cursor.v - first.v, cursor.u - first.u);
-      let sweep = endAngle - startAngle;
-      while (sweep <= -Math.PI) sweep += Math.PI * 2;
-      while (sweep > Math.PI) sweep -= Math.PI * 2;
-      return [{ labelKey: 'partStudio.sketch.live.angle', value: `${Math.abs((sweep * 180) / Math.PI).toFixed(1)}°` }];
+      return [{ labelKey: 'partStudio.sketch.live.radius', value: formatSketchLiveNumber(length(first, start)) }];
     }
 
     case 'spline':

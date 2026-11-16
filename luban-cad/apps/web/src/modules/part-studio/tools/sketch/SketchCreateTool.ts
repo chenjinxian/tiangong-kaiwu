@@ -24,7 +24,9 @@
  *   2026-11-16 W12 同一机制扩展到直线长度（贴线读数）与中心点圆直径
  *   （`Ø` 点标签，落在圆心→光标半径段中点）；2026-11-16 W15 再扩展到
  *   三点圆弧半径（`R` 点标签，落在弧角向中点外侧）；2026-11-16 W16 多边形
- *   （内切/外切）复用圆心半径段的同一 `Ø` 点标签（边数输入不改变读数）。
+ *   （内切/外切）复用圆心半径段的同一 `Ø` 点标签（边数输入不改变读数）；
+ *   2026-11-17 W25 圆心圆弧半径（`R` 点标签，阶段 1 落在圆心→光标段中点、
+ *   阶段 2 固定落在圆心→起点段中点，扫角光标不移动标签）。
  *   提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
  * - 橡皮筋/构造线：**Dynamics 通道**（PrimitiveTool 标准预览生命周期，
  *   Tool.ts:673-680）——onDynamicFrame 同时绘制工作预览与 editor SketchTools
@@ -473,7 +475,10 @@ export abstract class SketchCreateTool extends PrimitiveTool {
    * - 中心点圆/正多边形（内切/外切）：直径点标签落在圆心→光标半径段中点
    *   （水平、`Ø` 前缀；多边形与圆共享圆心+光标半径状态）；
    * - 三点圆弧：起点/终点已锚、光标为弧上点时，`R` 半径点标签落在弧角向
-   *   中点（fraction 0.5）沿「圆心→中点」方向外移（水平、无白卡片）。
+   *   中点（fraction 0.5）沿「圆心→中点」方向外移（水平、无白卡片）；
+   * - 圆心圆弧（live 2026-11-17）：`R` 半径点标签落在圆心→半径段的投影
+   *   中点——阶段 1 半径点=光标（随光标），阶段 2 半径点=起点（固定，扫角
+   *   光标不移动标签/不改读数；live 无角度卡）。
    * 边段/点在草图局部坐标给出，经 `_plane.toWorld` + 视口 `worldToView`
    * 投影——与 `_cursorView` 同一坐标空间，不新增第二条投影路径。
    * 非上述工具（含对齐矩形/中点线）/无锚点/无光标/无尺寸/无视口 → undefined
@@ -570,6 +575,26 @@ export abstract class SketchCreateTool extends PrimitiveTool {
           projectWorld(worldArc.center),
           projectWorld(worldArc.fractionToPoint(0.5)),
         ),
+        prefix: 'R',
+      }];
+    }
+
+    if (this.sketchKind === 'centerArc') {
+      // 2026-11-17 W25 Onshape live：圆心圆弧 `R` 半径读数落在圆心→半径段的
+      // 投影中点（水平不旋转，无白卡）。阶段 2（起点已锚）半径点固定为起点
+      // ——扫角光标只改预览弧，不移动标签/不改变读数。
+      const radiusMeasure = measures[0];
+      if (radiusMeasure?.labelKey !== 'partStudio.sketch.live.radius') return undefined;
+      const radiusPoint = this._anchors[1] ?? cursor; // 阶段 2：起点；阶段 1：光标
+      const radius = Math.hypot(radiusPoint.u - anchor.u, radiusPoint.v - anchor.v);
+      if (!(radius > 1e-12)) return undefined;
+      return [{
+        kind: 'point',
+        labelKey: radiusMeasure.labelKey,
+        // 白卡片抑制配对：`R` 点标签替代圆心圆弧半径读数（live 同帧无白卡）。
+        suppressesLabelKeys: [radiusMeasure.labelKey],
+        value: radiusMeasure.value,
+        point: sketchPointLabelCenter(project(anchor), project(radiusPoint)),
         prefix: 'R',
       }];
     }

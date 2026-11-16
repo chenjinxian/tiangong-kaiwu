@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  *
  * 绘制中数值标签的纯几何（2026-11-16 E6/S5 Onshape live；W12 扩展直线与圆；
- * W15 扩展三点圆弧；W16 扩展正多边形）：
+ * W15 扩展三点圆弧；W16 扩展正多边形；W25 复用点标签中点给圆心圆弧）：
  * 矩形拖拽时宽度/高度、直线拖拽时长度的数值贴在对应边旁——边中点、沿边法线
  * 偏移 ~8px，文字随边旋转且保持正立（角度归一到 (−90°, 90°]）；中心点圆与
  * 正多边形（内切/外切）拖拽时直径落在圆心→光标半径段的中点（水平不旋转）；
@@ -126,7 +126,8 @@ export function sketchLineEdgeSegment(start: SketchEdgePoint, end: SketchEdgePoi
 
 /**
  * 点标签中心（视口坐标；W12）：两点中点。中心点圆/正多边形的直径读数落在
- * 圆心→光标的半径段中点（live：水平不旋转）。
+ * 圆心→光标的半径段中点（live：水平不旋转）；W25 圆心圆弧半径读数同样落在
+ * 圆心→半径点（阶段 1 光标 / 阶段 2 起点）的投影中点。
  */
 export function sketchPointLabelCenter(center: SketchEdgePoint, cursor: SketchEdgePoint): SketchEdgePoint {
   return { x: (center.x + cursor.x) / 2, y: (center.y + cursor.y) / 2 };

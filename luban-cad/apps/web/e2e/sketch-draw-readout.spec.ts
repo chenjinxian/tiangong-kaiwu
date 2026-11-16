@@ -8,11 +8,13 @@
  * - 三点圆弧：起点/终点已锚、光标为弧上点时 `R` 半径点标签水平落在弧角向
  *   中点外侧（半径卡被替代）；
  * - 内切多边形：与中心点圆同一圆心→光标半径状态的 `Ø` 直径点标签（半径卡
- *   被替代，输入边数不改变读数）。
+ *   被替代，输入边数不改变读数）；
+ * - 圆心圆弧（W25）：阶段 1 `R` 半径点标签落在圆心→光标段中点；阶段 2
+ *   （起点已锚）固定在圆心→起点中点、扫角光标不移动/不改值，无角度白卡。
  * 全部 Esc 退出工具、取消草图 = 不提交任何几何。
  */
 import { expect, test } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { getApiToken, openSeedImodelEditor } from './helpers.js';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import {
@@ -22,6 +24,7 @@ import {
   clickWorld,
   disableSnap,
   hoverWorld,
+  projectWorld,
   setStandardView,
 } from './tutorial2-helpers.js';
 
@@ -40,8 +43,20 @@ function rotationDeg(style: string | null): number {
   return match ? Number(match[1]) : Number.NaN;
 }
 
-test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16）', () => {
-  test('矩形宽/高、直线长度、圆/多边形 Ø 直径读数可见；Esc 退出不提交', async ({ page, request }) => {
+/** 标签可视中心（页面坐标；点标签以 `point` 为 translate(-50%,-50%) 中心）。 */
+async function labelCenter(label: Locator): Promise<{ x: number; y: number }> {
+  const box = await label.boundingBox();
+  if (!box) throw new Error('标签无包围盒');
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+/** 两投影点中点（页面坐标；与 sketchPointLabelCenter 同一中点口径）。 */
+function midpointOf(a: { x: number; y: number }, b: { x: number; y: number }): { x: number; y: number } {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16 + W25）', () => {
+  test('矩形宽/高、直线长度、圆/多边形 Ø 直径、三点弧/圆心弧 R 半径读数可见；Esc 退出不提交', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 120_000);
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
@@ -159,6 +174,53 @@ test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16）', () => {
     await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
     await page.keyboard.press('Escape');
     await expectToolExited(page, 'Sketch.Arc3Point');
+
+    // ── W25 圆心圆弧：R 半径点标签落在圆心→半径段的投影中点 ──
+    // live 2026-11-17：阶段 1（仅圆心、光标定起点）标签居中于圆心→光标段
+    // 中点；阶段 2（起点已锚）固定在圆心→起点中点，扫角光标不移动/不改值，
+    // 两阶段均无角度白卡。圆心 P(0,0)、起点 P(10,0)、扫角光标 P(10,10)。
+    const [centerScreen, startScreen] = await projectWorld(page, hub, [P(0, 0), P(10, 0)]);
+    const radiiMidpoint = midpointOf(centerScreen!, startScreen!);
+
+    await activate(page, '圆心圆弧');
+    await clickWorld(page, hub, P(0, 0));
+    await hoverWorld(page, hub, P(10, 0));
+    const centerArcLabel = page.getByTestId('sketch-draw-point-label-radius');
+    await expect(centerArcLabel, '圆心圆弧阶段 1 应有 R 半径点标签')
+      .toBeVisible({ timeout: 10_000 });
+    const stage1Text = (await centerArcLabel.textContent())?.trim() ?? '';
+    expect(stage1Text.startsWith('R'), `半径读数应以 R 开头：${stage1Text}`).toBe(true);
+    const stage1Radius = Number(stage1Text.slice('R'.length));
+    expect(Number.isFinite(stage1Radius)).toBe(true);
+    expect(stage1Radius).toBeGreaterThan(9);
+    expect(stage1Radius).toBeLessThan(11);
+    // 点标签水平不旋转（只有居中平移）。
+    expect(await centerArcLabel.getAttribute('style')).not.toContain('rotate');
+    // 标签中心 = 圆心/光标投影中点（±2 px，吸收画布/文字包围盒取整）。
+    await expect.poll(async () => {
+      const center = await labelCenter(centerArcLabel);
+      return Math.max(Math.abs(center.x - radiiMidpoint.x), Math.abs(center.y - radiiMidpoint.y));
+    }, { timeout: 10_000 }).toBeLessThanOrEqual(2);
+    // 半径读数已由 R 点标签替代 → 无白卡片；阶段提示 pill 保留。
+    await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
+    await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
+
+    // 阶段 2：落起点后扫角光标移到另一象限——标签位置/读数保持不变。
+    await clickWorld(page, hub, P(10, 0));
+    await hoverWorld(page, hub, P(10, 10));
+    await expect(centerArcLabel, '圆心圆弧阶段 2 应保留 R 半径点标签')
+      .toBeVisible({ timeout: 10_000 });
+    const stage2Text = (await centerArcLabel.textContent())?.trim() ?? '';
+    expect(stage2Text, '阶段 2 读数应固定为圆心→起点半径').toBe(stage1Text);
+    await expect.poll(async () => {
+      const center = await labelCenter(centerArcLabel);
+      return Math.max(Math.abs(center.x - radiiMidpoint.x), Math.abs(center.y - radiiMidpoint.y));
+    }, { timeout: 10_000 }).toBeLessThanOrEqual(2);
+    // 阶段 2 不显示角度：无白卡片，阶段提示 pill 保留。
+    await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
+    await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expectToolExited(page, 'Sketch.CenterArc');
 
     // ── W16 内切多边形：与中心点圆同一圆心→光标半径状态的 Ø 直径点标签 ──
     // 圆心 P(0,0)、光标 P(10,0) → 半径 10 mm；live 2026-11-16（内切多边形）

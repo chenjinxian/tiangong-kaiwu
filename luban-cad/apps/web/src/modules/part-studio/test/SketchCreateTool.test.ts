@@ -75,6 +75,7 @@ import type {
 import type { SketchPoint2 } from '../tools/sketch/sketch-plane.js';
 import {
   SketchArc3PointTool,
+  SketchCenterArcTool,
   SketchCenterCircleTool,
   SketchCenterRectangleTool,
   SketchCreateTool,
@@ -708,6 +709,110 @@ describe('W16：正多边形 Ø 直径点标签（drawLabels 发布）', () => {
 
     expect(feedback.drawLabels).toBeUndefined();
     expect(feedback.measures[0]).toEqual({ labelKey: 'partStudio.sketch.live.radius', value: '0' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-11-17 W25：圆心圆弧 `R` 半径点标签（工具发布面）
+// 阶段 1：圆心→光标半径段中点；阶段 2：圆心→起点中点（固定，扫角光标不移动
+// 标签、不改变读数——live 实测同名同值）。假视口恒等投影：1 局部单位 = 1 CSS px。
+// ---------------------------------------------------------------------------
+describe('W25：圆心圆弧 R 半径点标签（drawLabels 发布）', () => {
+  afterEach(() => {
+    clearSketchToolFeedback();
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = undefined;
+  });
+
+  const installViewport = (): void => {
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = fakeViewport;
+  };
+
+  it('阶段 1（仅圆心）：R 标签复用半径 measure，落在圆心→光标半径段中点', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchCenterArcTool(),
+      { u: 10, v: 10 },
+      { u: 13, v: 14 },
+    );
+
+    // 半径 measure 原样保留（其它消费方/白卡片回退不变）。
+    expect(feedback.measures).toEqual([
+      { labelKey: 'partStudio.sketch.live.radius', value: '5' },
+    ]);
+    const label = feedback.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(label?.kind).toBe('point');
+    expect(label?.labelKey).toBe('partStudio.sketch.live.radius');
+    expect(label?.prefix).toBe('R');
+    expect(label?.value).toBe(feedback.measures[0]?.value);
+    expect(label?.value).toBe('5');
+    // 半径卡由同一 R 标签替代（live：拖拽同一帧只有画布读数）。
+    expect(label?.suppressesLabelKeys).toEqual(['partStudio.sketch.live.radius']);
+    expect(label?.point).toEqual({ x: 11.5, y: 12 });
+  });
+
+  it('阶段 2（圆心+起点已锚）：标签固定在圆心→起点中点，扫角光标不移动/不改值，无角度卡', async () => {
+    installViewport();
+    const tool = new SketchCenterArcTool();
+    await tool.onPostInstall();
+    await tool.onDataButtonDown(makeEvent(10, 10));
+    await tool.onDataButtonDown(makeEvent(13, 14));
+    await tool.onMouseMotion(makeEvent(10, 40));
+    const first = getSketchToolFeedback();
+    if (!first) throw new Error('工具未发布反馈');
+
+    // 阶段 2 live 只有半径读数（半径=圆心→起点 5），无角度 measure。
+    expect(first.measures).toEqual([
+      { labelKey: 'partStudio.sketch.live.radius', value: '5' },
+    ]);
+    const firstLabel = first.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(firstLabel?.kind).toBe('point');
+    expect(firstLabel?.prefix).toBe('R');
+    expect(firstLabel?.value).toBe('5');
+    expect(firstLabel?.suppressesLabelKeys).toEqual(['partStudio.sketch.live.radius']);
+    expect(firstLabel?.point).toEqual({ x: 11.5, y: 12 });
+
+    // 扫角光标换到另一象限：标签仍在圆心→起点中点、读数不变（不跟随光标）。
+    await tool.onMouseMotion(makeEvent(-40, 10));
+    const second = getSketchToolFeedback();
+    if (!second) throw new Error('工具未发布反馈');
+    expect(second.measures).toEqual(first.measures);
+    const secondLabel = second.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(secondLabel?.point).toEqual({ x: 11.5, y: 12 });
+    expect(secondLabel?.value).toBe('5');
+  });
+
+  it('退化：零半径（起点/光标回到圆心）不发标签，半径白卡片回退', async () => {
+    installViewport();
+    const stage1 = await driveCreateTool(
+      new SketchCenterArcTool(),
+      { u: 10, v: 10 },
+      { u: 10, v: 10 },
+    );
+    expect(stage1.drawLabels).toBeUndefined();
+    expect(stage1.measures[0]).toEqual({ labelKey: 'partStudio.sketch.live.radius', value: '0' });
+
+    clearSketchToolFeedback();
+    const stage2 = await driveThreePointTool(
+      new SketchCenterArcTool(),
+      { u: 10, v: 10 },
+      { u: 10, v: 10 },
+      { u: 20, v: 10 },
+    );
+    expect(stage2.drawLabels).toBeUndefined();
+    expect(stage2.measures[0]).toEqual({ labelKey: 'partStudio.sketch.live.radius', value: '0' });
+  });
+
+  it('无视口：不回退到点标签（交给白卡片），不抛错', async () => {
+    const feedback = await driveThreePointTool(
+      new SketchCenterArcTool(),
+      { u: 10, v: 10 },
+      { u: 13, v: 14 },
+      { u: 10, v: 40 },
+    );
+
+    expect(feedback.drawLabels).toBeUndefined();
+    expect(feedback.measures[0]?.labelKey).toBe('partStudio.sketch.live.radius');
+    expect(feedback.measures[0]?.value).toBe('5');
   });
 });
 
