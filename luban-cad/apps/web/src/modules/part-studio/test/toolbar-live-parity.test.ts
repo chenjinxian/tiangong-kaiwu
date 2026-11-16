@@ -64,6 +64,30 @@ function sketchMenu(tool: SketchRibbonTool): MenuRowSpec[] {
   ];
 }
 
+interface MenuRowTipSpec {
+  label: string;
+  tooltip: string;
+}
+
+/** 飞菜单行 tooltip（W23 live 2026-11-17）：行 label=menuLabelKey??labelKey；tooltip=tooltipKey??labelKey；带快捷键追加 ` (key)`。 */
+function sketchRowTips(tool: SketchRibbonTool): MenuRowTipSpec[] {
+  const row = (labelKey: string, tooltipKey: string, shortcut: string | undefined): MenuRowTipSpec => ({
+    label: zh(labelKey),
+    tooltip: zh(tooltipKey) + (shortcut ? ` (${shortcut})` : ''),
+  });
+  return [
+    row(tool.menuLabelKey ?? tool.labelKey, tool.tooltipKey ?? tool.labelKey, tool.shortcut),
+    ...(tool.dropdownItems ?? []).map((item) => row(item.labelKey, item.tooltipKey ?? item.labelKey, item.shortcut)),
+  ];
+}
+
+function sketchToolById(id: string): SketchRibbonTool {
+  const tool = SKETCH_RIBBON_TOOLS.find((entry) => entry.id === id);
+  if (!tool)
+    throw new Error(`缺少草图工具 ${id}`);
+  return tool;
+}
+
 describe('特征工具栏（live 2026-11-13 27 钮）', () => {
   it('主钮可见文案与 live 逐字一致', () => {
     expect(RIBBON_TOOLS.map((tool) => zh(tool.labelKey))).toEqual([
@@ -179,5 +203,32 @@ describe('草图工具栏（live 2026-11-13 20 钮）', () => {
         { label: '草图流' },
       ],
     });
+  });
+
+  it('飞菜单行 tooltip 与 live 一致（2026-11-17：相切弧/三点圆/草图倒角/流 四处差异）', () => {
+    expect(sketchRowTips(sketchToolById('Sketch.Arc3Point'))).toEqual([
+      { label: '3 点圆弧', tooltip: '三点圆弧 (a)' },
+      { label: '相切圆弧', tooltip: '相切弧' },
+      { label: '圆心圆弧', tooltip: '圆心圆弧' },
+      { label: '椭圆弧', tooltip: '椭圆弧' },
+      { label: '圆锥', tooltip: '圆锥' },
+    ]);
+    expect(sketchRowTips(sketchToolById('Sketch.CenterCircle'))).toEqual([
+      { label: '中心点圆', tooltip: '中心点圆 (c)' },
+      { label: '3 点圆', tooltip: '三点圆' },
+      { label: '椭圆', tooltip: '椭圆' },
+    ]);
+    expect(sketchRowTips(sketchToolById('sketchFillet'))).toEqual([
+      { label: '圆角', tooltip: '草图圆角 (shift+f)' },
+      { label: '倒角', tooltip: '草图倒角' },
+    ]);
+    const constraints = sketchRowTips(sketchToolById('Sketch.Constraint.Coincident'));
+    expect(constraints).toContainEqual({ label: '草图流', tooltip: '流' });
+    expect(constraints).toContainEqual({ label: '平行', tooltip: '平行 (b)' });
+    expect(sketchRowTips(sketchToolById('Sketch.Rectangle'))).toContainEqual({
+      label: '中心点矩形',
+      tooltip: '中心点矩形 (r)',
+    });
+    expect(sketchRowTips(sketchToolById('sketchTrim'))).toContainEqual({ label: '延伸', tooltip: '延伸 (x)' });
   });
 });

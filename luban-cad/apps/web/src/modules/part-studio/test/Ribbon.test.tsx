@@ -332,6 +332,113 @@ describe('ADR-0017 追补：草图对话框即切换草图工具栏', () => {
   });
 });
 
+describe('W23 草图变体群组：主钮=最近使用变体（live 2026-11-17）', () => {
+  /** 进入草图编辑（工具栏切换为草图组；变体状态为 Ribbon 本地 state）。 */
+  function enterSketchMode(): void {
+    act(() => usePartStudioStore.getState().enterSketch('sk-1'));
+  }
+
+  function button(name: string): HTMLButtonElement {
+    return screen.getByRole('button', { name }) as HTMLButtonElement;
+  }
+
+  /** 打开圆弧飞菜单并选「圆心圆弧」。 */
+  async function pickCenterArc(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    await user.click(button('三点圆弧 ▾'));
+    await user.click(screen.getByRole('menuitem', { name: '圆心圆弧' }));
+  }
+
+  it('飞菜单选圆心圆弧 → 主钮切换为该变体；点主钮再跑同一变体', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    enterSketchMode();
+    await pickCenterArc(user);
+    expect(mocks.toolsRun).toHaveBeenCalledWith('Sketch.CenterArc');
+    const main = button('圆心圆弧');
+    expect(main.getAttribute('aria-label')).toBe('圆心圆弧');
+    expect(main.getAttribute('title')).toBe('圆心圆弧');
+    // 激活态跟随当前展示变体：圆弧组主钮压按（activeToolId === selectedId），
+    // 未激活的矩形组主钮不压按。
+    expect(main.getAttribute('aria-pressed')).toBe('true');
+    expect(button('拐角矩形').getAttribute('aria-pressed')).toBe('false');
+    mocks.toolsRun.mockClear();
+    await user.click(main);
+    expect(mocks.toolsRun).toHaveBeenCalledWith('Sketch.CenterArc');
+  });
+
+  it('回选 3 点圆弧（父行）→ 主钮恢复组主工具 title 三点圆弧 (a)；主钮激活 Sketch.Arc3Point', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    enterSketchMode();
+    await pickCenterArc(user);
+    await user.click(button('三点圆弧 ▾'));
+    await user.click(screen.getByTestId('part-studio-ribbon-menu-row-Sketch.Arc3Point'));
+    const main = button('三点圆弧');
+    expect(main.getAttribute('aria-label')).toBe('三点圆弧');
+    expect(main.getAttribute('title')).toBe('三点圆弧 (a)');
+    mocks.toolsRun.mockClear();
+    await user.click(main);
+    expect(mocks.toolsRun).toHaveBeenCalledWith('Sketch.Arc3Point');
+  });
+
+  it('中心点矩形选中 → 矩形组主钮 title 中心点矩形 (r)', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    enterSketchMode();
+    await user.click(button('拐角矩形 ▾'));
+    await user.click(screen.getByTestId('part-studio-ribbon-menu-row-Sketch.CenterRectangle'));
+    expect(mocks.toolsRun).toHaveBeenCalledWith('Sketch.CenterRectangle');
+    const main = button('中心点矩形');
+    expect(main.getAttribute('aria-label')).toBe('中心点矩形');
+    expect(main.getAttribute('title')).toBe('中心点矩形 (r)');
+  });
+
+  it('工具空闲/Escape 不还原变体；退出再进入草图仍保持（会话内状态）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    enterSketchMode();
+    await pickCenterArc(user);
+    act(() => usePartStudioStore.getState().setActiveTool(null));
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Escape' });
+    });
+    expect(button('圆心圆弧').getAttribute('title')).toBe('圆心圆弧');
+    act(() => usePartStudioStore.getState().exitSketch());
+    expect(screen.getByRole('toolbar', { name: '特征工具' })).toBeDefined();
+    enterSketchMode();
+    expect(button('圆心圆弧').getAttribute('title')).toBe('圆心圆弧');
+  });
+
+  it('快捷键 a 经快捷路径记录变体：组主钮回到 3 点圆弧并激活 Sketch.Arc3Point', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    enterSketchMode();
+    await pickCenterArc(user);
+    mocks.toolsRun.mockClear();
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'a' });
+    });
+    expect(mocks.toolsRun).toHaveBeenCalledWith('Sketch.Arc3Point');
+    const main = button('三点圆弧');
+    expect(main.getAttribute('title')).toBe('三点圆弧 (a)');
+  });
+
+  it('飞菜单行 title 携带 live tooltip（相切弧/三点圆弧 (a)/草图倒角）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    enterSketchMode();
+    await user.click(button('三点圆弧 ▾'));
+    expect(screen.getByRole('menuitem', { name: '相切圆弧' }).getAttribute('title')).toBe('相切弧');
+    expect(
+      screen.getByTestId('part-studio-ribbon-menu-row-Sketch.Arc3Point').getAttribute('title'),
+    ).toBe('三点圆弧 (a)');
+    // 选行收合圆弧菜单后打开圆角飞菜单。
+    await user.click(screen.getByRole('menuitem', { name: '圆心圆弧' }));
+    await user.click(button('草图圆角 ▾'));
+    expect(screen.getByRole('menuitem', { name: '倒角' }).getAttribute('title')).toBe('草图倒角');
+  });
+});
+
 describe('工具快捷键（Onshape 口径，主钮 shortcut 元数据可执行）', () => {
   it('shift+s → 草图对话框；shift+e → 拉伸对话框（同一 activate 路由）', async () => {
     render(<Ribbon />);

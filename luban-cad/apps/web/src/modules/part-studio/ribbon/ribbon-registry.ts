@@ -60,6 +60,12 @@ export interface RibbonDropdownItem {
   icon: RibbonIcon;
   /** i18n 键（partStudio.ribbon.items.*.label）。 */
   labelKey: string;
+  /**
+   * 行/主钮 tooltip 文案键（缺省 labelKey；live 2026-11-17：草图飞菜单四处
+   * 变体的 tooltip 与行文案不同——相切圆弧→相切弧、3 点圆→三点圆、
+   * 倒角→草图倒角、草图流→流）。
+   */
+  tooltipKey?: string;
   /** 能力键（internal/capabilities 注册表寻址）。 */
   capability: string;
   /** 快捷键（live 飞菜单右对齐 keycap；2026-11-13 对拍）。 */

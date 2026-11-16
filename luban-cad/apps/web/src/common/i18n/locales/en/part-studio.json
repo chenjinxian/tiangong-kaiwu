@@ -615,13 +615,15 @@
         "label": "Aligned rectangle"
       },
       "circlePerimeter": {
-        "label": "3 point circle"
+        "label": "3 point circle",
+        "tooltip": "3 point circle"
       },
       "arcCenter": {
         "label": "Center point arc"
       },
       "arcTangent": {
-        "label": "Tangent arc"
+        "label": "Tangent arc",
+        "tooltip": "Tangent arc"
       },
       "polygonCircumscribed": {
         "label": "Circumscribed polygon"
@@ -654,7 +656,8 @@
         "label": "Slot"
       },
       "chamfer": {
-        "label": "Chamfer"
+        "label": "Chamfer",
+        "tooltip": "Sketch chamfer"
       },
       "insertImage": {
         "label": "Insert image"
@@ -687,7 +690,8 @@
         "label": "Curvature"
       },
       "sketchFlow": {
-        "label": "Sketch flow"
+        "label": "Sketch flow",
+        "tooltip": "Flow"
       }
     },
     "undoShortcut": "cmd+z/ctrl+z",

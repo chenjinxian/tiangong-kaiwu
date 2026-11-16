@@ -24,7 +24,7 @@ export interface RibbonDropdownProps {
   tool: RibbonTool;
   /** 主钮/子项激活路由（useToolActivation.activate）。 */
   onActivate: (id: string) => void;
-  /** 主钮激活态（store tool.activeToolId === tool.id）。 */
+  /** 主钮激活态（store tool.activeToolId === 当前展示的变体 id）。 */
   active: boolean;
   /** 命令搜索亮显（palette 查询命中，os-23「亮显工具栏中的工具」）。 */
   highlighted: boolean;
@@ -32,12 +32,22 @@ export interface RibbonDropdownProps {
   disabled?: boolean;
   /** 只读态（P2.4 F11）：子项按各自 capability 裁决——gated 子项仍可打开能力引导。 */
   readOnly?: boolean;
+  /**
+   * 变体群组最近使用变体（W23，live 2026-11-17）：组主工具 id 或飞菜单子项 id。
+   * 缺省（特征工具栏）→ 主钮保持固定主工具文案/图标/标题，行为不变；仅草图
+   * 模式传入。值为子项时主钮展示该变体（图标/aria-label/title），主钮点击激活它。
+   */
+  selectedId?: string;
+  /** 变体群组行激活上报（含父行）：选中行后主钮保持该变体（closeMenu 后回调）。 */
+  onSelect?: (id: string) => void;
 }
 
 interface MenuRow {
   key: string;
   id: string;
   label: string;
+  /** 行/主钮 tooltip（live 2026-11-17：与行文案不同的变体由 tooltipKey 承载）。 */
+  tooltip: string;
   icon: React.ReactNode;
   shortcut?: string;
   disabled: boolean;
@@ -62,6 +72,8 @@ export function RibbonDropdown({
   highlighted,
   disabled = false,
   readOnly = false,
+  selectedId,
+  onSelect,
 }: RibbonDropdownProps): React.JSX.Element {
   const { t } = useTranslation();
   const label = t(tool.labelKey);
@@ -89,6 +101,7 @@ export function RibbonDropdown({
       key: `parent-${tool.id}`,
       id: tool.id,
       label: menuLabel,
+      tooltip: mainTitle,
       icon: mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />,
       ...(tool.shortcut ? { shortcut: tool.shortcut } : {}),
       disabled,
@@ -101,6 +114,7 @@ export function RibbonDropdown({
         key: item.id,
         id: item.id,
         label: t(item.labelKey),
+        tooltip: t(item.tooltipKey ?? item.labelKey),
         icon: itemOnshapeIcon ? <OnshapeIcon name={itemOnshapeIcon} size={20} /> : <ItemIcon />,
         ...(item.shortcut ? { shortcut: item.shortcut } : {}),
         disabled: readOnly && !isGated(item.capability),
@@ -108,7 +122,20 @@ export function RibbonDropdown({
       };
     });
     return [parentRow, ...children];
-  }, [tool, menuLabel, mainOnshapeIcon, MainIcon, disabled, readOnly, t]);
+  }, [tool, menuLabel, mainTitle, mainOnshapeIcon, MainIcon, disabled, readOnly, t]);
+
+  /**
+   * W23（live 2026-11-17）：草图变体群组主钮 = 最近使用变体。父行选中/未传
+   * `selectedId`（特征工具栏）→ 保持固定主工具文案/图标/标题；子行选中 →
+   * 主钮改用该行 tooltip/图标，点击激活该变体。
+   */
+  const selectedRow: MenuRow = (selectedId !== undefined
+    ? rows.find((row) => row.id === selectedId)
+    : undefined) ?? rows[0]!;
+  const mainAriaLabel = selectedRow.parent ? label : selectedRow.tooltip;
+  const mainTitleText = selectedRow.parent
+    ? (tool.shortcut ? `${mainTitle} (${tool.shortcut})` : mainTitle)
+    : (selectedRow.shortcut ? `${selectedRow.tooltip} (${selectedRow.shortcut})` : selectedRow.tooltip);
 
   const placeMenu = React.useCallback((): void => {
     const rect = groupRef.current?.getBoundingClientRect();
@@ -174,6 +201,7 @@ export function RibbonDropdown({
     // 箭头，Enter 的默认 click 会在提交后重新展开飞菜单并挡住后续对话框确认
     // （2026-11-09 多边形真栈实测）。
     closeMenu();
+    onSelect?.(row.id);
     onActivate(row.id);
   };
 
@@ -189,17 +217,17 @@ export function RibbonDropdown({
       className="part-studio-ribbon__dropdown"
       data-testid={`part-studio-ribbon-dropdown-${tool.id}`}
     >
-      {/* 主钮：激活父命令（Onshape 默认变体语义）。 */}
+      {/* 主钮：激活当前展示的变体（缺省=组主工具；特征工具栏行为不变）。 */}
       <button
         type="button"
-        aria-label={label}
-        title={tool.shortcut ? `${mainTitle} (${tool.shortcut})` : mainTitle}
+        aria-label={mainAriaLabel}
+        title={mainTitleText}
         aria-pressed={active}
         className={toolClass}
         disabled={disabled}
-        onClick={(event) => { event.currentTarget.blur(); onActivate(tool.id); }}
+        onClick={(event) => { event.currentTarget.blur(); onActivate(selectedRow.id); }}
       >
-        {mainOnshapeIcon ? <OnshapeIcon name={mainOnshapeIcon} size={20} /> : <MainIcon />}
+        {selectedRow.icon}
       </button>
       {/* 只读态（readOnly）且菜单含 gated 子项时箭头仍可点：子项按各自
           capability 裁决（P2.4 F11）；其余禁用态与主钮同步禁用。 */}
@@ -237,6 +265,7 @@ export function RibbonDropdown({
                 row.parent ? 'part-studio-ribbon__menu-row--parent' : '',
               ].filter(Boolean).join(' ')}
               data-testid={`part-studio-ribbon-menu-row-${row.id}`}
+              title={row.shortcut ? `${row.tooltip} (${row.shortcut})` : row.tooltip}
               onClick={() => activate(row)}
             >
               <span className="part-studio-ribbon__menu-icon" aria-hidden="true">{row.icon}</span>

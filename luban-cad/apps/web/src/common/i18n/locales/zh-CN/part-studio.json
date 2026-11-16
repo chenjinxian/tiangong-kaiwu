@@ -615,13 +615,15 @@
         "label": "对齐矩形"
       },
       "circlePerimeter": {
-        "label": "3 点圆"
+        "label": "3 点圆",
+        "tooltip": "三点圆"
       },
       "arcCenter": {
         "label": "圆心圆弧"
       },
       "arcTangent": {
-        "label": "相切圆弧"
+        "label": "相切圆弧",
+        "tooltip": "相切弧"
       },
       "polygonCircumscribed": {
         "label": "外接多边形"
@@ -654,7 +656,8 @@
         "label": "槽"
       },
       "chamfer": {
-        "label": "倒角"
+        "label": "倒角",
+        "tooltip": "草图倒角"
       },
       "insertImage": {
         "label": "插入图像"
@@ -687,7 +690,8 @@
         "label": "曲率"
       },
       "sketchFlow": {
-        "label": "草图流"
+        "label": "草图流",
+        "tooltip": "流"
       }
     },
     "undoShortcut": "cmd+z/ctrl+z",

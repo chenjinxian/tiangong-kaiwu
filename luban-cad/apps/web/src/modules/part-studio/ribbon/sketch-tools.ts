@@ -11,8 +11,11 @@
  *   固定/曲率/草图流）。
  * 主钮 tooltip 与飞菜单父行文案在 live 中有四处不同：三点圆弧/3 点圆弧、
  * 草图圆角/圆角、内接多边形/内切多边形、使用（投影/转换）/使用——用
- * `menuLabelKey` 分别承载。快捷键逐字对齐（l/g/c/a/shift+s/u/q/shift+f/m/o/d/i
- * + 约束与变体 keycap）。
+ * `menuLabelKey` 分别承载。另有四处变体行 tooltip 与行文案不同（2026-11-17
+ * live：相切圆弧→相切弧、3 点圆→三点圆、倒角→草图倒角、草图流→流），用
+ * `tooltipKey` 承载。快捷键逐字对齐（l/g/c/a/shift+s/u/q/shift+f/m/o/d/i
+ * + 约束与变体 keycap）。W23 起飞菜单=变体群组，主钮保持最近使用变体
+ * （群组映射见 `sketchToolGroupFor`；会话内状态在 Ribbon）。
  *
  * 已实现工具沿用既有真 toolId（Sketch.Line/Rectangle/CenterCircle/Arc3Point/
  * Spline、Offset、Constraint 家族、Dimension 家族）；未实现的 live 项登记
@@ -36,6 +39,8 @@ export interface SketchRibbonTool {
   icon: RibbonIcon;
   /** i18n 键（partStudio.ribbon.sketchTools.*.label）。 */
   labelKey: string;
+  /** 主钮 tooltip 文案键（缺省 labelKey；与 RibbonTool.tooltipKey 同口径）。 */
+  tooltipKey?: string;
   /** 飞菜单父行文案键（缺省 labelKey；live 里圆弧/圆角/多边形/使用四项不同）。 */
   menuLabelKey?: string;
   /** 快捷键（live 2026-11-13：l/g/c/a/shift+s/u/q/shift+f/m/o/d/i）。 */
@@ -65,7 +70,8 @@ const menuItem = (
   labelKey: string,
   capability = 'sketch',
   shortcut?: string,
-): RibbonDropdownItem => ({ id, icon: fallbackIcon, labelKey, capability, shortcut });
+  tooltipKey?: string,
+): RibbonDropdownItem => ({ id, icon: fallbackIcon, labelKey, capability, shortcut, tooltipKey });
 
 /** Onshape 草图组渲染顺序。 */
 export const SKETCH_TOOL_GROUP_ORDER: readonly SketchRibbonGroup[] = [
@@ -101,11 +107,13 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
     menuItem('Sketch.AlignedRectangle', 'partStudio.ribbon.sketchTools.rectangleAligned.label'),
   ], 'g'),
   tool('Sketch.CenterCircle', 'partStudio.ribbon.sketchTools.circle.label', 'sketchDraw', 'sketch', [
-    menuItem('Sketch.PerimeterCircle', 'partStudio.ribbon.sketchTools.circlePerimeter.label'),
+    menuItem('Sketch.PerimeterCircle', 'partStudio.ribbon.sketchTools.circlePerimeter.label', 'sketch',
+      undefined, 'partStudio.ribbon.sketchTools.circlePerimeter.tooltip'),
     menuItem('sketchEllipse', 'partStudio.ribbon.sketchTools.ellipse.label', 'sketchEllipse'),
   ], 'c'),
   tool('Sketch.Arc3Point', 'partStudio.ribbon.sketchTools.arc.label', 'sketchDraw', 'sketch', [
-    menuItem('Sketch.TangentArc', 'partStudio.ribbon.sketchTools.arcTangent.label'),
+    menuItem('Sketch.TangentArc', 'partStudio.ribbon.sketchTools.arcTangent.label', 'sketch',
+      undefined, 'partStudio.ribbon.sketchTools.arcTangent.tooltip'),
     menuItem('Sketch.CenterArc', 'partStudio.ribbon.sketchTools.arcCenter.label'),
     menuItem('sketchEllipseArc', 'partStudio.ribbon.sketchTools.ellipseArc.label', 'sketchEllipseArc'),
     menuItem('Sketch.Conic', 'partStudio.ribbon.sketchTools.conic.label', 'sketchConic'),
@@ -126,7 +134,8 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
 
   // 编辑组（6 钮）
   tool('sketchFillet', 'partStudio.ribbon.sketchTools.fillet.label', 'sketchEdit', 'sketch', [
-    menuItem('sketchChamfer', 'partStudio.ribbon.sketchTools.chamfer.label', 'sketchChamfer'),
+    menuItem('sketchChamfer', 'partStudio.ribbon.sketchTools.chamfer.label', 'sketchChamfer',
+      undefined, 'partStudio.ribbon.sketchTools.chamfer.tooltip'),
   ], 'shift+f', 'partStudio.ribbon.sketchTools.filletMenu.label'),
   tool('sketchTrim', 'partStudio.ribbon.sketchTools.trim.label', 'sketchEdit', 'sketch', [
     menuItem('sketchExtend', 'partStudio.ribbon.sketchTools.extend.label', 'sketch', 'x'),
@@ -162,6 +171,24 @@ export const SKETCH_RIBBON_TOOLS: readonly SketchRibbonTool[] = [
     menuItem('Sketch.Constraint.Symmetric', 'partStudio.ribbon.sketchTools.symmetric.label', 'sketchSymmetric', 'shift+q'),
     menuItem('Sketch.Constraint.Fixed', 'partStudio.ribbon.sketchTools.fixed.label', 'sketch', 'shift+j'),
     menuItem('Sketch.Constraint.Curvature', 'partStudio.ribbon.sketchTools.curvature.label', 'sketchCurvature', 'shift+u'),
-    menuItem('sketchFlow', 'partStudio.ribbon.sketchTools.sketchFlow.label', 'sketchFlow'),
+    menuItem('sketchFlow', 'partStudio.ribbon.sketchTools.sketchFlow.label', 'sketchFlow',
+      undefined, 'partStudio.ribbon.sketchTools.sketchFlow.tooltip'),
   ], 'i'),
 ];
+
+/**
+ * 命令 id → 所属变体群组主工具 id（W23，live 2026-11-17）：组主工具映射到自身，
+ * 飞菜单子项映射到其组主工具。Ribbon 快捷键处理器用它把快捷激活也记成
+ * 「最近使用变体」，主钮随之切换。
+ */
+const SKETCH_TOOL_GROUP_FOR: ReadonlyMap<string, string> = new Map(
+  SKETCH_RIBBON_TOOLS.flatMap((tool) => [
+    [tool.id, tool.id] as const,
+    ...(tool.dropdownItems ?? []).map((item) => [item.id, tool.id] as const),
+  ]),
+);
+
+/** 查询命令所属草图变体群组（主工具/子项 → 组主工具 id；未知命令 undefined）。 */
+export function sketchToolGroupFor(id: string): string | undefined {
+  return SKETCH_TOOL_GROUP_FOR.get(id);
+}

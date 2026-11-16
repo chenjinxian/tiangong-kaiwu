@@ -44,7 +44,12 @@ import {
   onshapeIconFor,
 } from './ribbon-registry.js';
 import type { RibbonIcon, RibbonTool } from './ribbon-registry.js';
-import { SKETCH_PLACEHOLDER_IDS, SKETCH_TOOL_GROUP_ORDER, SKETCH_RIBBON_TOOLS } from './sketch-tools.js';
+import {
+  SKETCH_PLACEHOLDER_IDS,
+  SKETCH_RIBBON_TOOLS,
+  SKETCH_TOOL_GROUP_ORDER,
+  sketchToolGroupFor,
+} from './sketch-tools.js';
 import type { SketchRibbonTool } from './sketch-tools.js';
 import { RibbonDropdown } from './RibbonDropdown.js';
 
@@ -575,6 +580,16 @@ export function Ribbon({
   const sketchToolbarVisible = sketchActive || sketchDialogActive;
   const sketchToolsDisabled = !canEdit || !sketchActive;
   const constructionMode = usePartStudioStore((s) => Boolean(s.sketch.constructionMode));
+  /**
+   * W23（live 2026-11-17）：草图飞菜单=变体群组，主钮展示「最近使用变体」——
+   * 选行/快捷键激活后主钮标签/图标/tooltip 切到该变体，工具退出（Escape）
+   * 与退出/重进草图均保持。仅会话内 React state（不持久化，刷新回默认）；
+   * key = 组主工具 id，value = 最近使用命令 id。特征工具栏不消费该状态。
+   */
+  const [variantSelections, setVariantSelections] = React.useState<Record<string, string>>({});
+  const selectSketchVariant = React.useCallback((groupId: string, id: string): void => {
+    setVariantSelections((prev) => (prev[groupId] === id ? prev : { ...prev, [groupId]: id }));
+  }, []);
 
   // 工具快捷键（Onshape：shift+s 草图 / shift+e 拉伸 / shift+w 旋转 /
   // shift+f 圆角）——与 ribbon 主钮同一条 activate 路由；输入框/可编辑焦点
@@ -608,12 +623,19 @@ export function Ribbon({
       }
       event.preventDefault();
       event.stopPropagation();
+      // W23：草图快捷键激活也记录最近使用变体（主钮随快捷键切换）。只读态不
+      // 记录（工具栏不可编辑时快捷键不改变主钮展示；飞菜单行由 row.disabled 拦截）。
+      if (sketchActive && canEdit) {
+        const groupId = sketchToolGroupFor(commandId);
+        if (groupId !== undefined)
+          selectSketchVariant(groupId, commandId);
+      }
       void activate(commandId);
     };
     // 捕获阶段：工具（Line/Trim…）会吞按键；Onshape 快捷键在工具激活时仍生效。
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [activate, sketchActive, canUndo, canRedo, onUndo, onRedo]);
+  }, [activate, sketchActive, canEdit, canUndo, canRedo, onUndo, onRedo, selectSketchVariant]);
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {
@@ -651,39 +673,40 @@ export function Ribbon({
                 role="group"
                 aria-label={t(`partStudio.ribbon.sketchGroups.${group}`)}
               >
-                {tools.map((sketchTool: SketchRibbonTool) => (
-                  sketchTool.dropdownItems ? (
+                {tools.map((sketchTool: SketchRibbonTool) => {
+                  // W23：组主钮展示「最近使用变体」（无飞菜单的工具保持固定 id）。
+                  const selectedId = sketchTool.dropdownItems
+                    ? variantSelections[sketchTool.id] ?? sketchTool.id
+                    : sketchTool.id;
+                  const active = sketchTool.id === 'sketchConstruction'
+                    ? constructionMode
+                    : sketchTool.id === 'sketchLinearPattern'
+                      ? sketchPatternKind !== null && sketchPatternKind !== 'use'
+                      : sketchTool.id === 'sketchUse'
+                        ? sketchPatternKind === 'use'
+                        : activeToolId === selectedId;
+                  return sketchTool.dropdownItems ? (
                     <RibbonDropdown
                       key={sketchTool.id}
                       tool={sketchTool as unknown as RibbonTool}
                       onActivate={activate}
-                      active={sketchTool.id === 'sketchConstruction'
-                        ? constructionMode
-                        : sketchTool.id === 'sketchLinearPattern'
-                          ? sketchPatternKind !== null && sketchPatternKind !== 'use'
-                          : sketchTool.id === 'sketchUse'
-                            ? sketchPatternKind === 'use'
-                            : activeToolId === sketchTool.id}
+                      active={active}
                       highlighted={false}
                       disabled={sketchToolsDisabled}
+                      selectedId={selectedId}
+                      onSelect={(id) => selectSketchVariant(sketchTool.id, id)}
                     />
                   ) : (
                     <RibbonToolButton
                       key={sketchTool.id}
                       tool={sketchTool}
                       onActivate={activate}
-                      active={sketchTool.id === 'sketchConstruction'
-                        ? constructionMode
-                        : sketchTool.id === 'sketchLinearPattern'
-                          ? sketchPatternKind !== null && sketchPatternKind !== 'use'
-                          : sketchTool.id === 'sketchUse'
-                            ? sketchPatternKind === 'use'
-                            : activeToolId === sketchTool.id}
+                      active={active}
                       highlighted={false}
                       disabled={sketchToolsDisabled}
                     />
-                  )
-                ))}
+                  );
+                })}
               </div>
             );
           })}
