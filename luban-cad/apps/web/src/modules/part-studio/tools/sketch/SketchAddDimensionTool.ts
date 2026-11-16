@@ -48,7 +48,9 @@ export interface DimensionPickVerdict {
  * 槽位形状表（SolverTypes 冻结契约）：
  * - distance：2 个 point/line 组合（point+point / point+line / line+line）；
  * - radius：1 个 circle/arc；
- * - length：1 条 line。
+ * - length：1 条 line；
+ * - angle：2 条 line（W22 单尺寸工具通道；本旧槽位工具族不注册 angle 子类，
+ *   条目只为 `Record<SketchDimensionKind, …>` 的穷尽性）。
  * value 不在工具侧——面板收值提交。
  */
 export type DimensionPickKind = 'point' | 'line' | 'circle' | 'arc';
@@ -57,6 +59,7 @@ export const DIMENSION_SLOTS: Record<SketchDimensionKind, { kinds: readonly Dime
   radius: { kinds: ['circle', 'arc'], count: 1 },
   diameter: { kinds: ['circle', 'arc'], count: 1 },
   length: { kinds: ['line'], count: 1 },
+  angle: { kinds: ['line'], count: 2 },
 };
 
 /** 槽位接收判定（纯函数，测试直击）。 */

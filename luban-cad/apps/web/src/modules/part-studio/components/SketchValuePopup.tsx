@@ -14,6 +14,11 @@
  * `sketchSystem.applyConstraintValue(id, value)`（与双击内联编辑器同一路径）
  * 原地改值；拒收保留对话框与错误，取消不变，`dimensionPopupClosed` 契约不变。
  *
+ * W22（2026-11-16 live）：角度候选（两条非平行线）输入/预填为**度**，确认时
+ * 经 `parseConstraintEditorValue('angle', text)` 换算为契约弧度再提交；既有
+ * angle 约束同样按度预填、按弧度调 `applyConstraintValue`（W21 遗留的单位
+ * 换算缺口在本波关闭）。长度类仍原样提交毫米。
+ *
  * 2026-11-16 W17b（live 对拍）：live 的放置弹层与双击编辑器是同一个
  * `dimension-dialog`。尺寸分支改用共享外壳 `SketchDimensionDialog`（209×47：
  * 拖拽条 + 禁用展开器 + 输入 + 禁用参数状态切换 + 按钮组；仅拖拽条可拖，
@@ -28,7 +33,10 @@ import type { SketchConstraintDto } from '@luban-cad/shared';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { nextConstraintId } from '../tools/sketch/sketch-constraint-logic.js';
-import { formatDimensionPopupValue } from '../internal/sketch-dimension-value.js';
+import {
+  formatDimensionPopupValue,
+  parseConstraintEditorValue,
+} from '../internal/sketch-dimension-value.js';
 import {
   sketchToolEvents,
   type SketchDimensionCandidate,
@@ -196,8 +204,12 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
   const confirm = React.useCallback(async () => {
     const current = pending;
     if (!current || submitting) return;
-    const value = Number(current.value);
-    if (current.value.trim() === '' || !Number.isFinite(value) || value <= 0) {
+    // W22：尺寸分支按**候选种类**解释输入——长度类原样毫米；angle 输入为度，
+    // 由共享助手换算契约弧度（且拒收 ≤0 / ≥180°）。偏移分支保持旧数值口径。
+    const value = current.kind === 'dimension'
+      ? parseConstraintEditorValue(current.candidate.kind, current.value)
+      : (current.value.trim() === '' ? undefined : Number(current.value));
+    if (value === undefined || !Number.isFinite(value) || value <= 0) {
       setPending({ ...current, error: t('partStudio.sketch.panel.errors.invalidDimension') });
       return;
     }

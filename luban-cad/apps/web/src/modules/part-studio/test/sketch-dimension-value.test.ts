@@ -67,9 +67,11 @@ describe('parseConstraintEditorValue', () => {
     expect(parseConstraintEditorValue('angle', '60.5')).toBeCloseTo(60.5 * Math.PI / 180, 12);
   });
 
-  it('角度 ≤0 / ≥360 / 非数字拒收（返回 undefined）', () => {
+  it('角度 ≤0 / ≥180 / 非数字拒收（返回 undefined；契约为 (0, π) 弧度）', () => {
     expect(parseConstraintEditorValue('angle', '0')).toBeUndefined();
     expect(parseConstraintEditorValue('angle', '-5')).toBeUndefined();
+    expect(parseConstraintEditorValue('angle', '180')).toBeUndefined();
+    expect(parseConstraintEditorValue('angle', '200')).toBeUndefined();
     expect(parseConstraintEditorValue('angle', '360')).toBeUndefined();
     expect(parseConstraintEditorValue('angle', 'abc')).toBeUndefined();
     expect(parseConstraintEditorValue('angle', '')).toBeUndefined();

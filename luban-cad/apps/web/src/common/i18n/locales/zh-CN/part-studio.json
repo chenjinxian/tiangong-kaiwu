@@ -1260,7 +1260,7 @@
       "unified": {
         "prompts": {
           "selectEntity": "尺寸：选择要标注的实体（线/圆/弧/点）",
-          "secondOrPlaceLength": "尺寸：选择第二个实体标注距离，或点击空白处放置长度",
+          "secondOrPlaceLength": "尺寸：选择第二个实体标注距离或角度，或点击空白处放置长度",
           "placeRadius": "尺寸：点击空白处放置半径尺寸",
           "secondEntity": "尺寸：选择第二个点或线标注距离"
         },

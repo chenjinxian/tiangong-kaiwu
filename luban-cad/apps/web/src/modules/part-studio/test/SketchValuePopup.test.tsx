@@ -15,7 +15,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SketchDto } from '@luban-cad/shared';
+import type { SketchConstraintDto, SketchDto } from '@luban-cad/shared';
 import {
   centerValuePopupPosition,
   dimensionUnitSuffix,
@@ -338,6 +338,120 @@ describe('SketchValuePopup 偏移分支（产品扩展）', () => {
       expect(closed).not.toHaveBeenCalled();
     } finally {
       offClosed();
+    }
+  });
+});
+
+// ── W22（2026-11-16 live）：角度候选（度输入 → 契约弧度提交）────────────────
+describe('SketchValuePopup 角度候选（W22）', () => {
+  const closed = vi.fn();
+  let offClosed: (() => void) | undefined;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    offClosed = sketchToolEvents.on('dimensionPopupClosed', closed);
+  });
+
+  afterEach(() => {
+    offClosed?.();
+    offClosed = undefined;
+  });
+
+  function emitAngle(overrides: Partial<SketchDimensionCandidate> = {}): void {
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'angle',
+        refs: [1, 2],
+        entityIds: [1, 2],
+        anchor: { x: 140, y: 120 },
+        ...overrides,
+      });
+    });
+  }
+
+  it('新角度候选：实测度值 7 位小数预填 + deg 后缀；确认提交弧度（90° → π/2）', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    emitAngle({ measuredValue: 90 });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('90');
+    expect(screen.getByTestId('sketch-value-unit').textContent).toBe('deg');
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(system.applyUpdate).toHaveBeenCalledTimes(1));
+    const constraints = (system.applyUpdate as ReturnType<typeof vi.fn>).mock.calls[0]![1] as SketchConstraintDto[];
+    expect(constraints).toHaveLength(1);
+    expect(constraints[0]).toMatchObject({ kind: 'angle', refs: [1, 2] });
+    expect(constraints[0]!.value).toBeCloseTo(Math.PI / 2, 12);
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('角度初值 = 7 位小数去尾零（live 83.7325188 deg）', () => {
+    render(<SketchValuePopup sketchSystem={fakeSystem()} />);
+    emitAngle({ measuredValue: 83.7325188 });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('83.7325188');
+    expect(screen.getByTestId('sketch-value-unit').textContent).toBe('deg');
+  });
+
+  it('方向键 ±1°（未编辑时以实测度值为基线，步进文本 7 位口径）', () => {
+    render(<SketchValuePopup sketchSystem={fakeSystem()} />);
+    emitAngle({ measuredValue: 83.7325188 });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const steppedDown = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(steppedDown.value).toBe('82.7325188');
+
+    steppedDown.setSelectionRange(steppedDown.value.length, steppedDown.value.length);
+    fireEvent.keyDown(steppedDown, { key: 'ArrowUp' });
+    expect((screen.getByTestId('sketch-value-input') as HTMLInputElement).value).toBe('83.7325188');
+  });
+
+  it('既有角度约束：度预填、确认调 applyConstraintValue 时换算弧度（不追加）', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    emitAngle({ existingConstraintId: 42, existingValue: 90 });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('90');
+    expect(screen.getByTestId('sketch-value-unit').textContent).toBe('deg');
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(system.applyConstraintValue).toHaveBeenCalledTimes(1));
+    const [id, value] = (system.applyConstraintValue as ReturnType<typeof vi.fn>).mock.calls[0] as [number, number];
+    expect(id).toBe(42);
+    expect(value).toBeCloseTo(Math.PI / 2, 12);
+    expect(system.applyUpdate).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+  });
+
+  it('既有角度约束改值：45 → π/4（度 → 弧度）', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    emitAngle({ existingConstraintId: 42, existingValue: 90 });
+    fireEvent.change(screen.getByTestId('sketch-value-input'), { target: { value: '45' } });
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(system.applyConstraintValue).toHaveBeenCalledTimes(1));
+    const [id, value] = (system.applyConstraintValue as ReturnType<typeof vi.fn>).mock.calls[0] as [number, number];
+    expect(id).toBe(42);
+    expect(value).toBeCloseTo(Math.PI / 4, 12);
+  });
+
+  it('角度 ≥360° / ≤0 / 非数值：就地错误、不提交（保持既有度校验）', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    emitAngle({ measuredValue: 90 });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    for (const invalid of ['360', '0', '-5', 'abc', '']) {
+      fireEvent.change(input, { target: { value: invalid } });
+      fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+      expect(screen.getByTestId('sketch-value-error')).toBeDefined();
+      expect(system.applyUpdate).not.toHaveBeenCalled();
+      expect(system.applyConstraintValue).not.toHaveBeenCalled();
+      expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
+      expect(closed).not.toHaveBeenCalled();
     }
   });
 });

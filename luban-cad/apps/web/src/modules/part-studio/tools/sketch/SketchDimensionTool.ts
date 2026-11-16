@@ -14,6 +14,12 @@
  * W21（2026-11-16 live S1c）：点击已带尺寸的几何（同实体/同一对引用）不追加
  * 第二条尺寸——发候选时带 `existingConstraintId`/`existingValue`（种类取既有
  * 约束，圆/弧半径↔直径等价），值弹层改调 `applyConstraintValue` 原地更新。
+ *
+ * W22（2026-11-16 live）：两条**非平行**线拾取推断 `angle`（值对话框按度预填，
+ * 提交契约仍为弧度）；平行线保持既有 `distance`。平行判定复用本模块既有
+ * `lineAngleDeg`（`measureSketchDimension('angle', …)`），阈值判定在
+ * `sketch-dimension-logic`。命中既有 angle 约束时沿用 W21 路径（预填显示度、
+ * 确认时换算弧度原地改值）。
  */
 import {
   BeButtonEvent,
@@ -46,8 +52,8 @@ const PICK_RADIUS_PIXELS = 8;
 // 解算坐标缺失/形态不可测 → undefined（不猜、不伪造）。
 // ---------------------------------------------------------------------------
 
-/** 尺寸候选可测量种类；angle 目前无候选通道（两线推断为 distance），仅预留测量。 */
-export type MeasurableDimensionKind = SketchDimensionKind | 'angle';
+/** 尺寸候选可测量种类（W22 起 angle 已是正式候选通道：两非平行线）。 */
+export type MeasurableDimensionKind = SketchDimensionKind;
 
 interface MeasuredPoint { x: number; y: number }
 type MeasuredItem =
@@ -324,7 +330,19 @@ export class SketchDimensionTool extends PrimitiveTool {
       return EventHandled.Yes; // 已满两拾取，忽略第三次实体点击
     }
 
-    const completion = inferDimensionCompletion(this._picks, placementClick);
+    // W22：两线拾取时用既有 `lineAngleDeg`（经 measureSketchDimension 的 angle
+    // 通道）测夹角，供推断层判定非平行 → angle / 平行 → distance；几何不可测
+    //（引用未解算）→ undefined，保持旧 distance 行为。
+    const twoLineAngleDeg = this._picks.length === 2
+      && this._picks[0]!.kind === 'line'
+      && this._picks[1]!.kind === 'line'
+      ? measureSketchDimension(
+          'angle',
+          [this._picks[0]!.ref, this._picks[1]!.ref],
+          sketch.entities,
+        )
+      : undefined;
+    const completion = inferDimensionCompletion(this._picks, placementClick, twoLineAngleDeg);
     if (completion.kind === 'pending') {
       this._outputPrompt();
       return EventHandled.Yes;
@@ -386,9 +404,11 @@ export class SketchDimensionTool extends PrimitiveTool {
     completion: Exclude<DimensionCompletion, { kind: 'pending' } | { kind: 'invalid' }>,
     anchor: { x: number; y: number },
   ): void {
-    // 工具推断只会产生 length/radius/diameter/distance；angle 约束仅在两引用
-    // angle 完成时命中（当前推断不出），此分支保持类型收敛且不伪造种类。
-    const kind: SketchDimensionKind = existing.kind === 'angle' ? completion.kind : existing.kind;
+    // W22：推断现在也产生 angle（两非平行线），既有种类全部落在
+    // SketchDimensionKind 内；对话框/提交一律按既有约束种类走（圆/弧
+    // 半径↔直径等价时也不改判）。既有 angle 的 existingValue 为显示度，
+    // 弧度换算在值弹层确认时完成。
+    const kind: SketchDimensionKind = existing.kind;
     const existingValue = dimensionConstraintDisplayValue(existing);
     sketchToolEvents.emit('dimensionCandidate', {
       kind,

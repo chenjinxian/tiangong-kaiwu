@@ -13,8 +13,12 @@
  * 工具满槽只发候选（带屏幕锚点），收值与提交归浮层。
  */
 
-/** 尺寸种类（v1.19 增 length：Onshape 线长尺寸；distance 支持 point/line 混合）。 */
-export type SketchDimensionKind = 'distance' | 'radius' | 'diameter' | 'length';
+/**
+ * 尺寸种类（v1.19 增 length：Onshape 线长尺寸；distance 支持 point/line 混合）。
+ * W22（2026-11-16 live）：增 angle——两条非平行线拾取生成角度尺寸；候选值
+ * 按显示单位「度」预填，提交契约仍为弧度（由值弹层换算）。
+ */
+export type SketchDimensionKind = 'distance' | 'radius' | 'diameter' | 'length' | 'angle';
 
 /** Onshape 值确认框的屏幕锚点（view 坐标；标注放置点/偏移定侧点）。 */
 export interface SketchToolAnchor { x: number; y: number }

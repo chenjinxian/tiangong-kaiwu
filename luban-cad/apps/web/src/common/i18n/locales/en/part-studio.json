@@ -1260,7 +1260,7 @@
       "unified": {
         "prompts": {
           "selectEntity": "Dimension: select an entity (line/circle/arc/point)",
-          "secondOrPlaceLength": "Dimension: select a second entity for distance, or click empty space to place a length",
+          "secondOrPlaceLength": "Dimension: select a second entity for a distance or angle, or click empty space to place a length",
           "placeRadius": "Dimension: click empty space to place the radius",
           "secondEntity": "Dimension: select a second point or line for distance"
         },

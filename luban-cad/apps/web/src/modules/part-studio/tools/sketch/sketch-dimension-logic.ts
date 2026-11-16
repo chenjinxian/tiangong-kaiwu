@@ -7,6 +7,8 @@
  * - 单圆 + 放置点击 → diameter；单弧 → radius
  * - 两个 point/line 实体 → distance（点-点 / 点-线 / 线-线；线-线平行语义由
  *   后端求解器裁决）
+ * - 两条**非平行**线 → angle（W22 2026-11-16 live：两非平行线生成角度尺寸）；
+ *   平行线保持 distance（无 live 证据，不发明平行线角度语义）
  * - 单点、两圆/两弧 → invalid（不伪造尺寸）
  *
  * 纯函数：工具状态机与单测共用；refs 原样透传给 dimensionCandidate 值确认桥。
@@ -20,7 +22,18 @@ import type { SketchConstraintDto, SketchRef } from '@luban-cad/shared';
 import { EDITABLE_CONSTRAINT_KINDS } from '../../internal/sketch-dimension-value.js';
 import type { SketchPick } from './sketch-constraint-logic.js';
 
-export type DimensionKind = Extract<SketchConstraintDto['kind'], 'length' | 'radius' | 'diameter' | 'distance'>;
+export type DimensionKind = Extract<
+  SketchConstraintDto['kind'],
+  'length' | 'radius' | 'diameter' | 'distance' | 'angle'
+>;
+
+/**
+ * 两线「平行」判定阈值（度，2026-11-16 W22）：夹角由 `lineAngleDeg` 给出
+ *（0–90 锐角口径——反向 ~180° 也归一到 ~0°）。不大于本阈值视为平行 →
+ * 保持既有 distance 语义；大于则按 live 证据推断 angle。浮点求解噪声
+ *（acos 在 cos≈1 处放大）远小于该阈值。
+ */
+export const PARALLEL_LINE_ANGLE_MAX_DEG = 1e-4;
 
 /** 可编辑尺寸种类（后端 updateSketchConstraint 白名单的尺寸子集）。 */
 export type EditableDimensionKind = Extract<
@@ -63,10 +76,15 @@ function singleDimension(pick: SketchPick): DimensionCompletion {
 /**
  * @param picks 已拾取实体（最多 2）
  * @param placementClick 本次点击是否落在空白处（Onshape 尺寸放置点击）
+ * @param twoLineAngleDeg 两线拾取时的夹角（度）；由工具用既有 `lineAngleDeg`
+ *   测量后传入。undefined=几何不可解析（保持旧 distance 行为，不猜角度）。
+ *   W22：非平行线（角度 > `PARALLEL_LINE_ANGLE_MAX_DEG`）→ angle，平行线 →
+ *   既有 distance。
  */
 export function inferDimensionCompletion(
   picks: readonly SketchPick[],
   placementClick: boolean,
+  twoLineAngleDeg?: number,
 ): DimensionCompletion {
   if (picks.length === 0) return { kind: 'pending' };
   if (picks.length === 1) {
@@ -77,6 +95,17 @@ export function inferDimensionCompletion(
 
   const [a, b] = picks as [SketchPick, SketchPick];
   if (sameRef(a.ref, b.ref)) return singleDimension(a);
+  // W22（live 2026-11-16）：两非平行线 → 角度尺寸（度值对话框；契约存弧度）。
+  // 平行线（含反向 ~180° → 锐角口径 ~0°）保持既有 distance；角度不可测时
+  // 同样回退 distance（旧语义，不伪造）。
+  if (
+    a.kind === 'line'
+    && b.kind === 'line'
+    && twoLineAngleDeg !== undefined
+    && Number.isFinite(twoLineAngleDeg)
+    && twoLineAngleDeg > PARALLEL_LINE_ANGLE_MAX_DEG
+  )
+    return { kind: 'angle', refs: [a.ref, b.ref], entityIds: firstEntityIds(picks) };
   const distanceKinds = new Set(['point', 'line']);
   if (distanceKinds.has(a.kind) && distanceKinds.has(b.kind))
     return { kind: 'distance', refs: [a.ref, b.ref], entityIds: firstEntityIds(picks) };

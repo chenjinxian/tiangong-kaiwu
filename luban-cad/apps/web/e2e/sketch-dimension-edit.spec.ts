@@ -14,6 +14,9 @@
  *
  * 2026-11-16 W21（live S1c）：尺寸工具点击已标注线 → 打开既有尺寸对话框
  * （预填约束值），✗ 取消不变；再次拾取改值 → 原地更新（约束数不变，不追加）。
+ *
+ * 2026-11-16 W22（live）：两条非平行线拾取 → 角度尺寸——值弹层按度预填
+ * （`deg` 后缀）、确认后契约存弧度；画布出现角度标注；✗ 取消不落约束。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchConstraintDto, SketchDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -49,6 +52,14 @@ const CONSTRAINTS: SketchConstraintDto[] = [
   { kind: 'horizontal', id: HORIZONTAL_ID, refs: [LINE_ID] },
   { kind: 'length', id: LENGTH_ID, refs: [LINE_ID], value: 20 },
   { kind: 'radius', id: RADIUS_ID, refs: [CIRCLE_ID], value: 4 },
+];
+
+/** W22 角度尺寸草图：两条非平行线（水平 + 竖直，中点远离端点便于曲线拾取）。 */
+const ANGLE_LINE_A = 31;
+const ANGLE_LINE_B = 32;
+const ANGLE_ENTITIES: SketchEntityDto[] = [
+  { kind: 'line', id: ANGLE_LINE_A, p1: { x: -12, y: 0 }, p2: { x: 0, y: 0 } },
+  { kind: 'line', id: ANGLE_LINE_B, p1: { x: 0, y: 0 }, p2: { x: 0, y: 12 } },
 ];
 
 interface Pt { x: number; y: number }
@@ -447,5 +458,101 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeLessThan(0.001);
     const sketch = await getSketchRpc(ctx, sketchId, token);
     expect(sketch?.constraints.find((constraint) => constraint.id === 4)?.value).toBe(30);
+  });
+
+  test('W22：两条非平行线 → 角度尺寸（度预填/弧度落库；取消不落约束）', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    const openWithRetry = async () => {
+      try {
+        return await openSeedImodelEditor(page, seed);
+      } catch {
+        await page.reload();
+        return await openSeedImodelEditor(page, seed);
+      }
+    };
+    let ctx = await openWithRetry();
+
+    const lease = await borrowWriteLease(ctx, token, 'sketch-dimension-angle');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch', entities: ANGLE_ENTITIES, constraints: [], plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '角度草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openWithRetry();
+    const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(sketchRow).toBeVisible({ timeout: 60_000 });
+    await sketchRow.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    // 俯视 XY 草图平面并紧取景：尺寸工具按「光标射线 ∩ 草图平面」拾取，
+    // 两线中点（远离端点/交点）必须落在曲线命中半径内。
+    await setStandardView(page, 0, {
+      low: { x: -30, y: -20, z: 0 },
+      high: { x: 30, y: 30, z: 10 },
+    });
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    const hub = { x: box!.x, y: box!.y };
+    const projectLocal = async (p: Pt): Promise<Pt> => {
+      const [screen] = await projectWorld(page, hub, [{ x: p.x, y: p.y, z: 0 }]);
+      expect(screen).toBeDefined();
+      return screen!;
+    };
+    const midA = await projectLocal({ x: -6, y: 0 });
+    const midB = await projectLocal({ x: 0, y: 6 });
+
+    await activate(page, '尺寸');
+    const popup = page.getByTestId('sketch-value-popup');
+    const valueInput = page.getByTestId('sketch-value-input');
+    await dataPoint(page, midA.x, midA.y); // 线 A
+    await dataPoint(page, midB.x, midB.y); // 线 B → 非平行 → 角度候选
+    await expect(popup).toBeVisible({ timeout: 20_000 });
+    // live：角度值对话框按度预填（7 位小数去尾零）+ deg 后缀。
+    await expect(valueInput).toHaveValue('90');
+    await expect(page.getByTestId('sketch-value-unit')).toHaveText('deg');
+
+    // ✗ 取消：不落约束（W19 工具保持安装，无需重新点 ribbon）。
+    await page.getByTestId('sketch-value-cancel').click();
+    await expect(popup).toHaveCount(0, { timeout: 10_000 });
+    const afterCancel = await getSketchRpc(ctx, sketchId, token);
+    expect(afterCancel?.constraints ?? []).toHaveLength(0);
+
+    // 再次两线拾取 → 确认（沿用预填 90°）→ 契约弧度 π/2 落库。
+    const midA2 = await projectLocal({ x: -6, y: 0 });
+    const midB2 = await projectLocal({ x: 0, y: 6 });
+    await dataPoint(page, midA2.x, midA2.y);
+    await dataPoint(page, midB2.x, midB2.y);
+    await expect(popup).toBeVisible({ timeout: 20_000 });
+    await expect(valueInput).toHaveValue('90');
+    await page.getByTestId('sketch-value-confirm').click();
+    await expect(popup).toHaveCount(0, { timeout: 20_000 });
+
+    let angleConstraint: SketchConstraintDto | undefined;
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      angleConstraint = sketch?.constraints.find((constraint) => constraint.kind === 'angle');
+      const value = angleConstraint?.value;
+      return typeof value === 'number' ? Math.abs(value - Math.PI / 2) : 999;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeLessThan(1e-6);
+    expect(angleConstraint).toBeDefined();
+    expect(angleConstraint!.kind).toBe('angle');
+    expect(angleConstraint!.refs).toHaveLength(2);
+    const afterConfirm = await getSketchRpc(ctx, sketchId, token);
+    // 恰好一条角度尺寸（不是 degree 值误存的 distance/再追加）。
+    expect((afterConfirm?.constraints ?? []).filter((constraint) => constraint.kind === 'angle')).toHaveLength(1);
+    expect((afterConfirm?.constraints ?? []).filter((constraint) => constraint.kind === 'distance')).toHaveLength(0);
+
+    // 画布角度标注（弧 + 度数文本）出现（与绘制/布局同源标记）。
+    const label = page.locator(
+      `[data-testid="sketch-dimension-label"][data-constraint-id="${angleConstraint!.id}"]`,
+    );
+    await expect(label).toBeAttached({ timeout: 30_000 });
   });
 });

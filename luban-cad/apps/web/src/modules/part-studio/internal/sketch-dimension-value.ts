@@ -104,8 +104,9 @@ export function formatConstraintEditorValue(constraint: SketchConstraintDto): st
 }
 
 /**
- * 编辑器输入 → 契约值；非正/非有限/角度 ≥360° 返回 undefined（拒绝提交，
- * 不静默改值）。角度输入按度解释并换算为弧度。
+ * 编辑器输入 → 契约值；非正/非有限/角度 ≥180° 返回 undefined（拒绝提交，
+ * 不静默改值——后端求解器 angle 契约为 (0, π) 弧度，前端提前拦截）。
+ * 角度输入按度解释并换算为弧度。
  */
 export function parseConstraintEditorValue(
   kind: SketchConstraintDto['kind'],
@@ -115,7 +116,7 @@ export function parseConstraintEditorValue(
   if (!Number.isFinite(numeric) || numeric <= 0)
     return undefined;
   if (kind === 'angle') {
-    if (numeric >= 360)
+    if (numeric >= 180)
       return undefined;
     return numeric * Math.PI / 180;
   }

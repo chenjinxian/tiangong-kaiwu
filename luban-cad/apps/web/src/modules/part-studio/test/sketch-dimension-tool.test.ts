@@ -2,7 +2,9 @@
  * Copyright (c) LubanCAD. All rights reserved.
  *
  * Onshape 单尺寸工具（Sketch.Dimension）推断单测：同一个按钮，按拾取实体动态
- * 决定 length / radius / distance（不再有长度/半径下拉）。
+ * 决定 length / radius / distance / angle（不再有长度/半径下拉）。
+ * W22（2026-11-16 live）：两非平行线 → angle（夹角由既有 `lineAngleDeg` 测量、
+ * 由推断层按阈值判定）；平行线保持 distance（tutorial2 真栈依赖）。
  * E1/W19（2026-11-15/16 live）：工具生命周期契约——发候选后保持安装、等待
  * 值弹层关闭（dimensionPopupClosed），等待期间忽略画布拾取；弹层关闭后**仍
  * 保持安装**：清空拾取、恢复提示，下一次拾取直接发第二个候选（无需重点
@@ -15,6 +17,7 @@ import type { BeButtonEvent } from '@itwin/core-frontend';
 import {
   findExistingDimensionConstraint,
   inferDimensionCompletion,
+  PARALLEL_LINE_ANGLE_MAX_DEG,
 } from '../tools/sketch/sketch-dimension-logic.js';
 import { resolveNearestPick } from '../tools/sketch/sketch-constraint-logic.js';
 import type { SketchPick } from '../tools/sketch/sketch-constraint-logic.js';
@@ -94,6 +97,13 @@ const pick = (kind: SketchPick['kind'], entityId: number): SketchPick => ({
   entityId,
 });
 
+/** 生产口径曲线拾取：`resolveNearestPick` 对 line/circle/arc 返回整实体数字 ref。 */
+const curvePick = (kind: SketchPick['kind'], entityId: number): SketchPick => ({
+  kind,
+  ref: entityId,
+  entityId,
+});
+
 describe('inferDimensionCompletion（单尺寸按钮动态推断）', () => {
   it('线 + 放置点击 → 长度', () => {
     expect(inferDimensionCompletion([pick('line', 1)], true)).toMatchObject({
@@ -114,7 +124,11 @@ describe('inferDimensionCompletion（单尺寸按钮动态推断）', () => {
     });
   });
 
-  it('线 + 第二条线 → 距离；点 + 线 → 距离', () => {
+  it('平行两线（含夹角不可测）→ 距离不变；点 + 线 → 距离', () => {
+    // W22：平行线保持旧 distance（tutorial2 真栈依赖两平行线距离）。
+    expect(inferDimensionCompletion([curvePick('line', 1), curvePick('line', 2)], false, 0))
+      .toMatchObject({ kind: 'distance', refs: [1, 2], entityIds: [1, 2] });
+    // 角度不可测（引用未解算）→ 旧 distance 行为，不伪造角度。
     expect(inferDimensionCompletion([pick('line', 1), pick('line', 2)], false)).toMatchObject({
       kind: 'distance',
       entityIds: [1, 2],
@@ -123,6 +137,21 @@ describe('inferDimensionCompletion（单尺寸按钮动态推断）', () => {
       kind: 'distance',
       entityIds: [3, 4],
     });
+  });
+
+  it('W22：两非平行线 → angle（refs/entityIds 原样透传）；平行阈值边界 → distance', () => {
+    expect(inferDimensionCompletion([curvePick('line', 1), curvePick('line', 2)], false, 45))
+      .toMatchObject({ kind: 'angle', refs: [1, 2], entityIds: [1, 2] });
+    expect(inferDimensionCompletion([curvePick('line', 3), curvePick('line', 4)], false, 90))
+      .toMatchObject({ kind: 'angle', refs: [3, 4], entityIds: [3, 4] });
+    // 阈值以内（含边界）视为平行 → distance；浮点/非有限值也不得产生 angle。
+    expect(inferDimensionCompletion([curvePick('line', 1), curvePick('line', 2)], false, PARALLEL_LINE_ANGLE_MAX_DEG))
+      .toMatchObject({ kind: 'distance' });
+    expect(inferDimensionCompletion([curvePick('line', 1), curvePick('line', 2)], false, Number.NaN))
+      .toMatchObject({ kind: 'distance' });
+    // 非两线组合不因角度参数改变：点 + 线仍是 distance。
+    expect(inferDimensionCompletion([curvePick('point', 5), curvePick('line', 6)], false, 45))
+      .toMatchObject({ kind: 'distance' });
   });
 
   it('单点 + 放置 → 不产生尺寸（点没有单独尺寸）', () => {
@@ -225,6 +254,19 @@ describe('W21：findExistingDimensionConstraint（纯匹配器）', () => {
     // 尺寸无值也命中（对话框保持空输入，不猜值）。
     expect(findExistingDimensionConstraint([dim(9, 'length', [1])], { kind: 'length', refs: [1] }))
       .toMatchObject({ id: 9 });
+  });
+
+  it('W22：两引用 angle 约束命中（顺序无关；返回既有约束，契约值为弧度）', () => {
+    const constraints = [dim(12, 'angle', [1, 2], Math.PI / 2)];
+    expect(findExistingDimensionConstraint(constraints, { kind: 'angle', refs: [2, 1] }))
+      .toMatchObject({ id: 12, kind: 'angle', value: Math.PI / 2 });
+    expect(findExistingDimensionConstraint(constraints, { kind: 'distance', refs: [1, 2] }))
+      .toBeUndefined();
+    const structured = [dim(13, 'angle', [{ entity: 4, part: 'start' }, { origin: true }], Math.PI / 3)];
+    expect(findExistingDimensionConstraint(structured, {
+      kind: 'angle',
+      refs: [{ origin: true }, { entity: 4, part: 'start' }],
+    })).toMatchObject({ id: 13 });
   });
 
   it('driven 参考尺寸只读：不参与匹配（W21 不实现驱动尺寸）', () => {
@@ -356,6 +398,95 @@ describe('E1/W19：SketchDimensionTool 发候选后保持安装（弹层关闭�
       kind: 'diameter',
       existingConstraintId: 11,
       existingValue: 10,
+    });
+    expect(candidates[0]!.measuredValue).toBeUndefined();
+  });
+});
+
+// ── W22（2026-11-16 live）：两线角度尺寸（非平行 → angle；平行 → distance）──
+describe('W22：SketchDimensionTool 两线拾取推断', () => {
+  const listeners: (() => void)[] = [];
+
+  afterEach(() => {
+    while (listeners.length > 0) listeners.pop()!();
+    // 释放等待 popup 的工具实例（防跨用例陈旧监听）。
+    sketchToolEvents.emit('dimensionPopupClosed');
+    mockState.entities = [];
+    mockState.constraints = [];
+  });
+
+  /** 水平线 y=−5（x∈[−10,10]）与竖直线 x=0（y∈[5,15]）：非平行、无共点干扰。 */
+  const PERPENDICULAR: SketchEntityDto[] = [
+    { kind: 'line', id: 1, p1: { x: -10, y: -5 }, p2: { x: 10, y: -5 } },
+    { kind: 'line', id: 2, p1: { x: 0, y: 5 }, p2: { x: 0, y: 15 } },
+  ];
+  const PARALLEL: SketchEntityDto[] = [
+    { kind: 'line', id: 40, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+    { kind: 'line', id: 41, p1: { x: 0, y: 5 }, p2: { x: 10, y: 5 } },
+  ];
+
+  function buttonEvent(x: number, y: number): BeButtonEvent {
+    return { viewPoint: { x, y }, point: { x, y } } as unknown as BeButtonEvent;
+  }
+
+  async function click(tool: SketchDimensionTool, u: number, v: number): Promise<EventHandled> {
+    mockState.hit = { u, v };
+    return tool.onDataButtonDown(buttonEvent(u, v));
+  }
+
+  function capture(): SketchDimensionCandidate[] {
+    const received: SketchDimensionCandidate[] = [];
+    listeners.push(sketchToolEvents.on('dimensionCandidate', (candidate) => received.push(candidate)));
+    return received;
+  }
+
+  it('两非平行线 → angle 候选（夹角为度实测值，不写契约弧度）', async () => {
+    mockState.entities = PERPENDICULAR;
+    const tool = new SketchDimensionTool();
+    await tool.onPostInstall();
+    const candidates = capture();
+    const exits = (tool as unknown as { exitTool: ReturnType<typeof vi.fn> }).exitTool;
+
+    await click(tool, 0, -5); // 水平线中点
+    await click(tool, 0, 10); // 竖直线中点 → 完成（两线直接成角）
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      kind: 'angle',
+      refs: [1, 2],
+      entityIds: [1, 2],
+      measuredValue: 90,
+    });
+    // W19：发候选后保持安装（等待 popup 关闭）。
+    expect(exits).not.toHaveBeenCalled();
+  });
+
+  it('两平行线 → distance 不变（实测垂距 mm）', async () => {
+    mockState.entities = PARALLEL;
+    const tool = new SketchDimensionTool();
+    await tool.onPostInstall();
+    const candidates = capture();
+
+    await click(tool, 5, 0);
+    await click(tool, 5, 5);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ kind: 'distance', refs: [40, 41], measuredValue: 5 });
+  });
+
+  it('W21/W22：已有 angle 约束 → 候选取既有约束（id/显示度），不测量新值', async () => {
+    mockState.entities = PERPENDICULAR;
+    mockState.constraints = [{ kind: 'angle', id: 8, refs: [1, 2], value: Math.PI / 2 }];
+    const tool = new SketchDimensionTool();
+    await tool.onPostInstall();
+    const candidates = capture();
+
+    await click(tool, 0, -5);
+    await click(tool, 0, 10);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      kind: 'angle',
+      refs: [1, 2],
+      existingConstraintId: 8,
+      existingValue: 90,
     });
     expect(candidates[0]!.measuredValue).toBeUndefined();
   });
