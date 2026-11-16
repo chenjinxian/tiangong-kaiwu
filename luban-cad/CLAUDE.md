@@ -233,7 +233,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   **W22**：两非平行线 → angle（度输入、弧度契约、deg/7 位/±1°；平行线保持
   distance）；全量 web **2151/2151**、tsc(src/e2e)/eslint 绿；真栈
   `sketch-dimension-edit` + `tutorial2-tools` 标注 + `tutorial2` **6 passed
-  （7.4 min，体积不变）**。
+  （7.4 min，体积不变）**。**W23**：草图飞菜单组主钮 = 最近使用变体
+  （label/tooltip/图标切换、主钮激活该变体、Esc 与退出/重进草图保持；行
+  tooltip 四处差异经 `tooltipKey`；特征工具栏不变；会话态 React state，刷新
+  回默认）；全量 web **2158/2158**、tsc(src+e2e)/eslint 绿；真栈新
+  `sketch-toolbar-variants` **2 passed（39.1 s）** + `sketch-create-parity`/
+  中心圆弧/中心矩形/相切圆弧/草图倒角 **6 passed（3.5 min）** +
+  `tutorial2` 严格 **2 passed（4.6 min，体积/去材不变）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

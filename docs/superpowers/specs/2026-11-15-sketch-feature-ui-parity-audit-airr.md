@@ -809,3 +809,25 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   `tutorial2` 严格 **6 passed（7.4 min）**（体积 357.730 cm³ / 去材 0.422 不变）。
 - 残留：角度取锐角口径（钝角/方向选择未采）；平行线 distance 语义未 live 复核；
   同一对引用已有 distance 时不会命中既有 angle 匹配。
+
+### 2026-11-17 W23 草图工具栏主钮记忆最近使用变体
+
+- live：草图 14 个飞菜单组的主钮 = **最近使用变体**（行 label/tooltip/icon
+  随选行切换并立即激活；工具退出 Esc、退出/重进草图均保持；飞菜单行序不变）。
+  行 tooltip 与行文案不同的仅四处：相切圆弧→相切弧、3 点圆→三点圆、
+  倒角→草图倒角、草图流→流；带快捷键的行 tooltip 追加 `(key)`。
+- 实现：`RibbonDropdown` 可选 `selectedId`/`onSelect`（仅草图模式传入；特征
+  工具栏不传，DOM/行为不变）；子行选中时主钮图标/aria/title 取该行，主钮
+  点击激活该变体；行 `title` 携带 live tooltip；`RibbonDropdownItem` /
+  `SketchRibbonTool` 增可选 `tooltipKey`（四处差异），Ribbon 会话态
+  `variantSelections` + `sketchToolGroupFor` 让快捷键同记（只读 canEdit=false
+  不记）；激活态改 `activeToolId === selectedId`（construct/pattern/use 特例
+  保留）。无 shared/RPC/schema/后端改动。
+- 验证：目标单测 33/33、全量 web **2158/2158**、tsc(src+e2e)/eslint 绿；
+  真栈新 `sketch-toolbar-variants` **2 passed（39.1 s）** + 回归
+  `sketch-create-parity`/`sketch-center-arc`/`sketch-center-rectangle`/
+  `sketch-tangent-arc`/`sketch-chamfer` **6 passed（3.5 min）** +
+  `tutorial2` 严格 **2 passed（4.6 min，357.730 cm³ / 去材 0.422 不变）**。
+- 残留：仅会话内记忆（刷新回默认；live 跨刷新持久化未采）；gated 变体可从
+  菜单成为主钮（主钮点击仍走能力引导，不伪造）；主钮 aria-label 取 tooltip
+  （live 的隐藏 label 为行文案，可见 tooltip 已逐字对齐）。
