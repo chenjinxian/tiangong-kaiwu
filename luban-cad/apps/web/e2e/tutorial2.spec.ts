@@ -260,25 +260,29 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   /** 世界投影所用的局部坐标（设计值）。 */
 
   // ── 1. 中心矩形（画在 origin 右上方，随后 origin 重合 + 两条长度尺寸驱动到终态）
-  await showcaseCaption(page, '步骤 4｜中心矩形', '工具：拐角矩形\n画布点击 (-20, 14) → (62, -5)（草图局部坐标，mm）\n第一角点落定后，光标旁实时显示宽度/高度（Onshape live）。');
+  await showcaseCaption(page, '步骤 4｜中心矩形', '工具：拐角矩形\n画布点击 (-20, 14) → (62, -5)（草图局部坐标，mm）\n第一角点落定后，对应边旁实时显示宽度/高度（Onshape live 贴边读数）。');
   const rectButton = page.getByRole('toolbar', { name: '草图工具' }).getByRole('button', { name: '拐角矩形', exact: true });
   await expect(rectButton).toBeVisible({ timeout: 15_000 });
   await rectButton.click();
   await expect(rectButton).toHaveAttribute('aria-pressed', 'true');
   await disableSnap(page);
   await clickWorld(page, hub, P(-20, 14));
-  // Onshape live 标注提示：第一角点落定后，光标旁必须出现实时宽/高（未驱动
-  // 维度值=鼠标实际拖出的 82 × 19，随后尺寸才收敛到 82.55 × 19.05）。
+  // Onshape live 标注（2026-11-16 E6/S5）：第一角点落定后，宽/高数值贴在
+  // 对应边旁（蓝色文字、无白卡片）；未驱动维度值=鼠标实际拖出的 82 × 19，
+  // 随后尺寸才收敛到 82.55 × 19.05。
   await hoverWorld(page, hub, P(62, -5));
-  const liveFeedback = page.getByTestId('sketch-tool-feedback');
-  await expect(liveFeedback, '绘制过程中应显示光标旁实时尺寸').toBeVisible({ timeout: 10_000 });
-  const liveMeasures = (await liveFeedback.getAttribute('data-measures')) ?? '';
-  const liveWidth = Number(/width=([\d.]+)/.exec(liveMeasures)?.[1]);
-  const liveHeight = Number(/height=([\d.]+)/.exec(liveMeasures)?.[1]);
-  expect(liveWidth, `实时宽度应≈82（像素取整误差内）：${liveMeasures}`).toBeGreaterThan(81);
-  expect(liveWidth, `实时宽度应≈82（像素取整误差内）：${liveMeasures}`).toBeLessThan(83);
-  expect(liveHeight, `实时高度应≈19（像素取整误差内）：${liveMeasures}`).toBeGreaterThan(18);
-  expect(liveHeight, `实时高度应≈19（像素取整误差内）：${liveMeasures}`).toBeLessThan(20);
+  const liveWidthLabel = page.getByTestId('sketch-draw-edge-label-width');
+  const liveHeightLabel = page.getByTestId('sketch-draw-edge-label-height');
+  await expect(liveWidthLabel, '绘制过程中应显示贴边实时宽度').toBeVisible({ timeout: 10_000 });
+  await expect(liveHeightLabel, '绘制过程中应显示贴边实时高度').toBeVisible({ timeout: 10_000 });
+  const liveWidth = Number((await liveWidthLabel.textContent()) ?? '');
+  const liveHeight = Number((await liveHeightLabel.textContent()) ?? '');
+  expect(liveWidth, `贴边实时宽度应≈82（像素取整误差内）：${liveWidth}`).toBeGreaterThan(81);
+  expect(liveWidth, `贴边实时宽度应≈82（像素取整误差内）：${liveWidth}`).toBeLessThan(83);
+  expect(liveHeight, `贴边实时高度应≈19（像素取整误差内）：${liveHeight}`).toBeGreaterThan(18);
+  expect(liveHeight, `贴边实时高度应≈19（像素取整误差内）：${liveHeight}`).toBeLessThan(20);
+  // 同项尺寸已贴边 → 不再渲染白卡片。
+  await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/t2-mouse-02-live-feedback.png' });
   await page.waitForTimeout(500); // 演示驻留：让实时标注在录屏中可读
   await clickWorld(page, hub, P(62, -5));

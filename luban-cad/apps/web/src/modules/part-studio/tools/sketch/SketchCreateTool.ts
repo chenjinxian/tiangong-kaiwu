@@ -19,7 +19,9 @@
  *   草图没有该 UI），而由 sketch-live-measures + sketch-tool-feedback 发布
  *   「阶段提示 + 线长/角度/矩形宽高/圆与弧半径」；SketchToolFeedbackOverlay
  *   在光标旁呈现。标准 ToolAssistance 同步发出（editor 原工具通道，辅助技术
- *   可用）。提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
+ *   可用）。2026-11-16 E6/S5：矩形（拐角/中心）拖拽的宽/高改为贴边数值
+ *   （sketch-edge-labels，视口投影），覆盖层不再为这两项渲染白卡片。
+ *   提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
  * - 橡皮筋/构造线：**Dynamics 通道**（PrimitiveTool 标准预览生命周期，
  *   Tool.ts:673-680）——onDynamicFrame 同时绘制工作预览与 editor SketchTools
  *   同款构造辅助（弧心连线、样条控制多边形，虚线）。
@@ -64,10 +66,13 @@ import { autoWeldConstraints } from './sketch-auto-weld.js';
 import { pickSketchPlaneLocal } from './sketch-pick.js';
 import { POLYGON_DEFAULT_SIDES, POLYGON_MAX_SIDES, POLYGON_MIN_SIDES, regularPolygonVertices, type PolygonMode } from './sketch-polygon.js';
 import { computeSketchLiveMeasures } from './sketch-live-measures.js';
+import type { SketchLiveMeasure } from './sketch-live-measures.js';
+import { sketchRectangleEdgeSegments } from './sketch-edge-labels.js';
 import {
   clearSketchToolFeedback,
   publishSketchToolFeedback,
 } from './sketch-tool-feedback.js';
+import type { SketchToolEdgeLabel } from './sketch-tool-feedback.js';
 import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
 
 export type SketchCreateKind = 'line' | 'rectangle' | 'centerRectangle' | 'alignedRectangle' | 'circle' | 'perimeterCircle' | 'polygonInscribed' | 'polygonCircumscribed' | 'arc' | 'centerArc' | 'spline' | 'bezier';
@@ -423,9 +428,15 @@ export abstract class SketchCreateTool extends PrimitiveTool {
     const measures = this._cursorLocal && this._anchors.length > 0
       ? computeSketchLiveMeasures(this.sketchKind, this._anchors, this._cursorLocal)
       : [];
+    // 2026-11-16 E6/S5 Onshape live：矩形拖拽的宽/高不再走光标旁白卡片，
+    // 改为贴在对应边旁（同一数值/格式）。非矩形工具仍发 measures 白卡片。
+    const edgeLabels = this._edgeLabels(measures);
     const cx = this._cursorView ? Math.round(this._cursorView.x) : -1;
     const cy = this._cursorView ? Math.round(this._cursorView.y) : -1;
-    const signature = `${hint}|${measures.map((m) => `${m.labelKey}:${m.value}`).join('|')}|${cx},${cy}`;
+    const edgeSignature = edgeLabels
+      ?.map((label) => `${label.labelKey}@${Math.round(label.start.x)},${Math.round(label.start.y)}-${Math.round(label.end.x)},${Math.round(label.end.y)}`)
+      .join('|') ?? '';
+    const signature = `${hint}|${measures.map((m) => `${m.labelKey}:${m.value}`).join('|')}|${cx},${cy}|${edgeSignature}`;
     if (signature === this._feedbackSignature) return;
     this._feedbackSignature = signature;
     publishSketchToolFeedback({
@@ -433,7 +444,44 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       ...(hint ? { hint } : {}),
       measures,
       ...(this._cursorView ? { cursor: this._cursorView } : {}),
+      ...(edgeLabels ? { edgeLabels } : {}),
     });
+  }
+
+  /**
+   * 矩形拖拽中的贴边宽/高标签（视口 CSS px）：边段在草图局部坐标由
+   * `sketchRectangleEdgeSegments` 给出，经 `_plane.toWorld` + 视口
+   * `worldToView` 投影——与 `_cursorView` 同一坐标空间，不新增第二条投影路径。
+   * 非矩形（含对齐矩形）/无锚点/无光标/无尺寸/无视口 → undefined（不发标签）。
+   */
+  private _edgeLabels(measures: readonly SketchLiveMeasure[]): readonly SketchToolEdgeLabel[] | undefined {
+    if (this.sketchKind !== 'rectangle' && this.sketchKind !== 'centerRectangle') return undefined;
+    const anchor = this._anchors[0];
+    const cursor = this._cursorLocal;
+    const [width, height] = measures;
+    if (!anchor || !cursor || !width || !height) return undefined;
+    const viewport = IModelApp.viewManager.selectedView;
+    if (!viewport) return undefined;
+
+    const segments = sketchRectangleEdgeSegments(this.sketchKind, anchor, cursor);
+    const project = (point: SketchPoint2): { x: number; y: number } => {
+      const view = viewport.worldToView(this._plane.toWorld(point));
+      return { x: view.x, y: view.y };
+    };
+    return [
+      {
+        labelKey: width.labelKey,
+        value: width.value,
+        start: project(segments.width.start),
+        end: project(segments.width.end),
+      },
+      {
+        labelKey: height.labelKey,
+        value: height.value,
+        start: project(segments.height.start),
+        end: project(segments.height.end),
+      },
+    ];
   }
 
   /**

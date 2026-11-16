@@ -178,6 +178,15 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
+  中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
+  无边框/无引线，替代该场景光标卡）；对齐矩形与其他工具保持原光标卡（未采
+  证据）。纯显示投影，复用工具既有 local→world→view 链。审查修复：白卡
+  抑制仅来自实际渲染的标签（零长度边回退白卡）、工具级配对/投影单测、
+  ±90° 旋转归一化。验证：web **2050/2050**、tsc(src/e2e)/eslint 绿；真栈
+  新 spec `sketch-draw-readout` 2 passed（修复后复跑 38.6 s）、`tutorial2`
+  全链 **2 passed（4.6 min）**，终体积 **357.730 cm³**、去材 0.422 与基线
+  一致（旧白卡断言换为贴边读数，数值边界未放宽）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

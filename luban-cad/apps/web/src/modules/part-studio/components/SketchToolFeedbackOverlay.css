@@ -65,8 +65,24 @@
   text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff;
 }
 
+/* 绘制中贴边数值标签（2026-11-16 E6/S5 Onshape live：矩形拖拽时宽/高数值
+   贴在对应边中点、沿法线外移 ~8px 并随边旋转保持正立；蓝字 13.3333px、
+   无底色/描边/阴影/引线）。纯视觉、不挡拾取。 */
+.part-studio-sketch-edge-label {
+  position: absolute;
+  z-index: 24;
+  color: #4a90e2;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 13.3333px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* 光标旁实时尺寸卡片（Onshape live；2026-11-02）。纯视觉、不挡拾取。
-   2026-11-15 E4：阶段提示移入顶部 pill，本卡片只承载 measures。 */
+   2026-11-15 E4：阶段提示移入顶部 pill，本卡片只承载 measures。
+   2026-11-16 E6/S5：已贴边的矩形宽/高不再进本卡片。 */
 .part-studio-sketch-feedback {
   position: absolute;
   z-index: 24;

@@ -10,11 +10,15 @@
  * 实测：~180×27、底 #e2f0fa、字 #1c4070 13px、圆角 4px、ⓘ 图标），不是光标
  * 旁白卡片的一部分；光标旁卡片只保留实时尺寸（无尺寸不渲染白卡片）。
  *
+ * 2026-11-16 E6/S5 live：矩形拖拽时宽/高数值直接贴在对应边旁（蓝字
+ * #4a90e2 13.3333px、无底色/描边/引线、随边旋转且保持正立），不再进白卡片。
+ *
  * 纯视觉层：pointer-events:none，不参与拾取；aria-hidden（屏幕阅读器另有
  * ToolAssistance 通道）。
  */
 import React, { useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
+import { layoutSketchEdgeLabel } from '../tools/sketch/sketch-edge-labels.js';
 import {
   getSketchToolFeedback,
   subscribeSketchToolFeedback,
@@ -84,15 +88,59 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
     </div>
   ) : null;
 
+  // 2026-11-16 E6/S5 Onshape live：矩形拖拽的宽/高贴在对应边旁。位置=边中点
+  // 沿法线外移（背离矩形内部），文字随边旋转并归一到 (−90°, 90°] 保持正立。
+  // 内部参考点取两条边中点的平均（凸四边形内部），避免第三次投影。
+  const edgeLabels = feedback.edgeLabels ?? [];
+  const edgeMidpoints = edgeLabels.map((label) => ({
+    x: (label.start.x + label.end.x) / 2,
+    y: (label.start.y + label.end.y) / 2,
+  }));
+  const interior = edgeMidpoints.length > 0
+    ? {
+        x: edgeMidpoints.reduce((sum, point) => sum + point.x, 0) / edgeMidpoints.length,
+        y: edgeMidpoints.reduce((sum, point) => sum + point.y, 0) / edgeMidpoints.length,
+      }
+    : undefined;
+  // 先布局再决定渲染哪些：零长度（投影退化）边没有标签。
+  const renderedEdgeLabels = edgeLabels.flatMap((label) => {
+    const layout = layoutSketchEdgeLabel(label.start, label.end, interior);
+    return layout ? [{ label, layout }] : [];
+  });
+  // 白卡片的抑制集只能来自**实际渲染**的边标签：折叠的边没有标签时，对应
+  // measure 必须回落到白卡片，不得静默消失（2026-11-16 W11 review）。
+  const edgeLabelKeys = new Set(renderedEdgeLabels.map(({ label }) => label.labelKey));
+  const edgeLabelNodes = renderedEdgeLabels.map(({ label, layout }) => {
+    const suffix = label.labelKey.split('.').pop() ?? 'value';
+    return (
+      <span
+        key={label.labelKey}
+        className="part-studio-sketch-edge-label"
+        data-testid={`sketch-draw-edge-label-${suffix}`}
+        data-edge-label={label.labelKey}
+        style={{
+          left: layout.x,
+          top: layout.y,
+          transform: `translate(-50%, -50%) rotate(${layout.angleDeg}deg)`,
+        }}
+        aria-hidden="true"
+      >
+        {label.value}
+      </span>
+    );
+  });
+
   // 光标旁卡片只承载实时尺寸：无尺寸（或没有光标）时不渲染空白卡片。
+  // 已贴边的数值不再重复进白卡片（2026-11-16 E6/S5）。
   let measuresCard: React.JSX.Element | null = null;
   const cursor = feedback.cursor;
-  if (cursor && feedback.measures.length > 0) {
+  const cardMeasures = feedback.measures.filter((measure) => !edgeLabelKeys.has(measure.labelKey));
+  if (cursor && cardMeasures.length > 0) {
     const { x, y } = cursor;
     const flipX = x > window.innerWidth - 280;
     const flipY = y > window.innerHeight - 160;
     const transform = `${flipX ? 'translateX(-100%)' : ''} ${flipY ? 'translateY(-100%)' : ''}`.trim();
-    const measures = feedback.measures
+    const measures = cardMeasures
       .map((measure) => `${measure.labelKey.split('.').pop()}=${measure.value}`)
       .join(';');
 
@@ -110,7 +158,7 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
         aria-hidden="true"
       >
         <div className="part-studio-sketch-feedback__measures">
-          {feedback.measures.map((measure) => (
+          {cardMeasures.map((measure) => (
             <span key={measure.labelKey} className="part-studio-sketch-feedback__measure">
               <span className="part-studio-sketch-feedback__label">
                 {t(measure.labelKey)}
@@ -125,11 +173,12 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
     );
   }
 
-  if (!hintPill && !measuresCard && !badge) return null;
+  if (!hintPill && !measuresCard && !badge && edgeLabelNodes.length === 0) return null;
   return (
     <>
       {hintPill}
       {badge}
+      {edgeLabelNodes}
       {measuresCard}
     </>
   );

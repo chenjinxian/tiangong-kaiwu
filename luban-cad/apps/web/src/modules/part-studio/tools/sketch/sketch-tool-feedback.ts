@@ -11,6 +11,23 @@
  */
 import type { SketchLiveMeasure } from './sketch-live-measures.js';
 
+/**
+ * 绘制中贴边的数值标签（2026-11-16 E6/S5 Onshape live：拐角矩形拖拽时，
+ * 宽度数值贴在第一条轴所在的边上、高度数值贴在垂直边上；蓝字、无底色/
+ * 描边/引线，文字随边旋转）。start/end 是边的视口坐标（CSS px，相对画布
+ * 左上角；与 `cursor` 同一坐标空间）——覆盖层据此算中点/角度/外偏移。
+ */
+export interface SketchToolEdgeLabel {
+  /** i18n 键（与 `measures` 同一 labelKey——覆盖层据此避免重复渲染白卡片）。 */
+  labelKey: string;
+  /** 已格式化数值（复用 computeSketchLiveMeasures 的格式）。 */
+  value: string;
+  /** 边起点（视口坐标）。 */
+  start: { x: number; y: number };
+  /** 边终点（视口坐标）。 */
+  end: { x: number; y: number };
+}
+
 export interface SketchToolFeedback {
   toolId: string;
   /** 当前阶段提示（已翻译；如「点击放置矩形对角点」）。 */
@@ -19,6 +36,11 @@ export interface SketchToolFeedback {
   measures: readonly SketchLiveMeasure[];
   /** 视口坐标（CSS px，相对画布左上角）。 */
   cursor?: { x: number; y: number };
+  /**
+   * 贴边数值标签（2026-11-16 E6/S5 Onshape live）：矩形拖拽时宽度/高度直接
+   * 贴在对应边旁，不再使用光标旁白卡片。旧发布方不带该字段仍合法。
+   */
+  edgeLabels?: readonly SketchToolEdgeLabel[];
   /**
    * 视口锚点徽标（CSS px，相对画布左上角；与 `cursor` 同一坐标空间）。
    * 2026-11-15 E3 Onshape live：草图圆角悬停角点时，画布在角点画橙色圆点 +

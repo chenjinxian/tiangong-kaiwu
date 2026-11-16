@@ -7,11 +7,72 @@
  * 不实例化 IModelApp 环境。状态机面（onDataButtonDown 乐观提交/拒收回滚/toast）
  * 依赖 AccuSnap/通知桥运行态，归 T8 真实栈冒烟验证（诚实登记：本文件不覆盖）。
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Point3d } from '@itwin/core-geometry';
+import type { BeButtonEvent } from '@itwin/core-frontend';
+
+/** 假视口（2026-11-16 W11）：缺省草图平面 = XY@z=0；视口坐标 (x,y) 即局部
+ * (u,v)，worldToView 恒等——只钉工具的投影/配对，不碰真实渲染。 */
+const mockViewManager = vi.hoisted(() => ({ selectedView: undefined as unknown }));
+
+vi.mock('@itwin/core-frontend', () => {
+  class Tool {
+    public static toolId = '';
+    public static iconSpec = '';
+    public static namespace = '';
+    public get iconSpec(): string { return (this.constructor as typeof Tool).iconSpec; }
+    public get isDynamicsStarted(): boolean { return true; }
+    public async run(): Promise<boolean> { return true; }
+    public async exitTool(): Promise<void> { /* noop */ }
+    public async onPostInstall(): Promise<void> { /* noop */ }
+    public async onCleanup(): Promise<void> { /* noop */ }
+    public async onMouseMotion(_ev: unknown): Promise<void> { /* noop */ }
+    public beginDynamics(): void { /* noop */ }
+    public endDynamics(): void { /* noop */ }
+    public initLocateElements(..._args: unknown[]): void { /* noop */ }
+    public requireWriteableTarget(): boolean { return true; }
+  }
+  class PrimitiveTool extends Tool { /* 空白基类：只做生命周期占位 */ }
+
+  return {
+    Tool,
+    PrimitiveTool,
+    IModelApp: {
+      viewManager: mockViewManager,
+      accuSnap: undefined,
+      tools: { register: vi.fn() },
+      notifications: {
+        outputPrompt: vi.fn(),
+        outputMessage: vi.fn(),
+        setToolAssistance: vi.fn(),
+      },
+    },
+    EventHandled: { Yes: 1, No: 0 },
+    GraphicType: { WorldOverlay: 1 },
+    NotifyMessageDetails: class { constructor(_priority: unknown, _message: unknown) {} },
+    OutputMessagePriority: { None: 0, Error: 10, Warning: 11, Info: 12 },
+    ToolAssistance: {
+      inputsLabel: '',
+      createInstruction: (...args: unknown[]) => args,
+      createSection: (...args: unknown[]) => args,
+      createInstructions: (...args: unknown[]) => args,
+    },
+    ToolAssistanceImage: { LeftClick: 0 },
+    ToolAssistanceInputMethod: { Mouse: 0 },
+  };
+});
+
+import { IModelApp } from '@itwin/core-frontend';
+import {
+  clearSketchToolFeedback,
+  getSketchToolFeedback,
+} from '../tools/sketch/sketch-tool-feedback.js';
+import type { SketchToolFeedback } from '../tools/sketch/sketch-tool-feedback.js';
 import type { SketchPoint2 } from '../tools/sketch/sketch-plane.js';
 import {
   SketchArc3PointTool,
   SketchCenterCircleTool,
+  SketchCenterRectangleTool,
   SketchLineTool,
   SketchMidlineTool,
   SketchPerimeterCircleTool,
@@ -280,6 +341,102 @@ describe('v1.19：SketchSplineTool buildShape（精确三次贝塞尔）', () =>
     const tool = new TestableSpline();
     expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 0, v: 0 }, { u: 1, v: 1 }, { u: 2, v: 2 }])).toBeUndefined();
     expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 5, v: 0 }, { u: 0, v: 0 }, { u: 3, v: 2 }])).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-11-16 W11：矩形拖拽贴边标签（工具发布面 pairing/投影）
+// 假视口把视口坐标 (x,y) 直接映射为缺省 XY 平面的局部 (u,v)，因此边段断言
+// 可逐字比较；width/height 数值取不同值（30/20、40/16）确保交换必失败。
+// ---------------------------------------------------------------------------
+
+/** 缺省平面 XY@z=0 的假视口：viewPoint=(u,v)，worldToView 恒等。 */
+const fakeViewport = {
+  viewToNpc: (point: Point3d) => point.clone(),
+  npcToWorld: (npc: { x: number; y: number; z: number }) => Point3d.create(npc.x, npc.y, npc.z),
+  worldToView: (world: Point3d) => ({ x: world.x, y: world.y }),
+};
+
+const makeEvent = (x: number, y: number): BeButtonEvent => ({
+  viewPoint: { x, y },
+  viewport: fakeViewport,
+  point: Point3d.create(x, y, 0),
+} as unknown as BeButtonEvent);
+
+/** 走真实工具生命周期：安装 → 落第一点 → 只移动光标（不落第二点）→ 读反馈。 */
+async function driveRectangleTool(
+  tool: SketchRectangleTool | SketchCenterRectangleTool,
+  anchor: SketchPoint2,
+  cursor: SketchPoint2,
+): Promise<SketchToolFeedback> {
+  await tool.onPostInstall();
+  await tool.onDataButtonDown(makeEvent(anchor.u, anchor.v));
+  await tool.onMouseMotion(makeEvent(cursor.u, cursor.v));
+  const feedback = getSketchToolFeedback();
+  if (!feedback) throw new Error('工具未发布反馈');
+  return feedback;
+}
+
+describe('W11：矩形拖拽贴边标签（edgeLabels 与 measures 配对/边段投影）', () => {
+  afterEach(() => {
+    clearSketchToolFeedback();
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = undefined;
+  });
+
+  const installViewport = (): void => {
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = fakeViewport;
+  };
+
+  it('拐角矩形：width/height 与同名 measure 一一对应，边段 = anchor→(cursor.u,anchor.v)→cursor', async () => {
+    installViewport();
+    const feedback = await driveRectangleTool(
+      new SketchRectangleTool(),
+      { u: 10, v: 5 },
+      { u: 40, v: 25 },
+    );
+
+    const labels = feedback.edgeLabels ?? [];
+    expect(labels).toHaveLength(2);
+    const [widthMeasure, heightMeasure] = feedback.measures;
+    const [widthLabel, heightLabel] = labels;
+    // 标签必须按 measures 顺序复用同一 labelKey/值（交换 width/height 即失败）。
+    expect(widthMeasure?.labelKey.endsWith('.width')).toBe(true);
+    expect(heightMeasure?.labelKey.endsWith('.height')).toBe(true);
+    expect(widthLabel?.labelKey).toBe(widthMeasure?.labelKey);
+    expect(widthLabel?.value).toBe(widthMeasure?.value);
+    expect(heightLabel?.labelKey).toBe(heightMeasure?.labelKey);
+    expect(heightLabel?.value).toBe(heightMeasure?.value);
+    expect(widthLabel?.value).toBe('30');
+    expect(heightLabel?.value).toBe('20');
+
+    // 宽边 = 首角点 → (cursor.u, 首角点.v)；高边 = 该拐角 → cursor。
+    expect(widthLabel?.start).toEqual({ x: 10, y: 5 });
+    expect(widthLabel?.end).toEqual({ x: 40, y: 5 });
+    expect(heightLabel?.start).toEqual({ x: 40, y: 5 });
+    expect(heightLabel?.end).toEqual({ x: 40, y: 25 });
+  });
+
+  it('中心矩形：从中心反射对角点起算（边长 2|Δu| / 2|Δv|），不是从中心起算', async () => {
+    installViewport();
+    const feedback = await driveRectangleTool(
+      new SketchCenterRectangleTool(),
+      { u: 20, v: 20 },
+      { u: 40, v: 28 },
+    );
+
+    const labels = feedback.edgeLabels ?? [];
+    expect(labels).toHaveLength(2);
+    const [widthLabel, heightLabel] = labels;
+    expect(widthLabel?.value).toBe('40'); // 2·|40−20|
+    expect(heightLabel?.value).toBe('16'); // 2·|28−20|
+    expect(widthLabel?.value).toBe(feedback.measures[0]?.value);
+    expect(heightLabel?.value).toBe(feedback.measures[1]?.value);
+
+    // 反射对角点 = 2·center − cursor = (0, 12)；两条边从该角起算。
+    expect(widthLabel?.start).toEqual({ x: 0, y: 12 });
+    expect(widthLabel?.end).toEqual({ x: 40, y: 12 });
+    expect(heightLabel?.start).toEqual({ x: 40, y: 12 });
+    expect(heightLabel?.end).toEqual({ x: 40, y: 28 });
   });
 });
 
