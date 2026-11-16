@@ -17,8 +17,8 @@
  * 给出，选中高亮浅蓝（live 截图口径），删除走宿主 updateSketch 移除该约束。
  *
  * 2026-11-15（live 对拍）：输入框贴标签左侧（垂直中心对齐标签中心；无标签
- * 矩形回退双击点）、只读单位后缀（长度类 mm / 角度 °，仅视觉，解析仍用数值
- * 文本）；选中 glyph 高亮=纯 #e2f0fa 填充（无边框/圆角）。
+ * 矩形回退双击点）、只读单位后缀（长度类 mm / 角度 deg，仅视觉，解析仍用
+ * 数值文本）；选中 glyph 高亮=纯 #e2f0fa 填充（无边框/圆角）。
  *
  * 2026-11-16（W10a live dimension-dialog 对拍）：完整尺寸对话框皮肤——上方
  * 13px 拖拽条 + 34px 白面板（0 圆角、0 5px 10px rgba(0,0,0,0.2) 阴影、下
@@ -37,7 +37,8 @@
  * 视口 4px 边距钳制，重新打开对话框时复位到锚点默认位置。
  *
  * 输入框内方向键步进（live）：无选区（光标态）时 ArrowUp/ArrowDown 对长度类
- * 约束步进 ±1 mm，有选区时不步进（默认行为折叠选区）；步进不提交。
+ * 约束步进 ±1 mm、对角度约束步进 ±1°（W18：显示单位为度），有选区时不步进
+ *（默认行为折叠选区）；步进不提交。
  *
  * 2026-11-16（W17b）：live 的放置值弹层与双击编辑器是同一个 dimension-dialog；
  * 结构与拖拽/方向键行为抽到共享外壳 `SketchDimensionDialog`（本组件只做
@@ -115,7 +116,7 @@ interface EditorState {
   value: string;
   /** 打开时的初始格式化文本（方向键步进判断「未编辑」的基线）。 */
   initialValue: string;
-  /** 约束原始值（未编辑时步进基线，保留全精度；角度为弧度）。 */
+  /** 约束原始值（未编辑时步进基线，保留全精度；角度为契约弧度）。 */
   rawValue: number | undefined;
   /** position:fixed 元素的 client 坐标（垂直以 translateY(-50%) 居中）。 */
   left: number;
@@ -231,9 +232,9 @@ export function layoutDimensionEditorDialog(input: {
   return { left, top, offsetLeft: left - wrapLeft, offsetTop: top - wrapTop };
 }
 
-/** 只读单位后缀（视觉仅显示；解析/载荷仍是数值文本）：角度 °，其余 mm。 */
-export function dimensionEditorUnit(kind: SketchConstraintDto['kind']): 'mm' | '°' {
-  return kind === 'angle' ? '°' : 'mm';
+/** 只读单位后缀（视觉仅显示；解析/载荷仍是数值文本）：角度 deg（live W18），其余 mm。 */
+export function dimensionEditorUnit(kind: SketchConstraintDto['kind']): 'mm' | 'deg' {
+  return kind === 'angle' ? 'deg' : 'mm';
 }
 
 /**
@@ -725,6 +726,13 @@ export function SketchDimensionEditor({
         viewport: viewportSize,
       })
     : null;
+  /**
+   * 共享外壳按**显示单位**做方向键步进：角度契约值是弧度，先换算为度
+   *（与 `formatConstraintEditorValue` 的初值口径一致；W18 live）。
+   */
+  const editorRawValue = editor?.kind === 'angle' && editor.rawValue !== undefined
+    ? Math.abs(editor.rawValue) * 180 / Math.PI
+    : editor?.rawValue;
   /** 拖动后的可见位置每次都按拖拽起点 + 视口 4px 边距重新钳制。 */
   const visibleDialogPosition = dialogPlacement
     ? clampDimensionEditorPosition(
@@ -819,7 +827,7 @@ export function SketchDimensionEditor({
             kind={editor.kind}
             value={editor.value}
             initialValue={editor.initialValue}
-            rawValue={editor.rawValue}
+            rawValue={editorRawValue}
             unit={dimensionEditorUnit(editor.kind)}
             error={failed}
             busy={committing}

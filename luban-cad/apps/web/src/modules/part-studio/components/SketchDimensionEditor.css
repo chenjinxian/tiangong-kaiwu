@@ -123,7 +123,7 @@
   text-align: left;
 }
 
-/* 只读单位后缀（mm / °）：压在输入框右侧内边距上，仅视觉，不参与解析。 */
+/* 只读单位后缀（mm / deg）：压在输入框右侧内边距上，仅视觉，不参与解析。 */
 .part-studio-dimension-editor-unit {
   position: absolute;
   right: 6px;

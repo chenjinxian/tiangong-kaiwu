@@ -29,15 +29,30 @@ const baseLines: SketchEntityDto[] = [
 ];
 
 describe('formatSketchDimensionValue', () => {
-  it('保留设计精度、去掉无意义尾零（Onshape 无单位后缀）', () => {
+  it('长度类最多 2 位小数、去尾零（live W18：25.98062 → 25.98；无单位后缀）', () => {
     expect(formatSketchDimensionValue(82.55)).toBe('82.55');
     expect(formatSketchDimensionValue(19.05)).toBe('19.05');
     expect(formatSketchDimensionValue(50.8)).toBe('50.8');
-    expect(formatSketchDimensionValue(52.4002)).toBe('52.4002');
-    expect(formatSketchDimensionValue(15.875)).toBe('15.875');
+    expect(formatSketchDimensionValue(25.98062)).toBe('25.98');
+    expect(formatSketchDimensionValue(52.4002)).toBe('52.4');
+    expect(formatSketchDimensionValue(15.875)).toBe('15.88');
+    // live 2026-11-16 实采：输入 28.575 → 标注 28.58（十进制 half-up，
+    // 非 JS toFixed 的二进制 down）；见 decimal-format.ts。
+    expect(formatSketchDimensionValue(28.575)).toBe('28.58');
     expect(formatSketchDimensionValue(76.2)).toBe('76.2');
+    // decimals=0 的防御：不能把整数尾零裁掉（90 → "9"）。
+    expect(formatSketchDimensionValue(90, 0)).toBe('90');
+    expect(formatSketchDimensionValue(90.4, 0)).toBe('90');
     expect(formatSketchDimensionValue(44.45)).toBe('44.45');
     expect(formatSketchDimensionValue(undefined)).toBe('?');
+    expect(formatSketchDimensionValue(Number.NaN)).toBe('?');
+  });
+
+  it('角度调用方传 3 位小数（live 88.4961608° → 88.496），仍去尾零', () => {
+    expect(formatSketchDimensionValue(88.4961608, 3)).toBe('88.496');
+    expect(formatSketchDimensionValue(90, 3)).toBe('90');
+    expect(formatSketchDimensionValue(45.5, 3)).toBe('45.5');
+    expect(formatSketchDimensionValue(Number.POSITIVE_INFINITY, 3)).toBe('?');
   });
 });
 
@@ -105,6 +120,18 @@ describe('buildSketchDimensionAnnotations', () => {
     expect(annotations).toEqual([]);
   });
 
+  it('angle：标签最多 3 位小数（live W18：88.496°）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 4, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 2, y: 10 } },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 104, refs: [4, 5], value: 88.4961608 * Math.PI / 180 },
+    ]));
+    expect(annotations).toHaveLength(1);
+    expect(annotations[0]).toMatchObject({ kind: 'angular', id: 'dimension-104', text: '88.496°' });
+  });
+
   it('diameter：圆心 + 圆上点，⌀ 前缀文本（v1.23 ADR-0004）', () => {
     const entities: SketchEntityDto[] = [
       ...baseLines,
@@ -130,7 +157,8 @@ describe('buildSketchDimensionAnnotations', () => {
     ]));
     expect(annotations).toHaveLength(1);
     const dim = annotations[0]!;
-    expect(dim).toMatchObject({ kind: 'radial', id: 'dimension-102', text: 'R15.875' });
+    // 半径与长度同精度（live W18：最多 2 位小数）。
+    expect(dim).toMatchObject({ kind: 'radial', id: 'dimension-102', text: 'R15.88' });
     if (dim.kind !== 'radial') throw new Error('应为径向尺寸');
     expect(dim.center.x).toBeCloseTo(57.15, 6);
     expect(dim.center.y).toBeCloseTo(-27.0002, 6);

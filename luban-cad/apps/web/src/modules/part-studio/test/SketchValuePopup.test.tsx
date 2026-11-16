@@ -9,7 +9,8 @@
 // 2026-11-16 W17b（live dimension-dialog 对拍）：尺寸分支改用与双击编辑器
 // 共用的 209×47 外壳（拖拽条 + 禁用展开器/参数状态切换 + 按钮组），以放置
 // 点击为中心（left = anchor.x − 104.5、top = anchor.y − 31，顶部 ≥8px 安全
-// 钳制）；初值长度 5 位/角度 7 位小数；方向键无选区 ±1 mm（角度暂缓）；
+// 钳制）；初值长度 5 位/角度 7 位小数；方向键无选区长度 ±1 mm（W18 共享外壳
+// 角度分支 ±1°）；
 // 仅拖拽条可拖、每个候选复位；偏移分支保持旧白卡外观（产品扩展）。
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';

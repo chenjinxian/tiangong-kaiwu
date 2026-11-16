@@ -17,6 +17,8 @@ import type { SketchConstraintDto, SketchDto, SketchEntityDto, SketchRef } from 
 import type { SketchDimensionAnnotation } from '@luban-cad/viewer';
 import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
 
+import { formatFixedHalfUp } from './decimal-format.js';
+
 interface LocalPoint { x: number; y: number }
 interface LineItem { kind: 'line'; a: LocalPoint; b: LocalPoint }
 interface PointItem { kind: 'point'; p: LocalPoint }
@@ -25,11 +27,23 @@ type ResolvedItem = LineItem | PointItem | CircleItem;
 
 const EPS = 1e-9;
 
-/** 尺寸文字：最多 4 位小数、去尾零（Onshape 不显示单位后缀）。 */
-export function formatSketchDimensionValue(value: number | undefined): string {
+/** 尺寸文字默认小数位（live 2026-11-16 W18：长度/距离/半径/直径显示 0.12 → 2 位）。 */
+export const DIMENSION_LABEL_DECIMALS = 2;
+
+/** 角度标签小数位（live 2026-11-16 W18：角度显示 0.123 → 3 位）。 */
+export const ANGLE_DIMENSION_LABEL_DECIMALS = 3;
+
+/**
+ * 尺寸文字：最多 `decimals` 位小数、去尾零（Onshape 不显示单位后缀）。
+ * 2026-11-16 W18 live：长度类 2 位（25.98062 → "25.98"），角度调用方传 3 位
+ * （88.4961608° → "88.496"）。
+ */
+export function formatSketchDimensionValue(value: number | undefined, decimals = DIMENSION_LABEL_DECIMALS): string {
   if (value === undefined || !Number.isFinite(value)) return '?';
-  const fixed = value.toFixed(4);
-  return fixed.replace(/\.?0+$/, '') || '0';
+  const fixed = formatFixedHalfUp(value, decimals);
+  // 仅裁小小数部分（decimals=0 时无小数点，不能把整数的尾零裁掉）。
+  if (!fixed.includes('.')) return fixed;
+  return fixed.replace(/0+$/, '').replace(/\.$/, '') || '0';
 }
 
 function inlinePoint(ref: number | { x: number; y: number }, points: ReadonlyMap<number, LocalPoint>): LocalPoint | undefined {
@@ -382,8 +396,8 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
           vertex: world(vertex),
           a: world(fartherEndpoint(itemA, vertex)),
           b: world(fartherEndpoint(itemB, vertex)),
-          // shared 契约 angle.value 为弧度；Onshape 显示度数。
-          text: `${formatSketchDimensionValue(Math.abs(constraint.value) * 180 / Math.PI)}°`,
+          // shared 契约 angle.value 为弧度；Onshape 显示度数（最多 3 位小数，W18 live）。
+          text: `${formatSketchDimensionValue(Math.abs(constraint.value) * 180 / Math.PI, ANGLE_DIMENSION_LABEL_DECIMALS)}°`,
         });
         break;
       }

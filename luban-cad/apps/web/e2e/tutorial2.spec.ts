@@ -569,12 +569,14 @@ test('UI 严格鼠标级：Front 草图 18 实体/48 约束/9 尺寸 + 六特征
   // 9 条尺寸约束全部在画布上有标注（Onshape live：长度/距离/半径）。
   await expect(annotationsMarker).toHaveAttribute('data-count', '9', { timeout: 15_000 });
   const annotationLabels = (await annotationsMarker.getAttribute('data-labels')) ?? '';
-  for (const label of ['82.55', '19.05', 'R15.875', '50.8', '52.4002', '28.575', '76.2', '44.45']) {
+  // 2026-11-16 W18 live：标注最多 2 位小数、去尾零（R15.875 → R15.88、
+  // 52.4002 → 52.4、28.575 → 28.58（十进制 half-up，live 实采）；底层约束值不变）。
+  for (const label of ['82.55', '19.05', 'R15.88', '50.8', '52.4', '28.58', '76.2', '44.45']) {
     expect(annotationLabels, `草图标注应包含 ${label}`).toContain(label);
   }
   await page.screenshot({ path: 'test-results/t2-mouse-99-final-sketch.png' });
   await showcaseScene(page, SCENES.sketchFull);
-  await showcaseCaption(page, '步骤 13｜草图完成', '18 实体 / 48 约束 / 9 尺寸；DOF = 0；识别 8 个面域。\n画布上 9 条尺寸标注全部可见：长度/距离/半径（R15.875）。', 1800);
+  await showcaseCaption(page, '步骤 13｜草图完成', '18 实体 / 48 约束 / 9 尺寸；DOF = 0；识别 8 个面域。\n画布上 9 条尺寸标注全部可见：长度/距离/半径（R15.88，2 位小数）。', 1800);
 
   // ── 11. 退出草图 → 六特征链（真实特征对话框；E1 新建，E2/E3/R1 加入 Part 1）
   await showcaseCaption(page, '步骤 14｜退出草图', '点击草图对话框绿色 ✓（完成）→ 回到 3D Iso 视口（自动适应模型）。');

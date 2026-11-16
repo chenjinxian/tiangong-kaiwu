@@ -198,8 +198,8 @@ describe('constraintEntityIds（E5：约束 glyph 悬停高亮实体集）', () 
 });
 
 describe('dimensionEditorUnit（只读后缀）', () => {
-  it('角度 °；长度/半径/直径/距离 mm', () => {
-    expect(dimensionEditorUnit('angle')).toBe('°');
+  it('角度 deg（live W18）；长度/半径/直径/距离 mm', () => {
+    expect(dimensionEditorUnit('angle')).toBe('deg');
     expect(dimensionEditorUnit('length')).toBe('mm');
     expect(dimensionEditorUnit('radius')).toBe('mm');
     expect(dimensionEditorUnit('diameter')).toBe('mm');

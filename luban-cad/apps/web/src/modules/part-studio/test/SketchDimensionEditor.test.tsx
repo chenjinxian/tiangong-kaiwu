@@ -10,7 +10,10 @@
  *
  * 2026-11-16 W17（live 尺寸对话框全结构）：对话框 209×47、拖拽条三枚空心方
  * 握把、禁用展开器与禁用参数状态切换、拖拽条拖动可见对话框（重开复位）、
- * 方向键无选区时 ±1 步进（有选区/角度不步进、不提交）。
+ * 方向键无选区时 ±1 步进（有选区不步进、不提交）。
+ *
+ * 2026-11-16 W18（live 角度编辑器）：单位后缀 deg；角度初值 7 位小数（度）、
+ * 光标态 ArrowDown ±1°；radians → degrees 在传给共享外壳前归一化。
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -21,6 +24,7 @@ import type { SketchConstraintGlyphAnnotation, SketchLinearDimensionAnnotation }
 import {
   DIMENSION_EDITOR_DIALOG_WIDTH,
   DIMENSION_EDITOR_INPUT_HEIGHT,
+  dimensionEditorUnit,
   SketchDimensionEditor,
 } from '../components/SketchDimensionEditor.js';
 
@@ -503,12 +507,67 @@ describe('SketchDimensionEditor W17：方向键步进（live）', () => {
     expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74583');
   });
 
-  it('角度 ArrowDown 不步进（无 live 证据，保持默认行为）', () => {
-    renderDimensionEditor(vi.fn(), { id: DIMENSION_ID, kind: 'angle', refs: [11], value: Math.PI / 6 });
+});
+
+// ── 2026-11-16 W18：角度编辑器单位/初值/方向键（live）────────────────────────
+const ANGLE_CONSTRAINT: SketchConstraintDto = {
+  id: DIMENSION_ID,
+  kind: 'angle',
+  refs: [11, 12],
+  value: Math.PI / 6,
+};
+
+describe('SketchDimensionEditor W18：角度编辑器（live）', () => {
+  it('单位后缀 deg（不再是 °）；长度类仍 mm', () => {
+    expect(dimensionEditorUnit('angle')).toBe('deg');
+    expect(dimensionEditorUnit('length')).toBe('mm');
+    renderDimensionEditor(vi.fn(), ANGLE_CONSTRAINT);
+    expect(screen.getByTestId('sketch-dimension-unit').textContent).toBe('deg');
+  });
+
+  it('角度初值 7 位小数（度）：83.7325188；光标态 ArrowDown 步进 −1°、不提交', () => {
+    const onCommit = vi.fn();
+    const degrees = 83.7325188;
+    renderDimensionEditor(onCommit, { ...ANGLE_CONSTRAINT, value: degrees * Math.PI / 180 });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('83.7325188');
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const steppedDown = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(steppedDown.value).toBe('82.7325188');
+
+    // 步进后文本 ≠ 初始格式化：基线改为 Number(text)（度）。
+    steppedDown.setSelectionRange(steppedDown.value.length, steppedDown.value.length);
+    fireEvent.keyDown(steppedDown, { key: 'ArrowUp' });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('83.7325188');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('sketch-dimension-input')).not.toBeNull();
+  });
+
+  it('角度 30 → ArrowDown = 29（整数去尾零），ArrowUp 回到 30', () => {
+    renderDimensionEditor(vi.fn(), ANGLE_CONSTRAINT);
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
     expect(input.value).toBe('30');
     input.setSelectionRange(2, 2);
     fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('29');
+    const stepped = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    stepped.setSelectionRange(2, 2);
+    fireEvent.keyDown(stepped, { key: 'ArrowUp' });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
+  });
+
+  it('角度有选区/IME 合成中 ArrowDown 不步进', () => {
+    renderDimensionEditor(vi.fn(), ANGLE_CONSTRAINT);
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    input.select();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
+
+    const afterSelect = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    afterSelect.setSelectionRange(2, 2);
+    fireEvent.keyDown(afterSelect, { key: 'ArrowDown', isComposing: true });
     expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
   });
 });

@@ -99,9 +99,26 @@ test.describe('草图角度尺寸（Onshape 对拍）', () => {
     const input = page.getByTestId('sketch-dimension-input');
     await expect(input).toBeVisible();
     await expect(input).toHaveValue('90');
-    await input.fill('45');
-    await input.press('Enter');
-    await expect(input).toHaveCount(0, { timeout: 30_000 });
+    // live W18：角度编辑器单位 token 是 deg（不是 °）。
+    await expect(page.getByTestId('sketch-dimension-unit')).toHaveText('deg');
+
+    // live W18：打开时整段选中 → 点入输入框得到光标（无选区）再 ArrowDown −1°；
+    // 步进不提交，取消后重新打开是原值 90。
+    await input.click();
+    await input.press('End');
+    await input.press('ArrowDown');
+    await expect(input).toHaveValue('89');
+    await page.getByTestId('sketch-dimension-cancel').click();
+    await expect(input).toHaveCount(0);
+
+    // 既有 45° 提交链保持不变（步进未提交）。
+    await page.mouse.dblclick(box!.x + point.x, box!.y + point.y);
+    const input2 = page.getByTestId('sketch-dimension-input');
+    await expect(input2).toBeVisible();
+    await expect(input2).toHaveValue('90');
+    await input2.fill('45');
+    await input2.press('Enter');
+    await expect(input2).toHaveCount(0, { timeout: 30_000 });
 
     await expect.poll(async () => {
       const sketch = await getSketchRpc(ctx, sketchId, token);

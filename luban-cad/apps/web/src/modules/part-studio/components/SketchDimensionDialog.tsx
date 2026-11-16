@@ -19,8 +19,9 @@
  * 行为：仅拖拽条可拖（pointerdown 记录起点，move/up 由 window 捕获段监听——
  * 2026-11-16 W17 真栈实测 setPointerCapture 后 React 合成 onPointerMove 不再
  * 派发）；输入框无选区时 ArrowUp/ArrowDown 走 `stepConstraintEditorValue`
- * ±1 mm（角度暂缓到 W18，有选区/IME 合成不步进）；Enter/✓ 提交、Escape/✗
- * 取消（语义由宿主回调决定，外壳不直接触碰模型）。
+ *（长度类 ±1 mm / 角度 ±1°，rawValue 由宿主按显示单位传入；有选区/IME
+ * 合成不步进）；Enter/✓ 提交、Escape/✗ 取消（语义由宿主回调决定，外壳不
+ * 直接触碰模型）。
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -72,7 +73,7 @@ export interface SketchDimensionDialogProps {
   initialValue: string;
   /** 原始值（未编辑时步进基线，保留全精度）。 */
   rawValue?: number;
-  /** 只读单位后缀文本（mm / ° / deg；产品口径由宿主决定）。 */
+  /** 只读单位后缀文本（mm / deg；产品口径由宿主决定）。 */
   unit: string;
   /** 错误态：只把下划线转红。 */
   error?: boolean;
@@ -254,7 +255,7 @@ export function SketchDimensionDialog({
                 if (event.nativeEvent.isComposing)
                   return;
                 // live：有选区（刚打开时全选）不步进——不拦默认行为，由
-                // 浏览器折叠选区；光标态才 ±1（角度无证据，保持默认）。
+                // 浏览器折叠选区；光标态才 ±1（长度 mm / 角度度，W18）。
                 const input = event.currentTarget;
                 const { selectionStart, selectionEnd } = input;
                 if (selectionStart === null || selectionEnd === null || selectionStart !== selectionEnd)
