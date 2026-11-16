@@ -792,3 +792,20 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   原地更新且约束数不变）。
 - 残留：只匹配同种类（width 若存为 endpoint-pair distance 不匹配 line length）；
   角度候选通道仍关闭；driven/变量未建模。
+
+### 2026-11-17 W22 两线角度尺寸（单尺寸工具）
+
+- live：尺寸工具拾取两条**非平行**线 → angle（值对话框按度、`deg`、7 位小数、
+  ±1° 步进；画布标签角度 3 位）；平行线保持既有 distance（无 live 证据，
+  不发明平行线角度语义）。
+- 实现：推断层两线夹角 > `PARALLEL_LINE_ANGLE_MAX_DEG`（1e-4°，复用既有
+  `lineAngleDeg` 锐角口径）→ angle；不可测回退 distance。`DimensionKind` /
+  `SketchDimensionKind`（前端事件面）扩 angle，候选 `measuredValue` 为度；
+  值弹层确认经 `parseConstraintEditorValue` 把**度换算弧度**（新建与既有
+  angle 均如此；>0/<360° 校验），既有 angle 走 `applyConstraintValue(弧度)`。
+  W19/W21 生命周期与共享外壳不变。
+- 验证：目标单测 61/61、全量 web **2151/2151**、tsc(src+e2e)/eslint 绿；
+  真栈 `sketch-dimension-edit`（含两线 angle 流）+ `tutorial2-tools` 标注 +
+  `tutorial2` 严格 **6 passed（7.4 min）**（体积 357.730 cm³ / 去材 0.422 不变）。
+- 残留：角度取锐角口径（钝角/方向选择未采）；平行线 distance 语义未 live 复核；
+  同一对引用已有 distance 时不会命中既有 angle 匹配。

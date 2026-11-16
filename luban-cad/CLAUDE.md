@@ -230,6 +230,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （预填约束值；圆/弧半径↔直径等价；driven 排除），确认走
   `applyConstraintValue` 原地改值、不追加；全量 web **2140/2140**、
   tsc(src/e2e)/eslint 绿；真栈 `sketch-dimension-edit` 3 passed（1.4 min）。
+  **W22**：两非平行线 → angle（度输入、弧度契约、deg/7 位/±1°；平行线保持
+  distance）；全量 web **2151/2151**、tsc(src/e2e)/eslint 绿；真栈
+  `sketch-dimension-edit` + `tutorial2-tools` 标注 + `tutorial2` **6 passed
+  （7.4 min，体积不变）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
