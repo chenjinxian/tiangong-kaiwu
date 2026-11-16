@@ -104,6 +104,12 @@ export interface SketchDimensionEditorProps {
    */
   overlayHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => boolean) | null>;
   /**
+   * W20（2026-11-16）：尺寸标签命中通道（供 SketchEntityPicker 打开尺寸右键
+   * 菜单）——命中当前标注标签时返回其约束 id，未命中返回 null；与
+   * `overlayHitTestRef` 同一生命周期。缺省不注册。
+   */
+  dimensionLabelHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => number | null) | null>;
+  /**
    * 2026-11-15 E5：悬停非尺寸约束 glyph → 其引用实体 id（升序去重；离开/未
    * 命中 glyph 时回调空数组）。仅显示联动，不改变选择。缺省不监听。
    */
@@ -336,6 +342,7 @@ export function SketchDimensionEditor({
   onSelectConstraint,
   onDeleteConstraint,
   overlayHitTestRef,
+  dimensionLabelHitTestRef,
   onGlyphHover,
 }: SketchDimensionEditorProps): React.JSX.Element | null {
   const [viewVersion, setViewVersion] = React.useState(0);
@@ -376,6 +383,22 @@ export function SketchDimensionEditor({
         overlayHitTestRef.current = null;
     };
   }, [overlayHitTestRef, labels, glyphLayouts]);
+
+  // W20：尺寸标签命中通道（供实体拾取层打开尺寸右键菜单）。与覆盖层命中
+  // 同一生命周期：标签重算即重建；卸载/依赖变化清空，避免命中过期坐标。
+  // 只返回约束 id，不改变既有 overlayHitTestRef 的布尔契约。
+  React.useEffect(() => {
+    if (!dimensionLabelHitTestRef)
+      return;
+    dimensionLabelHitTestRef.current = (point) => {
+      const label = hitTestSketchDimensionLabel(labelsRef.current, point);
+      return label ? constraintIdFromDimensionLabel(label.id) : null;
+    };
+    return () => {
+      if (dimensionLabelHitTestRef.current)
+        dimensionLabelHitTestRef.current = null;
+    };
+  }, [dimensionLabelHitTestRef, labels]);
   const constraintsRef = React.useRef(constraints);
   constraintsRef.current = constraints;
   const canEditRef = React.useRef(canEdit);

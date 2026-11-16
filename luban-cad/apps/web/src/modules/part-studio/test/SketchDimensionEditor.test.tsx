@@ -15,6 +15,7 @@
  * 2026-11-16 W18（live 角度编辑器）：单位后缀 deg；角度初值 7 位小数（度）、
  * 光标态 ArrowDown ±1°；radians → degrees 在传给共享外壳前归一化。
  */
+import type { MutableRefObject } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
@@ -569,5 +570,41 @@ describe('SketchDimensionEditor W18：角度编辑器（live）', () => {
     afterSelect.setSelectionRange(2, 2);
     fireEvent.keyDown(afterSelect, { key: 'ArrowDown', isComposing: true });
     expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
+  });
+});
+
+// ── W20（2026-11-16 live）：尺寸标签命中 ref（SketchEntityPicker 尺寸右键菜单）──
+type DimensionLabelHitTest = (point: { x: number; y: number }) => number | null;
+
+describe('SketchDimensionEditor W20：尺寸标签命中 ref', () => {
+  it('标签中心 → 约束 id；其它位置 → null；卸载清空；覆盖层布尔契约不变', () => {
+    const { viewport } = makeViewport();
+    const hitRef: MutableRefObject<DimensionLabelHitTest | null> = { current: null };
+    const overlayRef: MutableRefObject<((point: { x: number; y: number }) => boolean) | null> = { current: null };
+    const view = render(
+      <SketchDimensionEditor
+        viewport={viewport}
+        annotations={[DIMENSION_ANNOTATION]}
+        constraints={[DIMENSION_CONSTRAINT]}
+        onCommit={() => undefined}
+        overlayHitTestRef={overlayRef}
+        dimensionLabelHitTestRef={hitRef}
+      />,
+    );
+
+    expect(hitRef.current).not.toBeNull();
+    expect(hitRef.current!({ x: DIMENSION_LABEL_CENTER.clientX, y: DIMENSION_LABEL_CENTER.clientY }))
+      .toBe(DIMENSION_ID);
+    expect(hitRef.current!({ x: 400, y: 300 })).toBeNull();
+
+    // 既有布尔覆盖层命中契约不变（标签命中 true、空白 false）。
+    expect(overlayRef.current).not.toBeNull();
+    expect(overlayRef.current!({ x: DIMENSION_LABEL_CENTER.clientX, y: DIMENSION_LABEL_CENTER.clientY }))
+      .toBe(true);
+    expect(overlayRef.current!({ x: 400, y: 300 })).toBe(false);
+
+    view.unmount();
+    expect(hitRef.current).toBeNull();
+    expect(overlayRef.current).toBeNull();
   });
 });

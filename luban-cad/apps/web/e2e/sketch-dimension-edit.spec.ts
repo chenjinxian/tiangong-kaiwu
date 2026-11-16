@@ -256,6 +256,26 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     expect(finalSketch?.constraints.map((constraint) => constraint.kind).sort())
       .toEqual(['horizontal', 'length', 'radius']);
 
+    // ---- 2c) W20 live：右键尺寸标签 → 尺寸菜单（驱动行诚实禁用、删除尺寸），
+    //          删除走宿主既有 updateSketch 约束删除；撤消恢复（可撤销硬约束）。 ----
+    const lengthAtMenu = await centerOf(LENGTH_ID);
+    await page.mouse.click(lengthAtMenu.x, lengthAtMenu.y, { button: 'right' });
+    const dimensionMenu = page.getByTestId('sketch-dimension-menu');
+    await expect(dimensionMenu).toBeVisible({ timeout: 10_000 });
+    await expect(dimensionMenu.getByTestId('sketch-dimension-menu-driven')).toBeDisabled();
+    await expect(dimensionMenu.getByTestId('sketch-dimension-menu-delete')).toBeEnabled();
+    await dimensionMenu.getByTestId('sketch-dimension-menu-delete').click();
+    await expect.poll(async () => {
+      const now = await getSketchRpc(ctx, sketchId, token);
+      return (now?.constraints ?? []).some((constraint) => constraint.id === LENGTH_ID);
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(false);
+    await page.getByRole('button', { name: '撤消' }).click();
+    await expect.poll(async () => {
+      const now = await getSketchRpc(ctx, sketchId, token);
+      return (now?.constraints ?? []).some((constraint) => constraint.id === LENGTH_ID);
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
+    await waitForLabelLayout(LENGTH_ID);
+
     // ---- 3) 单击尺寸数值 → 选中（唯一选择权威 sketchConstraint）；Delete 移除约束 ----
     const radiusLabel = page.locator(
       `[data-testid="sketch-dimension-label"][data-constraint-id="${RADIUS_ID}"]`,

@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SketchEntityPicker } from '../components/SketchEntityPicker.js';
 import type { SketchPickerGeometry } from '../internal/sketch-entity-picker.js';
 import { curveDistance, distToSegment, hitTestSketchEntity } from '../internal/sketch-entity-picker.js';
+import { markRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 
 const project = (p: Point3d): { x: number; y: number } => ({ x: p.x, y: p.y });
 
@@ -98,23 +99,35 @@ function makeSketchViewport(): ScreenViewport {
   } as unknown as ScreenViewport;
 }
 
-function renderPicker(opts: { withTransform?: boolean } = {}): {
+function renderPicker(opts: {
+  withTransform?: boolean;
+  interactive?: boolean;
+  contextMenuEnabled?: boolean;
+  dimensionLabelHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => number | null) | null>;
+  onDeleteDimension?: (constraintId: number) => void | Promise<void>;
+} = {}): {
   onFinishSketch: ReturnType<typeof vi.fn>;
   onTransform: ReturnType<typeof vi.fn>;
+  onSelectionChange: ReturnType<typeof vi.fn>;
 } {
   const onFinishSketch = vi.fn();
   const onTransform = vi.fn();
+  const onSelectionChange = vi.fn();
   render(React.createElement(SketchEntityPicker, {
     viewport: makeSketchViewport(),
     sketch: SKETCH,
     selected: [],
-    onSelectionChange: vi.fn(),
+    onSelectionChange,
     sketchName: '草图 1',
     onFinishSketch,
+    ...(opts.interactive !== undefined ? { interactive: opts.interactive } : {}),
+    ...(opts.contextMenuEnabled !== undefined ? { contextMenuEnabled: opts.contextMenuEnabled } : {}),
+    ...(opts.dimensionLabelHitTestRef ? { dimensionLabelHitTestRef: opts.dimensionLabelHitTestRef } : {}),
+    ...(opts.onDeleteDimension ? { onDeleteDimension: opts.onDeleteDimension } : {}),
     // FIX-2：缺省接线；withTransform=false 模拟只读/不可变换宿主（不下传）。
     ...(opts.withTransform === false ? {} : { onTransform }),
   }));
-  return { onFinishSketch, onTransform };
+  return { onFinishSketch, onTransform, onSelectionChange };
 }
 
 /** 右键曲线中点（控制点 ≤6px 优先，取 ≥6px 的线段中部）→ 实体菜单。 */
@@ -258,5 +271,161 @@ describe('草图实体右键菜单（Onshape live 顺序）', () => {
     fireEvent.click(row);
     // 禁用行点击不触发回调、菜单保持（无行为）。
     expect(screen.getByTestId('sketch-entity-menu')).toBeTruthy();
+  });
+});
+
+// ── W20（2026-11-16 live）：尺寸标签右键菜单 ────────────────────────────────
+// live：右键尺寸数值标签 = 草图空白菜单 + 首行「更改为驱动尺寸」（产品不表示
+// 驱动尺寸 → 诚实禁用）+ 末行（分隔线后）「删除尺寸」（宿主既有约束删除路径）。
+const DIMENSION_POINT = { x: 50, y: 0 };
+
+/** 只在实体线中点（canvas 局部 50,0）报告尺寸标签命中，其余 null。 */
+function dimensionHitRef(
+  constraintId: number,
+): React.MutableRefObject<((point: { x: number; y: number }) => number | null) | null> {
+  return {
+    current: (point) => (point.x === DIMENSION_POINT.x && point.y === DIMENSION_POINT.y ? constraintId : null),
+  };
+}
+
+function openDimensionMenu(): HTMLElement {
+  fireEvent.contextMenu(document, { clientX: DIMENSION_POINT.x, clientY: DIMENSION_POINT.y });
+  return screen.getByTestId('sketch-dimension-menu');
+}
+
+describe('草图尺寸标签右键菜单（W20 live）', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('命中标签 → 尺寸菜单：首项驱动禁用（诚实原因）、末项删除；不弹实体或空白菜单', () => {
+    renderPicker({
+      dimensionLabelHitTestRef: dimensionHitRef(7),
+      onDeleteDimension: vi.fn(),
+    });
+    const menu = openDimensionMenu();
+    expect(screen.queryByTestId('sketch-entity-menu')).toBeNull();
+    expect(screen.queryByTestId('sketch-blank-menu')).toBeNull();
+
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items[0]!.getAttribute('data-testid')).toBe('sketch-dimension-menu-driven');
+    expect((items[0] as HTMLButtonElement).disabled).toBe(true);
+    expect(items[0]!.getAttribute('title')).toBe('该操作暂未支持');
+    expect(items.at(-1)!.getAttribute('data-testid')).toBe('sketch-dimension-menu-delete');
+    expect((items.at(-1) as HTMLButtonElement).disabled).toBe(false);
+    // 复用草图空白菜单行：确认 草图 N 紧随首行，缩放/视图项保留原顺序与文案。
+    expect(items[1]!.textContent).toBe('确认 草图 1');
+    expect(items.map((item) => (item.textContent ?? '').trim())).toEqual([
+      '更改为驱动尺寸',
+      '确认 草图 1',
+      '复制草图',
+      '全部显示',
+      '曲线/曲面分析…',
+      '选择›',
+      '选择其他…',
+      '添加评论',
+      '缩放到合适大小',
+      '视图垂直于草图平面',
+      '删除尺寸',
+    ]);
+  });
+
+  it('命中标签不改变实体选择（onSelectionChange 不调用）', () => {
+    // 直接渲染并取用真实 onSelectionChange 断言（renderPicker 已返回 spy）。
+    const { onSelectionChange } = renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7) });
+    openDimensionMenu();
+    expect(onSelectionChange).not.toHaveBeenCalled();
+  });
+
+  it('点击「删除尺寸」→ 菜单关闭并调用 onDeleteDimension(约束 id)', () => {
+    const onDeleteDimension = vi.fn();
+    renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7), onDeleteDimension });
+    const menu = openDimensionMenu();
+    fireEvent.click(within(menu).getByTestId('sketch-dimension-menu-delete'));
+    expect(onDeleteDimension).toHaveBeenCalledTimes(1);
+    expect(onDeleteDimension).toHaveBeenCalledWith(7);
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+  });
+
+  it('未命中尺寸标签 → 原实体/空白菜单不变（尺寸通道返回 null 不拦截）', () => {
+    renderPicker({ dimensionLabelHitTestRef: { current: () => null } });
+    const entityMenu = openEntityMenu();
+    expect(entityMenu).toBeTruthy();
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+
+    fireEvent.contextMenu(document, { clientX: 300, clientY: 250 });
+    expect(screen.getByTestId('sketch-blank-menu')).toBeTruthy();
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+  });
+
+  it('右键拖拽抑制仍然吞掉尺寸菜单（不弹任何菜单）', () => {
+    renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7), onDeleteDimension: vi.fn() });
+    markRightDragMenuSuppression();
+    fireEvent.contextMenu(document, { clientX: DIMENSION_POINT.x, clientY: DIMENSION_POINT.y });
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+    expect(screen.queryByTestId('sketch-entity-menu')).toBeNull();
+    expect(screen.queryByTestId('sketch-blank-menu')).toBeNull();
+  });
+
+  it('Escape / 外部 mousedown 关闭尺寸菜单', () => {
+    renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7) });
+    openDimensionMenu();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+
+    openDimensionMenu();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+  });
+
+  it('菜单内 mousedown 不关闭（菜单项可点击）', () => {
+    renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7), onDeleteDimension: vi.fn() });
+    const menu = openDimensionMenu();
+    fireEvent.mouseDown(within(menu).getByTestId('sketch-dimension-menu-delete'));
+    expect(screen.getByTestId('sketch-dimension-menu')).toBeTruthy();
+  });
+
+  it('工具激活（interactive=false）时标签命中不开尺寸菜单（只开空白菜单）', () => {
+    renderPicker({
+      interactive: false,
+      contextMenuEnabled: true,
+      dimensionLabelHitTestRef: dimensionHitRef(7),
+    });
+    fireEvent.contextMenu(document, { clientX: DIMENSION_POINT.x, clientY: DIMENSION_POINT.y });
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+    expect(screen.getByTestId('sketch-blank-menu')).toBeTruthy();
+  });
+
+  it('先开实体菜单再右键尺寸标签 → 仅剩尺寸菜单（互斥）', () => {
+    // 实体菜单点在 (50,0)，尺寸标签命中点错开到 (60,0)，否则尺寸通道会先拦截。
+    const hitAtSixty = {
+      current: (point: { x: number; y: number }) => (point.x === 60 && point.y === 0 ? 7 : null),
+    };
+    renderPicker({ dimensionLabelHitTestRef: hitAtSixty, onDeleteDimension: vi.fn() });
+    openEntityMenu();
+    fireEvent.contextMenu(document, { clientX: 60, clientY: 0 });
+    expect(screen.queryByTestId('sketch-entity-menu')).toBeNull();
+    expect(screen.getByTestId('sketch-dimension-menu')).toBeTruthy();
+  });
+
+  it('尺寸菜单有 maxHeight/overflowY 夹紧（末项可达，D7 教训）', () => {
+    renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7), onDeleteDimension: vi.fn() });
+    const menu = openDimensionMenu();
+    const top = Number.parseFloat(menu.style.top);
+    const maxHeight = Number.parseFloat(menu.style.maxHeight);
+    expect(Number.isFinite(top)).toBe(true);
+    expect(Number.isFinite(maxHeight)).toBe(true);
+    expect(maxHeight).toBeGreaterThanOrEqual(0);
+    expect(menu.style.overflowY).toBe('auto');
+  });
+
+  it('宿主未提供 onDeleteDimension 时「删除尺寸」禁用（不提供假动作）', () => {
+    renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7) });
+    const menu = openDimensionMenu();
+    expect((within(menu).getByTestId('sketch-dimension-menu-delete') as HTMLButtonElement).disabled).toBe(true);
   });
 });
