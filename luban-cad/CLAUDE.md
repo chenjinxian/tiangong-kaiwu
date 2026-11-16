@@ -215,7 +215,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   产品旧卡。web **2102/2102**、tsc(src/e2e)/eslint 绿；真栈
   `sketch-dimension-edit` 3 passed + 扩展后的放置标注流通过
   （`tutorial2-tools` 8 passed；1 个既有 count off-by-one known-red
-  「竖直 约束数」未涉本次改动）。
+  「竖直 约束数」未涉本次改动）。**W18**：草图标注长度最多 2 位、角度 3 位
+  （去尾零），角度编辑器 7 位度 + `deg` + ±1° 步进；取整为十进制 half-up
+  （live 28.575 → 28.58，JS toFixed 给 28.57）→ `decimal-format.ts`。全量 web
+  **2115/2115**、tsc(src/e2e)/eslint 绿；真栈 `sketch-angle-dimension` +
+  `sketch-dimension-edit` 通过、`tutorial2` 2 passed（4.7 min，体积不变）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

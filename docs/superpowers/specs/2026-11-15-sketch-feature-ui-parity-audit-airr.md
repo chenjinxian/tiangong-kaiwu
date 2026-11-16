@@ -732,3 +732,18 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   真栈 `sketch-dimension-edit` **3 passed**、扩展后的放置标注流通过
   （`tutorial2-tools` 8 passed；另 1 失败为该 spec 既有 count off-by-one
   known-red 的「竖直 约束数」15≠16，与本次 diff 无共同代码路径）。
+
+### 2026-11-16 W18 草图标注精度 + 角度编辑器
+
+- live：长度/距离/半径/直径标注最多 **2 位小数**、去尾零（25.98062 → 25.98）；
+  角度标注 **3 位**（88.4961608° → 88.496°）；角度编辑器初值 **7 位度**
+  （83.7325188 deg）、ArrowDown **±1°**、单位后缀 `deg`（画布标签仍 `°`）。
+  取整为**十进制 half-up**（live 实采：mm 2 位小数下输入 28.575 → 标签 28.58；
+  JS `toFixed` 给 28.57）→ 新增 `decimal-format.ts#formatFixedHalfUp`，标注/
+  编辑器/弹层统一走它（负数 half-away-from-zero，噪声窗口 ~1 ulp）。
+- 角度契约仍为弧度（显示度、提交换算），≥360/≤0 拒收不变；有选区/IME 不步进。
+- 验证：目标单测 6 文件 **95/95**、全量 web **148 文件 2115/2115**、
+  tsc(src/e2e)/eslint 绿；真栈 `sketch-angle-dimension` + `sketch-dimension-edit`
+  通过、`tutorial2` **2 passed（4.7 min）**（体积 357.730 cm³ / 去材 0.422 不变）。
+- 残留：放置弹层的角度候选通道未开（`SketchDimensionKind` 不含 angle；若接通
+  需把度换算回弧度）。
