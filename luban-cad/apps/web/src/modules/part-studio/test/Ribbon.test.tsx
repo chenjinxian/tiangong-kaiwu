@@ -539,6 +539,93 @@ describe('W26 特征变体群组：主钮=最近使用变体（live 2026-11-17�
   });
 });
 
+describe('W29 特征对话框打开 → ribbon 主钮激活态（live 2026-11-17）', () => {
+  function button(name: string): HTMLButtonElement {
+    return screen.getByRole('button', { name }) as HTMLButtonElement;
+  }
+
+  /** 特征工具栏内所有 aria-pressed=true 的主钮（箭头/撤销组无该属性）。 */
+  function pressedFeatureMains(): HTMLElement[] {
+    const ribbon = screen.getByTestId('part-studio-ribbon');
+    return within(ribbon)
+      .getAllByRole('button')
+      .filter((el) => el.getAttribute('aria-pressed') === 'true');
+  }
+
+  it('点拉伸 → 拉伸主钮 aria-pressed=true；关闭对话框 → false', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(button('拉伸'));
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'extrude',
+    });
+    expect(button('拉伸').getAttribute('aria-pressed')).toBe('true');
+    act(() => usePartStudioStore.getState().closeDialog());
+    expect(button('拉伸').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('点圆角 → 圆角主钮 aria-pressed=true；关闭对话框 → false', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(button('圆角'));
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'fillet',
+    });
+    expect(button('圆角').getAttribute('aria-pressed')).toBe('true');
+    act(() => usePartStudioStore.getState().closeDialog());
+    expect(button('圆角').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('飞菜单选环形阵列 → 展示中的环形阵列主钮在圆周对话框期间 true；关闭 → false（变体保持）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(button('线性阵列 ▾'));
+    await user.click(screen.getByRole('menuitem', { name: '环形阵列' }));
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'pattern',
+      patternKind: 'circular',
+    });
+    const main = button('环形阵列');
+    expect(main.getAttribute('aria-pressed')).toBe('true');
+    act(() => usePartStudioStore.getState().closeDialog());
+    expect(button('环形阵列').getAttribute('aria-pressed')).toBe('false');
+    // 变体保持（本次会话的最近使用变体不受对话框关闭影响）。
+    expect(button('环形阵列').getAttribute('title')).toBe('环形阵列');
+  });
+
+  it('edit/pattern（不携带 kind）与非映射 edit 对话框（featurePattern）→ 无特征主钮压按（不伪造高亮）', () => {
+    render(<Ribbon />);
+    act(() => usePartStudioStore.getState().openFeatureDialog({
+      mode: 'edit',
+      featureId: 'feature-1',
+      featureName: '线性阵列 1',
+      featureType: 'pattern',
+    }));
+    expect(pressedFeatureMains()).toEqual([]);
+    act(() => usePartStudioStore.getState().closeDialog());
+    act(() => usePartStudioStore.getState().openFeatureDialog({
+      mode: 'edit',
+      featureId: 'feature-2',
+      featureName: '特征阵列 1',
+      featureType: 'featurePattern',
+    }));
+    expect(pressedFeatureMains()).toEqual([]);
+  });
+
+  it('草图对话框不触发特征主钮高亮（草图工具栏渲染路径不变）', () => {
+    render(<Ribbon />);
+    act(() => usePartStudioStore.getState().openSketchDialog());
+    expect(screen.getByRole('toolbar', { name: '草图工具' })).toBeDefined();
+    expect(pressedFeatureMains()).toEqual([]);
+  });
+});
+
 describe('工具快捷键（Onshape 口径，主钮 shortcut 元数据可执行）', () => {
   it('shift+s → 草图对话框；shift+e → 拉伸对话框（同一 activate 路由）', async () => {
     render(<Ribbon />);

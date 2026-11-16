@@ -1,18 +1,21 @@
 /**
- * W26/W27 真栈验收（live 2026-11-17）：特征工具栏飞菜单组的主钮 = 最近使用
- * 变体，及平面/框架/钣金飞菜单子项的 live sprite 图标。
+ * W26/W27/W29 真栈验收（live 2026-11-17）：特征工具栏飞菜单组的主钮 = 最近
+ * 使用变体，平面/框架/钣金飞菜单子项的 live sprite 图标，以及特征对话框打开
+ * 期间对应主钮的激活态。
  *
  * live：选行后主钮 label/tooltip/icon 切到该变体并立即激活（对话框或工具），
  * 主钮点击激活当前展示的变体。面混合是无产品通道的变体 → gated 能力引导，
  * 不允许静默 no-op。W27 行图标：平面 26 / 框架 5 / 钣金 12 行，每行专属
- * sprite；薄片/角点 tooltip = 页签/尖角。所有操作仅开/关菜单与对话框，不提交几何。
+ * sprite；薄片/角点 tooltip = 页签/尖角。W29：特征对话框打开期间对应主钮
+ * aria-pressed=true（拉伸/圆角/环形阵列），关闭即恢复。所有操作仅开/关菜单与
+ * 对话框，不提交几何。
  */
 import type { Locator } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { getApiToken, openSeedImodelEditor } from './helpers.js';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
-test.describe('W26/W27 特征工具栏最近使用变体与子项图标', () => {
+test.describe('W26/W27/W29 特征工具栏最近使用变体、子项图标与对话框激活态', () => {
   test('线性阵列→环形阵列主钮切换/对话框；回选父行；面混合 gated 引导', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 120_000);
     const token = await getApiToken();
@@ -78,6 +81,50 @@ test.describe('W26/W27 特征工具栏最近使用变体与子项图标', () => 
     await expect(filletMain).toHaveAttribute('title', '圆角 (shift+f)');
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden({ timeout: 15_000 });
+  });
+
+  test('W29 特征对话框打开期间主钮压按；关闭恢复（拉伸/圆角/环形阵列）', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 120_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    await openSeedImodelEditor(page, seed);
+
+    const dialog = page.getByTestId('part-studio-feature-dialog');
+
+    // 拉伸：点主钮开对话框 → 主钮压按；Escape 关闭 → 恢复。
+    const extrudeMain = page.getByTestId('part-studio-ribbon').getByRole('button', { name: '拉伸', exact: true });
+    await expect(extrudeMain).toHaveAttribute('aria-pressed', 'false');
+    await extrudeMain.click();
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+    await expect(extrudeMain).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+    await expect(extrudeMain).toHaveAttribute('aria-pressed', 'false');
+
+    // 圆角：同姿态（飞菜单组主钮）。
+    const filletGroup = page.getByTestId('part-studio-ribbon-dropdown-RoundEdges');
+    const filletMain = filletGroup.locator('.part-studio-ribbon__tool');
+    await expect(filletMain).toHaveAttribute('aria-pressed', 'false');
+    await filletMain.click();
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+    await expect(filletMain).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+    await expect(filletMain).toHaveAttribute('aria-pressed', 'false');
+
+    // 环形阵列：选行开圆周阵列对话框 → 组主钮（标签环形阵列）压按；Escape 恢复
+    // （变体保持环形阵列，不回退线性）。
+    const patternGroup = page.getByTestId('part-studio-ribbon-dropdown-LinearPattern');
+    const patternMain = patternGroup.locator('.part-studio-ribbon__tool');
+    await patternGroup.getByRole('button', { name: '线性阵列 ▾' }).click();
+    await page.getByRole('menuitem', { name: '环形阵列', exact: true }).click();
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+    await expect(patternMain).toHaveAttribute('title', '环形阵列');
+    await expect(patternMain).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden({ timeout: 15_000 });
+    await expect(patternMain).toHaveAttribute('aria-pressed', 'false');
+    await expect(patternMain).toHaveAttribute('title', '环形阵列');
   });
 
   test('W27 平面/框架/钣金飞菜单行数与 live 子项 sprite 对齐', async ({ page, request }) => {

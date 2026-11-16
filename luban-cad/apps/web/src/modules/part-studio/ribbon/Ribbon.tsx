@@ -34,6 +34,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IModelApp } from '@itwin/core-frontend';
 import { CAPABILITY_GUIDANCE, isGated } from '../internal/capabilities.js';
+import { activeToolIdForDialog } from '../internal/dialog-active-tool.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import {
@@ -519,6 +520,10 @@ export function Ribbon({
   const { t } = useTranslation();
   const { activate, gatedCapability, closeGatedDialog } = useToolActivation(canEdit);
   const activeToolId = usePartStudioStore((s) => s.tool.activeToolId);
+  // W29（live 2026-11-17）：特征对话框路由不写 tool.activeToolId——主钮激活态
+  // 另由当前对话框派生（拉伸/圆角/阵列组主钮在对话框打开期间保持 is-active，
+  // 关闭即恢复）；无对话框/无主钮等价物的类型返回 undefined。
+  const dialogToolId = usePartStudioStore((s) => activeToolIdForDialog(s.dialog));
   // AIRR 2026-11-12：草图阵列会话高亮（非 PrimitiveTool，不能靠 activeToolId）。
   const sketchPatternKind = usePartStudioStore((s) => s.sketch.pattern?.kind ?? null);
   // 工具退出收口（2026-11-12）：草图/特征 PrimitiveTool 退出后 iTwin 装回默认
@@ -740,12 +745,12 @@ export function Ribbon({
                 {tools.map((tool) => {
                   // 只读总门：full 写工具禁用；gated 项仅信息引导，保持可点（完整 UI 面）。
                   const disabled = !canEdit && !isGated(tool.capability);
-                  // W26：特征飞菜单组主钮展示「最近使用变体」（无飞菜单工具保持自身 id）；
-                  // 激活态 = store 激活命令命中当前展示的变体。
+                  // W26：特征飞菜单组主钮展示「最近使用变体」（无飞菜单工具保持自身 id）。
+                  // W29：激活态 = store 激活命令或当前特征对话框命中展示的变体。
                   const selectedId = tool.dropdownItems
                     ? variantSelections[tool.id] ?? tool.id
                     : tool.id;
-                  const active = activeToolId === selectedId;
+                  const active = activeToolId === selectedId || dialogToolId === selectedId;
                   return tool.dropdownItems ? (
                     <RibbonDropdown
                       key={tool.id}
