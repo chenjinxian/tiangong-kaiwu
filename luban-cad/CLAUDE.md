@@ -264,7 +264,12 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   绘制 `R` 点标签落在「切点→光标」弦的投影中点（随光标移动/更新，无白卡；
   无起点/退化弧/无视口不发）。全量 web **2186/2186**、tsc(src+e2e)/eslint
   绿；真栈 `sketch-draw-readout` **2 passed（1.3 min：±2 px 弦中点、r=5→
-  6.25、无白卡）**。
+  6.25、无白卡）**。**W29**：特征对话框打开期间对应主钮激活态（纯映射
+  dialog→tool id；new pattern 按 kind、edit 类型按树类型；edit/pattern 无
+  kind 不猜线性、无等价物不伪造；Ribbon active = activeToolId 或 dialog 命中
+  当前变体）。全量 web **2217/2217**、tsc(src+e2e)/eslint 绿；真栈
+  `feature-toolbar-variants` **4 passed（1.2 min，拉伸/圆角/环形阵列
+  open→pressed / Escape→unpressed）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

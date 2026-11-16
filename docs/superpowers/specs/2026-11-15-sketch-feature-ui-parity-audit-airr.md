@@ -930,3 +930,22 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   无白卡、Esc 退出）**。
 - 残留：e2e 基线直线提交使用 1.2 s 软等待（可后续改实体计数轮询）；周边圆
   `Ø` 读数锚点仍未定（三次采样位置不一致），不实现。
+
+### 2026-11-17 W29 特征对话框打开期间主钮激活态
+
+- live：点「拉伸」/「圆角」主钮打开对应特征对话框后主钮带 `is-active`，关闭
+  后恢复；线性阵列组选「环形阵列」打开圆周阵列对话框时组主钮（标签
+  环形阵列）保持 `is-active`。产品此前只按 `store.tool.activeToolId` 高亮，
+  对话框路由不写该字段。
+- 实现：新增纯映射 `activeToolIdForDialog`（new/pattern 按 patternKind 分
+  LinearPattern/CircularPattern；edit 类型按树类型映射；edit/pattern 不携带
+  kind → undefined，不猜线性；featurePattern/featureMirror/faceExtrude/
+  thicken/unknown → undefined，不伪造）；Map 查找避免原型键；Ribbon 特征
+  active = `activeToolId === selectedId || dialogToolId === selectedId`；
+  草图模式渲染不变。无 i18n/契约/后端改动。
+- 验证：目标单测 **62/62**（26 映射 + 36 Ribbon）、全量 web **2217/2217**、
+  tsc(src+e2e)/eslint 绿；真栈 `feature-toolbar-variants` **4 passed
+  （1.2 min：拉伸/圆角/环形阵列打开→pressed、Escape→unpressed、变体保持）**。
+- 残留：edit pattern 无 kind → 编辑态不高亮（不猜线性；live 编辑态高亮未
+  采）；高亮只对当前展示变体生效（主钮显示其它变体时不亮，与 W26 语义
+  一致）。
