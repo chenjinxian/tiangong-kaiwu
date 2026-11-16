@@ -1,15 +1,18 @@
 /**
- * W26 真栈验收（live 2026-11-17）：特征工具栏飞菜单组的主钮 = 最近使用变体。
+ * W26/W27 真栈验收（live 2026-11-17）：特征工具栏飞菜单组的主钮 = 最近使用
+ * 变体，及平面/框架/钣金飞菜单子项的 live sprite 图标。
  *
  * live：选行后主钮 label/tooltip/icon 切到该变体并立即激活（对话框或工具），
  * 主钮点击激活当前展示的变体。面混合是无产品通道的变体 → gated 能力引导，
- * 不允许静默 no-op。所有操作仅开/关对话框，不提交几何。
+ * 不允许静默 no-op。W27 行图标：平面 26 / 框架 5 / 钣金 12 行，每行专属
+ * sprite；薄片/角点 tooltip = 页签/尖角。所有操作仅开/关菜单与对话框，不提交几何。
  */
+import type { Locator } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { getApiToken, openSeedImodelEditor } from './helpers.js';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
-test.describe('W26 特征工具栏最近使用变体', () => {
+test.describe('W26/W27 特征工具栏最近使用变体与子项图标', () => {
   test('线性阵列→环形阵列主钮切换/对话框；回选父行；面混合 gated 引导', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 120_000);
     const token = await getApiToken();
@@ -75,5 +78,69 @@ test.describe('W26 特征工具栏最近使用变体', () => {
     await expect(filletMain).toHaveAttribute('title', '圆角 (shift+f)');
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden({ timeout: 15_000 });
+  });
+
+  test('W27 平面/框架/钣金飞菜单行数与 live 子项 sprite 对齐', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 120_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    await openSeedImodelEditor(page, seed);
+
+    const iconHtml = async (row: Locator): Promise<string> =>
+      row.locator('.part-studio-ribbon__menu-icon svg').first().evaluate((el) => el.innerHTML);
+
+    const openFlyout = async (toolId: string, label: string): Promise<{ group: Locator; menu: Locator }> => {
+      const group = page.getByTestId(`part-studio-ribbon-dropdown-${toolId}`);
+      // 平面/框架/钣金组在 ribbon 横向滚动容器末端：先滚入视野并等滚动事件落定，
+      // 否则 RibbonDropdown 的 scroll 收合监听会把刚打开的菜单立即关掉。
+      await group.evaluate((el) => el.scrollIntoView({ block: 'nearest', inline: 'center' }));
+      await page.waitForTimeout(300);
+      await group.getByRole('button', { name: `${label} ▾` }).click();
+      const menu = page.getByTestId(`part-studio-ribbon-menu-${toolId}`);
+      await expect(menu).toBeVisible({ timeout: 10_000 });
+      return { group, menu };
+    };
+
+    const assertRows = async (menu: Locator, count: number): Promise<void> => {
+      await expect(menu.getByRole('menuitem')).toHaveCount(count);
+      for (const row of await menu.getByRole('menuitem').all())
+        expect(await row.locator('.part-studio-ribbon__menu-icon svg').count()).toBe(1);
+    };
+
+    // 平面 ▾：父行 + 25 子项；代表子项图标互不相同且异于组主图标。
+    const plane = await openFlyout('cPlane', '平面');
+    await assertRows(plane.menu, 26);
+    const planeMainIcon = await plane.group.locator('.part-studio-ribbon__tool svg').first().evaluate((el) => el.innerHTML);
+    const offsetIcon = await iconHtml(page.getByTestId('part-studio-ribbon-menu-row-offsetSurface'));
+    const boundaryIcon = await iconHtml(page.getByTestId('part-studio-ribbon-menu-row-boundarySurface'));
+    expect(offsetIcon).not.toBe(planeMainIcon);
+    expect(boundaryIcon).not.toBe(planeMainIcon);
+    expect(offsetIcon).not.toBe(boundaryIcon);
+    await page.keyboard.press('Escape');
+    await expect(plane.menu).toHaveCount(0);
+
+    // 框架 ▾：父行 + 4 子项。
+    const frame = await openFlyout('frame', '框架');
+    await assertRows(frame.menu, 5);
+    const frameMainIcon = await frame.group.locator('.part-studio-ribbon__tool svg').first().evaluate((el) => el.innerHTML);
+    const frameTrimIcon = await iconHtml(page.getByTestId('part-studio-ribbon-menu-row-frameTrim'));
+    const gussetIcon = await iconHtml(page.getByTestId('part-studio-ribbon-menu-row-gusset'));
+    expect(frameTrimIcon).not.toBe(frameMainIcon);
+    expect(frameTrimIcon).not.toBe(gussetIcon);
+    await page.keyboard.press('Escape');
+    await expect(frame.menu).toHaveCount(0);
+
+    // 钣金模型 ▾：父行 + 11 子项；薄片/角点行 title 与 live tooltip 一致。
+    const sheetMetal = await openFlyout('sheetMetalStart', '钣金模型');
+    await assertRows(sheetMetal.menu, 12);
+    const sheetMetalMainIcon = await sheetMetal.group.locator('.part-studio-ribbon__tool svg').first().evaluate((el) => el.innerHTML);
+    const flangeIcon = await iconHtml(page.getByTestId('part-studio-ribbon-menu-row-flange'));
+    const hemIcon = await iconHtml(page.getByTestId('part-studio-ribbon-menu-row-hem'));
+    expect(flangeIcon).not.toBe(sheetMetalMainIcon);
+    expect(flangeIcon).not.toBe(hemIcon);
+    await expect(page.getByTestId('part-studio-ribbon-menu-row-tab')).toHaveAttribute('title', '页签');
+    await expect(page.getByTestId('part-studio-ribbon-menu-row-corner')).toHaveAttribute('title', '尖角');
+    await page.keyboard.press('Escape');
+    await expect(sheetMetal.menu).toHaveCount(0);
   });
 });

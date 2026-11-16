@@ -38,18 +38,39 @@ interface MenuRowSpec {
   shortcut?: string;
 }
 
-function featureMenu(tool: RibbonTool): MenuRowSpec[] {
-  const parent: MenuRowSpec = {
-    label: zh(tool.menuLabelKey ?? tool.labelKey),
-    ...(tool.shortcut ? { shortcut: tool.shortcut } : {}),
-  };
+interface FeatureMenuRowSpec extends MenuRowSpec {
+  tooltip: string;
+}
+
+/**
+ * 特征飞菜单行（W27 live 2026-11-17）：label=menuLabelKey??labelKey；
+ * tooltip=tooltipKey??labelKey；带快捷键追加 ` (key)`（RibbonDropdown title 渲染式）。
+ */
+function featureMenu(tool: RibbonTool): FeatureMenuRowSpec[] {
+  const row = (labelKey: string, tooltipKey: string, shortcut: string | undefined): FeatureMenuRowSpec => ({
+    label: zh(labelKey),
+    tooltip: zh(tooltipKey) + (shortcut ? ` (${shortcut})` : ''),
+    ...(shortcut ? { shortcut } : {}),
+  });
   return [
-    parent,
-    ...(tool.dropdownItems ?? []).map((item) => ({
-      label: zh(item.labelKey),
-      ...(item.shortcut ? { shortcut: item.shortcut } : {}),
-    })),
+    row(tool.menuLabelKey ?? tool.labelKey, tool.tooltipKey ?? tool.labelKey, tool.shortcut),
+    ...(tool.dropdownItems ?? []).map((item) => row(item.labelKey, item.tooltipKey ?? item.labelKey, item.shortcut)),
   ];
+}
+
+/** label/shortcut 投影：既有 2026-11-13 文案断言保持原样，tooltip 由 W27 单测另钉。 */
+function featureMenuLabels(tool: RibbonTool): Array<{ label: string; shortcut?: string }> {
+  return featureMenu(tool).map(({ label, shortcut }) => ({ label, ...(shortcut ? { shortcut } : {}) }));
+}
+
+/** FNV-1a（与 live sprite 采集同一算法，W26/W27 sprite 载荷钉死）。 */
+function fnv1a(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash;
 }
 
 function sketchMenu(tool: SketchRibbonTool): MenuRowSpec[] {
@@ -114,7 +135,7 @@ describe('特征工具栏（live 2026-11-13 27 钮）', () => {
   it('9 个飞菜单父行+子项文案/快捷键与 live 逐字一致', () => {
     const menus = Object.fromEntries(
       RIBBON_TOOLS.filter((tool) => tool.dropdownItems !== undefined)
-        .map((tool) => [tool.id, featureMenu(tool)]),
+        .map((tool) => [tool.id, featureMenuLabels(tool)]),
     );
     expect(menus).toEqual({
       thicken: [{ label: '加厚' }, { label: '封闭' }],
@@ -170,14 +191,6 @@ describe('特征变体主钮图标（W26，live 2026-11-17）', () => {
 
   it('五个新增 sprite 逐字节取自 live（viewBox + FNV-1a 载荷钉死）', () => {
     // W26（live 2026-11-17）：sprite 载荷逐字节对齐，防止后续手改/近似替换。
-    const fnv1a = (value: string): number => {
-      let hash = 2166136261;
-      for (let i = 0; i < value.length; i++) {
-        hash ^= value.charCodeAt(i);
-        hash = Math.imul(hash, 16777619) >>> 0;
-      }
-      return hash;
-    };
     const expected: Readonly<Record<string, number>> = {
       'enclose-button': 1604919326,
       'face-blend-button': 1059363544,
@@ -189,6 +202,132 @@ describe('特征变体主钮图标（W26，live 2026-11-17）', () => {
       expect(ONSHAPE_ICONS[name as keyof typeof ONSHAPE_ICONS].viewBox).toBe('0 0 20 20');
       expect(fnv1a(ONSHAPE_ICONS[name as keyof typeof ONSHAPE_ICONS].html)).toBe(hash);
     }
+  });
+});
+
+describe('特征飞菜单子项图标（W27，live 2026-11-17）', () => {
+  it('40 个子项映射到 live sprite（平面 25 / 框架 4 / 钣金 11）', () => {
+    const expected: Readonly<Record<string, string>> = {
+      // 平面 ▾（曲面/曲线/装配参考 25 项）
+      offsetSurface: 'offset-surface-button',
+      boundarySurface: 'boundary-surface-button',
+      fillSurface: 'fill-button',
+      moveBoundary: 'extend-surface-button',
+      ruledSurface: 'ruled-surface-button',
+      mutualTrim: 'mutual-trim-button',
+      constraintSurface: 'constrained-surface-button',
+      helix: 'helix-button',
+      fitSpline3d: 'fit-spline-button',
+      projectCurve: 'project-curves-button',
+      bridgeCurve: 'bridging-curve-button',
+      compositeCurve: 'composite-curve-button',
+      intersectionCurve: 'intersection-curve-button',
+      trimCurve: 'trim-curve-button',
+      isoline: 'isocline-button',
+      offsetCurve: 'offset-curve-on-face-button',
+      isoparametricCurve: 'isoparametric-curve-button',
+      editCurve: 'edit-curve-button',
+      routeCurve: 'routing-curve-button',
+      mateConnector: 'mate-connector-button',
+      derived: 'import-derived-button',
+      variable: 'assign-variable-button',
+      queryVariable: 'query-variable-button',
+      compositePart: 'composite-part-button',
+      tag: 'tag-button',
+      // 框架 ▾（4 子项）
+      frameTrim: 'frame-trim-button',
+      gusset: 'gusset-button',
+      endCap: 'endcap-button',
+      cutList: 'cutlist-button',
+      // 钣金模型 ▾（11 子项）
+      flange: 'sheet-metal-flange-button',
+      hem: 'sheet-metal-hem-button',
+      tab: 'sheet-metal-tab-button',
+      smBend: 'sheet-metal-bend-button',
+      forming: 'sheet-metal-formed-button',
+      sheetMetalLoft: 'sheet-metal-loft-button',
+      smJoint: 'sheet-metal-make-joint-button',
+      corner: 'sheet-metal-corner-button',
+      bendRelief: 'sheet-metal-bend-relief-button',
+      cornerBreak: 'sheet-metal-corner-break-button',
+      endSheetMetal: 'sheet-metal-end-button',
+    };
+    expect(Object.keys(expected)).toHaveLength(40);
+    const actual = Object.fromEntries(
+      Object.keys(expected).map((id) => [id, onshapeIconFor(id)]),
+    );
+    expect(actual).toEqual(expected);
+  });
+
+  it('40 个新增 sprite 逐字节取自 live（viewBox + FNV-1a 载荷钉死）', () => {
+    const expected = {
+      'offset-surface-button': { viewBox: '0 0 20 20', hash: 2672494278 },
+      'boundary-surface-button': { viewBox: '0 0 20 20', hash: 3485225357 },
+      'fill-button': { viewBox: '0 0 20 20', hash: 1287256043 },
+      'extend-surface-button': { viewBox: '0 0 20 20', hash: 419942864 },
+      'ruled-surface-button': { viewBox: '0 0 20 20', hash: 2316735080 },
+      'mutual-trim-button': { viewBox: '0 0 20 20', hash: 2988411742 },
+      'constrained-surface-button': { viewBox: '0 0 20 20', hash: 1405523412 },
+      'helix-button': { viewBox: '0 0 20 20', hash: 3313419405 },
+      'fit-spline-button': { viewBox: '0 0 20 20', hash: 3262128387 },
+      'project-curves-button': { viewBox: '0 0 20 20', hash: 4085292055 },
+      'bridging-curve-button': { viewBox: '0 0 20 20', hash: 3845726772 },
+      'composite-curve-button': { viewBox: '0 0 20 20', hash: 2519564708 },
+      'intersection-curve-button': { viewBox: '0 0 20 20', hash: 3893308622 },
+      'trim-curve-button': { viewBox: '0 0 20 20', hash: 1406580525 },
+      'isocline-button': { viewBox: '0 0 20 20', hash: 3675904582 },
+      'offset-curve-on-face-button': { viewBox: '0 0 20 20', hash: 2823212590 },
+      'isoparametric-curve-button': { viewBox: '0 0 20 20', hash: 3752743869 },
+      'edit-curve-button': { viewBox: '0 0 20 20', hash: 4158802981 },
+      'routing-curve-button': { viewBox: '0 0 20 20', hash: 37489673 },
+      'mate-connector-button': { viewBox: '0 0 10 10', hash: 2476220438 },
+      'import-derived-button': { viewBox: '0 0 20 20', hash: 2598476547 },
+      'assign-variable-button': { viewBox: '0 0 20 20', hash: 1075680013 },
+      'query-variable-button': { viewBox: '0 0 20 20', hash: 483641349 },
+      'composite-part-button': { viewBox: '0 0 20 20', hash: 2067430443 },
+      'tag-button': { viewBox: '0 0 20 20', hash: 2733439427 },
+      'frame-trim-button': { viewBox: '0 0 20 20', hash: 1923688576 },
+      'gusset-button': { viewBox: '0 0 20 20', hash: 2941463691 },
+      'endcap-button': { viewBox: '0 0 20 20', hash: 136787283 },
+      'cutlist-button': { viewBox: '0 0 20 20', hash: 3361357233 },
+      'sheet-metal-flange-button': { viewBox: '0 0 20 20', hash: 728917288 },
+      'sheet-metal-hem-button': { viewBox: '0 0 20 20', hash: 3385711176 },
+      'sheet-metal-tab-button': { viewBox: '0 0 20 20', hash: 976889123 },
+      'sheet-metal-bend-button': { viewBox: '0 0 20 20', hash: 1038714901 },
+      'sheet-metal-formed-button': { viewBox: '0 0 20 20', hash: 337117373 },
+      'sheet-metal-loft-button': { viewBox: '0 0 20 20', hash: 1537055646 },
+      'sheet-metal-make-joint-button': { viewBox: '0 0 20 20', hash: 2835504865 },
+      'sheet-metal-corner-button': { viewBox: '0 0 20 20', hash: 3992557533 },
+      'sheet-metal-bend-relief-button': { viewBox: '0 0 20 20', hash: 1325491011 },
+      'sheet-metal-corner-break-button': { viewBox: '0 0 20 20', hash: 371846649 },
+      'sheet-metal-end-button': { viewBox: '0 0 20 20', hash: 1821384220 },
+    } as const;
+    expect(Object.keys(expected)).toHaveLength(40);
+    for (const [name, { viewBox, hash }] of Object.entries(expected)) {
+      expect(ONSHAPE_ICONS[name as keyof typeof ONSHAPE_ICONS].viewBox).toBe(viewBox);
+      expect(fnv1a(ONSHAPE_ICONS[name as keyof typeof ONSHAPE_ICONS].html)).toBe(hash);
+    }
+  });
+
+  it('钣金飞菜单行 tooltip 与 live 一致（薄片→页签、角点→尖角，其余=行文案）', () => {
+    const tool = RIBBON_TOOLS.find((entry) => entry.id === 'sheetMetalStart');
+    if (!tool)
+      throw new Error('缺少钣金模型工具');
+    const tips = featureMenu(tool);
+    expect(tips.map((row) => [row.label, row.tooltip])).toEqual([
+      ['钣金模型', '钣金模型'],
+      ['法兰', '法兰'],
+      ['卷边', '卷边'],
+      ['薄片', '页签'],
+      ['折弯', '折弯'],
+      ['成型', '成型'],
+      ['钣金放样', '钣金放样'],
+      ['制作接头', '制作接头'],
+      ['角点', '尖角'],
+      ['折弯止裂槽', '折弯止裂槽'],
+      ['尖角倒钝', '尖角倒钝'],
+      ['结束钣金模型', '结束钣金模型'],
+    ]);
   });
 });
 

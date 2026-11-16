@@ -403,7 +403,8 @@
         "label": "Hem"
       },
       "tab": {
-        "label": "Tab"
+        "label": "Tab",
+        "tooltip": "Sheet"
       },
       "smBend": {
         "label": "Bend"
@@ -505,7 +506,8 @@
         "label": "Tag"
       },
       "corner": {
-        "label": "Corner"
+        "label": "Corner",
+        "tooltip": "Sharp corner"
       }
     },
     "sketchTools": {

@@ -403,7 +403,8 @@
         "label": "卷边"
       },
       "tab": {
-        "label": "薄片"
+        "label": "薄片",
+        "tooltip": "页签"
       },
       "smBend": {
         "label": "折弯"
@@ -505,7 +506,8 @@
         "label": "标记"
       },
       "corner": {
-        "label": "角点"
+        "label": "角点",
+        "tooltip": "尖角"
       }
     },
     "sketchTools": {
