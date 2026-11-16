@@ -531,6 +531,8 @@ export function HoleDialog({
             </svg>
           </button>
         </section>
+        {/* 审计 C3（2026-11-16）：沉头/倒角孔的直径/深度/角度数值行补禁用计算器
+            （与主直径/深度行同壳）；载荷/校验/标签不变。 */}
         {holeStyle === 'counterbore' && (
           <>
             <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
@@ -538,12 +540,48 @@ export function HoleDialog({
               <input id="hole-cbore-diameter" data-testid="hole-cbore-diameter" className="part-studio-feature-dialog__input" inputMode="decimal"
                 value={counterboreDiameter} onChange={(e) => setCounterboreDiameter(e.target.value)} />
               <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
             </section>
             <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
               <label htmlFor="hole-cbore-depth" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.counterboreDepth')}</label>
               <input id="hole-cbore-depth" data-testid="hole-cbore-depth" className="part-studio-feature-dialog__input" inputMode="decimal"
                 value={counterboreDepth} onChange={(e) => setCounterboreDepth(e.target.value)} />
               <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
             </section>
           </>
         )}
@@ -554,12 +592,48 @@ export function HoleDialog({
               <input id="hole-csink-diameter" data-testid="hole-csink-diameter" className="part-studio-feature-dialog__input" inputMode="decimal"
                 value={countersinkDiameter} onChange={(e) => setCountersinkDiameter(e.target.value)} />
               <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
             </section>
             <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
               <label htmlFor="hole-csink-angle" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.countersinkAngle')}</label>
               <input id="hole-csink-angle" data-testid="hole-csink-angle" className="part-studio-feature-dialog__input" inputMode="decimal"
                 value={countersinkAngle} onChange={(e) => setCountersinkAngle(e.target.value)} />
               <span className="part-studio-hole-dialog__unit">deg</span>
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={t('partStudio.featureDialog.notImplemented')}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
             </section>
           </>
         )}

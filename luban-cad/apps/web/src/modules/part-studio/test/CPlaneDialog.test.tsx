@@ -8,7 +8,8 @@
 //  5) 非法偏移/只读/后端拒收：不关闭、不假成功；
 //  6) 2026-11-15 live 对齐（payload 不变）：图元 query field 两态 + 字段内
 //     「图元」标签 + 右外置装饰时钟、偏移/偏移距离下划线值行 + 禁用计算器、
-//     类型行产品扩展 title、底栏滑杆诚实禁用、高级定义只读守卫仍在。
+//     类型行产品扩展 title、底栏滑杆诚实禁用、高级定义只读守卫仍在；
+//     C3（2026-11-16）：平面点原点 X/Y/Z 数值行同样带禁用计算器。
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import React from 'react';
@@ -260,6 +261,20 @@ describe('CPlaneDialog（ADR-0006 切片 B1）', () => {
 
     const slider = screen.getByRole('slider', { name: '透明度' }) as HTMLInputElement;
     expect(slider.disabled).toBe(true);
+  });
+
+  // 审计 C3（2026-11-16）：平面点原点 X/Y/Z 数值行补齐禁用计算器（与偏移距离行同壳）。
+  it('C3：原点 X/Y/Z 数值行各带禁用计算器', () => {
+    renderDialog();
+    fireEvent.click(screen.getByTestId('cplane-reference-chip'));
+    fireEvent.click(screen.getByTestId('cplane-reference-top'));
+    fireEvent.change(screen.getByTestId('cplane-mode'), { target: { value: 'point' } });
+    for (const axis of ['x', 'y', 'z'] as const) {
+      const calculator = screen.getByTestId(`cplane-origin-${axis}-calculator`) as HTMLButtonElement;
+      expect(calculator.disabled).toBe(true);
+      expect(calculator.title).toBe('该能力尚未实现');
+      expect(screen.getByTestId(`cplane-origin-${axis}`).closest('section')!.contains(calculator)).toBe(true);
+    }
   });
 
   it('类型行：产品扩展 title（平面点=世界原点子集）；高级定义只读守卫仍在', () => {

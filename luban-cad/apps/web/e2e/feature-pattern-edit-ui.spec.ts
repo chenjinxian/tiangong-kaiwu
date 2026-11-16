@@ -146,7 +146,11 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     await expect(dialog.getByTestId('part-studio-feature-pattern-source')).toHaveText('拉伸 2');
     await expect(dialog.getByTestId('part-studio-feature-pattern-count')).toHaveValue('3');
     await expect(dialog.getByTestId('part-studio-feature-pattern-spacing')).toHaveValue('6');
-    await expect(dialog.getByTestId('part-studio-feature-pattern-axis')).toContainText('只读');
+    // A6（2026-11-16）：轴方向 = 只读值行（「方向」+ 格式化向量；原文案移入 title）。
+    const axisRow = dialog.getByTestId('part-studio-feature-pattern-axis');
+    await expect(axisRow).toContainText('方向');
+    await expect(axisRow.getByTestId('part-studio-feature-pattern-direction-value'))
+      .toHaveAttribute('title', /只读/);
     await expect(dialog.getByTestId('part-studio-feature-pattern-locked-hint')).toContainText('不可更改');
     await dialog.getByTestId('part-studio-feature-pattern-count').fill('4');
     const confirm = dialog.getByTestId('part-studio-feature-pattern-confirm');

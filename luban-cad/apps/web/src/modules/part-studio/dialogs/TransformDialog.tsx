@@ -542,20 +542,40 @@ export function TransformDialog({
                 })}
               </p>
             )}
-            <section className="part-studio-feature-dialog__distance" data-field="transform-angle">
-              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-angle">
+            {/* 审计 B3（2026-11-16）：角度数值行统一值行惯用法（° + 禁用计算器）。 */}
+            <section className="part-studio-transform-dialog__value-row" data-field="transform-angle">
+              <label className="part-studio-transform-dialog__value-label" htmlFor="part-studio-transform-angle">
                 {t('partStudio.transformDialog.angle')}
               </label>
               <input
                 id="part-studio-transform-angle"
                 aria-label={t('partStudio.transformDialog.angle')}
-                className="part-studio-feature-dialog__input"
+                className="part-studio-feature-dialog__input part-studio-transform-dialog__value-input"
                 inputMode="decimal"
                 value={angle}
                 disabled={busy || !canEdit || combined}
                 onChange={(event) => setAngle(event.target.value)}
                 data-testid="part-studio-transform-angle"
               />
+              <span className="part-studio-feature-dialog__value-unit">°</span>
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={notImplementedTitle}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
             </section>
             <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-transform-rotate-hint">
               {t('partStudio.transformDialog.rotateHint')}
@@ -574,20 +594,40 @@ export function TransformDialog({
               />
               <span>{t('partStudio.transformDialog.uniformScale')}</span>
             </label>
-            <section className="part-studio-feature-dialog__distance" data-field="transform-scale">
-              <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-transform-scale">
+            {/* 审计 B3（2026-11-16）：缩放到数值行统一值行惯用法——无单位后缀
+                （scale 无量纲），仍带禁用计算器。 */}
+            <section className="part-studio-transform-dialog__value-row" data-field="transform-scale">
+              <label className="part-studio-transform-dialog__value-label" htmlFor="part-studio-transform-scale">
                 {t('partStudio.transformDialog.scale')}
               </label>
               <input
                 id="part-studio-transform-scale"
                 aria-label={t('partStudio.transformDialog.scale')}
-                className="part-studio-feature-dialog__input"
+                className="part-studio-feature-dialog__input part-studio-transform-dialog__value-input"
                 inputMode="decimal"
                 value={scale}
                 disabled={busy || !canEdit || combined || nonUniform}
                 onChange={(event) => setScale(event.target.value)}
                 data-testid="part-studio-transform-scale"
               />
+              <button
+                type="button"
+                className="part-studio-feature-dialog__calculator"
+                aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                disabled
+                title={notImplementedTitle}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                </svg>
+              </button>
             </section>
             {/* live 固定点 query 行；无拾取通道，只读显示已存固定点。 */}
             <div className="part-studio-transform-dialog__point-row" data-testid="part-studio-transform-scale-point">

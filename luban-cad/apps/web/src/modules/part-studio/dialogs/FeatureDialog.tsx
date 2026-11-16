@@ -680,6 +680,8 @@ export function FeatureDialog({
     return editParams?.newBody === true ? 'new' : featureType === 'revolve' || featureType === 'booleanAdd' ? 'add' : 'new';
   });
   const [chips, setChips] = React.useState<FeatureDialogEntity[]>([...(entities ?? [])]);
+  // 审计 B1 裁决（2026-11-16）：新建拉伸深度缺省 10 mm 是面向 mm 文档的
+  // 产品单位决策（不随 live 副本的 1 in / 旧证据 25 mm 改动）——刻意保留。
   const [distance, setDistance] = React.useState(() => storedNumberString(editParams?.distance) ?? '10');
   // v1.52（ADR-0005 Phase 5）：upToSurface 目标面快照（路由时选中面；对话框打开即清选择）
   // / 落库 faceRef（edit 只读回显）。与 mirror 面快照同源但独立命名，避免两通道耦合。
@@ -3472,16 +3474,75 @@ export function FeatureDialog({
               <span>{t('partStudio.featureDialog.sections.startOffset')}</span>
             </label>
             {startOffsetEnabled && (
-              <input
-                type="text"
-                inputMode="decimal"
-                aria-label={t('partStudio.featureDialog.sections.startOffset')}
-                className="part-studio-feature-dialog__input"
-                data-testid="part-studio-feature-dialog-start-offset-value"
-                value={startOffset}
-                disabled={submitting}
-                onChange={(event) => setStartOffset(event.target.value)}
-              />
+              <React.Fragment>
+                {/* 审计 B2（2026-11-16）：live 起始偏移展开组 = 终止条件 + 数值行。
+                    替代终止条件无产品通道 → 单选禁用占位 + 诚实理由。 */}
+                <section
+                  className="part-studio-feature-dialog__distance"
+                  data-field="start-offset-termination"
+                  data-testid="part-studio-feature-dialog-start-offset-termination"
+                >
+                  <label
+                    className="part-studio-feature-dialog__distance-label"
+                    htmlFor="part-studio-feature-dialog-start-offset-termination"
+                  >
+                    {t('partStudio.featureDialog.startOffsetTerminationLabel')}
+                  </label>
+                  <select
+                    id="part-studio-feature-dialog-start-offset-termination"
+                    aria-label={t('partStudio.featureDialog.startOffsetTerminationLabel')}
+                    className="part-studio-feature-dialog__select"
+                    value="blind"
+                    disabled
+                    title={t('partStudio.featureDialog.startOffsetTerminationUnsupported')}
+                  >
+                    <option value="blind">{t('partStudio.featureDialog.endBoundBlind')}</option>
+                  </select>
+                </section>
+                {/* 数值行复用深度/薄壁/倒角行惯用法：12px 标签 + 右对齐值 +
+                    mm 单位 + 禁用计算器 + 下划线；载荷仍只发 startOffsetMm。 */}
+                <section
+                  className="part-studio-feature-dialog__distance"
+                  data-field="start-offset-value"
+                  data-testid="part-studio-feature-dialog-start-offset-value"
+                >
+                  <label
+                    className="part-studio-feature-dialog__distance-label"
+                    htmlFor="part-studio-feature-dialog-start-offset-value"
+                  >
+                    {t('partStudio.featureDialog.sections.startOffset')}
+                  </label>
+                  <input
+                    id="part-studio-feature-dialog-start-offset-value"
+                    type="text"
+                    inputMode="decimal"
+                    aria-label={t('partStudio.featureDialog.sections.startOffset')}
+                    className="part-studio-feature-dialog__input"
+                    value={startOffset}
+                    disabled={submitting}
+                    onChange={(event) => setStartOffset(event.target.value)}
+                  />
+                  <span className="part-studio-feature-dialog__value-unit">mm</span>
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__calculator"
+                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                    </svg>
+                  </button>
+                </section>
+              </React.Fragment>
             )}
           </React.Fragment>
         )}
@@ -3633,9 +3694,17 @@ export function FeatureDialog({
             </label>
             {draftEnabled && (
               <React.Fragment>
-                <label className="part-studio-feature-dialog__distance" data-field="draft-angle">
-                  <span>{t('partStudio.featureDialog.draftAngleLabel')}</span>
+                {/* 审计 B3（2026-11-16）：角度数值行统一为值行惯用法——° 单位 +
+                    禁用计算器（载荷口径不变）。 */}
+                <section className="part-studio-feature-dialog__distance" data-field="draft-angle">
+                  <label
+                    className="part-studio-feature-dialog__distance-label"
+                    htmlFor="part-studio-feature-dialog-draft-angle"
+                  >
+                    {t('partStudio.featureDialog.draftAngleLabel')}
+                  </label>
                   <input
+                    id="part-studio-feature-dialog-draft-angle"
                     type="text"
                     inputMode="decimal"
                     aria-label={t('partStudio.featureDialog.draftAngleLabel')}
@@ -3644,7 +3713,26 @@ export function FeatureDialog({
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                   />
-                </label>
+                  <span className="part-studio-feature-dialog__value-unit">°</span>
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__calculator"
+                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                    </svg>
+                  </button>
+                </section>
                 <label
                   className="part-studio-feature-dialog__checkbox"
                   data-testid="part-studio-feature-dialog-draft-reverse"
@@ -3840,7 +3928,7 @@ export function FeatureDialog({
               <span>{t('partStudio.featureDialog.fullRevolveLabel')}</span>
             </label>
             {!fullRevolve && (
-              <section className="part-studio-feature-dialog__angle">
+              <section className="part-studio-feature-dialog__angle" data-field="revolve-angle">
                 <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-angle">
                   {t('partStudio.featureDialog.angleLabel')}
                 </label>
@@ -3854,6 +3942,26 @@ export function FeatureDialog({
                   disabled={submitting}
                   onChange={(event) => setAngleDegrees(event.target.value)}
                 />
+                {/* 审计 B3（2026-11-16）：角度行统一 ° 单位 + 禁用计算器。 */}
+                <span className="part-studio-feature-dialog__value-unit">°</span>
+                <button
+                  type="button"
+                  className="part-studio-feature-dialog__calculator"
+                  aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                  disabled
+                  title={t('partStudio.featureDialog.notImplemented')}
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                    <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                    <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                    <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                    <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                    <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                  </svg>
+                </button>
               </section>
             )}
           </React.Fragment>
@@ -4162,8 +4270,16 @@ export function FeatureDialog({
             {chamferChannel && propagateSmoothRow}
             {!chamferChannel && (
               <React.Fragment>
+                {/* 审计 A1（2026-11-16）：不对称/部分圆角/可变圆角/平滑圆角均无实现
+                    通道——一律禁用未勾选占位 + 未实现提示（不留无理由的灰控件）。 */}
                 <label className="part-studio-feature-dialog__checkbox" data-testid="part-studio-feature-dialog-asymmetric">
-                  <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+                  <input
+                    type="checkbox"
+                    checked={false}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                    onChange={() => undefined}
+                  />
                   <span>{t('partStudio.featureDialog.asymmetricLabel')}</span>
                 </label>
                 {[
@@ -4183,7 +4299,7 @@ export function FeatureDialog({
                       type="checkbox"
                       checked={Boolean(checked)}
                       disabled={!toggle}
-                      title={key === 'overflow' ? t('partStudio.featureDialog.notImplemented') : undefined}
+                      title={t('partStudio.featureDialog.notImplemented')}
                       onChange={key === 'overflow' ? undefined : () => undefined}
                     />
                     <span>{t(String(labelKey))}</span>

@@ -193,6 +193,20 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （两次运行，含 setup）**；修复前已绿 `sketch-entity-menu` 4、`shell` 2、
   `transform-ui` 2、`sketch-pattern` 9、`move-face-ui` 1；一次 MS 429 中断
   已干净窗口复跑（非产品失败）。
+- **数值行 / 对话框细节 / 草图变换入口（2026-11-16 W8a/W8b，纯前端）**：
+  A1 圆角五个次要选项逐项真实原因 title；B2 起始偏移=禁用终止选择（原因）
+  + 值行（mm + 禁用计算器），载荷不变；B3 拔模/旋转/变换角度补 ° 与计算器、
+  均匀缩放无单位；C2 复选框 accent #1651b0；C3 孔沉孔/倒角、Split 偏移、
+  CPlane 原点行补禁用计算器；C7 Split 工具字段装饰时钟；A6 featurePattern
+  方向只读值行 + skip chevron；D6 草图实体菜单「变换草图图元」接既有
+  `startSketchPattern('transform')` gizmo（只读会话/未接线时该行诚实禁用）。
+  审查修复：孔值行网格 4 列（计算器不换行）、只读会话禁用变换入口、
+  e2e 关闭等待、时钟 button 惯用标记；C3/C7 装饰件由 jsdom + 沉头孔/
+  分割真栈复核。
+  验证：web **2013/2013**、tsc(src/e2e)/eslint 0、i18n 1541 键零差集；真栈
+  `sketch-entity-menu` 4、`feature-pattern-edit-ui` 4、`feature-flow-parity`
+  1（2000.000 mm³ 质心 z=-0.5）、`transform-ui` 2、`hole`（沉头孔
+  373.052 vs 373.064）+ `split-part-ui` 全绿。
 - **草图/特征全量 UI 对标执行（2026-11-15，纯前端；AIRR
   `docs/superpowers/specs/2026-11-15-sketch-feature-ui-parity-audit-airr.md`，
   私有矩阵 `D:/Github/onshape-parity-data/docs/UI-DIALOG-AUDIT-20261115.md`）**：

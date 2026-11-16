@@ -411,6 +411,25 @@ describe('平铺参数行（方向/起始偏移/对称/拔模；ADR-0017 Stage E
     await user.click(within(dialog).getByRole('checkbox', { name: '起始偏移' }));
     expect(within(dialog).queryByRole('textbox', { name: '起始偏移' })).toBeNull();
   });
+
+  // 审计 B2（2026-11-16）：起始偏移展开组 = 终止条件（禁用单选）+ 数值行壳
+  // （12px 标签 + 右对齐值 + mm + 禁用计算器 + 下划线）；载荷仍只发 startOffsetMm。
+  it('起始偏移展开组：数值行带 mm 单位 + 禁用计算器；终止条件单选禁用并带未实现理由', async () => {
+    const user = userEvent.setup();
+    renderDialog({ entities: [], featureType: 'extrude', mode: 'new', applyOp: vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })) });
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    await user.click(within(dialog).getByRole('checkbox', { name: '起始偏移' }));
+    const valueRow = within(dialog).getByTestId('part-studio-feature-dialog-start-offset-value');
+    expect(valueRow.textContent).toContain('mm');
+    const calculator = within(valueRow).getByRole('button', { name: '计算器' }) as HTMLButtonElement;
+    expect(calculator.disabled).toBe(true);
+    expect(calculator.getAttribute('title')).toBe('该能力尚未实现');
+    const termination = within(dialog).getByRole('combobox', { name: '起始偏移终止条件' }) as HTMLSelectElement;
+    expect(termination.disabled).toBe(true);
+    expect(termination.options).toHaveLength(1);
+    expect(termination.options[0]!.textContent).toBe('给定深度');
+    expect(termination.getAttribute('title')).toBe('其它起始偏移终止条件尚未实现');
+  });
 });
 
 describe('底部（透明度滑杆 + ?；Onshape f6 无「成品」按钮）', () => {
@@ -1491,6 +1510,10 @@ describe('M6-a T6 拉伸草图通道（sketchId+面域拾取）', () => {
     await user.click(screen.getByRole('button', { name: '反向' }));
     await user.click(screen.getByRole('checkbox', { name: '起始偏移' }));
     const offsetInput = screen.getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement;
+    // 审计 B2（2026-11-16）：值行走数值行壳（mm + 禁用计算器），载荷不变。
+    const offsetRow = offsetInput.closest('section')!;
+    expect(offsetRow.textContent).toContain('mm');
+    expect((within(offsetRow).getByRole('button', { name: '计算器' }) as HTMLButtonElement).disabled).toBe(true);
     await user.clear(offsetInput);
     await user.type(offsetInput, '2');
     await user.click(screen.getByRole('tab', { name: '加入' }));
@@ -1744,6 +1767,10 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
     await user.click(screen.getByRole('checkbox', { name: '全方位旋转' }));
     const angle = screen.getByRole('textbox', { name: '角度（度）' }) as HTMLInputElement;
     expect(angle.value).toBe('360');
+    // 审计 B3（2026-11-16）：旋转角度行统一 ° 单位 + 禁用计算器。
+    const angleRow = angle.closest('section')!;
+    expect(angleRow.textContent).toContain('°');
+    expect((within(angleRow).getByRole('button', { name: '计算器' }) as HTMLButtonElement).disabled).toBe(true);
     await user.clear(angle);
     await user.type(angle, '180');
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -2004,6 +2031,10 @@ describe('v1.51 extrude 拔模（角度/反向 → op 载荷）', () => {
     await user.click(screen.getByRole('checkbox', { name: '拔模' }));
     const angle = screen.getByRole('textbox', { name: '拔模角度' }) as HTMLInputElement;
     expect(angle.value).toBe('3');
+    // 审计 B3（2026-11-16）：角度行统一 ° 单位 + 禁用计算器。
+    const angleRow = angle.closest('section')!;
+    expect(angleRow.textContent).toContain('°');
+    expect((within(angleRow).getByRole('button', { name: '计算器' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('checkbox', { name: '反向' })).toBeDefined();
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(applyOp).toHaveBeenCalledWith({
@@ -3387,6 +3418,18 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect(overflow.checked).toBe(false);
   });
 
+  // 审计 A1（2026-11-16）：四个次级选项（不对称/部分圆角/可变圆角/平滑圆角）
+  // 均无实现通道——禁用未勾选之外必须带未实现理由 title（不留无理由灰控件）。
+  it('不对称/部分圆角/可变圆角/平滑圆角：禁用未勾选 + 未实现 title（审计 A1）', () => {
+    renderFilletDialog(makeApplyOp());
+    for (const name of ['不对称', '部分圆角', '可变圆角', '平滑圆角']) {
+      const checkbox = screen.getByRole('checkbox', { name }) as HTMLInputElement;
+      expect(checkbox.disabled).toBe(true);
+      expect(checkbox.checked).toBe(false);
+      expect(checkbox.getAttribute('title')).toBe('该能力尚未实现');
+    }
+  });
+
   it('单边载荷：拾 1 边 → chip「边 1」→ 结束拾取 → ✓ 解禁 → 载荷 {radius:5, propagateSmooth:true, edges:[对]}', async () => {
     const user = userEvent.setup();
     const { applyOp } = renderFilletDialog(makeApplyOp());
@@ -3966,6 +4009,16 @@ describe('对齐切片样式（薄壁组 / 第二端深度行 / 旋转轴字段�
     expect(cssRuleBlock(".part-studio-feature-dialog[data-feature='extrude'] [data-field='second-direction'] > .part-studio-feature-dialog__checkbox"))
       .toContain('grid-column: 1 / -1');
     expect(featureDialogCss).toContain("[data-field='second-direction'] > .part-studio-feature-dialog__select,");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 审计 C2（2026-11-16）：通用特征对话框复选使用品牌蓝 accent（与拆分选项行一致）。
+// ---------------------------------------------------------------------------
+describe('C2 复选强调色（2026-11-16 审计）', () => {
+  it('通用 __checkbox input[type=checkbox] 使用品牌蓝 #1651b0（不改禁用态）', () => {
+    const block = cssRuleBlock(".part-studio-feature-dialog__checkbox input[type='checkbox']");
+    expect(block).toContain('accent-color: #1651b0');
   });
 });
 

@@ -84,6 +84,11 @@ export interface SketchEntityPickerProps {
   onExtrude?: () => void;
   /** 右键菜单「旋转…」：Onshape 退出草图并打开旋转特征对话框。 */
   onRevolve?: () => void;
+  /**
+   * 右键菜单「变换草图图元」：复用既有草图变换 gizmo 会话
+   *（`SketchPatternGizmo kind='transform'`，宿主调 store `startSketchPattern`）。
+   */
+  onTransform?: () => void;
   /** 右键菜单「复制草图图元」（Onshape 先复制到会话剪贴板，随后菜单出现粘贴）。 */
   onCopy?: (selection: readonly SketchEntitySelection[]) => void;
   /** 右键菜单「粘贴草图图元」（原位粘贴并选中副本）。 */
@@ -130,6 +135,7 @@ export function SketchEntityPicker({
   onZoomToEntity,
   onExtrude,
   onRevolve,
+  onTransform,
   onCopy,
   onPaste,
   isConstruction,
@@ -821,7 +827,18 @@ export function SketchEntityPicker({
                 {t('partStudio.sketch.entityMenuPaste')}
               </button>
             )}
-            <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="sketch-entity-menu-transform"
+              disabled={onTransform === undefined}
+              title={onTransform === undefined ? t('partStudio.sketch.entityMenuTransformUnavailable') : undefined}
+              onClick={() => {
+                setMenu(null);
+                onTransform?.();
+              }}
+            >
               {t('partStudio.sketch.entityMenuTransform')}
             </button>
             <div className="part-studio-tree-menu__separator" role="separator" />

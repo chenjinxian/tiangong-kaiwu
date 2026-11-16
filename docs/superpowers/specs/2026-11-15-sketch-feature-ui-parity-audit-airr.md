@@ -500,3 +500,32 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   修复前已绿：`sketch-entity-menu` 4、`shell` 2、`transform-ui` 2、
   `sketch-pattern` 9、`move-face-ui` 1。`split-part-ui` 曾因 MS 429 窗口
   中断一次，干净窗口复跑通过（非产品失败）。
+
+### 2026-11-16 W8a/W8b 数值行 / 对话框细节 / 草图变换入口
+
+- **W8a**：A1 圆角五个次要选项（不对称/部分圆角/可变圆角/允许边溢出/
+  平滑圆角）逐项 `notImplemented` title；B2 起始偏移组 = 禁用单选项终止
+  选择（真实原因 title）+ 值行（label/input/mm/禁用计算器/下划线），
+  `startOffsetMm` 条件与载荷不变；B3 拔模/旋转/变换角度补 `°` + 禁用
+  计算器，均匀缩放无单位 + 计算器（`__angle` 网格规则扩展，chamfer/pattern
+  角度行视觉随之统一）；C2 特征对话框复选框 `accent-color:#1651b0`（CSS
+  文本断言）；B1 拉伸深度默认 **10 mm** 注释记录为产品单位裁决（不复制
+  live 英寸值，不改行为）。
+- **W8b**：C3 孔沉孔/倒角、Split 偏移、CPlane 原点 X/Y/Z 行补禁用计算器；
+  C7 Split 「用于分割的图元」字段补装饰时钟；A6 featurePattern 轴方向改为
+  只读「方向」值行（原文案入 title）+ skip 行禁用 chevron；D6 草图实体
+  菜单「变换草图图元」接既有 `startSketchPattern('transform')` gizmo
+  （无第二工具/无新载荷），真栈验证提示出现 + Esc 退出；只读会话/未接线
+  时该行诚实禁用（真实原因 title），不启动无法提交的 gizmo。C3/C7 为
+  纯装饰，jsdom 单测 + 沉头孔/分割真栈复核。
+- **审查修复（W8 复审）**：孔沉孔/倒角行网格补到 4 列（计算器不再换行）；
+  变换草图图元行在只读会话/未接线时禁用（真实原因 title），宿主仅 canEdit
+  传 handler（ribbon 路径原本已有门禁）；e2e 旋转对话框 Escape 后补关闭
+  等待；Split 工具字段时钟改用 mirror clock 的 button 惯用标记。C3 计算器
+  维持“禁用按钮 + aria-label”的主行惯用（brief 的 aria-hidden 描述已更正）。
+- **验证**：web **2013/2013**、tsc（src/e2e）/eslint 绿、i18n zh/en 1541
+  键零差集；真栈 `sketch-entity-menu` **4 passed（2.1 min）**、
+  `feature-pattern-edit-ui` **4 passed（2.1 min）**、`feature-flow-parity`
+  （B2：2000.000 mm³、质心 z=-0.500）+ `transform-ui` 2 **3 passed（1.5 min，
+  含 setup）**、`hole`（沉头孔 373.052 vs 373.064）+ `split-part-ui`
+  **3 passed（1.3 min，含 setup）**。

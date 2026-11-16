@@ -397,6 +397,7 @@ export function CPlaneDialog({
 
         {planeMode === 'point' && (
           <React.Fragment>
+            {/* 审计 C3（2026-11-16）：原点 X/Y/Z 数值行补禁用计算器（与偏移距离行同壳）。 */}
             {(['x', 'y', 'z'] as const).map((axis) => {
               const value = axis === 'x' ? originX : axis === 'y' ? originY : originZ;
               const setValue = axis === 'x' ? setOriginX : axis === 'y' ? setOriginY : setOriginZ;
@@ -415,6 +416,25 @@ export function CPlaneDialog({
                     disabled={!canEdit}
                     onChange={(event) => setValue(event.target.value)}
                   />
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__calculator"
+                    data-testid={`cplane-origin-${axis}-calculator`}
+                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                    </svg>
+                  </button>
                 </section>
               );
             })}

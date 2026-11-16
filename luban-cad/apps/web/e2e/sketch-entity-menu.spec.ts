@@ -2,8 +2,9 @@
  * 草图图元右键菜单真栈验收（Onshape live 2026-11-12 证据）。
  *
  * 覆盖：右键曲线 → 菜单按 Onshape live 顺序（确认 草图 N 首项、复制/变换/
- * 建构线/拉伸…/旋转…/分析/清除/选择/评论/缩放/正视/对齐、删除草图图元末项；
- * 变换仍禁用）；确认退出草图；建构线翻转走 updateSketch；正视命令把
+ * 建构线/拉伸…/旋转…/分析/清除/选择/评论/缩放/正视/对齐、删除草图图元末项）；
+ * 变换草图图元 → 复用既有变换 gizmo 会话（sketch-pattern-prompt 含「变换」，
+ * Esc 取消）；确认退出草图；建构线翻转走 updateSketch；正视命令把
  * 视图 Z 轴对齐草图平面法向；Delete 菜单项移除实体；拉伸…/旋转… 退出草图并
  * 打开对应特征对话框；复制后菜单出现粘贴，粘贴原位副本且内部约束重映射
  * （Onshape live 同口径）。
@@ -121,7 +122,7 @@ test.describe('草图图元右键菜单（Onshape 对拍）', () => {
     await openMenu();
     const menu = page.getByTestId('sketch-entity-menu');
     const menuItems = menu.getByRole('menuitem');
-    for (const name of ['确认 草图', '删除草图图元', '建构线', '视图垂直于草图平面', '放大选定对象', '拉伸…', '旋转…', '复制草图图元']) {
+    for (const name of ['确认 草图', '删除草图图元', '建构线', '视图垂直于草图平面', '放大选定对象', '拉伸…', '旋转…', '复制草图图元', '变换草图图元']) {
       await expect(menu.getByRole('menuitem', { name, exact: name !== '确认 草图' })).toBeEnabled();
     }
     await expect(menuItems.first()).toHaveAttribute('data-testid', 'sketch-entity-menu-confirm');
@@ -151,7 +152,8 @@ test.describe('草图图元右键菜单（Onshape 对拍）', () => {
       '将视图与竖直轴对齐',
       '删除草图图元',
     ]);
-    await expect(menu.getByRole('menuitem', { name: '变换草图图元' })).toBeDisabled();
+    // D6（2026-11-16）：「变换草图图元」接既有变换 gizmo 会话，行已转正。
+    await expect(menu.getByRole('menuitem', { name: '变换草图图元' })).toBeEnabled();
     // Onshape：粘贴项在复制后才出现（仍紧随复制草图图元）。
     await expect(menu.getByRole('menuitem', { name: '粘贴草图图元' })).toHaveCount(0);
 
@@ -266,6 +268,19 @@ test.describe('草图图元右键菜单（Onshape 对拍）', () => {
     await expect(revolveDialog).toBeVisible({ timeout: 15_000 });
     await expect(revolveDialog).toHaveAttribute('data-feature', 'revolve');
     await page.keyboard.press('Escape');
+    await expect(revolveDialog).toHaveCount(0, { timeout: 10_000 });
+
+    // D6（2026-11-16）：变换草图图元 → 既有变换 gizmo 会话（提示含「变换」）；
+    // Esc 取消退出（草图对话框保持编辑态，不打开任何对话框）。
+    await enterSketchAtOrigin();
+    await openMenu();
+    await page.getByTestId('sketch-entity-menu-transform').click();
+    const transformPrompt = page.getByTestId('sketch-pattern-prompt');
+    await expect(transformPrompt).toContainText('变换', { timeout: 15_000 });
+    await expect(page.getByTestId('part-studio-feature-dialog')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(transformPrompt).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 10_000 });
   });
 
   test('复制草图图元 → 菜单出现粘贴 → 原位副本 + 内部约束重映射', async ({ page, request }) => {

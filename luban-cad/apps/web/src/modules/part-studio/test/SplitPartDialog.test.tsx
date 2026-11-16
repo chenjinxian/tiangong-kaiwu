@@ -6,9 +6,10 @@
 //  2) edit 回显 → updateParams；目标只读；
 //  3) 多实体必须选目标；无实体禁提交；
 //  4) 面/双侧等未支持项只给静态诚实提示；
-//  5) 偏移非有限数禁提交。
+//  5) 偏移非有限数禁提交；
+//  6) 审计 C3/C7（2026-11-16）：偏移数值行禁用计算器、工具 query field 装饰时钟。
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
@@ -160,6 +161,33 @@ describe('SplitPartDialog', () => {
 
     expect((screen.getByRole('slider', { name: '透明度' }) as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByRole('button', { name: '帮助' })).toBeTruthy();
+  });
+
+  // 审计 C3（2026-11-16）：偏移数值行补禁用计算器（与主数值行同壳）。
+  it('C3：偏移数值行带禁用计算器', () => {
+    renderDialog();
+    const row = screen.getByTestId('part-studio-split-part-offset').closest('section');
+    expect(row).not.toBeNull();
+    const calculator = within(row!).getByRole('button', { name: '计算器' }) as HTMLButtonElement;
+    expect(calculator.disabled).toBe(true);
+    expect(calculator.title).toBe('该能力尚未实现');
+  });
+
+  // C7（2026-11-16）：用于分割的图元 query field 右外置装饰时钟（镜像平面同
+  // idiom：aria-hidden + disabled + tabIndex=-1 的按钮）：在字段外、无行为。
+  it('C7：工具 query field 右外置装饰时钟（aria-hidden 禁用按钮）', () => {
+    renderDialog();
+    const clock = screen.getByTestId('part-studio-split-part-tool-clock') as HTMLButtonElement;
+    expect(clock.tagName).toBe('BUTTON');
+    expect(clock.getAttribute('aria-hidden')).toBe('true');
+    expect(clock.disabled).toBe(true);
+    expect(clock.tabIndex).toBe(-1);
+    expect(clock.querySelector('svg')).toBeTruthy();
+    expect(screen.getByTestId('part-studio-split-part-tool-field').contains(clock)).toBe(false);
+    // 字段 title 与时钟均为装饰/只读语义，工具 chip 不变。
+    expect(screen.getByTestId('part-studio-split-part-tool-field').getAttribute('title'))
+      .toContain('暂无后端通道');
+    expect(screen.getByTestId('part-studio-split-part-tool').textContent).toContain('世界平面');
   });
 
   it('目标 chip ×：仅本地清除 → 空态 + 目标缺失错误', async () => {

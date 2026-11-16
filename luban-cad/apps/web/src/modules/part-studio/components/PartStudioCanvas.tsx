@@ -703,6 +703,9 @@ export function PartStudioCanvas({
   // AIRR 2026-11-12：草图阵列会话（canvas gizmo）。
   const sketchPatternSession = usePartStudioStore((s) => s.sketch.pattern);
   const cancelSketchPattern = usePartStudioStore((s) => s.cancelSketchPattern);
+  // D6（2026-11-16）：草图实体菜单「变换草图图元」→ 唯一草图变换 gizmo 会话
+  //（与飞菜单/ribbon 同 store action，无第二套 gizmo/工具；菜单在选中实体上打开）。
+  const startSketchPattern = usePartStudioStore((s) => s.startSketchPattern);
   // 2026-11-13：草图「使用」复用同一会话槽（kind='use'）。
   const sketchUseSession = sketchPatternSession?.kind === 'use';
   const patternGizmoKind: 'linear' | 'circular' | 'transform' | null =
@@ -1119,6 +1122,9 @@ export function PartStudioCanvas({
           onZoomToEntity={zoomToSketchEntity}
           onExtrude={() => openFeatureFromSketch('extrude')}
           onRevolve={() => openFeatureFromSketch('revolve')}
+          // FIX-2（2026-11-16 W8b review）：只读会话不下传 onTransform——菜单行
+          // 以真实原因禁用，杜绝启动不可提交的变换 gizmo（ribbon 路径同门禁）。
+          onTransform={canEdit ? () => startSketchPattern('transform') : undefined}
           onCopy={copySketchSelection}
           onPaste={pasteSketchSelection}
           isConstruction={isSketchEntityConstruction}

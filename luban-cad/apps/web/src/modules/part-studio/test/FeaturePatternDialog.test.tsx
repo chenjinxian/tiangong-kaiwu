@@ -8,7 +8,8 @@
 //  5) 源/轴缺失或退化 → 禁提交；
 //  6) canEdit=false 全禁用；
 //  7) A4（2026-11-16）：源 chips 显示 features 映射的特征名，缺省/未命中回退 id；
-//  8) A5（2026-11-16）：共享底栏（禁用透明度滑杆 + ? 帮助）。
+//  8) A5（2026-11-16）：共享底栏（禁用透明度滑杆 + ? 帮助）；
+//  9) A6（2026-11-16）：轴方向只读值行（「方向」+ 向量）、跳过实例行折叠箭头。
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -65,12 +66,17 @@ function renderDialog(
 }
 
 describe('FeaturePatternDialog', () => {
-  it('跳过实例行（Onshape live 行序最后）：禁用 + 未支持提示（点选通道未实现）', () => {
+  it('跳过实例行（Onshape live 行序最后）：禁用 + 未支持提示（点选通道未实现）+ 折叠箭头 affordance', () => {
     renderDialog();
     const row = screen.getByTestId('part-studio-feature-pattern-skip-instances');
     expect(row.getAttribute('title')).toContain('尚未支持');
     expect((row.querySelector('input[type="checkbox"]') as HTMLInputElement).disabled).toBe(true);
     expect(row.textContent).toContain('跳过实例');
+    // A6（2026-11-16）：禁用折叠行同仓储 span idiom（aria-hidden，无行为）。
+    const chevron = screen.getByTestId('part-studio-feature-pattern-skip-chevron');
+    expect(chevron.textContent).toBe('›');
+    expect(chevron.getAttribute('aria-hidden')).toBe('true');
+    expect(row.contains(chevron)).toBe(true);
   });
 
   it('阵列类型选项=线性阵列/环形阵列（特征阵列不是零件阵列）', () => {
@@ -128,7 +134,10 @@ describe('FeaturePatternDialog', () => {
     expect((screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement).value).toBe('linear');
     expect((screen.getByRole('textbox', { name: '每侧实例数（含原件）' }) as HTMLInputElement).value).toBe('3');
     expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('6');
-    expect(screen.getByTestId('part-studio-feature-pattern-axis').textContent).toContain('方向');
+    // A6（2026-11-16）：轴方向 = 只读值行（「方向」+ 格式化向量），不再是裸 (x,y,z) 提示。
+    const directionRow = screen.getByTestId('part-studio-feature-pattern-axis');
+    expect(directionRow.textContent).toContain('方向');
+    expect(screen.getByTestId('part-studio-feature-pattern-direction-value').textContent).toBe('(1, 0, 0)');
     expect((screen.getByRole('checkbox', { name: '居中' }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByTestId('part-studio-feature-pattern-centered-hint').textContent).toContain('2N−1');
     expect(applyOp).not.toHaveBeenCalled();

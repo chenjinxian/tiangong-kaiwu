@@ -86,6 +86,18 @@ vi.mock('../components/SketchDimensionEditor.js', () => ({
   },
 }));
 
+// D6（2026-11-16）：草图实体菜单「变换草图图元」宿主接线——捕获下传的
+// onTransform（真实菜单/点击行为由 sketch-entity-picker.test 覆盖）。
+const sketchEntityPickerProbe = vi.hoisted(() => ({
+  onTransform: null as (() => void) | null | undefined,
+}));
+vi.mock('../components/SketchEntityPicker.js', () => ({
+  SketchEntityPicker: (props: { onTransform?: () => void }) => {
+    sketchEntityPickerProbe.onTransform = props.onTransform;
+    return null;
+  },
+}));
+
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
   viewport: null as unknown,
@@ -180,6 +192,7 @@ beforeEach(() => {
   mocks.viewport = null;
   curveDecorationCalls.calls = [];
   dimensionEditorProbe.onGlyphHover = null;
+  sketchEntityPickerProbe.onTransform = null;
   resetStore();
 });
 
@@ -806,6 +819,33 @@ describe('2026-11-15 E5：约束 glyph 悬停联动的宿主接线', () => {
 
     act(() => usePartStudioStore.getState().enterSketch('sk2'));
     expect(lastHighlightedEntityIds()).toEqual([]);
+  });
+});
+
+// D6（2026-11-16）：草图实体右键菜单「变换草图图元」→ 复用既有草图变换
+// gizmo 会话（store `startSketchPattern('transform')`；无第二套 gizmo/工具）。
+describe('D6（2026-11-16）：草图实体菜单「变换草图图元」宿主接线', () => {
+  it('picker onTransform → store 草图变换会话 kind=transform', () => {
+    renderHoverCanvas();
+    expect(typeof sketchEntityPickerProbe.onTransform).toBe('function');
+    act(() => sketchEntityPickerProbe.onTransform?.());
+    expect(usePartStudioStore.getState().sketch.pattern).toEqual({ kind: 'transform' });
+  });
+
+  // FIX-2（2026-11-16 W8b review）：只读会话不下传 onTransform（picker 行
+  // 以真实原因禁用），绝不启动不可提交的变换 gizmo。
+  it('canEdit=false → 不下传 onTransform（只读禁用依据）', () => {
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk1');
+    });
+    render(
+      <PartStudioCanvas
+        viewportRef={{ current: null } as RefObject<HTMLDivElement>}
+        sketchSystem={HOVER_SKETCH_SYSTEM}
+        canEdit={false}
+      />,
+    );
+    expect(sketchEntityPickerProbe.onTransform).toBeUndefined();
   });
 });
 

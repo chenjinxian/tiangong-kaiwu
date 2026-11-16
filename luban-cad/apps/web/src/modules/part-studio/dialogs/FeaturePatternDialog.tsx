@@ -481,14 +481,33 @@ export function FeaturePatternDialog({
             />
           </section>
         )}
-        <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-feature-pattern-axis">
-          {axis === undefined || !axisValid
-            ? t('partStudio.featurePatternDialog.axisMissing')
-            : t('partStudio.featurePatternDialog.axisReadonly', {
-              origin: vecText(axis.origin),
-              direction: vecText(axis.direction),
-            })}
-        </p>
+        {/* A6（2026-11-16）：轴方向改只读值行（「方向」+ 格式化向量），完整
+            原点/方向文案保留在行 title；轴仍是结构引用，不新增编辑通道。 */}
+        <section
+          className="part-studio-feature-dialog__distance"
+          data-field="feature-pattern-axis"
+          data-testid="part-studio-feature-pattern-axis"
+        >
+          <span className="part-studio-feature-dialog__distance-label">
+            {t('partStudio.featureDialog.patternDirectionLabel')}
+          </span>
+          {axis === undefined || !axisValid ? (
+            <span className="part-studio-feature-dialog__hint">
+              {t('partStudio.featurePatternDialog.axisMissing')}
+            </span>
+          ) : (
+            <span
+              className="part-studio-feature-dialog__static-value"
+              data-testid="part-studio-feature-pattern-direction-value"
+              title={t('partStudio.featurePatternDialog.axisReadonly', {
+                origin: vecText(axis.origin),
+                direction: vecText(axis.direction),
+              })}
+            >
+              {vecText(axis.direction)}
+            </span>
+          )}
+        </section>
         {stored.secondDirection !== undefined && (
           <section className="part-studio-feature-dialog__distance" data-field="feature-pattern-second-direction">
             <label
@@ -625,7 +644,9 @@ export function FeaturePatternDialog({
           </p>
         )}
         {/* Onshape live（linear-pattern.json/跳过实例）：行位于最后；实例点选通道
-            尚未实现（私有证据未复现视口交互），诚实禁用并标注未支持。 */}
+            尚未实现（私有证据未复现视口交互），诚实禁用并标注未支持。
+            A6（2026-11-16）：补折叠箭头 affordance（同仓储禁用行 span idiom），
+            仍禁用、原因 title 不变。 */}
         <label
           className="part-studio-feature-dialog__checkbox"
           title={t('partStudio.featureDialog.notSupported')}
@@ -633,6 +654,7 @@ export function FeaturePatternDialog({
         >
           <input type="checkbox" checked={false} disabled onChange={() => undefined} />
           <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>
+          <span className="part-studio-tree-menu__submenu" aria-hidden="true" data-testid="part-studio-feature-pattern-skip-chevron">›</span>
         </label>
       </div>
       {/* A5：共享底栏（Onshape 皮肤）——透明度滑杆仅占位（真滑杆通道未接，诚实禁用）+ ? 帮助。

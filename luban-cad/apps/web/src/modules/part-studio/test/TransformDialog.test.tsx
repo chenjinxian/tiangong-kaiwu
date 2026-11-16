@@ -11,7 +11,7 @@
 //  7) 2026-11-15 live 行对齐：目标 query field 两态/7 模式菜单/轴值行/
 //     默认角度 30 与缩放 1/均匀缩放/底栏（载荷不变）。
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { BodyInfo, FeatureOp, FeatureOpResult } from '@luban-cad/shared';
@@ -222,8 +222,17 @@ describe('TransformDialog', () => {
     // live 默认：旋转角度 30、缩放 1（均匀缩放勾选）。
     await user.selectOptions(modeSelect, 'rotate');
     expect((screen.getByRole('textbox', { name: '角度（度）' }) as HTMLInputElement).value).toBe('30');
+    // 审计 B3（2026-11-16）：旋转角度行 = 值行壳（° 单位 + 禁用计算器）。
+    const angleRow = screen.getByRole('textbox', { name: '角度（度）' }).closest('section')!;
+    expect(angleRow.textContent).toContain('°');
+    expect((within(angleRow).getByRole('button', { name: '计算器' }) as HTMLButtonElement).disabled).toBe(true);
     await user.selectOptions(modeSelect, 'scale');
     expect((screen.getByRole('textbox', { name: '缩放因子' }) as HTMLInputElement).value).toBe('1');
+    // 审计 B3（2026-11-16）：缩放行无量纲单位后缀，仍带禁用计算器。
+    const scaleRow = screen.getByRole('textbox', { name: '缩放因子' }).closest('section')!;
+    expect(scaleRow.textContent).not.toContain('mm');
+    expect(scaleRow.textContent).not.toContain('°');
+    expect((within(scaleRow).getByRole('button', { name: '计算器' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('checkbox', { name: '均匀缩放' }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByTestId('part-studio-transform-scale-point').textContent).toContain('点或配合连接器');
 

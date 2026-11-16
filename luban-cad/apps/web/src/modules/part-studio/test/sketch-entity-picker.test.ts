@@ -98,8 +98,12 @@ function makeSketchViewport(): ScreenViewport {
   } as unknown as ScreenViewport;
 }
 
-function renderPicker(): { onFinishSketch: ReturnType<typeof vi.fn> } {
+function renderPicker(opts: { withTransform?: boolean } = {}): {
+  onFinishSketch: ReturnType<typeof vi.fn>;
+  onTransform: ReturnType<typeof vi.fn>;
+} {
   const onFinishSketch = vi.fn();
+  const onTransform = vi.fn();
   render(React.createElement(SketchEntityPicker, {
     viewport: makeSketchViewport(),
     sketch: SKETCH,
@@ -107,8 +111,10 @@ function renderPicker(): { onFinishSketch: ReturnType<typeof vi.fn> } {
     onSelectionChange: vi.fn(),
     sketchName: '草图 1',
     onFinishSketch,
+    // FIX-2：缺省接线；withTransform=false 模拟只读/不可变换宿主（不下传）。
+    ...(opts.withTransform === false ? {} : { onTransform }),
   }));
-  return { onFinishSketch };
+  return { onFinishSketch, onTransform };
 }
 
 /** 右键曲线中点（控制点 ≤6px 优先，取 ≥6px 的线段中部）→ 实体菜单。 */
@@ -155,7 +161,8 @@ describe('草图实体右键菜单（Onshape live 顺序）', () => {
       '将视图与竖直轴对齐',
       '删除草图图元',
     ]);
-    expect((within(menu).getByRole('menuitem', { name: '变换草图图元' }) as HTMLButtonElement).disabled).toBe(true);
+    // D6（2026-11-16）：变换草图图元接唯一变换 gizmo 会话，行转正可点。
+    expect((within(menu).getByRole('menuitem', { name: '变换草图图元' }) as HTMLButtonElement).disabled).toBe(false);
     expect((within(menu).getByRole('menuitem', { name: '删除草图图元' }) as HTMLButtonElement).disabled).toBe(false);
     // 未复制时粘贴项不出现（Onshape：粘贴在复制后出现，仍紧随复制）。
     expect(within(menu).queryByRole('menuitem', { name: '粘贴草图图元' })).toBeNull();
@@ -228,5 +235,28 @@ describe('草图实体右键菜单（Onshape live 顺序）', () => {
     fireEvent.click(within(menu).getByTestId('sketch-entity-menu-confirm'));
     expect(onFinishSketch).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('sketch-entity-menu')).toBeNull();
+  });
+
+  // D6（2026-11-16）：变换草图图元 → 宿主已有变换 gizmo（onTransform），
+  // 菜单关闭、不新增第二套工具。
+  it('点击「变换草图图元」→ 菜单关闭并调用 onTransform', () => {
+    const { onTransform } = renderPicker();
+    const menu = openEntityMenu();
+    fireEvent.click(within(menu).getByTestId('sketch-entity-menu-transform'));
+    expect(onTransform).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('sketch-entity-menu')).toBeNull();
+  });
+
+  // FIX-2（2026-11-16 W8b review）：宿主未接线（只读会话/当前状态不可变换）
+  // → 行禁用 + 诚实原因 title；不再渲染可点 no-op。
+  it('未接线 onTransform（只读）→ 变换行禁用 + 真实原因 title', () => {
+    renderPicker({ withTransform: false });
+    const menu = openEntityMenu();
+    const row = within(menu).getByTestId('sketch-entity-menu-transform') as HTMLButtonElement;
+    expect(row.disabled).toBe(true);
+    expect(row.title).toBe('只读会话或当前状态不可变换。');
+    fireEvent.click(row);
+    // 禁用行点击不触发回调、菜单保持（无行为）。
+    expect(screen.getByTestId('sketch-entity-menu')).toBeTruthy();
   });
 });

@@ -5,9 +5,12 @@
 //  2) blind 提交 insertFeature/hole，载荷含 sketchId/pointIds/diameterMm/depthMm；
 //  3) throughAll 省略 depthMm；
 //  4) edit 模式回显落库参数并走 updateParams；
-//  5) 沉头孔/倒角孔页签禁用（后端未实现，禁止假成功）。
+//  5) 沉头孔/倒角孔页签禁用（后端未实现，禁止假成功）；
+//  6) 审计 C3（2026-11-16）：沉头/倒角数值行带禁用计算器（载荷/校验不变）。
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 
@@ -35,6 +38,17 @@ vi.mock('@common/workspace/use-workspace-ref.js', () => ({
 }));
 
 import { HoleDialog } from '../dialogs/HoleDialog.js';
+
+// FIX-1（2026-11-16 W8b review）：jsdom 不计算样式，按仓内既有先例做 CSS
+// 文本断言（FeatureDialog.test.tsx / CPlaneDialog.test.tsx 的 cssRuleBlock）。
+const dialogCss = readFileSync(resolve(__dirname, '../dialogs/FeatureDialog.css'), 'utf8');
+
+function cssRuleBlock(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, String.fromCharCode(92) + '$&');
+  const match = dialogCss.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`));
+  if (!match) throw new Error(`rule not found: ${selector}`);
+  return match[1] ?? '';
+}
 
 const sketches = [{ id: 'sketch-1', label: '草图 1' }];
 
@@ -293,6 +307,31 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
       featureType: 'hole',
       params: { direction: 'backward' },
     });
+  });
+
+  // 审计 C3（2026-11-16）：沉头/倒角孔的直径/深度/角度数值行补齐禁用计算器
+  //（与主直径/深度行同壳）；载荷/校验/标签不变。
+  it('C3：沉头孔/倒角孔数值行各带禁用计算器', async () => {
+    renderDialog();
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const expectRowCalculator = (testId: string): void => {
+      const row = screen.getByTestId(testId).closest('section');
+      expect(row).not.toBeNull();
+      const calculator = within(row!).getByRole('button', { name: '计算器' }) as HTMLButtonElement;
+      expect(calculator.disabled).toBe(true);
+      expect(calculator.title).toBe('该能力尚未实现');
+    };
+    fireEvent.click(screen.getByText('沉头孔').closest('button')!);
+    expectRowCalculator('hole-cbore-diameter');
+    expectRowCalculator('hole-cbore-depth');
+    fireEvent.click(screen.getByText('倒角孔').closest('button')!);
+    expectRowCalculator('hole-csink-diameter');
+    expectRowCalculator('hole-csink-angle');
+    // FIX-1：数值行模板必须是 4 列（标签+值+单位+计算器），否则计算器折行。
+    expect(cssRuleBlock(
+      ".part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__value-row",
+    )).toContain('grid-template-columns: 62px minmax(0, 1fr) auto auto');
   });
 
   it('钻尖角选择：默认 118（Onshape live），选 180 后载荷平底（v1.50）', async () => {

@@ -1033,6 +1033,12 @@
   padding-inline-start: 2px;
 }
 
+/* 审计 C2（2026-11-16）：通用特征对话框复选使用品牌蓝 accent（与拆分选项
+ * 行一致）；仅改强调色，不动禁用态 opacity。 */
+.part-studio-feature-dialog__checkbox input[type='checkbox'] {
+  accent-color: #1651b0;
+}
+
 /* 折叠行：Onshape 箭头在行首，整行无边框。 */
 .part-studio-feature-dialog__section-toggle {
   justify-content: flex-start;
@@ -1094,6 +1100,8 @@
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-direction-group'] { order: 4; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset'] { order: 5; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset-value'] { order: 5; }
+/* 审计 B2（2026-11-16）：起始偏移展开组的终止条件行贴着复选行（同 order 5）。 */
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset-termination'] { order: 5; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-field='thin-thickness'] { order: 6; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-symmetric-flat'] { order: 7; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-draft'] { order: 8; }
@@ -1394,8 +1402,11 @@
   background: transparent;
 }
 
+/* FIX-1（2026-11-16 W8b review）：数值行统一 4 列（标签+值+单位+计算器）——
+ * 沉头/倒角孔的直径/深度行新增计算器后必须同行排布（3 列会把第 4 子项折到
+ * 第二行）。直径/深度行仍由下方更靠后的 __icon-row/__depth-row 覆盖。 */
 .part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__value-row {
-  grid-template-columns: 62px minmax(0, 1fr) auto;
+  grid-template-columns: 62px minmax(0, 1fr) auto auto;
 }
 
 .part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__value-row .part-studio-feature-dialog__input {
@@ -1484,7 +1495,9 @@
 }
 
 /* Onshape live 数值行：12px 标签 + 右对齐值 + 单位 + 计算器；底部 1px 下划线。 */
-.part-studio-feature-dialog__distance {
+/* 2026-11-16 审计 B3：角度行与距离行同为「标签 + 值 + 单位 + 计算器」四列。 */
+.part-studio-feature-dialog__distance,
+.part-studio-feature-dialog__angle {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   min-block-size: 27px;
   padding: 0 3px;
@@ -2004,6 +2017,21 @@
 .part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__tool-field {
   margin: 2px 3px;
   cursor: default;
+}
+
+/* C7（2026-11-16）：工具 query field 右外置装饰时钟（与镜像平面同 idiom）。 */
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__tool-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  inline-size: 100%;
+}
+
+.part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__tool-row .part-studio-split-part-dialog__tool-field {
+  flex: 1 1 auto;
+  inline-size: auto;
+  margin: 0;
 }
 
 .part-studio-feature-dialog[data-feature='splitPart'] .part-studio-split-part-dialog__target-field.is-empty {

@@ -343,21 +343,37 @@ export function SplitPartDialog({
         )}
 
         {/* 用于分割的图元：唯一可用工具=世界平面；实体/面/曲线拾取无通道 →
-            字段本体只读 + title 诚实说明。 */}
+            字段本体只读 + title 诚实说明。C7（2026-11-16）：字段右外置装饰时钟
+            （与镜像平面 query field 同 idiom，aria-hidden、无行为）。 */}
         <section className="part-studio-feature-dialog__entities" data-field="split-tool">
-          <div
-            className="part-studio-feature-dialog__profile-field part-studio-split-part-dialog__tool-field is-selected"
-            data-testid="part-studio-split-part-tool-field"
-            title={t('partStudio.splitPartDialog.toolPickUnsupported')}
-          >
-            <span className="part-studio-feature-dialog__query-label">
-              {t('partStudio.splitPartDialog.tool')}
-            </span>
-            <span className="part-studio-feature-dialog__chips">
-              <span className="part-studio-feature-dialog__profile-chip" data-testid="part-studio-split-part-tool">
-                {t('partStudio.splitPartDialog.toolWorldPlane', { plane })}
+          <div className="part-studio-split-part-dialog__tool-row">
+            <div
+              className="part-studio-feature-dialog__profile-field part-studio-split-part-dialog__tool-field is-selected"
+              data-testid="part-studio-split-part-tool-field"
+              title={t('partStudio.splitPartDialog.toolPickUnsupported')}
+            >
+              <span className="part-studio-feature-dialog__query-label">
+                {t('partStudio.splitPartDialog.tool')}
               </span>
-            </span>
+              <span className="part-studio-feature-dialog__chips">
+                <span className="part-studio-feature-dialog__profile-chip" data-testid="part-studio-split-part-tool">
+                  {t('partStudio.splitPartDialog.toolWorldPlane', { plane })}
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              className="part-studio-feature-dialog__axis-clock"
+              data-testid="part-studio-split-part-tool-clock"
+              aria-hidden="true"
+              disabled
+              tabIndex={-1}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" />
+                <path d="M8 4.5V8l2.5 1.5" fill="none" stroke="currentColor" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
         </section>
 
@@ -402,6 +418,25 @@ export function SplitPartDialog({
               onChange={(event) => setOffset(event.target.value)}
               data-testid="part-studio-split-part-offset"
             />
+            {/* 审计 C3（2026-11-16）：偏移数值行补禁用计算器（与主数值行同壳）。 */}
+            <button
+              type="button"
+              className="part-studio-feature-dialog__calculator"
+              aria-label={t('partStudio.featureDialog.calculatorLabel')}
+              disabled
+              title={t('partStudio.featureDialog.notImplemented')}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+              </svg>
+            </button>
           </section>
           <section className="part-studio-feature-dialog__distance" data-field="split-keep-side">
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-split-part-keep-side">
