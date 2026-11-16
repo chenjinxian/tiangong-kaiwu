@@ -379,25 +379,27 @@ const ONSHAPE_TOOL_ICONS: Readonly<Record<string, OnshapeIconName>> = {
   SweepFaces: 'sweep-button',
   loft: 'loft-button',
   thicken: 'thicken-button',
-  thickenClosed: 'thicken-button',
+  // W26（live 2026-11-17）：飞菜单变体各行取 live 专属 sprite（主钮切变体时
+  // 图标随之切换——此前子项复用家族图标）。
+  thickenClosed: 'enclose-button',
   RoundEdges: 'fillet-button',
-  faceBlend: 'fillet-button',
+  faceBlend: 'face-blend-button',
   ChamferEdges: 'chamfer-button',
   DraftFaces: 'draft-button',
-  bodyDraft: 'draft-button',
+  bodyDraft: 'body-draft-button',
   rib: 'rib-button',
   HollowFaces: 'shell-button',
   CreateHole: 'hole-button',
   externalThread: 'external-thread-button',
   LinearPattern: 'linear-pattern-button',
-  CircularPattern: 'linear-pattern-button',
+  CircularPattern: 'circular-pattern-button',
   curvePattern: 'curve-pattern-button',
   MirrorElements: 'mirror-button',
   booleanBodies: 'boolean-bodies-button',
   splitPart: 'split-part-button',
   transform: 'transform-button',
-  wrap: 'transform-button',
-  decal: 'transform-button',
+  wrap: 'wrap-button',
+  decal: 'decal-button',
   deleteBodies: 'delete-bodies-button',
   modifyFillet: 'modify-fillet-button',
   deleteFace: 'delete-face-button',
@@ -552,7 +554,9 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     capability: 'fillet',
     group: 'shape',
     dropdownItems: [
-      { id: 'faceBlend', icon: FilletIcon, labelKey: 'partStudio.ribbon.items.faceBlend.label', capability: 'fillet' },
+      // W26：面混合无工具/后端通道（圆角族的曲面混合路径未接）——capability
+      // 改挂独立 gated 键（此前挂 fillet=full，点击会静默 tools.run 失败）。
+      { id: 'faceBlend', icon: FilletIcon, labelKey: 'partStudio.ribbon.items.faceBlend.label', capability: 'faceBlend' },
     ],
   },
   {
@@ -763,6 +767,23 @@ export const RIBBON_TOOLS: readonly RibbonTool[] = [
     dropdownItems: [],
   },
 ];
+
+/**
+ * 命令 id → 所属特征变体群组主工具 id（W26，live 2026-11-17）：主工具映射到
+ * 自身，飞菜单子项映射到其组主工具。Ribbon 的快捷键处理器与主钮「最近使用
+ * 变体」用它记录/解析变体群组（与草图侧 sketchToolGroupFor 同姿态）。
+ */
+const RIBBON_TOOL_GROUP_FOR: ReadonlyMap<string, string> = new Map(
+  RIBBON_TOOLS.flatMap((tool) => [
+    [tool.id, tool.id] as const,
+    ...(tool.dropdownItems ?? []).map((item) => [item.id, tool.id] as const),
+  ]),
+);
+
+/** 查询命令所属特征变体群组（主工具/子项 → 组主工具 id；未知命令 undefined）。 */
+export function ribbonToolGroupFor(id: string): string | undefined {
+  return RIBBON_TOOL_GROUP_FOR.get(id);
+}
 
 /** 按 id 寻址工具或下拉子项（命令搜索/激活路由统一入口）。 */
 export function findRibbonCommand(id: string): RibbonCommand | undefined {

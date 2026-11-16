@@ -33,9 +33,9 @@ export interface RibbonDropdownProps {
   /** 只读态（P2.4 F11）：子项按各自 capability 裁决——gated 子项仍可打开能力引导。 */
   readOnly?: boolean;
   /**
-   * 变体群组最近使用变体（W23，live 2026-11-17）：组主工具 id 或飞菜单子项 id。
-   * 缺省（特征工具栏）→ 主钮保持固定主工具文案/图标/标题，行为不变；仅草图
-   * 模式传入。值为子项时主钮展示该变体（图标/aria-label/title），主钮点击激活它。
+   * 变体群组最近使用变体（W23 草图 / W26 特征，live 2026-11-17）：组主工具 id
+   * 或飞菜单子项 id。缺省 → 主钮保持固定主工具文案/图标/标题；两工具栏均传入。
+   * 值为子项时主钮展示该变体（图标/aria-label/title），主钮点击激活它。
    */
   selectedId?: string;
   /** 变体群组行激活上报（含父行）：选中行后主钮保持该变体（closeMenu 后回调）。 */
@@ -125,9 +125,9 @@ export function RibbonDropdown({
   }, [tool, menuLabel, mainTitle, mainOnshapeIcon, MainIcon, disabled, readOnly, t]);
 
   /**
-   * W23（live 2026-11-17）：草图变体群组主钮 = 最近使用变体。父行选中/未传
-   * `selectedId`（特征工具栏）→ 保持固定主工具文案/图标/标题；子行选中 →
-   * 主钮改用该行 tooltip/图标，点击激活该变体。
+   * W23/W26（live 2026-11-17）：变体群组主钮 = 最近使用变体。父行选中/调用方
+   * 未传 `selectedId` → 保持固定主工具文案/图标/标题；子行选中 → 主钮改用该行
+   * tooltip/图标，点击激活该变体。
    */
   const selectedRow: MenuRow = (selectedId !== undefined
     ? rows.find((row) => row.id === selectedId)
@@ -217,7 +217,7 @@ export function RibbonDropdown({
       className="part-studio-ribbon__dropdown"
       data-testid={`part-studio-ribbon-dropdown-${tool.id}`}
     >
-      {/* 主钮：激活当前展示的变体（缺省=组主工具；特征工具栏行为不变）。 */}
+      {/* 主钮：激活当前展示的变体（缺省=组主工具；W26 起特征工具栏同姿态）。 */}
       <button
         type="button"
         aria-label={mainAriaLabel}

@@ -47,6 +47,9 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sketch: 'full',
   extrude: 'full',
   fillet: 'full',
+  // W26（live 2026-11-17）：面混合=圆角飞菜单变体，无工具/后端通道（圆角族的
+  // 曲面混合路径未接）——gated 诚实引导，主钮切到该变体后不再静默 no-op。
+  faceBlend: 'gated',
   chamfer: 'full',
   revolve: 'full', // 旋转
   sweep: 'full', // 扫掠
@@ -188,6 +191,8 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   pauseRebuild: guidanceFor('pauseRebuild'),
   featureHistory: guidanceFor('featureHistory'),
   curvePattern: guidanceFor('curvePattern'),
+  // W26：面混合变体无工具/后端通道（圆角族曲面混合路径未接）。
+  faceBlend: guidanceFor('faceBlend'),
   // W1.2b 能力真相审计（2026-11-07）：以下六项无真实 UI 面（部分后端已落），先 gated；
   // moveFace 已于 2026-11-08 接 MoveFaceDialog 翻 full。
   thicken: guidanceFor('thicken'),

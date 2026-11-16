@@ -42,6 +42,7 @@ import {
   allRibbonCommands,
   findRibbonCommand,
   onshapeIconFor,
+  ribbonToolGroupFor,
 } from './ribbon-registry.js';
 import type { RibbonIcon, RibbonTool } from './ribbon-registry.js';
 import {
@@ -581,13 +582,15 @@ export function Ribbon({
   const sketchToolsDisabled = !canEdit || !sketchActive;
   const constructionMode = usePartStudioStore((s) => Boolean(s.sketch.constructionMode));
   /**
-   * W23（live 2026-11-17）：草图飞菜单=变体群组，主钮展示「最近使用变体」——
-   * 选行/快捷键激活后主钮标签/图标/tooltip 切到该变体，工具退出（Escape）
-   * 与退出/重进草图均保持。仅会话内 React state（不持久化，刷新回默认）；
-   * key = 组主工具 id，value = 最近使用命令 id。特征工具栏不消费该状态。
+   * W23/W26（live 2026-11-17）：草图与特征工具栏的飞菜单均为变体群组，主钮
+   * 展示「最近使用变体」——选行/快捷键激活后主钮标签/图标/tooltip 切到该变体，
+   * 工具退出（Escape）与退出/重进草图均保持。仅会话内 React state（不持久化，
+   * 刷新回默认）；key = 组主工具 id，value = 最近使用命令 id。两工具栏共用同一
+   * map（仅飞菜单组 id 参与主钮展示读取；特征组 id 与草图组 id 不重叠——命令 id
+   * 可同名如 extrude/revolve，快捷键可能写入自身键，但值恒为自身且不被消费）。
    */
   const [variantSelections, setVariantSelections] = React.useState<Record<string, string>>({});
-  const selectSketchVariant = React.useCallback((groupId: string, id: string): void => {
+  const selectVariant = React.useCallback((groupId: string, id: string): void => {
     setVariantSelections((prev) => (prev[groupId] === id ? prev : { ...prev, [groupId]: id }));
   }, []);
 
@@ -623,19 +626,22 @@ export function Ribbon({
       }
       event.preventDefault();
       event.stopPropagation();
-      // W23：草图快捷键激活也记录最近使用变体（主钮随快捷键切换）。只读态不
-      // 记录（工具栏不可编辑时快捷键不改变主钮展示；飞菜单行由 row.disabled 拦截）。
-      if (sketchActive && canEdit) {
-        const groupId = sketchToolGroupFor(commandId);
+      // W23/W26：快捷键激活也记录最近使用变体（主钮随快捷键切换）。按模式取
+      // 各自的组映射（草图 sketchToolGroupFor / 特征 ribbonToolGroupFor）；只读态
+      // 不记录（工具栏不可编辑时快捷键不改变主钮展示；飞菜单行由 row.disabled 拦截）。
+      if (canEdit) {
+        const groupId = sketchActive
+          ? sketchToolGroupFor(commandId)
+          : ribbonToolGroupFor(commandId);
         if (groupId !== undefined)
-          selectSketchVariant(groupId, commandId);
+          selectVariant(groupId, commandId);
       }
       void activate(commandId);
     };
     // 捕获阶段：工具（Line/Trim…）会吞按键；Onshape 快捷键在工具激活时仍生效。
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [activate, sketchActive, canEdit, canUndo, canRedo, onUndo, onRedo, selectSketchVariant]);
+  }, [activate, sketchActive, canEdit, canUndo, canRedo, onUndo, onRedo, selectVariant]);
 
   // os-23「亮显工具栏中的工具」：面板开 + 勾选 + 有查询词 → 命中命令高亮。
   const highlightIds = React.useMemo(() => {
@@ -694,7 +700,7 @@ export function Ribbon({
                       highlighted={false}
                       disabled={sketchToolsDisabled}
                       selectedId={selectedId}
-                      onSelect={(id) => selectSketchVariant(sketchTool.id, id)}
+                      onSelect={(id) => selectVariant(sketchTool.id, id)}
                     />
                   ) : (
                     <RibbonToolButton
@@ -734,7 +740,12 @@ export function Ribbon({
                 {tools.map((tool) => {
                   // 只读总门：full 写工具禁用；gated 项仅信息引导，保持可点（完整 UI 面）。
                   const disabled = !canEdit && !isGated(tool.capability);
-                  const active = activeToolId === tool.id;
+                  // W26：特征飞菜单组主钮展示「最近使用变体」（无飞菜单工具保持自身 id）；
+                  // 激活态 = store 激活命令命中当前展示的变体。
+                  const selectedId = tool.dropdownItems
+                    ? variantSelections[tool.id] ?? tool.id
+                    : tool.id;
+                  const active = activeToolId === selectedId;
                   return tool.dropdownItems ? (
                     <RibbonDropdown
                       key={tool.id}
@@ -744,6 +755,8 @@ export function Ribbon({
                       highlighted={highlightIds?.has(tool.id) ?? false}
                       disabled={disabled}
                       readOnly={!canEdit}
+                      selectedId={selectedId}
+                      onSelect={(id) => selectVariant(tool.id, id)}
                     />
                   ) : (
                     <RibbonToolButton

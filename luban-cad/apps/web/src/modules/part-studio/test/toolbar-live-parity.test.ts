@@ -9,8 +9,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   RIBBON_TOOLS,
+  onshapeIconFor,
   type RibbonTool,
 } from '../ribbon/ribbon-registry.js';
+import { ONSHAPE_ICONS } from '../icons/onshape-icons.js';
 import { SKETCH_RIBBON_TOOLS, type SketchRibbonTool } from '../ribbon/sketch-tools.js';
 import zhPartStudio from '../../../common/i18n/locales/zh-CN/part-studio.json';
 
@@ -144,6 +146,49 @@ describe('特征工具栏（live 2026-11-13 27 钮）', () => {
       ],
       USER_FEATURES: [{ label: '添加自定义特征' }],
     });
+  });
+});
+
+describe('特征变体主钮图标（W26，live 2026-11-17）', () => {
+  it('六个主特征组变体映射到 live sprite（加厚/圆角/拔模/线性阵列/变换）', () => {
+    expect({
+      thickenClosed: onshapeIconFor('thickenClosed'),
+      faceBlend: onshapeIconFor('faceBlend'),
+      bodyDraft: onshapeIconFor('bodyDraft'),
+      CircularPattern: onshapeIconFor('CircularPattern'),
+      wrap: onshapeIconFor('wrap'),
+      decal: onshapeIconFor('decal'),
+    }).toEqual({
+      thickenClosed: 'enclose-button',
+      faceBlend: 'face-blend-button',
+      bodyDraft: 'body-draft-button',
+      CircularPattern: 'circular-pattern-button',
+      wrap: 'wrap-button',
+      decal: 'decal-button',
+    });
+  });
+
+  it('五个新增 sprite 逐字节取自 live（viewBox + FNV-1a 载荷钉死）', () => {
+    // W26（live 2026-11-17）：sprite 载荷逐字节对齐，防止后续手改/近似替换。
+    const fnv1a = (value: string): number => {
+      let hash = 2166136261;
+      for (let i = 0; i < value.length; i++) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 16777619) >>> 0;
+      }
+      return hash;
+    };
+    const expected: Readonly<Record<string, number>> = {
+      'enclose-button': 1604919326,
+      'face-blend-button': 1059363544,
+      'body-draft-button': 1870977529,
+      'wrap-button': 3474204173,
+      'decal-button': 1714742792,
+    };
+    for (const [name, hash] of Object.entries(expected)) {
+      expect(ONSHAPE_ICONS[name as keyof typeof ONSHAPE_ICONS].viewBox).toBe('0 0 20 20');
+      expect(fnv1a(ONSHAPE_ICONS[name as keyof typeof ONSHAPE_ICONS].html)).toBe(hash);
+    }
   });
 });
 

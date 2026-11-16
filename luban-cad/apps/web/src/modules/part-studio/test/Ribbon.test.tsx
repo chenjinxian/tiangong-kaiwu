@@ -278,9 +278,10 @@ describe('P2.4 只读总门（canEdit=false）', () => {
     const ribbon = screen.getByTestId('part-studio-ribbon');
     const main = within(ribbon).getByRole('button', { name: '线性阵列' }) as HTMLButtonElement;
     expect(main.disabled || main.getAttribute('aria-disabled') === 'true').toBe(true);
-    // 菜单全为 full 禁用项的箭头与主钮同步禁用；含 gated 子项的箭头保留可点。
+    // 含 gated 子项的菜单箭头保留可点（F11）：W26 起圆角▾ 的面混合为 gated
+    // （此前整菜单 full → 箭头禁用），箭头按新数据保持可点。
     const filletArrow = within(ribbon).getByRole('button', { name: '圆角 ▾' }) as HTMLButtonElement;
-    expect(filletArrow.disabled).toBe(true);
+    expect(filletArrow.disabled).toBe(false);
     await user.click(within(ribbon).getByRole('button', { name: '线性阵列 ▾' }));
     const menu = within(document.body).getByRole('menu', { name: '线性阵列' });
     const circular = within(menu).getByRole('menuitem', { name: '环形阵列' });
@@ -436,6 +437,105 @@ describe('W23 草图变体群组：主钮=最近使用变体（live 2026-11-17�
     await user.click(screen.getByRole('menuitem', { name: '圆心圆弧' }));
     await user.click(button('草图圆角 ▾'));
     expect(screen.getByRole('menuitem', { name: '倒角' }).getAttribute('title')).toBe('草图倒角');
+  });
+});
+
+describe('W26 特征变体群组：主钮=最近使用变体（live 2026-11-17）', () => {
+  function button(name: string): HTMLButtonElement {
+    return screen.getByRole('button', { name }) as HTMLButtonElement;
+  }
+
+  it('线性阵列→环形阵列：主钮切变体并开圆周对话框；回选父行恢复线性并开线性对话框', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(button('线性阵列 ▾'));
+    await user.click(screen.getByRole('menuitem', { name: '环形阵列' }));
+    const circularMain = button('环形阵列');
+    expect(circularMain.getAttribute('aria-label')).toBe('环形阵列');
+    expect(circularMain.getAttribute('title')).toBe('环形阵列');
+    // 选行即经激活路由开 new/pattern 圆周对话框。
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'pattern',
+      patternKind: 'circular',
+    });
+    // 主钮激活态 = store 激活命令命中当前展示变体（W26）。
+    act(() => usePartStudioStore.getState().setActiveTool('CircularPattern'));
+    expect(button('环形阵列').getAttribute('aria-pressed')).toBe('true');
+    act(() => usePartStudioStore.getState().setActiveTool(null));
+    // 点主钮 = 再次激活当前变体（圆周对话框），不投直改工具。
+    mocks.toolsRun.mockClear();
+    await user.click(button('环形阵列'));
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'pattern',
+      patternKind: 'circular',
+    });
+    // 回选父行 → 主钮恢复线性阵列；主钮开线性对话框。
+    await user.click(button('线性阵列 ▾'));
+    await user.click(screen.getByTestId('part-studio-ribbon-menu-row-LinearPattern'));
+    expect(button('线性阵列').getAttribute('title')).toBe('线性阵列');
+    await user.click(button('线性阵列'));
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'pattern',
+      patternKind: 'linear',
+    });
+  });
+
+  it('圆角→面混合：主钮切面混合；点主钮开能力引导（gated，不静默 no-op）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(button('圆角 ▾'));
+    await user.click(screen.getByRole('menuitem', { name: '面混合' }));
+    // W26：面混合无工具/后端通道 → 选行即走 gated 引导（不再静默 tools.run 失败）。
+    expect(screen.getByRole('dialog', { name: '面混合（规划中）' })).toBeDefined();
+    await user.click(screen.getByRole('button', { name: '知道了' }));
+    const main = button('面混合');
+    expect(main.getAttribute('aria-label')).toBe('面混合');
+    expect(main.getAttribute('title')).toBe('面混合');
+    mocks.toolsRun.mockClear();
+    await user.click(main);
+    expect(screen.getByRole('dialog', { name: '面混合（规划中）' })).toBeDefined();
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+  });
+
+  it('选面混合后 shift+f → 变体回到圆角并开 new/fillet 对话框（特征快捷路径记录父变体）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(button('圆角 ▾'));
+    await user.click(screen.getByRole('menuitem', { name: '面混合' }));
+    await user.click(screen.getByRole('button', { name: '知道了' }));
+    expect(button('面混合')).toBeDefined();
+    mocks.toolsRun.mockClear();
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'f', shiftKey: true });
+    });
+    expect(usePartStudioStore.getState().dialog).toEqual({
+      active: 'feature',
+      mode: 'new',
+      featureType: 'fillet',
+    });
+    expect(button('圆角').getAttribute('title')).toBe('圆角 (shift+f)');
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+  });
+
+  it('特征变体在草图工具栏开关前后保持（同一 Ribbon 会话 state）', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    await user.click(button('线性阵列 ▾'));
+    await user.click(screen.getByRole('menuitem', { name: '环形阵列' }));
+    act(() => usePartStudioStore.getState().closeDialog());
+    act(() => usePartStudioStore.getState().enterSketch('sk-1'));
+    expect(
+      within(screen.getByTestId('part-studio-ribbon')).getByRole('toolbar', { name: '草图工具' }),
+    ).toBeDefined();
+    act(() => usePartStudioStore.getState().exitSketch());
+    expect(button('环形阵列').getAttribute('title')).toBe('环形阵列');
   });
 });
 

@@ -31,8 +31,10 @@ import {
   RIBBON_TOOLS,
   allRibbonCommands,
   findRibbonCommand,
+  ribbonToolGroupFor,
 } from '../ribbon/ribbon-registry.js';
 import type { RibbonCommand, RibbonGroup, RibbonTool } from '../ribbon/ribbon-registry.js';
+import { SKETCH_RIBBON_TOOLS } from '../ribbon/sketch-tools.js';
 import zhPartStudio from '../../../common/i18n/locales/zh-CN/part-studio.json';
 import enPartStudio from '../../../common/i18n/locales/en/part-studio.json';
 
@@ -287,8 +289,26 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
 describe('命令查找辅助（palette 数据源）', () => {
   it('findRibbonCommand：工具与子项均可寻址，未知 id 返回 undefined', () => {
     expect(findRibbonCommand('RoundEdges')?.labelKey).toBe('partStudio.ribbon.tools.fillet.label');
-    expect(findRibbonCommand('faceBlend')?.capability).toBe('fillet');
+    // W26：面混合无产品通道 → gated 诚实引导（此前挂 fillet=full 会静默 no-op）。
+    expect(findRibbonCommand('faceBlend')?.capability).toBe('faceBlend');
     expect(findRibbonCommand('nope')).toBeUndefined();
+  });
+
+  it('特征与草图飞菜单组 id 不相交（主钮最近使用状态共用同一 map 的前提）', () => {
+    const featureGroups = RIBBON_TOOLS.filter((tool) => tool.dropdownItems !== undefined).map((tool) => tool.id);
+    const sketchGroups = SKETCH_RIBBON_TOOLS.filter((tool) => tool.dropdownItems !== undefined).map((tool) => tool.id);
+    expect(featureGroups.filter((id) => sketchGroups.includes(id))).toEqual([]);
+  });
+
+  it('ribbonToolGroupFor：工具→自身，子项→组主工具（W26 主钮记忆/快捷键共用）', () => {
+    expect(ribbonToolGroupFor('LinearPattern')).toBe('LinearPattern');
+    expect(ribbonToolGroupFor('CircularPattern')).toBe('LinearPattern');
+    expect(ribbonToolGroupFor('curvePattern')).toBe('LinearPattern');
+    expect(ribbonToolGroupFor('faceBlend')).toBe('RoundEdges');
+    expect(ribbonToolGroupFor('bodyDraft')).toBe('DraftFaces');
+    expect(ribbonToolGroupFor('wrap')).toBe('transform');
+    expect(ribbonToolGroupFor('decal')).toBe('transform');
+    expect(ribbonToolGroupFor('nope')).toBeUndefined();
   });
 
   it('allRibbonCommands 展开工具+全部子项（27+47=74 条命令）', () => {

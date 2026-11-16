@@ -1735,6 +1735,10 @@
       "title": "Curve pattern (on the roadmap)",
       "message": "Curve pattern is on the LubanCAD roadmap. This version supports only PART/body-level linear and circular patterns; curve patterns will follow in a later milestone."
     },
+    "faceBlend": {
+      "title": "Face blend (on the roadmap)",
+      "message": "Face blend requires a surface-to-surface blend kernel path. This version provides only constant-radius solid-edge fillets; face blend is registered on the LubanCAD roadmap."
+    },
     "rib": {
       "title": "Rib (on the roadmap)",
       "message": "Rib features are on the LubanCAD roadmap and are not available in this version yet."
