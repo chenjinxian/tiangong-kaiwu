@@ -647,6 +647,70 @@ describe('W15：三点圆弧 R 半径点标签（drawLabels 发布）', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// 2026-11-16 W16：正多边形（内切/外切）同心+光标半径阶段的 Ø 点标签——
+// 与中心点圆同一发布口径（半径 measure 原样保留，标签伙伴抑制半径白卡片）。
+// ---------------------------------------------------------------------------
+describe('W16：正多边形 Ø 直径点标签（drawLabels 发布）', () => {
+  afterEach(() => {
+    clearSketchToolFeedback();
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = undefined;
+  });
+
+  const installViewport = (): void => {
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = fakeViewport;
+  };
+
+  it('内切多边形：圆心+光标半径段中点发布 Ø 点标签（直径=2×半径，半径卡配对）', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchInscribedPolygonTool(),
+      { u: 10, v: 10 },
+      { u: 13, v: 14 },
+    );
+
+    // 半径 measure 原样保留（computeSketchLiveMeasures 不变）。
+    expect(feedback.measures).toEqual([
+      { labelKey: 'partStudio.sketch.live.radius', value: '5' },
+    ]);
+    const label = feedback.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(label?.kind).toBe('point');
+    expect(label?.labelKey).toBe('partStudio.sketch.live.diameter');
+    expect(label?.suppressesLabelKeys).toEqual(['partStudio.sketch.live.radius']);
+    expect(label?.prefix).toBe('Ø');
+    expect(label?.value).toBe('10'); // 2×5
+    expect(label?.point).toEqual({ x: 11.5, y: 12 });
+  });
+
+  it('外切多边形：同一圆心+光标半径状态复用同一 Ø 点标签', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchCircumscribedPolygonTool(),
+      { u: 0, v: 0 },
+      { u: 0, v: 2.5 },
+    );
+
+    const label = feedback.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(label?.kind).toBe('point');
+    expect(label?.labelKey).toBe('partStudio.sketch.live.diameter');
+    expect(label?.prefix).toBe('Ø');
+    expect(label?.value).toBe('5'); // 2×2.5
+    expect(label?.point).toEqual({ x: 0, y: 1.25 });
+  });
+
+  it('多边形零半径（光标回到圆心）：不发标签，半径白卡片回退（与圆的退化路径一致）', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchInscribedPolygonTool(),
+      { u: 10, v: 10 },
+      { u: 10, v: 10 },
+    );
+
+    expect(feedback.drawLabels).toBeUndefined();
+    expect(feedback.measures[0]).toEqual({ labelKey: 'partStudio.sketch.live.radius', value: '0' });
+  });
+});
+
 describe('v1.23 ADR-0004：构造模式', () => {
   it('曲线实体带 construction=true，point 保持原样；关闭时原样返回', () => {
     const draft = {

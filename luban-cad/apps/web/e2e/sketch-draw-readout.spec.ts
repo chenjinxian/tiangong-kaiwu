@@ -1,12 +1,14 @@
 /**
- * 草图绘制画布读数（2026-11-16 E6/S5 + W12 + W15 Onshape live）：第一点落定
- * 后只移动光标（不落后续点）——
+ * 草图绘制画布读数（2026-11-16 E6/S5 + W12 + W15 + W16 Onshape live）：第一点
+ * 落定后只移动光标（不落后续点）——
  * - 拐角矩形：宽/高数值贴在对应边旁（蓝色文字、随边旋转），同项尺寸不再
  *   渲染光标旁白卡片；
  * - 直线：长度读数贴线显示（随线旋转）；
  * - 中心点圆：`Ø` 直径点标签水平落在圆心→光标半径段中点（半径卡被替代）；
  * - 三点圆弧：起点/终点已锚、光标为弧上点时 `R` 半径点标签水平落在弧角向
- *   中点外侧（半径卡被替代）。
+ *   中点外侧（半径卡被替代）；
+ * - 内切多边形：与中心点圆同一圆心→光标半径状态的 `Ø` 直径点标签（半径卡
+ *   被替代，输入边数不改变读数）。
  * 全部 Esc 退出工具、取消草图 = 不提交任何几何。
  */
 import { expect, test } from '@playwright/test';
@@ -38,8 +40,8 @@ function rotationDeg(style: string | null): number {
   return match ? Number(match[1]) : Number.NaN;
 }
 
-test.describe('草图绘制画布读数（E6/S5 + W12）', () => {
-  test('矩形宽/高、直线长度、圆 Ø 直径读数可见；Esc 退出不提交', async ({ page, request }) => {
+test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16）', () => {
+  test('矩形宽/高、直线长度、圆/多边形 Ø 直径读数可见；Esc 退出不提交', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 120_000);
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
@@ -158,8 +160,34 @@ test.describe('草图绘制画布读数（E6/S5 + W12）', () => {
     await page.keyboard.press('Escape');
     await expectToolExited(page, 'Sketch.Arc3Point');
 
-    // 取消新建草图（本用例未提交任何几何）。
-    await dialog.getByRole('button', { name: '取消' }).click();
+    // ── W16 内切多边形：与中心点圆同一圆心→光标半径状态的 Ø 直径点标签 ──
+    // 圆心 P(0,0)、光标 P(10,0) → 半径 10 mm；live 2026-11-16（内切多边形）
+    // 半径段中点同样给 `Ø<直径>`，输入边数不改变读数。
+    await activate(page, '内接多边形');
+    await clickWorld(page, hub, P(0, 0));
+    await hoverWorld(page, hub, P(10, 0));
+    const polygonDiameter = page.getByTestId('sketch-draw-point-label-diameter');
+    await expect(polygonDiameter, '多边形圆心→光标半径段中点应有 Ø 直径读数')
+      .toBeVisible({ timeout: 10_000 });
+    const polygonText = (await polygonDiameter.textContent())?.trim() ?? '';
+    expect(polygonText.startsWith('Ø'), `多边形直径读数应以 Ø 开头：${polygonText}`).toBe(true);
+    expect(Number(polygonText.slice('Ø'.length))).toBeGreaterThan(0);
+    // 点标签水平不旋转（只有居中平移）。
+    expect(await polygonDiameter.getAttribute('style')).not.toContain('rotate');
+    // 半径读数已由 Ø 点标签替代 → 无白卡片；阶段提示 pill 保留。
+    await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
+    await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expectToolExited(page, 'sketchInscribedPolygon');
+
+    // 清理：多边形工具上的 Escape 可能同时退出工具并关闭草图对话框（真栈实测
+    // dialog=false）。对话框仍在时点「取消」；已关闭则直接等待隐藏——不能对
+    // 已销毁的按钮重试点击（会把测试拖到超时）。
+    const cancel = dialog.getByRole('button', { name: '取消' });
+    if (await dialog.isVisible().catch(() => false)
+      && await cancel.isEnabled().catch(() => false)) {
+      await cancel.click({ timeout: 5_000 }).catch(() => {});
+    }
     await expect(dialog).toBeHidden({ timeout: 30_000 });
   });
 });

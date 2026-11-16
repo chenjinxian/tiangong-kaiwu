@@ -3,10 +3,11 @@
  * Licensed under the MIT License.
  *
  * 绘制中数值标签的纯几何（2026-11-16 E6/S5 Onshape live；W12 扩展直线与圆；
- * W15 扩展三点圆弧）：
+ * W15 扩展三点圆弧；W16 扩展正多边形）：
  * 矩形拖拽时宽度/高度、直线拖拽时长度的数值贴在对应边旁——边中点、沿边法线
- * 偏移 ~8px，文字随边旋转且保持正立（角度归一到 (−90°, 90°]）；中心点圆拖拽时
- * 直径落在圆心→光标半径段的中点（水平不旋转）；三点圆弧拖拽时 `R` 半径读数
+ * 偏移 ~8px，文字随边旋转且保持正立（角度归一到 (−90°, 90°]）；中心点圆与
+ * 正多边形（内切/外切）拖拽时直径落在圆心→光标半径段的中点（水平不旋转）；
+ * 三点圆弧拖拽时 `R` 半径读数
  * 落在弧角向中点沿「圆心→中点」方向外移 ~8px（水平不旋转）。live 实测蓝字
  * ≈#4a90e2、13.3333px、无底色/描边/引线；产品数值仍沿用既有 mm 两位去尾零格式。
  *
@@ -124,8 +125,8 @@ export function sketchLineEdgeSegment(start: SketchEdgePoint, end: SketchEdgePoi
 }
 
 /**
- * 点标签中心（视口坐标；W12）：两点中点。中心点圆的直径读数落在圆心→光标
- * 的半径段中点（live：水平不旋转）。
+ * 点标签中心（视口坐标；W12）：两点中点。中心点圆/正多边形的直径读数落在
+ * 圆心→光标的半径段中点（live：水平不旋转）。
  */
 export function sketchPointLabelCenter(center: SketchEdgePoint, cursor: SketchEdgePoint): SketchEdgePoint {
   return { x: (center.x + cursor.x) / 2, y: (center.y + cursor.y) / 2 };

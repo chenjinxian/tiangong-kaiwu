@@ -16,7 +16,7 @@ import type { SketchLiveMeasure } from './sketch-live-measures.js';
  * - `edge`：贴在边旁的数值（矩形宽/高、直线长度）。start/end 是边的视口
  *   坐标（CSS px，相对画布左上角；与 `cursor` 同一坐标空间），覆盖层据此
  *   算中点/角度/外偏移并随边旋转；
- * - `point`：点标签（中心点圆直径、三点圆弧 `R` 半径）。point 是标签中心的
+ * - `point`：点标签（中心点圆/正多边形直径、三点圆弧 `R` 半径）。point 是标签中心的
  *   视口坐标，水平不旋转；可见文本 = `prefix` + `value`（如 `Ø20`、`R1.897`）。
  * 两者都只做显示投影：数值由 sketch-live-measures 产出，位置由工具投影到
  * 视口，不碰 IModelApp、RPC、schema 或草图数据。
@@ -39,8 +39,8 @@ export interface SketchToolEdgeLabel {
 }
 
 /**
- * 点标签（中心点圆直径、三点圆弧半径；水平不旋转）。
- * - 中心点圆：落在圆心→光标半径段中点，前缀 `Ø`；
+ * 点标签（中心点圆/正多边形直径、三点圆弧半径；水平不旋转）。
+ * - 中心点圆/正多边形（W16 内切/外切）：落在圆心→光标半径段中点，前缀 `Ø`；
  * - 三点圆弧（W15）：落在弧角向中点外侧，前缀 `R`。
  */
 export interface SketchToolPointLabel {
@@ -55,7 +55,7 @@ export interface SketchToolPointLabel {
   prefix?: string;
   /**
    * 本标签额外抑制的光标卡尺寸键（缺省只抑制同 `labelKey` 的 measure）。
-   * 中心点圆：直径点标签（语义键=`diameter`）抑制 `radius` 卡；
+   * 中心点圆/正多边形：直径点标签（语义键=`diameter`）抑制 `radius` 卡；
    * 三点圆弧：`R` 半径点标签抑制同名 `radius` 卡（live 同帧无白卡片）。
    */
   suppressesLabelKeys?: readonly string[];
@@ -72,9 +72,10 @@ export interface SketchToolFeedback {
   /** 视口坐标（CSS px，相对画布左上角）。 */
   cursor?: { x: number; y: number };
   /**
-   * 画布数值标签（2026-11-16 E6/S5 Onshape live；W12 扩展直线长度与圆直径）：
-   * 矩形宽度/高度与直线长度贴在边旁，中心点圆直径落在半径段中点，相应尺寸
-   * 不再使用光标旁白卡片。旧发布方不带该字段仍合法。
+   * 画布数值标签（2026-11-16 E6/S5 Onshape live；W12 扩展直线长度与圆直径；
+   * W16 扩展正多边形直径）：矩形宽度/高度与直线长度贴在边旁，中心点圆/正
+   * 多边形直径落在半径段中点，相应尺寸不再使用光标旁白卡片。旧发布方不带
+   * 该字段仍合法。
    */
   drawLabels?: readonly SketchToolDrawLabel[];
   /**

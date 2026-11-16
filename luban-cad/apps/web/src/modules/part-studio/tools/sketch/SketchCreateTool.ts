@@ -23,7 +23,8 @@
  *   （sketch-edge-labels，视口投影），覆盖层不再为这两项渲染白卡片；
  *   2026-11-16 W12 同一机制扩展到直线长度（贴线读数）与中心点圆直径
  *   （`Ø` 点标签，落在圆心→光标半径段中点）；2026-11-16 W15 再扩展到
- *   三点圆弧半径（`R` 点标签，落在弧角向中点外侧）。
+ *   三点圆弧半径（`R` 点标签，落在弧角向中点外侧）；2026-11-16 W16 多边形
+ *   （内切/外切）复用圆心半径段的同一 `Ø` 点标签（边数输入不改变读数）。
  *   提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
  * - 橡皮筋/构造线：**Dynamics 通道**（PrimitiveTool 标准预览生命周期，
  *   Tool.ts:673-680）——onDynamicFrame 同时绘制工作预览与 editor SketchTools
@@ -469,7 +470,8 @@ export abstract class SketchCreateTool extends PrimitiveTool {
    * 画布数值标签（视口 CSS px；2026-11-16 W12，W15 扩展三点圆弧）：
    * - 矩形（拐角/中心）：宽/高边段由 `sketchRectangleEdgeSegments` 给出；
    * - 直线：长度贴在线旁，端点经 `sketchLineEdgeSegment` 规范化方位；
-   * - 中心点圆：直径点标签落在圆心→光标半径段中点（水平、`Ø` 前缀）；
+   * - 中心点圆/正多边形（内切/外切）：直径点标签落在圆心→光标半径段中点
+   *   （水平、`Ø` 前缀；多边形与圆共享圆心+光标半径状态）；
    * - 三点圆弧：起点/终点已锚、光标为弧上点时，`R` 半径点标签落在弧角向
    *   中点（fraction 0.5）沿「圆心→中点」方向外移（水平、无白卡片）。
    * 边段/点在草图局部坐标给出，经 `_plane.toWorld` + 视口 `worldToView`
@@ -529,16 +531,18 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       }];
     }
 
-    if (this.sketchKind === 'circle') {
+    if (this.sketchKind === 'circle' || this.sketchKind === 'polygonInscribed' || this.sketchKind === 'polygonCircumscribed') {
       // 半径 measure 仍原样留在 measures（白卡片回退/其它消费方不变）；直径按
       // 2×半径在工具侧派生，不改 computeSketchLiveMeasures 的 radius 输出。
+      // 2026-11-16 W16 Onshape live：内切/外切多边形与中心点圆共享「圆心 +
+      // 光标半径」状态，同一 `Ø<直径>` 读数落在半径段中点（输入边数不改变）。
       const radiusMeasure = measures[0];
       const radiusMm = Math.hypot(cursor.u - anchor.u, cursor.v - anchor.v);
       if (!radiusMeasure || !(radiusMm > 1e-12)) return undefined;
       return [{
         kind: 'point',
         labelKey: 'partStudio.sketch.live.diameter',
-        // 白卡片抑制配对：直径点标签替代圆的半径读数。
+        // 白卡片抑制配对：直径点标签替代圆的/多边形的半径读数。
         suppressesLabelKeys: [radiusMeasure.labelKey],
         value: formatSketchLiveNumber(2 * radiusMm),
         point: sketchPointLabelCenter(project(anchor), project(cursor)),

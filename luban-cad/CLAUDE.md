@@ -199,7 +199,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `feature-flow-parity` 2 passed（2000.000 mm³ 不变）。**W15**：三点圆弧绘制
   在弧中点外侧显示水平 `R<半径>`（半径白卡抑制，共线回退白卡）；web
   **2080/2080**，真栈 `sketch-draw-readout` 2 passed（矩形+直线+圆+圆弧，
-  53.1 s）。
+  53.1 s）。**W16**：内切多边形半径阶段沿用 `Ø<直径>` 点标签（半径白卡抑制）；
+  web **2084/2084**，真栈同 spec（加多边形）2 passed（51.6 s）；测试修正：
+  多边形 Escape 会同时退出工具并关闭草图对话框，末尾按可见/可用状态清理，
+  不再对已销毁按钮重试（否则拖到超时）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

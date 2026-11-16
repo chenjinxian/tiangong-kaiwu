@@ -399,6 +399,36 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
     expect(screen.queryByTestId('sketch-tool-feedback')).toBeNull();
     expect(screen.getByTestId('sketch-tool-hint').textContent).toContain('点击放置圆弧上的点');
   });
+
+  it('drawLabels（point·内切多边形）：Ø 直径标签复用圆心→光标半径段中点口径，半径白卡片被抑制', () => {
+    publishSketchToolFeedback({
+      toolId: 'sketchInscribedPolygon',
+      hint: '点击确定构造圆半径',
+      measures: [{ labelKey: 'partStudio.sketch.live.radius', value: '3.576' }],
+      cursor: { x: 160, y: 140 },
+      drawLabels: [{
+        kind: 'point',
+        labelKey: 'partStudio.sketch.live.diameter',
+        suppressesLabelKeys: ['partStudio.sketch.live.radius'],
+        value: '7.15',
+        point: { x: 130, y: 120 },
+        prefix: 'Ø',
+      }],
+    });
+    render(<SketchToolFeedbackOverlay />);
+
+    const label = screen.getByTestId('sketch-draw-point-label-diameter');
+    expect(label.textContent).toBe('Ø7.15');
+    expect(label.style.left).toBe('130px');
+    expect(label.style.top).toBe('120px');
+    // 水平不旋转：只有居中平移，没有 rotate。
+    expect(label.style.transform).toBe('translate(-50%, -50%)');
+    expect(label.style.transform).not.toContain('rotate');
+
+    // 半径卡被 Ø 点标签替代（与圆同一抑制配对）；阶段提示 pill 保留。
+    expect(screen.queryByTestId('sketch-tool-feedback')).toBeNull();
+    expect(screen.getByTestId('sketch-tool-hint').textContent).toContain('点击确定构造圆半径');
+  });
 });
 
 describe('SketchToolFeedbackOverlay 样式钉版（CSS 文本）', () => {
