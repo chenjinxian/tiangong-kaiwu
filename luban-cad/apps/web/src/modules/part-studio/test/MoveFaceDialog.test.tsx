@@ -7,7 +7,9 @@
 //  3) 跨 body 显式拒收；
 //  4) edit 回显 distanceMm/faces → updateParams；
 //  5) 逐面距离（distancesMm）只读提示 + 禁提交；
-//  6) 「重新应用圆角」禁用并提示。
+//  6) 「重新应用圆角」禁用并提示；
+//  7) 审计 C6（2026-11-16）：未支持理由移入复选框 title，提示/逐面说明转
+//     sr-only（testid 与文案保留，e2e/move-face-ui.spec.ts 断言不破）。
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -83,10 +85,14 @@ describe('MoveFaceDialog', () => {
     expect(facesField.className).toContain('is-empty');
     expect(facesField.querySelector('.part-studio-feature-dialog__query-label')?.textContent).toBe('要移动的面');
     expect((screen.getByTestId('part-studio-move-face-confirm') as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId('part-studio-move-face-refillet-hint').textContent).toContain('未支持');
+    // C6：live 无常驻提示块——理由进复选框 title，文案保留 sr-only。
+    const refilletHint = screen.getByTestId('part-studio-move-face-refillet-hint');
+    expect(refilletHint.textContent).toContain('未支持');
+    expect(refilletHint.className).toContain('part-studio-feature-dialog__sr-hint');
     const refillet = screen.getByRole('checkbox', { name: '重新应用圆角' }) as HTMLInputElement;
     expect(refillet.disabled).toBe(true);
     expect(refillet.checked).toBe(false);
+    expect(refillet.title).toBe('「重新应用圆角」当前后端未支持，已禁用');
     // live：偏移/终止类型为单一禁用下拉（无重复静态值行），理由在 title。
     const moveType = screen.getByRole('combobox', { name: '偏移' }) as HTMLSelectElement;
     expect(moveType.disabled).toBe(true);
@@ -203,7 +209,10 @@ describe('MoveFaceDialog', () => {
         distancesMm: [5, 2],
       },
     });
-    expect(screen.getByTestId('part-studio-move-face-per-face-readonly')).toBeTruthy();
+    const readOnlyNote = screen.getByTestId('part-studio-move-face-per-face-readonly');
+    expect(readOnlyNote.textContent).toContain('逐面距离');
+    // C6：逐面说明同样转 sr-only（testid/文案保留）。
+    expect(readOnlyNote.className).toContain('part-studio-feature-dialog__sr-hint');
     expect((screen.getByTestId('part-studio-move-face-confirm') as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId('part-studio-move-face-distance') as HTMLInputElement).disabled).toBe(true);
   });

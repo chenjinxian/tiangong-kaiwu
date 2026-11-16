@@ -1386,20 +1386,10 @@
   display: none;
 }
 
-/* Hole live：合并范围始终在场；类型/尺寸为无边框行；数值右对齐 + 单位。 */
+/* Hole live：合并范围始终在场；数值右对齐 + 单位。类型/尺寸行排版见下方
+ * 审计 C4 段（唯一生效规则，旧 62px/无边框草稿已合并删除）。 */
 .part-studio-hole-dialog__merge-scope {
   grid-template-columns: 62px minmax(0, 1fr);
-}
-
-.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type,
-.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size {
-  grid-template-columns: 62px minmax(0, 1fr);
-}
-
-.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type .part-studio-feature-dialog__select,
-.part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size .part-studio-feature-dialog__select {
-  border-color: transparent;
-  background: transparent;
 }
 
 /* FIX-1（2026-11-16 W8b review）：数值行统一 4 列（标签+值+单位+计算器）——
@@ -1659,7 +1649,9 @@
   font-size: 13.3333px;
 }
 
-/* 孔类型/钻孔尺寸：11px 灰标签 + 14px 值、无边框（保持禁用 + title 理由）。 */
+/* 孔类型/钻孔尺寸：11px 灰标签 + 14px 值、无边框（保持禁用 + title 理由）。
+ * 审计 C4（2026-11-16）：live 这两行不是通用 12px 带框下拉——行变体只作用于
+ * hole 的 __type/__size；可访问名（aria-label）与禁用态/载荷不变。 */
 .part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__type,
 .part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size {
   grid-template-columns: auto minmax(0, 1fr);

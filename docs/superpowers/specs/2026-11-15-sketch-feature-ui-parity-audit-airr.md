@@ -529,3 +529,18 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   （B2：2000.000 mm³、质心 z=-0.500）+ `transform-ui` 2 **3 passed（1.5 min，
   含 setup）**、`hole`（沉头孔 373.052 vs 373.064）+ `split-part-ui`
   **3 passed（1.3 min，含 setup）**。
+
+### 2026-11-16 W9 孔行排版 / 移动面提示收纳
+
+- **C4**：孔「孔类型/钻孔尺寸」行采用 live 的 11px 灰标签 + 14px 无边框值
+  变体（该变体在 `435f1c6f` 已存在；本波清理重复 CSS 草稿使其成为单源，并
+  补 CSS 文本钉与可访问名结构断言）。
+- **C6**：MoveFace「重新应用圆角」未支持理由移入复选框 `title`，可见提示块
+  取消；原因文本与逐面只读说明保留为 sr-only 锚点（testid 不变，e2e 的
+  `toContainText` 断言仍成立）。载荷/校验/禁用态不变。
+- **验证**：web **2014/2014**、tsc（src/e2e）/eslint 绿；真栈
+  `move-face-ui`（6000.000 mm³ 精确）复跑通过。
+- **live 探针状态**：2026-11-16 04:03Z 探针页再次显示 Onshape 会话超时横幅；
+  点击「单击此处重新连接」8 s 后仍未恢复。S1a/S3a/S5/S6a/S7、featurePattern
+  live 形态（P1–P4）、boolean filled（B1–B3）、B5、C5 等继续阻塞，未改相关
+  UI。A2（值行 chevron）裁定不做（无展开行为的惰性键=假可供性）。

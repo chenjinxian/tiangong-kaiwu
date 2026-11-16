@@ -206,7 +206,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   验证：web **2013/2013**、tsc(src/e2e)/eslint 0、i18n 1541 键零差集；真栈
   `sketch-entity-menu` 4、`feature-pattern-edit-ui` 4、`feature-flow-parity`
   1（2000.000 mm³ 质心 z=-0.5）、`transform-ui` 2、`hole`（沉头孔
-  373.052 vs 373.064）+ `split-part-ui` 全绿。
+  373.052 vs 373.064）+ `split-part-ui` 全绿。**W9**：孔类型/尺寸行采用
+  live 11px 灰标签 + 14px 无边框值（单源 CSS + 文本钉）；MoveFace
+  「重新应用圆角」理由移入复选框 title、提示块转 sr-only（testid/文案保留，
+  载荷不变）；web **2014/2014**、真栈 `move-face-ui`（6000.000 mm³）绿。
 - **草图/特征全量 UI 对标执行（2026-11-15，纯前端；AIRR
   `docs/superpowers/specs/2026-11-15-sketch-feature-ui-parity-audit-airr.md`，
   私有矩阵 `D:/Github/onshape-parity-data/docs/UI-DIALOG-AUDIT-20261115.md`）**：

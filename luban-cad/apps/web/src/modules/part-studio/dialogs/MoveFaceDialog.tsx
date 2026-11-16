@@ -18,6 +18,10 @@
  * disabled select（title=notImplemented）；距离行右对齐 + mm + 禁用计算器 +
  * 方向箭头（向外=正/向内=负符号不变）；删除目标实体行与冗余说明（移入 title）。
  * 载荷/校验/预览/逐面只读语义不变。
+ *
+ * 2026-11-16 审计 C6：live 无常驻提示块——`重新应用圆角` 的未支持理由移入
+ * 复选框 title；原因文本保留为视觉隐藏（sr-only）锚点（e2e 断言 testid），
+ * 逐面只读说明同样转 sr-only。载荷/校验/禁用态不变。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -356,8 +360,13 @@ export function MoveFaceDialog({
             {t('partStudio.moveFaceDialog.ownerMissing')}
           </p>
         )}
+        {/* 审计 C6：live 无常驻提示块——逐面只读说明保留为 sr-only 锚点。 */}
         {perFaceReadOnly && (
-          <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-move-face-per-face-readonly">
+          <p
+            role="note"
+            className="part-studio-feature-dialog__hint part-studio-feature-dialog__sr-hint"
+            data-testid="part-studio-move-face-per-face-readonly"
+          >
             {t('partStudio.moveFaceDialog.perFaceReadOnly')}
           </p>
         )}
@@ -456,11 +465,22 @@ export function MoveFaceDialog({
 
         <section className="part-studio-feature-dialog__distance">
           <label className="part-studio-feature-dialog__distance-label">
-            <input type="checkbox" disabled aria-label={t('partStudio.moveFaceDialog.reFillet')} />{' '}
+            <input
+              type="checkbox"
+              disabled
+              aria-label={t('partStudio.moveFaceDialog.reFillet')}
+              title={t('partStudio.moveFaceDialog.reFilletUnavailable')}
+            />{' '}
             {t('partStudio.moveFaceDialog.reFillet')}
           </label>
         </section>
-        <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-move-face-refillet-hint">
+        {/* 审计 C6：未支持理由已在复选框 title；文本保留 sr-only（e2e 断言
+            testid 的「未支持」文案），不再占 live 版式。 */}
+        <p
+          role="note"
+          className="part-studio-feature-dialog__hint part-studio-feature-dialog__sr-hint"
+          data-testid="part-studio-move-face-refillet-hint"
+        >
           {t('partStudio.moveFaceDialog.reFilletUnavailable')}
         </p>
       </div>

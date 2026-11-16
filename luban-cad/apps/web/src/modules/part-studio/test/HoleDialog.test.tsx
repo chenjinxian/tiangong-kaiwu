@@ -6,7 +6,8 @@
 //  3) throughAll 省略 depthMm；
 //  4) edit 模式回显落库参数并走 updateParams；
 //  5) 沉头孔/倒角孔页签禁用（后端未实现，禁止假成功）；
-//  6) 审计 C3（2026-11-16）：沉头/倒角数值行带禁用计算器（载荷/校验不变）。
+//  6) 审计 C3（2026-11-16）：沉头/倒角数值行带禁用计算器（载荷/校验不变）；
+//  7) 审计 C4（2026-11-16）：孔类型/钻孔尺寸行 = 11px 灰标签 + 14px 无边框值。
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import React from 'react';
@@ -332,6 +333,28 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     expect(cssRuleBlock(
       ".part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__value-row",
     )).toContain('grid-template-columns: 62px minmax(0, 1fr) auto auto');
+  });
+
+  // 审计 C4（2026-11-16）：live 这两行是 11px 灰标签 + 14px 无边框值（不是
+  // 通用 12px 带框下拉）；控件仍禁用、可访问名与 title 理由不变。
+  it('C4：孔类型/钻孔尺寸行 = 11px 灰标签 + 14px 无边框值', () => {
+    renderDialog();
+    for (const name of ['孔类型', '钻孔尺寸']) {
+      const select = screen.getByRole('combobox', { name }) as HTMLSelectElement;
+      expect(select.disabled).toBe(true);
+      expect(select.title).toBe('该能力尚未实现');
+    }
+    const labelRule = cssRuleBlock(
+      ".part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size .part-studio-feature-dialog__distance-label",
+    );
+    expect(labelRule).toContain('color: #666666');
+    expect(labelRule).toContain('font-size: 11px');
+    const valueRule = cssRuleBlock(
+      ".part-studio-feature-dialog[data-feature='hole'] .part-studio-hole-dialog__size .part-studio-feature-dialog__select",
+    );
+    expect(valueRule).toContain('border: 0');
+    expect(valueRule).toContain('background: transparent');
+    expect(valueRule).toContain('font-size: 14px');
   });
 
   it('钻尖角选择：默认 118（Onshape live），选 180 后载荷平底（v1.50）', async () => {
