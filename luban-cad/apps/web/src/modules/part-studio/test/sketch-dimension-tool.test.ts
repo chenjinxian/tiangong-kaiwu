@@ -9,10 +9,11 @@
  * ribbon）。Escape（无弹层时）由默认快捷键 startDefaultTool 退出工具。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SketchEntityDto } from '@luban-cad/shared';
+import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import { EventHandled } from '@itwin/core-frontend';
 import type { BeButtonEvent } from '@itwin/core-frontend';
 import {
+  findExistingDimensionConstraint,
   inferDimensionCompletion,
 } from '../tools/sketch/sketch-dimension-logic.js';
 import { resolveNearestPick } from '../tools/sketch/sketch-constraint-logic.js';
@@ -27,6 +28,7 @@ import type { SketchDimensionCandidate } from '../tools/sketch/sketch-tool-event
 const mockState = vi.hoisted(() => ({
   hit: { u: 0, v: 0 },
   entities: [] as unknown[],
+  constraints: [] as unknown[],
 }));
 
 vi.mock('../hooks/useSketchSystem.js', () => ({
@@ -34,7 +36,7 @@ vi.mock('../hooks/useSketchSystem.js', () => ({
     activeSketch: {
       id: 'sk-1',
       entities: mockState.entities,
-      constraints: [],
+      constraints: mockState.constraints,
       solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
       regions: [],
     },
@@ -155,6 +157,88 @@ describe('inferDimensionCompletion（单尺寸按钮动态推断）', () => {
   });
 });
 
+// ── W21（2026-11-16 live S1c）：点击已标注几何 → 匹配既有尺寸（不追加）────────
+describe('W21：findExistingDimensionConstraint（纯匹配器）', () => {
+  const dim = (
+    id: number,
+    kind: SketchConstraintDto['kind'],
+    refs: SketchConstraintDto['refs'],
+    value?: number,
+    driven?: boolean,
+  ): SketchConstraintDto => ({
+    id,
+    kind,
+    refs,
+    ...(value !== undefined ? { value } : {}),
+    ...(driven === true ? { driven } : {}),
+  });
+
+  it('单实体：同实体命中（数字 id 与 {entity} 按实体 id 等价）', () => {
+    const constraints = [dim(5, 'length', [1], 20), dim(6, 'length', [2], 30)];
+    expect(findExistingDimensionConstraint(constraints, { kind: 'length', refs: [1] })).toMatchObject({ id: 5 });
+    expect(findExistingDimensionConstraint(constraints, { kind: 'length', refs: [{ entity: 1, part: 'start' }] }))
+      .toMatchObject({ id: 5 });
+    // 结构化约束 ↔ 数字完成同样按实体 id 等价。
+    expect(findExistingDimensionConstraint(
+      [dim(7, 'length', [{ entity: 1, part: 'start' }], 20)],
+      { kind: 'length', refs: [1] },
+    )).toMatchObject({ id: 7 });
+    // 不同实体不命中。
+    expect(findExistingDimensionConstraint(constraints, { kind: 'length', refs: [3] })).toBeUndefined();
+  });
+
+  it('圆/弧半径↔直径等价：返回既有约束的种类/值（已有直径的圆不得再生成半径）', () => {
+    const circleDiameter = [dim(3, 'diameter', [4], 14)];
+    expect(findExistingDimensionConstraint(circleDiameter, { kind: 'radius', refs: [4] }))
+      .toMatchObject({ id: 3, kind: 'diameter', value: 14 });
+    const arcRadius = [dim(8, 'radius', [9], 2.5)];
+    expect(findExistingDimensionConstraint(arcRadius, { kind: 'diameter', refs: [9] }))
+      .toMatchObject({ id: 8, kind: 'radius', value: 2.5 });
+  });
+
+  it('两引用（distance）：顺序无关；引用 part 精确比较，origin 参与归一化', () => {
+    const constraints = [dim(4, 'distance', [{ entity: 2, part: 'start' }, { origin: true }], 5)];
+    expect(findExistingDimensionConstraint(constraints, {
+      kind: 'distance',
+      refs: [{ origin: true }, { entity: 2, part: 'start' }],
+    })).toMatchObject({ id: 4 });
+    expect(findExistingDimensionConstraint(constraints, {
+      kind: 'distance',
+      refs: [{ origin: true }, { entity: 2, part: 'end' }],
+    })).toBeUndefined();
+    // 引用数不同不命中（单引用完成 vs 两引用约束；反之亦然）。
+    expect(findExistingDimensionConstraint(constraints, { kind: 'distance', refs: [{ origin: true }] })).toBeUndefined();
+    expect(findExistingDimensionConstraint([dim(1, 'length', [1], 20)], { kind: 'distance', refs: [1, 2] }))
+      .toBeUndefined();
+  });
+
+  it('种类不匹配 / 非尺寸 / 非可编辑种类 → 不命中', () => {
+    const constraints = [
+      dim(1, 'length', [1], 20),
+      dim(2, 'horizontal', [1]),
+      dim(3, 'coincident', [1, 2]),
+      dim(4, 'radius', [2], 5),
+    ];
+    expect(findExistingDimensionConstraint(constraints, { kind: 'distance', refs: [1] })).toBeUndefined();
+    expect(findExistingDimensionConstraint(constraints, { kind: 'length', refs: [3] })).toBeUndefined();
+    expect(findExistingDimensionConstraint(constraints, { kind: 'angle', refs: [1, 2] })).toBeUndefined();
+    // 尺寸无值也命中（对话框保持空输入，不猜值）。
+    expect(findExistingDimensionConstraint([dim(9, 'length', [1])], { kind: 'length', refs: [1] }))
+      .toMatchObject({ id: 9 });
+  });
+
+  it('driven 参考尺寸只读：不参与匹配（W21 不实现驱动尺寸）', () => {
+    expect(findExistingDimensionConstraint([dim(1, 'diameter', [4], 14, true)], { kind: 'diameter', refs: [4] }))
+      .toBeUndefined();
+  });
+
+  it('多条命中 → 返回 id 最小者（确定性，与数组顺序无关）', () => {
+    const constraints = [dim(9, 'length', [1], 20), dim(3, 'length', [1], 21), dim(7, 'length', [1], 22)];
+    expect(findExistingDimensionConstraint(constraints, { kind: 'length', refs: [1] })?.id).toBe(3);
+    expect(findExistingDimensionConstraint([...constraints].reverse(), { kind: 'length', refs: [1] })?.id).toBe(3);
+  });
+});
+
 // ── E1/W19（2026-11-15/16 Onshape live）：链式标注——发候选后保持安装 ───────
 describe('E1/W19：SketchDimensionTool 发候选后保持安装（弹层关闭恢复拾取）', () => {
   const listeners: (() => void)[] = [];
@@ -164,6 +248,7 @@ describe('E1/W19：SketchDimensionTool 发候选后保持安装（弹层关闭�
     // 释放可能仍在等待的工具监听（防跨用例陈旧监听）。
     sketchToolEvents.emit('dimensionPopupClosed');
     mockState.entities = [];
+    mockState.constraints = [];
   });
 
   function buttonEvent(x: number, y: number): BeButtonEvent {
@@ -226,5 +311,52 @@ describe('E1/W19：SketchDimensionTool 发候选后保持安装（弹层关闭�
 
     sketchToolEvents.emit('dimensionPopupClosed');
     expect(exits).not.toHaveBeenCalled();
+  });
+
+  // W21（live S1c）：点击已标注几何 → 候选指向既有约束（不测量新值、不追加）。
+  it('W21：点击已标注线 → 候选带 existingConstraintId/existingValue（不重新测量），弹层关闭后保持安装', async () => {
+    mockState.entities = [{ kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 3, y: 4 } }];
+    // 既有长度尺寸 25.98062（live 全精度值）；几何实测 5 不得覆盖。
+    mockState.constraints = [{ kind: 'length', id: 7, refs: [1], value: 25.98062 }];
+    const tool = new SketchDimensionTool();
+    await tool.onPostInstall();
+    const exits = (tool as unknown as { exitTool: ReturnType<typeof vi.fn> }).exitTool;
+    const candidates: SketchDimensionCandidate[] = [];
+    listeners.push(sketchToolEvents.on('dimensionCandidate', (candidate) => candidates.push(candidate)));
+
+    await click(tool, 1.5, 2); // 拾线
+    await click(tool, 100, 100); // 空白放置
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({ kind: 'length', existingConstraintId: 7, existingValue: 25.98062 });
+    expect(candidates[0]!.measuredValue).toBeUndefined();
+    expect(exits).not.toHaveBeenCalled();
+
+    // W19：弹层关闭后工具保持安装，下一次拾取直接复用匹配结果。
+    sketchToolEvents.emit('dimensionPopupClosed');
+    expect(exits).not.toHaveBeenCalled();
+    await click(tool, 1.5, 2);
+    await click(tool, 100, 100);
+    expect(candidates).toHaveLength(2);
+    expect(candidates[1]).toMatchObject({ kind: 'length', existingConstraintId: 7, existingValue: 25.98062 });
+    expect(exits).not.toHaveBeenCalled();
+  });
+
+  it('W21：弧已有直径尺寸 → 候选种类取既有直径（半径↔直径等价），预填约束值', async () => {
+    mockState.entities = [{ kind: 'arc', id: 21, center: { x: 0, y: 0 }, radius: 5, startAngle: 0, sweepAngle: Math.PI }];
+    mockState.constraints = [{ kind: 'diameter', id: 11, refs: [21], value: 10 }];
+    const tool = new SketchDimensionTool();
+    await tool.onPostInstall();
+    const candidates: SketchDimensionCandidate[] = [];
+    listeners.push(sketchToolEvents.on('dimensionCandidate', (candidate) => candidates.push(candidate)));
+
+    await click(tool, 0, 5); // 拾弧（顶部，避开端点）
+    await click(tool, 100, 100); // 空白放置 → 推断 radius，命中既有 diameter
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      kind: 'diameter',
+      existingConstraintId: 11,
+      existingValue: 10,
+    });
+    expect(candidates[0]!.measuredValue).toBeUndefined();
   });
 });

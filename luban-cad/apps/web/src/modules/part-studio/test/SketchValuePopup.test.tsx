@@ -27,6 +27,7 @@ import {
 import { formatDimensionPopupValue } from '../internal/sketch-dimension-value.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { sketchToolEvents } from '../tools/sketch/sketch-tool-events.js';
+import type { SketchDimensionCandidate } from '../tools/sketch/sketch-tool-events.js';
 
 function fakeSystem(overrides: Partial<UseSketchSystem> = {}): UseSketchSystem {
   const activeSketch: SketchDto = {
@@ -338,6 +339,99 @@ describe('SketchValuePopup 偏移分支（产品扩展）', () => {
     } finally {
       offClosed();
     }
+  });
+});
+
+// ── W21（2026-11-16 live S1c）：既有尺寸候选 → 原地改值（不追加）─────────────
+describe('SketchValuePopup 既有尺寸候选（W21）', () => {
+  const closed = vi.fn();
+  let offClosed: (() => void) | undefined;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    offClosed = sketchToolEvents.on('dimensionPopupClosed', closed);
+  });
+
+  afterEach(() => {
+    offClosed?.();
+    offClosed = undefined;
+  });
+
+  function emitExisting(overrides: Partial<SketchDimensionCandidate> = {}): void {
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'length',
+        refs: [{ entity: 7, part: 'start' }],
+        entityIds: [7],
+        anchor: { x: 140, y: 120 },
+        existingConstraintId: 42,
+        existingValue: 25.98062,
+        ...overrides,
+      });
+    });
+  }
+
+  it('预填既有约束值（既有值优先于实测值），确认调 applyConstraintValue 一次且不追加约束', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    // measuredValue 同时存在时不得覆盖既有约束值（既有尺寸是唯一事实源）。
+    emitExisting({ measuredValue: 4.2 });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('25.98062');
+    expect(screen.getByTestId('sketch-value-unit').textContent).toBe('mm');
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(system.applyConstraintValue).toHaveBeenCalledTimes(1));
+    expect((system.applyConstraintValue as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([42, 25.98062]);
+    expect(system.applyUpdate).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    // 确认关闭 dimension 候选 → 恰好一次关闭通知（工具保持安装，W19）。
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('改值确认：applyConstraintValue(既有 id, 输入值)；既有候选不追加', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    emitExisting({ existingValue: 30 });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('30');
+    fireEvent.change(input, { target: { value: '25' } });
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(system.applyConstraintValue).toHaveBeenCalledTimes(1));
+    expect((system.applyConstraintValue as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([42, 25]);
+    expect(system.applyUpdate).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+  });
+
+  it('取消：不改值、不追加，关闭并通知一次（约束保持不变）', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} />);
+    emitExisting();
+    expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
+    fireEvent.click(screen.getByTestId('sketch-value-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(system.applyConstraintValue).not.toHaveBeenCalled();
+    expect(system.applyUpdate).not.toHaveBeenCalled();
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('提交失败：保留对话框与错误（不通知）；取消后才通知一次', async () => {
+    const system = fakeSystem({
+      applyConstraintValue: vi.fn(async () => ({ ok: false, error: '求解失败' })),
+    });
+    render(<SketchValuePopup sketchSystem={system} />);
+    emitExisting();
+    fireEvent.change(screen.getByTestId('sketch-value-input'), { target: { value: '12' } });
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(screen.getByTestId('sketch-value-error').textContent).toBe('求解失败'));
+    expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
+    expect(screen.getByTestId('sketch-value-input').getAttribute('data-error')).toBe('true');
+    expect(system.applyUpdate).not.toHaveBeenCalled();
+    expect(closed).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('sketch-value-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(closed).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -77,15 +77,30 @@ export function formatDimensionPopupValue(kind: string, value: number): string {
 }
 
 /**
+ * 约束值 → 显示单位数值（W21 既有尺寸对话框预填）：长度/距离/半径/直径保持
+ * 毫米，angle 由契约弧度换算为度。缺值/非有限 → undefined（不猜）。
+ */
+export function dimensionConstraintDisplayValue(
+  constraint: Pick<SketchConstraintDto, 'kind' | 'value'>,
+): number | undefined {
+  if (constraint.value === undefined || !Number.isFinite(constraint.value))
+    return undefined;
+  if (constraint.kind === 'angle')
+    return Math.abs(constraint.value) * 180 / Math.PI;
+  return constraint.value;
+}
+
+/**
  * 约束 → 编辑器初值（angle 显示为度、7 位小数；其余保持毫米/5 位小数）。
  * shared 契约 angle.value 为弧度，此处换算为显示单位度。
  */
 export function formatConstraintEditorValue(constraint: SketchConstraintDto): string {
-  if (constraint.value === undefined || !Number.isFinite(constraint.value))
+  const display = dimensionConstraintDisplayValue(constraint);
+  if (display === undefined)
     return '';
   if (constraint.kind === 'angle')
-    return formatAngleEditorDegrees(Math.abs(constraint.value) * 180 / Math.PI);
-  return formatEditorLengthValue(constraint.value);
+    return formatAngleEditorDegrees(display);
+  return formatEditorLengthValue(display);
 }
 
 /**

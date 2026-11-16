@@ -9,6 +9,11 @@
  * 尺寸值 → 构造完整 {kind,id,refs,value} → useSketchSystem.applyUpdate 追加；
  * 偏移值 → 工具的 commit 回调（工具自建草稿/提交/退出）。
  *
+ * W21（2026-11-16 live S1c）：候选带 `existingConstraintId`（点击已标注几何）
+ * 时不再追加约束——预填 `existingValue`（显示单位）并在确认时走
+ * `sketchSystem.applyConstraintValue(id, value)`（与双击内联编辑器同一路径）
+ * 原地改值；拒收保留对话框与错误，取消不变，`dimensionPopupClosed` 契约不变。
+ *
  * 2026-11-16 W17b（live 对拍）：live 的放置弹层与双击编辑器是同一个
  * `dimension-dialog`。尺寸分支改用共享外壳 `SketchDimensionDialog`（209×47：
  * 拖拽条 + 禁用展开器 + 输入 + 禁用参数状态切换 + 按钮组；仅拖拽条可拖，
@@ -127,17 +132,26 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
 
   React.useEffect(() => {
     const offDimension = sketchToolEvents.on('dimensionCandidate', (candidate) => {
-      // Onshape live：尺寸弹层预填实测值并整段选中；几何不可测时保持空输入。
-      const measured = candidate.measuredValue !== undefined && Number.isFinite(candidate.measuredValue)
+      // W21：命中既有尺寸 → 预填约束值（显示单位；既有尺寸优先，实测值不参与）。
+      // 否则 Onshape live：预填实测值；几何不可测时保持空输入。
+      const existing = candidate.existingConstraintId !== undefined
+        && candidate.existingValue !== undefined
+        && Number.isFinite(candidate.existingValue)
+        ? candidate.existingValue
+        : undefined;
+      const measured = existing === undefined
+        && candidate.measuredValue !== undefined
+        && Number.isFinite(candidate.measuredValue)
         ? candidate.measuredValue
         : undefined;
-      const initialValue = measured === undefined ? '' : formatDimensionPopupValue(candidate.kind, measured);
+      const prefill = existing ?? measured;
+      const initialValue = prefill === undefined ? '' : formatDimensionPopupValue(candidate.kind, prefill);
       setPending({
         kind: 'dimension',
         candidate,
         value: initialValue,
         initialValue,
-        rawValue: measured,
+        rawValue: prefill,
         anchor: candidate.anchor ?? DEFAULT_ANCHOR,
       });
       setSubmitting(false);
@@ -190,24 +204,38 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
     setSubmitting(true);
     try {
       if (current.kind === 'dimension') {
-        const sketch = sketchSystem.activeSketch;
-        if (!sketch) {
-          setPending({ ...current, error: t('partStudio.sketch.panel.errors.updateFailed') });
-          return;
-        }
-        const constraint: SketchConstraintDto = {
-          kind: current.candidate.kind,
-          id: nextConstraintId(sketch),
-          refs: [...current.candidate.refs],
-          value,
-        };
-        const result = await sketchSystem.applyUpdate(sketch.entities, [...sketch.constraints, constraint]);
-        if (!result.ok) {
-          setPending({
-            ...current,
-            error: result.error ?? t('partStudio.sketch.panel.errors.updateFailed'),
-          });
-          return;
+        // W21（live S1c）：既有尺寸 → 原地改值（与双击内联编辑器同一通道）；
+        // 不追加新约束，失败保留对话框并显示错误。
+        const existingConstraintId = current.candidate.existingConstraintId;
+        if (existingConstraintId !== undefined) {
+          const result = await sketchSystem.applyConstraintValue(existingConstraintId, value);
+          if (!result.ok) {
+            setPending({
+              ...current,
+              error: result.error ?? t('partStudio.sketch.panel.errors.updateFailed'),
+            });
+            return;
+          }
+        } else {
+          const sketch = sketchSystem.activeSketch;
+          if (!sketch) {
+            setPending({ ...current, error: t('partStudio.sketch.panel.errors.updateFailed') });
+            return;
+          }
+          const constraint: SketchConstraintDto = {
+            kind: current.candidate.kind,
+            id: nextConstraintId(sketch),
+            refs: [...current.candidate.refs],
+            value,
+          };
+          const result = await sketchSystem.applyUpdate(sketch.entities, [...sketch.constraints, constraint]);
+          if (!result.ok) {
+            setPending({
+              ...current,
+              error: result.error ?? t('partStudio.sketch.panel.errors.updateFailed'),
+            });
+            return;
+          }
         }
       } else {
         const error = await current.candidate.commit(value);

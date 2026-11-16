@@ -31,6 +31,17 @@ export interface SketchDimensionCandidate {
   /** 解算后实测值（显示单位：长度/半径/直径 mm，角度 °）；缺省=几何不可测，
    * 值确认框保持空输入 + 占位。只作预填初值，不参与提交契约。 */
   measuredValue?: number;
+  /**
+   * W21（2026-11-16 live S1c）：命中既有尺寸约束的 id——点击已标注几何时
+   * 不新建尺寸，值确认框预填该约束值并在确认时调 `applyConstraintValue`
+   * 原地改值。仅前端事件面字段（无 shared/RPC 契约变更）。
+   */
+  existingConstraintId?: number;
+  /**
+   * W21：既有约束的显示单位值（长度/半径/直径 mm；角度 °）——对话框预填。
+   * 与 `existingConstraintId` 成对出现；不参与提交契约（提交按输入文本）。
+   */
+  existingValue?: number;
 }
 
 /**

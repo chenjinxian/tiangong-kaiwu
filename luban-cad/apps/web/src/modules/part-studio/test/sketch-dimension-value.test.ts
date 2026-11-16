@@ -12,6 +12,7 @@ import {
   DIMENSION_EDITOR_STEP_DEG,
   DIMENSION_EDITOR_STEP_MM,
   EDITABLE_CONSTRAINT_KINDS,
+  dimensionConstraintDisplayValue,
   formatAngleEditorDegrees,
   formatConstraintEditorValue,
   formatDimensionPopupValue,
@@ -48,6 +49,15 @@ describe('formatConstraintEditorValue', () => {
     expect(formatConstraintEditorValue(constraint('diameter', 12.5))).toBe('12.5');
     expect(formatConstraintEditorValue(constraint('length', 20))).toBe('20');
     expect(formatConstraintEditorValue(constraint('distance'))).toBe('');
+  });
+
+  it('dimensionConstraintDisplayValue（W21 预填）：线性保持 mm、角度弧度→度、缺值空', () => {
+    expect(dimensionConstraintDisplayValue({ kind: 'length', value: 25.98062 })).toBe(25.98062);
+    expect(dimensionConstraintDisplayValue({ kind: 'diameter', value: 10 })).toBe(10);
+    expect(dimensionConstraintDisplayValue({ kind: 'angle', value: Math.PI / 2 })).toBeCloseTo(90, 12);
+    expect(dimensionConstraintDisplayValue({ kind: 'angle', value: -Math.PI / 4 })).toBeCloseTo(45, 12);
+    expect(dimensionConstraintDisplayValue({ kind: 'length' })).toBeUndefined();
+    expect(dimensionConstraintDisplayValue({ kind: 'length', value: Number.NaN })).toBeUndefined();
   });
 });
 

@@ -11,6 +11,9 @@
  * 2026-11-16 W17（live 尺寸对话框全结构）：对话框 209×47；禁用展开器 +
  * 禁用参数状态切换；拖拽条拖动对话框；输入框方向键 ±1 步进（不提交），
  * ✗ 取消丢弃。
+ *
+ * 2026-11-16 W21（live S1c）：尺寸工具点击已标注线 → 打开既有尺寸对话框
+ * （预填约束值），✗ 取消不变；再次拾取改值 → 原地更新（约束数不变，不追加）。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchConstraintDto, SketchDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -24,6 +27,7 @@ import {
   releaseWriteLease,
 } from './helpers.js';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
+import { activate, clickBlank, dataPoint, projectWorld, setStandardView } from './tutorial2-helpers.js';
 
 const XY_PLANE: SketchPlaneDto = {
   origin: { x: 0, y: 0, z: 0 },
@@ -70,6 +74,25 @@ function lineLength(sketch: SketchDto | undefined): number | null {
   const p1 = resolve(line.p1);
   const p2 = resolve(line.p2);
   return p1 && p2 ? Math.hypot(p2.x - p1.x, p2.y - p1.y) : null;
+}
+
+/** 线中点草图局部坐标（本 spec 平面 = XY：世界 = (x, y, 0)）。 */
+function lineMidpointLocal(sketch: SketchDto | undefined): Pt | null {
+  const line = sketch?.entities.find((entity) => entity.kind === 'line' && entity.id === LINE_ID);
+  if (!line || line.kind !== 'line')
+    return null;
+  const resolve = (ref: Pt | number): Pt | null => {
+    if (typeof ref === 'number') {
+      const point = sketch!.entities.find((entity) => entity.id === ref) as
+        | { kind?: string; x?: number; y?: number }
+        | undefined;
+      return point && point.kind === 'point' ? { x: point.x ?? 0, y: point.y ?? 0 } : null;
+    }
+    return ref;
+  };
+  const p1 = resolve(line.p1);
+  const p2 = resolve(line.p2);
+  return p1 && p2 ? { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 } : null;
 }
 
 test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
@@ -302,6 +325,65 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     expect(afterConstraintDelete?.constraints.map((constraint) => constraint.kind).sort())
       .toEqual(['horizontal', 'length']);
     await expect(page.getByTestId('sketch-dimension-label')).toHaveCount(1);
+
+    // ---- 4) W21（live S1c）：尺寸工具点击已标注线 → 打开**既有**尺寸对话框
+    //          （预填约束值 30），✗ 取消不变；再次拾取改 25 → 原地更新
+    //          （约束数不变，不追加重复尺寸）。 ----
+    // 俯视 XY 草图平面并紧取景：尺寸工具按「光标射线 ∩ 草图平面」拾取，
+    // 正对视角保证线中点投影落在线上（斜视角下与圆/端点重叠或退化）。
+    await setStandardView(page, 0, {
+      low: { x: -40, y: -40, z: 0 },
+      high: { x: 40, y: 40, z: 10 },
+    });
+    const hub = { x: box!.x, y: box!.y };
+    const projectLineMid = async (): Promise<Pt> => {
+      const mid = lineMidpointLocal(await getSketchRpc(ctx, sketchId, token));
+      expect(mid).not.toBeNull();
+      const [screen] = await projectWorld(page, hub, [{ x: mid!.x, y: mid!.y, z: 0 }]);
+      expect(screen).toBeDefined();
+      return screen!;
+    };
+
+    await activate(page, '尺寸');
+    const existingPopup = page.getByTestId('sketch-value-popup');
+    const existingInput = page.getByTestId('sketch-value-input');
+    const midScreen = await projectLineMid();
+    await dataPoint(page, midScreen.x, midScreen.y); // 拾线
+    await clickBlank(page, hub); // 放置点击 → 既有尺寸候选
+    await expect(existingPopup).toBeVisible({ timeout: 20_000 });
+    await expect(existingInput).toHaveValue('30');
+
+    await page.getByTestId('sketch-value-cancel').click();
+    await expect(existingPopup).toHaveCount(0, { timeout: 10_000 });
+    const afterExistingCancel = await getSketchRpc(ctx, sketchId, token);
+    expect(afterExistingCancel?.constraints).toHaveLength(2);
+    expect(afterExistingCancel?.constraints.find((constraint) => constraint.id === LENGTH_ID)?.value).toBe(30);
+    // W19：弹层关闭后尺寸工具保持安装（无需重新点 ribbon）。
+    await expect.poll(async () => page.evaluate(() => (window as unknown as {
+      __lubanE2E?: { coreFrontend: { IModelApp: { _toolAdmin?: { activeTool?: { toolId?: string } } } } };
+    }).__lubanE2E?.coreFrontend?.IModelApp?._toolAdmin?.activeTool?.toolId), {
+      timeout: 15_000,
+    }).toBe('Sketch.Dimension');
+
+    const midScreen2 = await projectLineMid();
+    await dataPoint(page, midScreen2.x, midScreen2.y); // 拾线（工具仍安装）
+    await clickBlank(page, hub);
+    await expect(existingPopup).toBeVisible({ timeout: 20_000 });
+    await expect(existingInput).toHaveValue('30');
+    await existingInput.fill('25');
+    await page.getByTestId('sketch-value-confirm').click();
+    await expect(existingPopup).toHaveCount(0, { timeout: 20_000 });
+    await expect.poll(async () => {
+      const now = await getSketchRpc(ctx, sketchId, token);
+      const value = now?.constraints.find((constraint) => constraint.id === LENGTH_ID)?.value;
+      return typeof value === 'number' ? Math.abs(value - 25) : 999;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeLessThan(0.001);
+    const afterExistingEdit = await getSketchRpc(ctx, sketchId, token);
+    // 约束数不变（无重复 length 尺寸）；值持久化并驱动几何。
+    expect(afterExistingEdit?.constraints).toHaveLength(2);
+    expect(afterExistingEdit?.constraints.filter((constraint) => constraint.kind === 'length')).toHaveLength(1);
+    expect(afterExistingEdit?.constraints.find((constraint) => constraint.id === LENGTH_ID)?.value).toBe(25);
+    expect(lineLength(afterExistingEdit)).toBeCloseTo(25, 1);
   });
 
   test('直径尺寸双击改值（后端 v1.69 同期白名单）', async ({ page, request }) => {

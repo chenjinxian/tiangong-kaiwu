@@ -10,6 +10,10 @@
  * 值确认仍走既有 dimensionCandidate 事件桥（工具绝不直接提交——E-4 铁律）；
  * 面板收值后 applyUpdate。旧的距离/长度/半径三工具保留注册以兼容历史入口，
  * 但 ribbon 不再暴露（Onshape 无此飞菜单）。
+ *
+ * W21（2026-11-16 live S1c）：点击已带尺寸的几何（同实体/同一对引用）不追加
+ * 第二条尺寸——发候选时带 `existingConstraintId`/`existingValue`（种类取既有
+ * 约束，圆/弧半径↔直径等价），值弹层改调 `applyConstraintValue` 原地更新。
  */
 import {
   BeButtonEvent,
@@ -19,7 +23,7 @@ import {
   OutputMessagePriority,
   PrimitiveTool,
 } from '@itwin/core-frontend';
-import type { SketchEntityDto, SketchRef } from '@luban-cad/shared';
+import type { SketchConstraintDto, SketchEntityDto, SketchRef } from '@luban-cad/shared';
 import i18next from 'i18next';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { pickHitLocal, resolveSketchPlaneFrame } from './SketchAddConstraintTool.js';
@@ -29,8 +33,9 @@ import type { SketchPick } from './sketch-constraint-logic.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 import { sketchToolEvents } from './sketch-tool-events.js';
 import type { SketchDimensionKind } from './sketch-tool-events.js';
-import { inferDimensionCompletion } from './sketch-dimension-logic.js';
-import type { DimensionCompletion } from './sketch-dimension-logic.js';
+import { findExistingDimensionConstraint, inferDimensionCompletion } from './sketch-dimension-logic.js';
+import type { DimensionCompletion, ExistingDimensionConstraint } from './sketch-dimension-logic.js';
+import { dimensionConstraintDisplayValue } from '../../internal/sketch-dimension-value.js';
 
 /** 实体拾取半径（屏幕像素）：空白放置点击不受本阈值影响。 */
 const PICK_RADIUS_PIXELS = 8;
@@ -335,7 +340,12 @@ export class SketchDimensionTool extends PrimitiveTool {
     }
 
     // Onshape 在完成点击的位置弹出尺寸值确认框（不是左侧常驻面板）。
-    await this.emitCandidate(completion, { x: ev.viewPoint.x, y: ev.viewPoint.y }, sketch.entities);
+    await this.emitCandidate(
+      completion,
+      { x: ev.viewPoint.x, y: ev.viewPoint.y },
+      sketch.entities,
+      sketch.constraints,
+    );
     return EventHandled.No;
   }
 
@@ -343,7 +353,16 @@ export class SketchDimensionTool extends PrimitiveTool {
     completion: Exclude<DimensionCompletion, { kind: 'pending' } | { kind: 'invalid' }>,
     anchor: { x: number; y: number },
     entities: readonly SketchEntityDto[],
+    constraints: readonly SketchConstraintDto[],
   ): Promise<void> {
+    // W21（live S1c）：同一实体/同一对引用已有尺寸 → 打开既有尺寸值对话框
+    // （既有值预填、确认原地改值），不测量、不追加第二条（避免过约束）。
+    const existing = findExistingDimensionConstraint(constraints, completion);
+    if (existing) {
+      this._emitExistingCandidate(existing, completion, anchor);
+      this._awaitPopupClose();
+      return;
+    }
     // 实测值只做输入框初值；提交仍以用户确认的输入文本为准（无契约变更）。
     const measuredValue = measureSketchDimension(completion.kind, completion.refs, entities);
     sketchToolEvents.emit('dimensionCandidate', {
@@ -356,6 +375,29 @@ export class SketchDimensionTool extends PrimitiveTool {
     // W19（2026-11-16 live）：发候选后保持本工具安装（不立即 exitTool），
     // 弹层打开期间忽略画布拾取，关闭后恢复拾取。
     this._awaitPopupClose();
+  }
+
+  /**
+   * W21：既有尺寸候选——种类取**既有约束**（圆/弧半径↔直径等价时对话框与
+   * 提交都按既有种类走），值取约束值（显示单位，angle 弧度→度）。不测新值。
+   */
+  private _emitExistingCandidate(
+    existing: ExistingDimensionConstraint,
+    completion: Exclude<DimensionCompletion, { kind: 'pending' } | { kind: 'invalid' }>,
+    anchor: { x: number; y: number },
+  ): void {
+    // 工具推断只会产生 length/radius/diameter/distance；angle 约束仅在两引用
+    // angle 完成时命中（当前推断不出），此分支保持类型收敛且不伪造种类。
+    const kind: SketchDimensionKind = existing.kind === 'angle' ? completion.kind : existing.kind;
+    const existingValue = dimensionConstraintDisplayValue(existing);
+    sketchToolEvents.emit('dimensionCandidate', {
+      kind,
+      refs: [...existing.refs],
+      entityIds: completion.entityIds,
+      anchor,
+      existingConstraintId: existing.id,
+      ...(existingValue !== undefined ? { existingValue } : {}),
+    });
   }
 
   /**
