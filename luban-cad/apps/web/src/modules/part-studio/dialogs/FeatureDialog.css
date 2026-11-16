@@ -1116,6 +1116,28 @@
 .part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__body > .part-studio-feature-dialog__alert,
 .part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__body > .part-studio-feature-dialog__lease-warning { order: 11; }
 
+/* ── 薄壁页签行序（2026-11-16 W13 live）：THIN 页签与实体页签行序不同——
+ * query field → 中间平面/厚度 1/厚度 2 → 给定深度 → 深度 → 起始偏移 →
+ * 对称 → 拔模 → 第二个终止位置 → 合并范围（「方向」组在 THIN 不渲染）。
+ * 选择器在实体规则之上再加 data-result-type='thinWall' 一级特异性，
+ * 覆盖上方 order；实体页签行序不变。──────────────────────────────── */
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] .part-studio-feature-dialog__entities { order: 1; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-field='thin-thickness'] { order: 2; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-end-bound'] { order: 3; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-depth-row'] { order: 4; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-start-offset'] { order: 5; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-start-offset-termination'] { order: 5; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-start-offset-value'] { order: 5; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-symmetric-flat'] { order: 6; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-draft'] { order: 7; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-field='draft-angle'] { order: 7; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-draft-reverse'] { order: 7; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-second-direction'] { order: 8; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-field='second-direction'] { order: 8; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-merge-scope-group'] { order: 9; }
+/* 租约警示排最后（提示/告警走上方 order:11，仍在参数行之后）。 */
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] .part-studio-feature-dialog__body > .part-studio-feature-dialog__lease-warning { order: 10; }
+
 /* 旋转：实体字段（含面域）→ 全方位复选 → 角度。 */
 .part-studio-feature-dialog[data-feature='revolve'] .part-studio-feature-dialog__entities { order: 1; }
 .part-studio-feature-dialog[data-feature='revolve'] [data-testid='part-studio-feature-dialog-full-revolve'] { order: 2; }
@@ -2138,8 +2160,10 @@
   gap: 0;
 }
 
-.part-studio-feature-dialog__thin-wall > .part-studio-feature-dialog__distance {
-  /* 组内行序按 DOM（避免命中 body 级 order:3 规则把 hint 提前）。 */
+/* 薄壁组内行序按 DOM（中间平面 → 厚度 1 → 厚度 2 → 提示）。须带
+ * data-result-type 作用域压过 body 级 .distance order:3 规则，否则
+ * 厚度行会被提到中间平面/提示之后。 */
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] .part-studio-feature-dialog__thin-wall > .part-studio-feature-dialog__distance {
   order: 0;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
 }

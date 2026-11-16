@@ -2775,6 +2775,8 @@ export function FeatureDialog({
     </React.Fragment>
   );
 
+  // 2026-11-16 W13（live 薄壁页签）：根节点暴露结果类型给样式层——extrude 的
+  // 实体/薄壁行序不同，CSS 以 [data-result-type='thinWall'] 作用域覆盖。
   return (
     <div
       ref={rootRef}
@@ -2785,6 +2787,7 @@ export function FeatureDialog({
       className="part-studio-feature-dialog"
       data-testid="part-studio-feature-dialog"
       data-feature={featureType ?? 'unknown'}
+      data-result-type={resultType}
     >
       {/* 顶置标题行：特征名 + ✓确认/✗取消（os-31）。 */}
       <header className="part-studio-feature-dialog__header">
@@ -3426,35 +3429,40 @@ export function FeatureDialog({
             forward/backward），故复选与字段诚实禁用；反向由终止行翻转钮承担。 */}
         {extrudeChannel && (
           <React.Fragment>
-            <div
-              className="part-studio-feature-dialog__direction-group"
-              data-testid="part-studio-feature-dialog-direction-group"
-            >
-              <label
-                className="part-studio-feature-dialog__checkbox"
-                data-testid="part-studio-feature-dialog-direction"
-                title={t('partStudio.featureDialog.notImplemented')}
-              >
-                <input
-                  type="checkbox"
-                  aria-label={t('partStudio.featureDialog.sections.direction')}
-                  disabled
-                  title={t('partStudio.featureDialog.notImplemented')}
-                />
-                <span>{t('partStudio.featureDialog.sections.direction')}</span>
-              </label>
-              {/* 展开区的「拉伸方向」query field（空态样式）：无拾取通道不伪造。 */}
+            {/* 2026-11-16 W13（live 薄壁页签）：THIN 页签没有「方向」组（实体页签
+                有）；仅显示层隐藏——方向缺省/载荷语义不变（反向仍由终止行翻转钮
+                承担，两页签一致）。 */}
+            {!thinWallActive && (
               <div
-                className="part-studio-feature-dialog__profile-field is-empty"
-                data-testid="part-studio-feature-dialog-direction-field"
-                aria-disabled="true"
-                title={t('partStudio.featureDialog.notImplemented')}
+                className="part-studio-feature-dialog__direction-group"
+                data-testid="part-studio-feature-dialog-direction-group"
               >
-                <label className="part-studio-feature-dialog__query-label">
-                  {t('partStudio.featureDialog.directionFieldLabel')}
+                <label
+                  className="part-studio-feature-dialog__checkbox"
+                  data-testid="part-studio-feature-dialog-direction"
+                  title={t('partStudio.featureDialog.notImplemented')}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={t('partStudio.featureDialog.sections.direction')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  />
+                  <span>{t('partStudio.featureDialog.sections.direction')}</span>
                 </label>
+                {/* 展开区的「拉伸方向」query field（空态样式）：无拾取通道不伪造。 */}
+                <div
+                  className="part-studio-feature-dialog__profile-field is-empty"
+                  data-testid="part-studio-feature-dialog-direction-field"
+                  aria-disabled="true"
+                  title={t('partStudio.featureDialog.notImplemented')}
+                >
+                  <label className="part-studio-feature-dialog__query-label">
+                    {t('partStudio.featureDialog.directionFieldLabel')}
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
             <label
               className="part-studio-feature-dialog__checkbox"
               data-testid="part-studio-feature-dialog-start-offset"

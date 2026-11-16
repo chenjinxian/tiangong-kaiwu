@@ -621,3 +621,15 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
 - 验证：web **2065/2065**、tsc(src/e2e)/eslint 绿；真栈
   `sketch-draw-readout`（矩形+直线+圆三路径）**2 passed（47.6 s，
   含 setup）**。
+
+### 2026-11-16 W13 拉伸薄壁页签行序（B5）
+
+- 依据 newly captured live THIN 形态：query → 中间平面 → 厚度1 → 厚度2 →
+  给定深度 → 深度 → 起始偏移 → 对称 → 拔模 → 第二个终止位置；THIN 页签
+  **不渲染方向组**。实现：对话框根增加 `data-result-type`，仅对
+  `[data-feature='extrude'][data-result-type='thinWall']` 覆盖行序；方向
+  组在薄壁态隐藏（纯显示，载荷/默认值不变）。mm 厚度默认与禁用厚度2 原因
+  保持不变。
+- 验证：web **2068/2068**、tsc(src/e2e)/eslint 绿；真栈
+  `extrude-thin-wall-ui` **4 passed（2.1 min，含 setup）**——360/400/
+  18.712 mm³ 均精确不变。

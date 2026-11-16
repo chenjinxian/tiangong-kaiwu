@@ -3918,6 +3918,14 @@ function cssRuleBlock(selector: string): string {
   return match[1] ?? '';
 }
 
+/** 取选择器规则体里的 flex order 值（jsdom 不计算 order，样式层按文本钉）。 */
+function cssOrder(selector: string): number {
+  const block = cssRuleBlock(selector);
+  const match = block.match(/order:\s*(-?\d+)/);
+  expect(match, `order not found in ${selector}`).not.toBeNull();
+  return Number(match![1]);
+}
+
 describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点」）', () => {
   it('成品（__finish）禁用 → 落库 disabled 底/字色令牌（非 accent 蓝）+ not-allowed 指针', () => {
     const block = cssRuleBlock('.part-studio-feature-dialog__finish:disabled');
@@ -3958,13 +3966,6 @@ describe('B3 禁用钮视觉（成品/✓ 禁用态不再「蓝底高亮可点�
 describe('extrude 行序（Onshape live 2026-11-15）', () => {
   const EXTRUDE = ".part-studio-feature-dialog[data-feature='extrude'] ";
 
-  function cssOrder(selector: string): number {
-    const block = cssRuleBlock(selector);
-    const match = block.match(/order:\s*(-?\d+)/);
-    expect(match, `order not found in ${selector}`).not.toBeNull();
-    return Number(match![1]);
-  }
-
   it('十行 order 全显式且符合 live 顺序（query→终止→深度→方向→起始偏移→薄壁→对称→拔模→第二端→合并）', () => {
     const orders = [
       cssOrder(`${EXTRUDE}.part-studio-feature-dialog__entities`),
@@ -3981,6 +3982,86 @@ describe('extrude 行序（Onshape live 2026-11-15）', () => {
     expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     // 非 extrude 特征不受行序规则影响（无 order 声明 → 视 CSS 级联；此处钉作用域）。
     expect(featureDialogCss).not.toContain(".part-studio-feature-dialog[data-feature='revolve'] [data-testid='part-studio-feature-dialog-merge-scope-group']");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-11-16 W13（Onshape live 薄壁页签）：THIN 行序与实体页签不同——
+// query field → 中间平面/厚度 1/厚度 2 → 给定深度 → 深度 → 起始偏移 →
+// 对称 → 拔模 → 第二个终止位置 → 合并范围；「方向」组在 THIN 不渲染。
+// 样式层钉 data-result-type='thinWall' 作用域 order（jsdom 不计算 flex order）。
+// ---------------------------------------------------------------------------
+describe('extrude 薄壁页签行序（Onshape live 2026-11-16 W13）', () => {
+  const EXTRUDE_THIN = ".part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] ";
+
+  /** 备好草图通道的拉伸对话框（单面域回显即就绪），供页签切换断言。 */
+  async function renderThinReadyDialog() {
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      entities: [] as SketchEntityDto[],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] } as SketchRegionDto],
+    } as SketchDto);
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="Extrude 1"
+        mode="new"
+        featureType="extrude"
+        applyOp={vi.fn(async (): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }))}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+      />,
+    );
+    await screen.findByText('草图 1 的面');
+    return { user };
+  }
+
+  it('薄壁 order 全显式：query→薄壁→终止→深度→起始偏移→对称→拔模→第二端→合并→租约', () => {
+    const orders = [
+      cssOrder(`${EXTRUDE_THIN}.part-studio-feature-dialog__entities`),
+      cssOrder(`${EXTRUDE_THIN}[data-field='thin-thickness']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-end-bound']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-depth-row']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-symmetric-flat']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-draft']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-second-direction']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-merge-scope-group']`),
+      cssOrder(`${EXTRUDE_THIN}.part-studio-feature-dialog__body > .part-studio-feature-dialog__lease-warning`),
+    ];
+    expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    // 起始偏移展开的终止/数值行与复选行同 order 5（贴着复选行）。
+    expect(cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset-termination']`)).toBe(5);
+    expect(cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset-value']`)).toBe(5);
+    // 展开子行贴着各自行（拔模角/反向 7；第二端字段 8）。
+    expect(cssOrder(`${EXTRUDE_THIN}[data-field='draft-angle']`)).toBe(7);
+    expect(cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-draft-reverse']`)).toBe(7);
+    expect(cssOrder(`${EXTRUDE_THIN}[data-field='second-direction']`)).toBe(8);
+  });
+
+  it('薄壁组内行序按 DOM（中间平面→厚度 1→厚度 2→提示）：组内值行 order 归零并压过实体 order:3', () => {
+    expect(cssOrder(`${EXTRUDE_THIN}.part-studio-feature-dialog__thin-wall > .part-studio-feature-dialog__distance`)).toBe(0);
+  });
+
+  it('THIN 页签不渲染「方向」组（实体页签仍渲染）；根节点 data-result-type 随页签切换', async () => {
+    const { user } = await renderThinReadyDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    expect(dialog.getAttribute('data-result-type')).toBe('solid');
+    expect(screen.getByTestId('part-studio-feature-dialog-direction-group')).toBeDefined();
+    expect(screen.getByRole('checkbox', { name: '方向' })).toBeDefined();
+    await user.click(screen.getByRole('tab', { name: '薄壁' }));
+    expect(dialog.getAttribute('data-result-type')).toBe('thinWall');
+    expect(screen.queryByTestId('part-studio-feature-dialog-direction-group')).toBeNull();
+    expect(screen.queryByTestId('part-studio-feature-dialog-direction-field')).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: '方向' })).toBeNull();
+    // 切回实体 → 方向组恢复（仅显示层隐藏，不改状态）。
+    await user.click(screen.getByRole('tab', { name: '实体' }));
+    expect(dialog.getAttribute('data-result-type')).toBe('solid');
+    expect(screen.getByTestId('part-studio-feature-dialog-direction-group')).toBeDefined();
   });
 });
 
