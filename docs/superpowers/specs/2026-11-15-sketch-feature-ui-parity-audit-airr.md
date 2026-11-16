@@ -775,3 +775,20 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   恢复的现场验证）。
 - 残留：live 菜单皮肤（154×251/#ccc/radius 4）未逐像素套用（沿用树菜单皮肤，
   视觉 pass 待做）；驱动尺寸切换需契约/ADR，保持禁用。
+
+### 2026-11-16 W21 尺寸工具编辑既有尺寸（S1c）
+
+- live：尺寸工具点击已带尺寸的几何（同实体/同一对引用）打开**该尺寸**的值
+  对话框（预填约束全精度值），确认原地改值、不追加第二条；取消不变；工具
+  保持安装（W19）。
+- 实现：纯匹配器 `findExistingDimensionConstraint`（可编辑尺寸种类；`driven`
+  参考尺寸排除；单实体按实体 id，圆/弧半径↔直径等价并取既有种类；两引用
+  同种类 + 顺序无关归一化；多条取最小 id）；工具发候选带
+  `existingConstraintId`/`existingValue`（kind 取既有约束、跳过测量）；弹层
+  确认走 `applyConstraintValue`（与双击编辑器同通道），失败保留错误、取消
+  不改、`dimensionPopupClosed` 契约不变。
+- 验证：全量 web **2140/2140**、tsc(src/e2e)/eslint 绿；真栈
+  `sketch-dimension-edit` **3 passed（1.4 min）**（含既有尺寸取消不变、改值
+  原地更新且约束数不变）。
+- 残留：只匹配同种类（width 若存为 endpoint-pair distance 不匹配 line length）；
+  角度候选通道仍关闭；driven/变量未建模。

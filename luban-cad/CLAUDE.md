@@ -226,7 +226,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   尺寸标签右键菜单（live 行序；更改为驱动尺寸诚实禁用、删除尺寸可撤销；
   与空白/实体菜单互斥、maxHeight 夹紧）。全量 web **2127/2127**、
   tsc(src/e2e)/eslint 绿；真栈 `sketch-dimension-edit` 3 passed（1.7 min，
-  含右键删除+撤消）。
+  含右键删除+撤消）。**W21**：尺寸工具点已标注几何 → 打开既有尺寸对话框
+  （预填约束值；圆/弧半径↔直径等价；driven 排除），确认走
+  `applyConstraintValue` 原地改值、不追加；全量 web **2140/2140**、
+  tsc(src/e2e)/eslint 绿；真栈 `sketch-dimension-edit` 3 passed（1.4 min）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
