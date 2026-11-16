@@ -202,7 +202,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   53.1 s）。**W16**：内切多边形半径阶段沿用 `Ø<直径>` 点标签（半径白卡抑制）；
   web **2084/2084**，真栈同 spec（加多边形）2 passed（51.6 s）；测试修正：
   多边形 Escape 会同时退出工具并关闭草图对话框，末尾按可见/可用状态清理，
-  不再对已销毁按钮重试（否则拖到超时）。
+  不再对已销毁按钮重试（否则拖到超时）。**W17**：尺寸对话框按 live 全结构
+  对齐为 209×47（拖拽条 209×13 + 1px #ccc + 三枚空心方握把；面板 209×34，
+  禁用 expander + 禁用参数态键 hole-tolerance-precision + 按钮组 52×28）；
+  拖拽仅限拖拽条（真栈实测捕获后 React onPointerMove 不派发 → window 捕获段
+  监听）；ArrowUp/Down 无选区时长度类 ±1 mm（原始值为基线、IME/选区不步进）；
+  长度初值 5 位小数。web **2098/2098**（重跑；首轮一次无关 flake 未复现）、
+  tsc(src/e2e)/eslint 绿；真栈 `sketch-dimension-edit` **3 passed（1.4 min）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
