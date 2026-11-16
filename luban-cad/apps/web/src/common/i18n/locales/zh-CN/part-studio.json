@@ -932,6 +932,7 @@
     "depthLabel": "深度",
     "startOffsetTerminationLabel": "起始偏移终止条件",
     "startOffsetTerminationUnsupported": "其它起始偏移终止条件尚未实现",
+    "startOffsetExpand": "展开或收起起始偏移",
     "calculatorLabel": "计算器",
     "filletTabsLabel": "圆角类型",
     "filletTabEdge": "边",

@@ -1039,6 +1039,55 @@
   accent-color: #1651b0;
 }
 
+/* ── 折叠组（2026-11-16 W14 live 起始偏移）：头部 = 20×27 箭头 + 驱动复选框；
+ * 内容缩进 + 竖引导线（与阵列对话框「第二个方向」同款视觉语言）。箭头由
+ * aria-expanded 驱动，仅改可见性，不参与载荷。────────────────────────── */
+.part-studio-feature-dialog__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-feature-dialog__group-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  min-block-size: 27px;
+}
+
+.part-studio-feature-dialog__group-header .part-studio-feature-dialog__checkbox {
+  min-block-size: 27px;
+  font-size: 13.3333px;
+}
+
+.part-studio-feature-dialog__expander {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 27px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 11px;
+  line-height: 27px;
+}
+
+.part-studio-feature-dialog__expander:disabled {
+  color: #d7d7d7;
+  cursor: default;
+}
+
+.part-studio-feature-dialog__group-body {
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: 10px;
+  padding-inline-start: 10px;
+  border-inline-start: 1px solid #d7d7d7;
+}
+
 /* 折叠行：Onshape 箭头在行首，整行无边框。 */
 .part-studio-feature-dialog__section-toggle {
   justify-content: flex-start;
@@ -1098,10 +1147,8 @@
 .part-studio-feature-dialog[data-feature='extrude'] .part-studio-feature-dialog__distance { order: 3; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-depth-row'] { order: 3; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-direction-group'] { order: 4; }
-.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset'] { order: 5; }
-.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset-value'] { order: 5; }
-/* 审计 B2（2026-11-16）：起始偏移展开组的终止条件行贴着复选行（同 order 5）。 */
-.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset-termination'] { order: 5; }
+/* W14（2026-11-16 live）：起始偏移=折叠组（头部+缩进内容作为整体占位）。 */
+.part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-start-offset-group'] { order: 5; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-field='thin-thickness'] { order: 6; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-symmetric-flat'] { order: 7; }
 .part-studio-feature-dialog[data-feature='extrude'] [data-testid='part-studio-feature-dialog-draft'] { order: 8; }
@@ -1125,9 +1172,7 @@
 .part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-field='thin-thickness'] { order: 2; }
 .part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-end-bound'] { order: 3; }
 .part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-depth-row'] { order: 4; }
-.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-start-offset'] { order: 5; }
-.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-start-offset-termination'] { order: 5; }
-.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-start-offset-value'] { order: 5; }
+.part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-start-offset-group'] { order: 5; }
 .part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-symmetric-flat'] { order: 6; }
 .part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-testid='part-studio-feature-dialog-draft'] { order: 7; }
 .part-studio-feature-dialog[data-feature='extrude'][data-result-type='thinWall'] [data-field='draft-angle'] { order: 7; }

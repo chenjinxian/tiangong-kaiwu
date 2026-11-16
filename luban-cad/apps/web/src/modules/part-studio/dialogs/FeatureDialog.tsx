@@ -747,6 +747,11 @@ export function FeatureDialog({
     () => storedNumberString(editParams?.startOffsetMm) ?? '');
   const [startOffsetEnabled, setStartOffsetEnabled] = React.useState(
     () => typeof editParams?.startOffsetMm === 'number');
+  // 2026-11-16 W14（Onshape live 拉伸 2）：起始偏移=折叠组。未勾选=收起（内容
+  // 不渲染）；勾选自动展开；箭头独立开合——折叠只改可见性，载荷仍由
+  // startOffsetEnabled + 值行决定（收起绝不静默丢 startOffsetMm）。
+  const [startOffsetExpanded, setStartOffsetExpanded] = React.useState(true);
+  const startOffsetVisible = startOffsetEnabled && startOffsetExpanded;
   const [symmetric, setSymmetric] = React.useState(() => editParams?.symmetric === true);
   // v1.24 secondDirection（extrude）：Onshape「第二个终止位置」平铺复选 + 距离/
   // 终止条件。契约缺省=主方向相反侧；首切片 UI 不暴露方向翻转（方向由
@@ -3463,95 +3468,124 @@ export function FeatureDialog({
                 </div>
               </div>
             )}
-            <label
-              className="part-studio-feature-dialog__checkbox"
-              data-testid="part-studio-feature-dialog-start-offset"
+            {/* 2026-11-16 W14（live 拉伸 2）：起始偏移=折叠组——头部=20×27 箭头
+                + 驱动复选框 + 标签；未勾选=收起（内容不渲染）且箭头禁用灰
+                #d7d7d7；勾选自动展开；箭头独立开合只改可见性，不改载荷。 */}
+            <section
+              className="part-studio-feature-dialog__group"
+              data-field="start-offset"
+              data-testid="part-studio-feature-dialog-start-offset-group"
             >
-              <input
-                type="checkbox"
-                aria-label={t('partStudio.featureDialog.sections.startOffset')}
-                checked={startOffsetEnabled}
-                disabled={submitting}
-                onChange={(event) => {
-                  setStartOffsetEnabled(event.target.checked);
-                  if (event.target.checked) {
-                    setStartOffset((prev) => prev.trim() === '' ? '0' : prev);
-                  }
-                }}
-              />
-              <span>{t('partStudio.featureDialog.sections.startOffset')}</span>
-            </label>
-            {startOffsetEnabled && (
-              <React.Fragment>
-                {/* 审计 B2（2026-11-16）：live 起始偏移展开组 = 终止条件 + 数值行。
-                    替代终止条件无产品通道 → 单选禁用占位 + 诚实理由。 */}
-                <section
-                  className="part-studio-feature-dialog__distance"
-                  data-field="start-offset-termination"
-                  data-testid="part-studio-feature-dialog-start-offset-termination"
+              <div className="part-studio-feature-dialog__group-header">
+                <button
+                  type="button"
+                  className="part-studio-feature-dialog__expander"
+                  aria-expanded={startOffsetVisible}
+                  aria-label={t('partStudio.featureDialog.startOffsetExpand')}
+                  disabled={submitting || !startOffsetEnabled}
+                  data-testid="part-studio-feature-dialog-start-offset-expander"
+                  onClick={() => setStartOffsetExpanded((expanded) => !expanded)}
                 >
-                  <label
-                    className="part-studio-feature-dialog__distance-label"
-                    htmlFor="part-studio-feature-dialog-start-offset-termination"
-                  >
-                    {t('partStudio.featureDialog.startOffsetTerminationLabel')}
-                  </label>
-                  <select
-                    id="part-studio-feature-dialog-start-offset-termination"
-                    aria-label={t('partStudio.featureDialog.startOffsetTerminationLabel')}
-                    className="part-studio-feature-dialog__select"
-                    value="blind"
-                    disabled
-                    title={t('partStudio.featureDialog.startOffsetTerminationUnsupported')}
-                  >
-                    <option value="blind">{t('partStudio.featureDialog.endBoundBlind')}</option>
-                  </select>
-                </section>
-                {/* 数值行复用深度/薄壁/倒角行惯用法：12px 标签 + 右对齐值 +
-                    mm 单位 + 禁用计算器 + 下划线；载荷仍只发 startOffsetMm。 */}
-                <section
-                  className="part-studio-feature-dialog__distance"
-                  data-field="start-offset-value"
-                  data-testid="part-studio-feature-dialog-start-offset-value"
+                  <span className="part-studio-feature-dialog__chevron" aria-hidden="true">
+                    {startOffsetVisible ? '▾' : '▸'}
+                  </span>
+                </button>
+                <label
+                  className="part-studio-feature-dialog__checkbox"
+                  data-testid="part-studio-feature-dialog-start-offset"
                 >
-                  <label
-                    className="part-studio-feature-dialog__distance-label"
-                    htmlFor="part-studio-feature-dialog-start-offset-value"
-                  >
-                    {t('partStudio.featureDialog.sections.startOffset')}
-                  </label>
                   <input
-                    id="part-studio-feature-dialog-start-offset-value"
-                    type="text"
-                    inputMode="decimal"
+                    type="checkbox"
                     aria-label={t('partStudio.featureDialog.sections.startOffset')}
-                    className="part-studio-feature-dialog__input"
-                    value={startOffset}
+                    checked={startOffsetEnabled}
                     disabled={submitting}
-                    onChange={(event) => setStartOffset(event.target.value)}
+                    onChange={(event) => {
+                      setStartOffsetEnabled(event.target.checked);
+                      if (event.target.checked) {
+                        setStartOffset((prev) => prev.trim() === '' ? '0' : prev);
+                        // live：勾选驱动复选框即自动展开该组。
+                        setStartOffsetExpanded(true);
+                      }
+                    }}
                   />
-                  <span className="part-studio-feature-dialog__value-unit">mm</span>
-                  <button
-                    type="button"
-                    className="part-studio-feature-dialog__calculator"
-                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
-                    disabled
-                    title={t('partStudio.featureDialog.notImplemented')}
+                  <span>{t('partStudio.featureDialog.sections.startOffset')}</span>
+                </label>
+              </div>
+              {startOffsetVisible && (
+                <div
+                  className="part-studio-feature-dialog__group-body"
+                  data-testid="part-studio-feature-dialog-start-offset-body"
+                >
+                  {/* 审计 B2（2026-11-16）：live 起始偏移展开组 = 终止条件 + 数值行。
+                      替代终止条件无产品通道 → 单选禁用占位 + 诚实理由。 */}
+                  <section
+                    className="part-studio-feature-dialog__distance"
+                    data-field="start-offset-termination"
+                    data-testid="part-studio-feature-dialog-start-offset-termination"
                   >
-                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
-                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
-                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
-                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
-                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
-                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
-                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
-                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
-                    </svg>
-                  </button>
-                </section>
-              </React.Fragment>
-            )}
+                    <label
+                      className="part-studio-feature-dialog__distance-label"
+                      htmlFor="part-studio-feature-dialog-start-offset-termination"
+                    >
+                      {t('partStudio.featureDialog.startOffsetTerminationLabel')}
+                    </label>
+                    <select
+                      id="part-studio-feature-dialog-start-offset-termination"
+                      aria-label={t('partStudio.featureDialog.startOffsetTerminationLabel')}
+                      className="part-studio-feature-dialog__select"
+                      value="blind"
+                      disabled
+                      title={t('partStudio.featureDialog.startOffsetTerminationUnsupported')}
+                    >
+                      <option value="blind">{t('partStudio.featureDialog.endBoundBlind')}</option>
+                    </select>
+                  </section>
+                  {/* 数值行复用深度/薄壁/倒角行惯用法：12px 标签 + 右对齐值 +
+                      mm 单位 + 禁用计算器 + 下划线；载荷仍只发 startOffsetMm。 */}
+                  <section
+                    className="part-studio-feature-dialog__distance"
+                    data-field="start-offset-value"
+                    data-testid="part-studio-feature-dialog-start-offset-value"
+                  >
+                    <label
+                      className="part-studio-feature-dialog__distance-label"
+                      htmlFor="part-studio-feature-dialog-start-offset-value"
+                    >
+                      {t('partStudio.featureDialog.sections.startOffset')}
+                    </label>
+                    <input
+                      id="part-studio-feature-dialog-start-offset-value"
+                      type="text"
+                      inputMode="decimal"
+                      aria-label={t('partStudio.featureDialog.sections.startOffset')}
+                      className="part-studio-feature-dialog__input"
+                      value={startOffset}
+                      disabled={submitting}
+                      onChange={(event) => setStartOffset(event.target.value)}
+                    />
+                    <span className="part-studio-feature-dialog__value-unit">mm</span>
+                    <button
+                      type="button"
+                      className="part-studio-feature-dialog__calculator"
+                      aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                      disabled
+                      title={t('partStudio.featureDialog.notImplemented')}
+                    >
+                      <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                        <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                        <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                        <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                        <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                        <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                        <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                        <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                        <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                      </svg>
+                    </button>
+                  </section>
+                </div>
+              )}
+            </section>
           </React.Fragment>
         )}
 

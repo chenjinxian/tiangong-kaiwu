@@ -432,6 +432,137 @@ describe('平铺参数行（方向/起始偏移/对称/拔模；ADR-0017 Stage E
   });
 });
 
+// ---------------------------------------------------------------------------
+// 2026-11-16 W14（Onshape live 拉伸 2）：起始偏移 = 折叠组——头部 = 20×27
+// 箭头 + 驱动复选框 + 标签；未勾选 = 收起（内容不渲染）且箭头禁用（灰
+// #d7d7d7）；勾选自动展开；箭头独立开合只改可见性，载荷仍只按既有条件
+// （勾选 + 值非空且有限）下发 startOffsetMm，收起不静默丢键。
+// ---------------------------------------------------------------------------
+describe('起始偏移折叠组（2026-11-16 W14 live）', () => {
+  function makeApplyOp() {
+    return vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f-new' }));
+  }
+
+  async function renderReadyExtrude(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ) {
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1', entities: [], constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <FeatureDialog
+        featureName="拉伸 1" mode="new" featureType="extrude" applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]} connectionKey="model-key"
+        onConfirm={onConfirm} onCancel={vi.fn()} {...props}
+      />,
+    );
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
+    return { user, onConfirm };
+  }
+
+  beforeEach(() => {
+    featureRpc.getSketch.mockReset();
+  });
+
+  it('头部=箭头+驱动复选框；未勾选 → 内容不渲染、箭头禁用且 aria-expanded=false', () => {
+    renderDialog({
+      entities: [], featureType: 'extrude', mode: 'new',
+      applyOp: vi.fn(async (): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' })),
+    });
+    const dialog = screen.getByRole('dialog', { name: 'Extrude 1' });
+    const group = within(dialog).getByTestId('part-studio-feature-dialog-start-offset-group');
+    const expander = within(group).getByRole('button', { name: '展开或收起起始偏移' }) as HTMLButtonElement;
+    expect(expander.disabled).toBe(true);
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+    const checkbox = within(group).getByRole('checkbox', { name: '起始偏移' }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    expect(checkbox.disabled).toBe(false);
+    expect(within(group).queryByTestId('part-studio-feature-dialog-start-offset-body')).toBeNull();
+    expect(within(dialog).queryByTestId('part-studio-feature-dialog-start-offset-value')).toBeNull();
+    expect(within(dialog).queryByRole('textbox', { name: '起始偏移' })).toBeNull();
+  });
+
+  it('live 形状样式：箭头 20×27（禁用灰 #d7d7d7）+ 内容缩进竖引导线', () => {
+    const expander = cssRuleBlock('.part-studio-feature-dialog__expander');
+    expect(expander).toContain('inline-size: 20px');
+    expect(expander).toContain('block-size: 27px');
+    expect(cssRuleBlock('.part-studio-feature-dialog__expander:disabled')).toContain('color: #d7d7d7');
+    const body = cssRuleBlock('.part-studio-feature-dialog__group-body');
+    expect(body).toContain('display: flex');
+    expect(body).toContain('margin-inline-start: 10px');
+    expect(body).toContain('padding-inline-start: 10px');
+    expect(body).toContain('border-inline-start: 1px solid #d7d7d7');
+  });
+
+  it('勾选自动展开（箭头启用/aria-expanded=true）；取消勾选 → 收起并禁用箭头', async () => {
+    const { user } = await renderReadyExtrude(makeApplyOp());
+    const dialog = screen.getByRole('dialog', { name: '拉伸 1' });
+    const group = within(dialog).getByTestId('part-studio-feature-dialog-start-offset-group');
+    const expander = within(group).getByRole('button', { name: '展开或收起起始偏移' }) as HTMLButtonElement;
+    const checkbox = within(group).getByRole('checkbox', { name: '起始偏移' }) as HTMLInputElement;
+
+    await user.click(checkbox);
+    expect(checkbox.checked).toBe(true);
+    expect(expander.disabled).toBe(false);
+    expect(expander.getAttribute('aria-expanded')).toBe('true');
+    expect(within(group).getByTestId('part-studio-feature-dialog-start-offset-body')).toBeDefined();
+    expect(within(group).getByRole('textbox', { name: '起始偏移' })).toBeDefined();
+    // 终止条件单选仍诚实禁用并带既有理由（组内缩进不改变禁用语义）。
+    const termination = within(group).getByRole('combobox', { name: '起始偏移终止条件' }) as HTMLSelectElement;
+    expect(termination.disabled).toBe(true);
+    expect(termination.getAttribute('title')).toBe('其它起始偏移终止条件尚未实现');
+
+    await user.click(checkbox);
+    expect(checkbox.checked).toBe(false);
+    expect(expander.disabled).toBe(true);
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+    expect(within(group).queryByTestId('part-studio-feature-dialog-start-offset-body')).toBeNull();
+  });
+
+  it('箭头独立开合：收起/展开不改载荷；收起后 startOffsetMm 仍随确认下发', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp);
+    const expander = screen.getByTestId('part-studio-feature-dialog-start-offset-expander') as HTMLButtonElement;
+    await user.click(screen.getByRole('checkbox', { name: '起始偏移' }));
+    const input = screen.getByRole('textbox', { name: '起始偏移' });
+    await user.clear(input);
+    await user.type(input, '2');
+
+    await user.click(expander);
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('textbox', { name: '起始偏移' })).toBeNull();
+    await user.click(expander);
+    expect(expander.getAttribute('aria-expanded')).toBe('true');
+    expect((screen.getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement).value).toBe('2');
+
+    // 再收起一次后确认：折叠只是可见性，startOffsetMm 仍按勾选 + 值下发。
+    await user.click(expander);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>;
+    expect(op.params).toMatchObject({ startOffsetMm: 2 });
+  });
+
+  it('载荷条件不变：默认未勾选不发键；勾选+值后确认才发 startOffsetMm', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyExtrude(applyOp);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const first = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>;
+    expect(first.params).not.toHaveProperty('startOffsetMm');
+
+    await user.click(screen.getByRole('checkbox', { name: '起始偏移' }));
+    await user.clear(screen.getByRole('textbox', { name: '起始偏移' }));
+    await user.type(screen.getByRole('textbox', { name: '起始偏移' }), '2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const second = applyOp.mock.calls[1]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>;
+    expect(second.params).toMatchObject({ startOffsetMm: 2 });
+  });
+});
+
 describe('底部（透明度滑杆 + ?；Onshape f6 无「成品」按钮）', () => {
   it('透明度滑杆在场：range 语义 + 0-100 域 + 缺省 0（不透明）', () => {
     renderDialog();
@@ -3972,7 +4103,8 @@ describe('extrude 行序（Onshape live 2026-11-15）', () => {
       cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-end-bound']`),
       cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-depth-row']`),
       cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-direction-group']`),
-      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-start-offset']`),
+      // W14：起始偏移=折叠组（头部+缩进内容整体占位）。
+      cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-start-offset-group']`),
       cssOrder(`${EXTRUDE}[data-field='thin-thickness']`),
       cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-symmetric-flat']`),
       cssOrder(`${EXTRUDE}[data-testid='part-studio-feature-dialog-draft']`),
@@ -4026,7 +4158,7 @@ describe('extrude 薄壁页签行序（Onshape live 2026-11-16 W13）', () => {
       cssOrder(`${EXTRUDE_THIN}[data-field='thin-thickness']`),
       cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-end-bound']`),
       cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-depth-row']`),
-      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset']`),
+      cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset-group']`),
       cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-symmetric-flat']`),
       cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-draft']`),
       cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-second-direction']`),
@@ -4034,9 +4166,9 @@ describe('extrude 薄壁页签行序（Onshape live 2026-11-16 W13）', () => {
       cssOrder(`${EXTRUDE_THIN}.part-studio-feature-dialog__body > .part-studio-feature-dialog__lease-warning`),
     ];
     expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    // 起始偏移展开的终止/数值行与复选行同 order 5（贴着复选行）。
-    expect(cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset-termination']`)).toBe(5);
-    expect(cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset-value']`)).toBe(5);
+    // W14：起始偏移折叠组整体占 order 5，展开内容在组内缩进（竖引导线）。
+    expect(cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-start-offset-group']`)).toBe(5);
+    expect(cssRuleBlock('.part-studio-feature-dialog__group-body')).toContain('border-inline-start: 1px solid #d7d7d7');
     // 展开子行贴着各自行（拔模角/反向 7；第二端字段 8）。
     expect(cssOrder(`${EXTRUDE_THIN}[data-field='draft-angle']`)).toBe(7);
     expect(cssOrder(`${EXTRUDE_THIN}[data-testid='part-studio-feature-dialog-draft-reverse']`)).toBe(7);

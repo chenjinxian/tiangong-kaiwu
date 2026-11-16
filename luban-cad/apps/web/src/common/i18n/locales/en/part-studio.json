@@ -932,6 +932,7 @@
     "depthLabel": "Depth",
     "startOffsetTerminationLabel": "Start offset termination",
     "startOffsetTerminationUnsupported": "Other start offset termination modes are not implemented",
+    "startOffsetExpand": "Expand or collapse the start offset",
     "calculatorLabel": "Calculator",
     "filletTabsLabel": "Fillet type",
     "filletTabEdge": "Edges",

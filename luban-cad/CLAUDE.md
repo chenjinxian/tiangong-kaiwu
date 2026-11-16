@@ -193,7 +193,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   按 live 改为 query → 中间平面 → 厚度1 → 厚度2 → 终止 → 深度 → 起始偏移
   → 对称 → 拔模 → 第二终止，薄壁态隐藏方向组（根 `data-result-type` 限定
   CSS，载荷/默认不变）；web **2068/2068**，真栈 `extrude-thin-wall-ui`
-  **4 passed（2.1 min）**，360/400/18.712 mm³ 不变。
+  **4 passed（2.1 min）**，360/400/18.712 mm³ 不变。**W14**：起始偏移改为
+  live 折叠组（未勾选 chevron 禁用、勾选启用并自动展开；内容缩进=终止选择
+  + 深度值行，载荷/禁用原因不变）；web **2073/2073**，真栈
+  `feature-flow-parity` 2 passed（2000.000 mm³ 不变）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
