@@ -341,7 +341,7 @@ describe('SketchValuePopup 偏移分支（产品扩展）', () => {
   });
 });
 
-// ── E1：dimensionPopupClosed 通知面（工具等待退出）─────────────────────────
+// ── E1：dimensionPopupClosed 通知面（工具复位（W19 单尺寸工具保持安装））─────────────────────────
 describe('SketchValuePopup 事件契约（E1）', () => {
   const closed = vi.fn();
   let offClosed: (() => void) | undefined;

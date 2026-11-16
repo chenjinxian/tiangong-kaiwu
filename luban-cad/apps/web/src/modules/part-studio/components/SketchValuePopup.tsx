@@ -111,8 +111,9 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
 
   /**
    * 关闭值弹层（E1 链式标注第一步）：仅当关闭的候选是 dimension 时通知发
-   * 候选的工具（工具收到 dimensionPopupClosed 才 exitTool；弹层打开期间
-   * 工具保持安装并忽略画布拾取）。offset 候选由工具自持，不通知。
+   * 候选的工具（W19 live：单尺寸工具收到 dimensionPopupClosed 后清空拾取、
+   * 保持安装继续拾取；旧槽位工具退出。弹层打开期间工具保持安装并忽略画布
+   * 拾取）。offset 候选由工具自持，不通知。
    * 错误路径（非法值/提交失败）不关闭、不通知，弹层保持打开。
    */
   const closePending = React.useCallback((): void => {

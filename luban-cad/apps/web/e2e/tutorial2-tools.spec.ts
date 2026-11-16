@@ -402,6 +402,18 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     sk = await expectCounts(ctx, token, 7, 12, '长度 45');
 
     const arc = arcs(sk)[0]!;
+    // W19（live 2026-11-16）：✓ 确认后尺寸工具保持安装且仍 is-active——不重新
+    // 点 ribbon 激活，直接拾取下一实体（圆弧）+ 空白放置即弹下一个值弹层；
+    // ✗ 取消后工具同样保持安装，草图不变（长度尺寸仍只有一条）。
+    await clickWorld(page, hub, pointOnArc(arc));
+    await clickBlank(page, hub);
+    const secondPopup = page.getByTestId('sketch-value-popup');
+    await expect(secondPopup).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('sketch-value-cancel').click();
+    await expect(secondPopup).toBeHidden({ timeout: 10_000 });
+    await page.waitForTimeout(500);
+    sk = await expectCounts(ctx, token, 7, 12, '再次标注取消（工具保持安装）');
+
     await addDimension(page, hub, '半径', [pointOnArc(arc)], 12.5);
     sk = await expectCounts(ctx, token, 7, 13, '半径 12.5');
 

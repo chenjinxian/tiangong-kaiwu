@@ -52,8 +52,10 @@ export interface SketchToolEventMap {
   /**
    * 尺寸值弹层已关闭（2026-11-15 Onshape live E1 链式标注第一步）：值弹层
    * **仅在关闭一个 dimension 候选时**发射（确认成功 / 取消 / 草图切换）。
-   * 发候选的工具在弹层打开期间保持安装（等待本事件后才 exitTool，期间忽略
-   * 画布拾取）；offset 候选由发起工具自持（commit 回调），**不得**发射本事件。
+   * 发候选的工具在弹层打开期间保持安装并忽略画布拾取，收到本事件即结束
+   * 等待态——单尺寸工具（Sketch.Dimension）清空拾取继续拾取（W19 live，
+   * 无需重点 ribbon）；旧槽位工具（Sketch.Dimension.*）退出。offset 候选
+   * 由发起工具自持（commit 回调），**不得**发射本事件。
    */
   dimensionPopupClosed: () => void;
 }

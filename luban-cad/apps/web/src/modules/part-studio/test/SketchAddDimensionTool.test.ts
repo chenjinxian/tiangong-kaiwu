@@ -10,7 +10,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SketchEntityDto } from '@luban-cad/shared';
-import { EventHandled } from '@itwin/core-frontend';
+import { EventHandled, IModelApp } from '@itwin/core-frontend';
 import type { BeButtonEvent } from '@itwin/core-frontend';
 
 // 工具交互态夹具（E1 实测值）：取点/平面架/草图系统全部打桩，工具只保留
@@ -330,11 +330,13 @@ describe('E1：尺寸工具候选事件携带 measuredValue', () => {
   });
 });
 
-// ── E1（2026-11-15 Onshape live）：链式标注第一步——工具等值弹层关闭才退出 ────
+// ── E1/W19（2026-11-15/16 Onshape live）：链式标注——发候选后保持安装 ───────
 // 弹层打开期间工具保持安装（不再发完候选即 exitTool），且忽略画布拾取；
-// 弹层确认成功/取消（dimensionPopupClosed）后才退出。第二尺寸自动开始需
-// live 探针，本切片不做。
-describe('E1：尺寸工具等待值弹层关闭（dimensionPopupClosed）后退出', () => {
+// 弹层确认成功/取消（dimensionPopupClosed）后**单尺寸工具仍保持安装**：
+// 清空拾取、恢复首拾取提示，下一次拾取直接发第二个候选（无需重点 ribbon）。
+// 旧槽位工具（Sketch.Dimension.Length 等，非 ribbon）保持原生命周期——弹层
+// 关闭后退出。
+describe('E1/W19：尺寸工具发候选后保持安装（弹层关闭恢复拾取）', () => {
   const listeners: (() => void)[] = [];
 
   afterEach(() => {
@@ -358,7 +360,7 @@ describe('E1：尺寸工具等待值弹层关闭（dimensionPopupClosed）后退
     return tool.onDataButtonDown(buttonEvent(u, v));
   }
 
-  it('单尺寸工具：发候选后不退出、忽略画布拾取；弹层关闭后才 exitTool（一次）', async () => {
+  it('单尺寸工具：发候选后保持安装、忽略画布拾取；弹层关闭后清空拾取并可继续下一个尺寸', async () => {
     mockState.entities = entities('line345');
     const tool = new SketchDimensionTool();
     await tool.onPostInstall();
@@ -376,14 +378,35 @@ describe('E1：尺寸工具等待值弹层关闭（dimensionPopupClosed）后退
     expect(candidates).toHaveLength(1);
     expect(exits).not.toHaveBeenCalled();
 
-    // 弹层关闭（确认成功/取消同通道）→ 退出一次；重复发射不再触发（已退订）。
+    // W19 live：✓/✗ 关闭弹层后工具保持安装（不 exitTool），已退订（重复
+    // 发射无副作用），拾取被清空——无需重新点 ribbon。
+    const promptCalls = (IModelApp.notifications.outputPrompt as ReturnType<typeof vi.fn>).mock.calls.length;
     sketchToolEvents.emit('dimensionPopupClosed');
-    expect(exits).toHaveBeenCalledTimes(1);
+    expect(exits).not.toHaveBeenCalled();
+    // 提示随拾取清空刷新（回到首拾取提示），删除该调用时本断言失败。
+    expect((IModelApp.notifications.outputPrompt as ReturnType<typeof vi.fn>).mock.calls.length)
+      .toBeGreaterThan(promptCalls);
     sketchToolEvents.emit('dimensionPopupClosed');
-    expect(exits).toHaveBeenCalledTimes(1);
+    expect(exits).not.toHaveBeenCalled();
+
+    // 拾取已清空：空白点击不再有「放置」语义（不产生候选、不退出）。
+    expect(await click(tool, 100, 100)).toBe(EventHandled.Yes);
+    expect(candidates).toHaveLength(1);
+    expect(exits).not.toHaveBeenCalled();
+
+    // 下一次拾取直接开始第二个尺寸（未重新激活工具）。
+    await click(tool, 1.5, 2);
+    await click(tool, 100, 100);
+    expect(candidates).toHaveLength(2);
+    expect(candidates[1]).toMatchObject({ kind: 'length' });
+    expect(exits).not.toHaveBeenCalled();
+
+    // 第二个弹层关闭后同样保持安装（链式继续）。
+    sketchToolEvents.emit('dimensionPopupClosed');
+    expect(exits).not.toHaveBeenCalled();
   });
 
-  it('旧槽位工具（LengthAddTool）：同样等弹层关闭后才退出', async () => {
+  it('旧槽位工具（LengthAddTool，非 ribbon）：保持旧生命周期——弹层关闭后退出（一次）', async () => {
     mockState.entities = entities('line345');
     const tool = new LengthAddTool();
     await tool.onPostInstall();
@@ -397,6 +420,9 @@ describe('E1：尺寸工具等待值弹层关闭（dimensionPopupClosed）后退
     expect(candidates).toHaveLength(1);
     expect(exits).not.toHaveBeenCalled();
 
+    sketchToolEvents.emit('dimensionPopupClosed');
+    expect(exits).toHaveBeenCalledTimes(1);
+    // 已退订：重复发射不再触发退出。
     sketchToolEvents.emit('dimensionPopupClosed');
     expect(exits).toHaveBeenCalledTimes(1);
   });

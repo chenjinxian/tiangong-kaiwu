@@ -3,8 +3,10 @@
  *
  * Onshape 单尺寸工具（Sketch.Dimension）推断单测：同一个按钮，按拾取实体动态
  * 决定 length / radius / distance（不再有长度/半径下拉）。
- * E1（2026-11-15）：工具生命周期契约——发候选后保持安装、等值弹层关闭
- * （dimensionPopupClosed）才 exitTool，等待期间忽略画布拾取。
+ * E1/W19（2026-11-15/16 live）：工具生命周期契约——发候选后保持安装、等待
+ * 值弹层关闭（dimensionPopupClosed），等待期间忽略画布拾取；弹层关闭后**仍
+ * 保持安装**：清空拾取、恢复提示，下一次拾取直接发第二个候选（无需重点
+ * ribbon）。Escape（无弹层时）由默认快捷键 startDefaultTool 退出工具。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SketchEntityDto } from '@luban-cad/shared';
@@ -153,8 +155,8 @@ describe('inferDimensionCompletion（单尺寸按钮动态推断）', () => {
   });
 });
 
-// ── E1（2026-11-15 Onshape live）：链式标注第一步——工具等值弹层关闭才退出 ────
-describe('E1：SketchDimensionTool 等待值弹层关闭（dimensionPopupClosed）后退出', () => {
+// ── E1/W19（2026-11-15/16 Onshape live）：链式标注——发候选后保持安装 ───────
+describe('E1/W19：SketchDimensionTool 发候选后保持安装（弹层关闭恢复拾取）', () => {
   const listeners: (() => void)[] = [];
 
   afterEach(() => {
@@ -173,7 +175,7 @@ describe('E1：SketchDimensionTool 等待值弹层关闭（dimensionPopupClosed�
     return tool.onDataButtonDown(buttonEvent(u, v));
   }
 
-  it('发候选后保持安装、忽略画布拾取；dimensionPopupClosed 才 exitTool（一次）', async () => {
+  it('发候选后保持安装、忽略画布拾取；弹层关闭后清空拾取，下一次拾取发第二个候选', async () => {
     mockState.entities = [{ kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 3, y: 4 } }];
     const tool = new SketchDimensionTool();
     await tool.onPostInstall();
@@ -192,11 +194,23 @@ describe('E1：SketchDimensionTool 等待值弹层关闭（dimensionPopupClosed�
     expect(candidates).toHaveLength(1);
     expect(exits).not.toHaveBeenCalled();
 
-    // 弹层关闭 → 退出一次；重复发射不再触发（等待监听已退订）。
+    // W19 live：弹层关闭（✓/✗ 同通道）后工具保持安装、等待监听已退订
+    // （重复发射无副作用），拾取被清空。
     sketchToolEvents.emit('dimensionPopupClosed');
-    expect(exits).toHaveBeenCalledTimes(1);
+    expect(exits).not.toHaveBeenCalled();
     sketchToolEvents.emit('dimensionPopupClosed');
-    expect(exits).toHaveBeenCalledTimes(1);
+    expect(exits).not.toHaveBeenCalled();
+
+    // 拾取已清空：空白点击不产生候选（回到「选择实体」提示）。
+    expect(await click(tool, 100, 100)).toBe(EventHandled.Yes);
+    expect(candidates).toHaveLength(1);
+
+    // 未重新激活工具，下一次完整拾取直接发第二个候选。
+    await click(tool, 1.5, 2);
+    await click(tool, 100, 100);
+    expect(candidates).toHaveLength(2);
+    expect(candidates[1]).toMatchObject({ kind: 'length', measuredValue: 5 });
+    expect(exits).not.toHaveBeenCalled();
   });
 
   it('onCleanup：退订等待监听，之后弹层关闭不再 exitTool（无陈旧监听）', async () => {

@@ -295,6 +295,9 @@ export class SketchDimensionTool extends PrimitiveTool {
       return EventHandled.Yes;
     }
 
+    // 2026-11-16 W19：工具在弹层关闭后保持安装，可能在切换活动草图后继续拾取；
+    // 每次拾取重新解析当前草图平面，避免沿用上一张草图的投影面（W19 评审）。
+    this._plane = resolveSketchPlaneFrame();
     const hit = pickHitLocal(ev, this._plane);
     // 放置点击与实体拾取的分界：8px 对应的世界距离。旧「就近」无阈值会把
     // 远处空白点吸附成实体，导致长度/半径被误判成距离、放置点击丢失。
@@ -350,21 +353,24 @@ export class SketchDimensionTool extends PrimitiveTool {
       anchor,
       ...(measuredValue !== undefined ? { measuredValue } : {}),
     });
-    // E1 链式标注第一步：弹层打开期间保持本工具安装（不立即 exitTool），
-    // 等弹层关闭（确认成功/取消/草图切换）后在事件回调里退出。
+    // W19（2026-11-16 live）：发候选后保持本工具安装（不立即 exitTool），
+    // 弹层打开期间忽略画布拾取，关闭后恢复拾取。
     this._awaitPopupClose();
   }
 
   /**
-   * 等待值弹层关闭再退出：订阅一次 dimensionPopupClosed；到达时清等待态、
-   * 退订并 exitTool。重复调用先退旧订阅（重启/重装不留陈旧监听）。
+   * 等待值弹层关闭（W19，2026-11-16 live）：订阅一次 dimensionPopupClosed；
+   * 到达时清等待态、退订、清空拾取并恢复首拾取提示——**保持安装**，下一次
+   * 拾取直接开始下一个尺寸（live：✓/✗ 关闭后工具仍 is-active，无需重点
+   * ribbon）。重复调用先退旧订阅（重启/重装不留陈旧监听）。
    */
   private _awaitPopupClose(): void {
     this._offPopupClosed?.();
     this._awaitingPopup = true;
     this._offPopupClosed = sketchToolEvents.on('dimensionPopupClosed', () => {
       this._clearPopupWait();
-      void this.exitTool();
+      this._picks = [];
+      this._outputPrompt();
     });
   }
 

@@ -7,7 +7,7 @@
  * （M3-b T5，溯源注记）。**尺寸不直接提交铁律**原样保留（裁决 E-4）：工具
  * 满槽后经事件桥（sketch-tool-events.ts，M3-b sketchToolEvents 同构——拆独立
  * 模块的理由见该文件头）把**候选约束**发给面板，面板收值（>0 校验）并走
- * applyUpdate 提交；工具只发候选，**绝不直接提交**，发完即 exitTool。
+ * applyUpdate 提交；工具只发候选，**绝不直接提交**。本类为旧非 ribbon 槽位工具（W19 起单尺寸工具保持安装，本类仍弹层关闭后 exitTool）。
  *
  * 槽位规则与后端 SolverTypes.ts 冻结契约一致：distance=2 point、radius=
  * 1 circle（value>0 由面板收）。槽位校验/右键两层取消与 SketchAddConstraintTool
