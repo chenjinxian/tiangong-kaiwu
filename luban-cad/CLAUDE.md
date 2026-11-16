@@ -222,7 +222,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `sketch-dimension-edit` 通过、`tutorial2` 2 passed（4.7 min，体积不变）。
   **W19**：单尺寸工具在 ✓/✗ 关闭值弹层后保持激活、清拾取继续下一次标注
   （Esc 才退出；旧非 ribbon 槽位工具保持退出）；真栈 `tutorial2-tools` 标注流
-  2 passed（1.3 min；确认后不重激活产生第二弹层、✗ 不落约束）。
+  2 passed（1.3 min；确认后不重激活产生第二弹层、✗ 不落约束）。**W20**：
+  尺寸标签右键菜单（live 行序；更改为驱动尺寸诚实禁用、删除尺寸可撤销；
+  与空白/实体菜单互斥、maxHeight 夹紧）。全量 web **2127/2127**、
+  tsc(src/e2e)/eslint 绿；真栈 `sketch-dimension-edit` 3 passed（1.7 min，
+  含右键删除+撤消）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
