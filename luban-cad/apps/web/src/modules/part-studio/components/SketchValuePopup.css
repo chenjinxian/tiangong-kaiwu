@@ -1,9 +1,13 @@
-/* 草图尺寸/偏移值确认弹层（Onshape 标注位置浮层，2026-11-03；2026-11-15
- * live 证据按 E1 重校准）：白卡片 1px #cccccc 边框、半径 2、面板高 34；
+/* 草图**偏移**值确认弹层（产品扩展；live 只采到尺寸 dimension-dialog 证据，
+ * 故偏移保持既有旧外观与行为）：白卡片 1px #cccccc 边框、半径 2、面板高 34；
  * 输入 100×26（13.3333px）、聚焦 1px #1651b0 下划线；左侧 20×20 灰色
  * 禁用展开箭头；确认/取消为 22×22 圆角方形（radius 4）：确认实心绿
- * #009400 + 白色勾，取消白底 1px #cccccc + 红色 X（2026-11-15 探针
- * g1-dimension-popup 计算样式；此前采样的实心红圆不是该构造）。 */
+ * #009400 + 白色勾，取消白底 1px #cccccc + 红色 X。
+ *
+ * 2026-11-16 W17b：**尺寸**分支不再使用本文件的卡片样式——它与双击编辑器
+ * 共用 live `dimension-dialog` 外壳（`SketchDimensionEditor.css` 的
+ * `.part-studio-dimension-editor-*`，209×47、无外边框/圆角、常显下划线）。
+ * 本文件只服务 `kind === 'offset'` 分支，不得再被尺寸弹层引用。 */
 .part-studio-sketch-value-popup {
   position: absolute;
   z-index: 26;
@@ -38,14 +42,6 @@
 .part-studio-sketch-value-popup__input:focus {
   outline: none;
   box-shadow: inset 0 -1px 0 #1651b0;
-}
-
-/* 只读单位后缀（产品固定 mm；角度 °）——不参与输入/解析。 */
-.part-studio-sketch-value-popup__unit {
-  flex: none;
-  color: #333333;
-  font-size: 13.3333px;
-  line-height: 1;
 }
 
 /* 左侧表达式展开箭头（live disabled：node-expander 20×20 灰 #d7d7d7）。 */
@@ -107,4 +103,15 @@
   color: #d30b0b;
   font-size: 11px;
   white-space: normal;
+}
+
+/* 尺寸分支（共享 dimension-dialog 外壳）的错误提示：绝对定位在对话框下方，
+ * 不参与 209×47 的可见对话框布局（错误态仍保持 live 几何）。 */
+.part-studio-dimension-editor-dialog > .part-studio-sketch-value-popup__error {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  max-inline-size: 209px;
+  margin-inline-start: 0;
+  padding-block-start: 2px;
 }

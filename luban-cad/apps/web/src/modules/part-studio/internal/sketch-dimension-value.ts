@@ -24,13 +24,35 @@ export const EDITABLE_CONSTRAINT_KINDS = new Set<SketchConstraintDto['kind']>([
 /** 长度类编辑器初值小数位（live：工作区显示小数 + 3；mm 产品 2+3 = 5）。 */
 export const DIMENSION_EDITOR_DECIMALS = 5;
 
+/** 放置值弹层角度初值小数位（2026-11-16 W17b live：角度 7 位小数）。 */
+export const DIMENSION_POPUP_ANGLE_DECIMALS = 7;
+
 /** 方向键步进量（mm；live 长度类约束 ±1）。 */
 export const DIMENSION_EDITOR_STEP_MM = 1;
 
+/** 固定小数位 + 去尾零（"15.74583" / "20"）。 */
+function formatFixedTrimmed(value: number, decimals: number): string {
+  const fixed = value.toFixed(decimals);
+  return fixed.replace(/\.?0+$/, '') || '0';
+}
+
 /** 长度类格式化：最多 5 位小数、去尾零（"15.74583" / "20"）。 */
 function formatEditorLengthValue(value: number): string {
-  const fixed = value.toFixed(DIMENSION_EDITOR_DECIMALS);
-  return fixed.replace(/\.?0+$/, '') || '0';
+  return formatFixedTrimmed(value, DIMENSION_EDITOR_DECIMALS);
+}
+
+/**
+ * 放置值弹层初值格式化（2026-11-16 W17b live）：长度类 5 位小数（工作区
+ * 显示小数 + 3），角度 7 位小数；均去尾零。非有限值返回空文本（几何不可测
+ * 时保持空输入 + 占位）。
+ */
+export function formatDimensionPopupValue(kind: string, value: number): string {
+  if (!Number.isFinite(value))
+    return '';
+  return formatFixedTrimmed(
+    value,
+    kind === 'angle' ? DIMENSION_POPUP_ANGLE_DECIMALS : DIMENSION_EDITOR_DECIMALS,
+  );
 }
 
 /** 约束 → 编辑器初值（angle 显示为度；其余保持毫米并提高显示精度）。 */

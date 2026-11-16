@@ -26,6 +26,7 @@ import {
   addDimension,
   addOffset,
   chooseSketchPlaneInViewport,
+  clickBlank,
   clickWorld,
   disableSnap,
   finishSketch,
@@ -355,7 +356,49 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
 
     let line = horizontalLineAt(sk, 10);
     const lineId = line.id;
-    await addDimension(page, hub, '长度', [midOf(line)], 45);
+    // 2026-11-16 W17b：放置弹层 = live dimension-dialog（209×47；禁用展开器/
+    // 禁用参数状态切换；仅拖拽条可拖；方向键无选区 ±1 mm 且不提交），确认仍走
+    // 同一 dimensionCandidate → applyUpdate 提交路径。
+    await activate(page, '长度');
+    await clickWorld(page, hub, midOf(line));
+    await clickBlank(page, hub);
+    const popup = page.getByTestId('sketch-value-popup');
+    await expect(popup).toBeVisible({ timeout: 10_000 });
+    const popupBox = await popup.boundingBox();
+    expect(popupBox).not.toBeNull();
+    expect(Math.abs(popupBox!.width - 209)).toBeLessThanOrEqual(1);
+    expect(Math.abs(popupBox!.height - 47)).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId('sketch-value-expander')).toBeAttached();
+    await expect(page.getByTestId('sketch-value-state-toggle')).toBeDisabled();
+    const popupInput = page.getByTestId('sketch-value-input');
+    const initialLength = Number(await popupInput.inputValue());
+    expect(Number.isFinite(initialLength)).toBe(true);
+    expect(initialLength).toBeGreaterThan(0);
+    // 仅拖拽条可拖：相对位移断言（不钉绝对坐标）。
+    const dragbar = page.getByTestId('sketch-value-dragbar');
+    const dragbarBox = await dragbar.boundingBox();
+    expect(dragbarBox).not.toBeNull();
+    const dragStartX = dragbarBox!.x + dragbarBox!.width / 2;
+    const dragStartY = dragbarBox!.y + dragbarBox!.height / 2;
+    await page.mouse.move(dragStartX, dragStartY);
+    await page.mouse.down();
+    await page.mouse.move(dragStartX - 30, dragStartY - 20, { steps: 5 });
+    await page.mouse.up();
+    const draggedBox = await popup.boundingBox();
+    expect(draggedBox).not.toBeNull();
+    expect(draggedBox!.x - popupBox!.x).toBeLessThanOrEqual(-20);
+    expect(draggedBox!.y - popupBox!.y).toBeLessThanOrEqual(-15);
+    // 方向键步进（live）：点入输入框、End 到光标尾（无选区），ArrowDown −1。
+    await popupInput.click();
+    await popupInput.press('End');
+    await popupInput.press('ArrowDown');
+    // 步进基线是未编辑的原始实测值（显示值 5 位小数四舍五入）：容差 1e-4 mm。
+    expect(Math.abs(Number(await popupInput.inputValue()) - (initialLength - 1))).toBeLessThan(1e-4);
+    // 步进不提交；改回目标值后确认，落库一条长度尺寸。
+    await popupInput.fill('45');
+    await page.getByTestId('sketch-value-confirm').click();
+    await expect(popupInput).toBeHidden({ timeout: 15_000 });
+    await page.waitForTimeout(1_500);
     sk = await expectCounts(ctx, token, 7, 12, '长度 45');
 
     const arc = arcs(sk)[0]!;

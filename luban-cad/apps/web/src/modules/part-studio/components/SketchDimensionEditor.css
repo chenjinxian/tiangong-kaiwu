@@ -34,6 +34,9 @@
   flex-direction: column;
   width: 209px;
   background: #ffffff;
+  /* 双击编辑（包装元素已声明同值）与放置值弹层共用外壳：弹层直接挂在
+     画布容器下，需在此声明 live 字号，输入/单位后缀继承一致。 */
+  font: 13.3333px "Segoe UI", "Microsoft YaHei", sans-serif;
 }
 
 /* 拖拽条 209×13（live）：白底 + 1px #cccccc 边框（height 含边框）；整条可拖。 */

@@ -38,9 +38,12 @@
  *
  * 输入框内方向键步进（live）：无选区（光标态）时 ArrowUp/ArrowDown 对长度类
  * 约束步进 ±1 mm，有选区时不步进（默认行为折叠选区）；步进不提交。
+ *
+ * 2026-11-16（W17b）：live 的放置值弹层与双击编辑器是同一个 dimension-dialog；
+ * 结构与拖拽/方向键行为抽到共享外壳 `SketchDimensionDialog`（本组件只做
+ * 标签命中/定位/提交，面板结构与值弹层完全同源，不再有两套视觉）。
  */
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import type { SketchConstraintDto } from '@luban-cad/shared';
 import {
@@ -49,7 +52,6 @@ import {
   sketchDimensionLabels,
 } from '@luban-cad/viewer';
 import type { SketchConstraintGlyphAnnotation, SketchDimensionAnnotation } from '@luban-cad/viewer';
-import { OnshapeIcon } from '../icons/onshape-icons.js';
 import {
   constraintIdFromDimensionLabel,
   hitTestSketchConstraintGlyph,
@@ -60,9 +62,23 @@ import {
   EDITABLE_CONSTRAINT_KINDS,
   formatConstraintEditorValue,
   parseConstraintEditorValue,
-  stepConstraintEditorValue,
 } from '../internal/sketch-dimension-value.js';
+import {
+  DIMENSION_EDITOR_DIALOG_HEIGHT,
+  DIMENSION_EDITOR_DIALOG_WIDTH,
+  DIMENSION_EDITOR_DRAGBAR_HEIGHT,
+  SketchDimensionDialog,
+} from './SketchDimensionDialog.js';
+import type { SketchDimensionDialogTestIds } from './SketchDimensionDialog.js';
 import './SketchDimensionEditor.css';
+
+/** 对话框几何常量与共享外壳同源（此处再导出，保持既有导入面稳定）。 */
+export {
+  DIMENSION_EDITOR_DIALOG_HEIGHT,
+  DIMENSION_EDITOR_DIALOG_WIDTH,
+  DIMENSION_EDITOR_DRAGBAR_HEIGHT,
+  DIMENSION_EDITOR_PANEL_HEIGHT,
+} from './SketchDimensionDialog.js';
 
 export interface SketchDimensionEditorProps {
   viewport?: ScreenViewport | null;
@@ -106,31 +122,14 @@ interface EditorState {
   top: number;
 }
 
-/** 拖拽条拖动会话（起点 client 坐标 + 起点可见对话框位置）。 */
-interface DialogDragState {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startLeft: number;
-  startTop: number;
-}
-
 /** 内联输入框尺寸（与 CSS 同值；纯布局计算用）。 */
 export const DIMENSION_EDITOR_WIDTH = 100;
 /** 输入框高度（live 26px；与 CSS 同值，用于输入框垂直中心换算）。 */
 export const DIMENSION_EDITOR_INPUT_HEIGHT = 26;
 /** 输入框右缘与标签左缘的间距（px，live 口径「紧贴标签左侧」）。 */
 export const DIMENSION_EDITOR_GAP = 4;
-/** 可见尺寸对话框宽度（live：拖拽条/面板 209px）。 */
-export const DIMENSION_EDITOR_DIALOG_WIDTH = 209;
 /** 面板左缘到输入框左缘的距离（live：展开器 1px + 20px）。 */
 export const DIMENSION_EDITOR_DIALOG_INPUT_OFFSET = 21;
-/** 拖拽条高度（live 13px）。 */
-export const DIMENSION_EDITOR_DRAGBAR_HEIGHT = 13;
-/** 面板高度（live 34px）。 */
-export const DIMENSION_EDITOR_PANEL_HEIGHT = 34;
-/** 可见对话框总高 = 拖拽条 + 面板（live 47px）。 */
-export const DIMENSION_EDITOR_DIALOG_HEIGHT = DIMENSION_EDITOR_DRAGBAR_HEIGHT + DIMENSION_EDITOR_PANEL_HEIGHT;
 /** 视口边缘安全间距（钳制用，px）。 */
 export const DIMENSION_EDITOR_VIEWPORT_MARGIN = 4;
 
@@ -237,6 +236,22 @@ export function dimensionEditorUnit(kind: SketchConstraintDto['kind']): 'mm' | '
   return kind === 'angle' ? '°' : 'mm';
 }
 
+/**
+ * W17b：双击内联编辑与工具放置值弹层共用同一 dimension-dialog 外壳
+ * （`SketchDimensionDialog`）；两表面的观测 testid 各自保留既有命名，
+ * 避免 e2e/单测因共享实现改选取器。
+ */
+export const DIMENSION_EDITOR_DIALOG_TEST_IDS: SketchDimensionDialogTestIds = {
+  dialog: 'sketch-dimension-dialog',
+  dragbar: 'sketch-dimension-dragbar',
+  input: 'sketch-dimension-input',
+  unit: 'sketch-dimension-unit',
+  expander: 'sketch-dimension-expander',
+  stateToggle: 'sketch-dimension-state-toggle',
+  confirm: 'sketch-dimension-confirm',
+  cancel: 'sketch-dimension-cancel',
+};
+
 /** 可编辑控件（INPUT/TEXTAREA/SELECT/contentEditable）。 */
 function isEditableTarget(target: EventTarget | null): target is HTMLElement {
   return target instanceof HTMLElement
@@ -322,14 +337,10 @@ export function SketchDimensionEditor({
   overlayHitTestRef,
   onGlyphHover,
 }: SketchDimensionEditorProps): React.JSX.Element | null {
-  const { t } = useTranslation();
   const [viewVersion, setViewVersion] = React.useState(0);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
   /** 拖拽后的可见对话框 client 位置（null = 从未拖动，使用锚点默认布局）。 */
   const [dragPosition, setDragPosition] = React.useState<{ left: number; top: number } | null>(null);
-  /** 拖动会话进行中（window 捕获段 pointermove/up 监听的生命周期开关）。 */
-  const [dragActive, setDragActive] = React.useState(false);
-  const dragStateRef = React.useRef<DialogDragState | null>(null);
   const [failed, setFailed] = React.useState(false);
   /** 提交中：确认/取消按钮置灰（committingRef 是同一守卫的同步镜像）。 */
   const [committing, setCommitting] = React.useState(false);
@@ -435,8 +446,6 @@ export function SketchDimensionEditor({
       });
       // 每次新开对话框都复位拖拽位移（live：重新打开回到锚点默认位置）。
       setDragPosition(null);
-      dragStateRef.current = null;
-      setDragActive(false);
       const initialValue = formatConstraintEditorValue(constraint);
       setEditor({
         constraintId,
@@ -651,14 +660,6 @@ export function SketchDimensionEditor({
   // 连带退出草图模式。
   const editorOpen = editor !== null;
 
-  // 拖动过程中编辑框被取消/提交关闭：结束拖拽会话（清等待态，停止监听），
-  // 避免后续指针事件继续驱动已关闭的对话框（重开时也会复位）。
-  React.useEffect(() => {
-    if (editorOpen)
-      return;
-    dragStateRef.current = null;
-    setDragActive(false);
-  }, [editorOpen]);
   React.useEffect(() => {
     if (!editorOpen)
       return;
@@ -731,9 +732,6 @@ export function SketchDimensionEditor({
         viewportSize,
       )
     : null;
-  /** 拖拽条按下时读取当前可见对话框 client 位置（指针会话起点）。 */
-  const visibleDialogPositionRef = React.useRef(visibleDialogPosition);
-  visibleDialogPositionRef.current = visibleDialogPosition;
   /** 相对锚点包装元素的 CSS 偏移（包装元素 translateY(-50%)：client top = top − 13）。 */
   const dialogOffset = visibleDialogPosition && editor
     ? {
@@ -741,77 +739,6 @@ export function SketchDimensionEditor({
         top: visibleDialogPosition.top - (editor.top - DIMENSION_EDITOR_INPUT_HEIGHT / 2),
       }
     : null;
-
-  // 拖拽条（仅 13px 条可拖；面板不拖）：pointerdown 记录起点，随后的
-  // move/up 由 window 捕获段监听处理（以「起点 + 总位移」计算，非增量——
-  // 拖到边缘后回拖立即响应；位置渲染时按视口钳制）。鼠标左键才启动。
-  //
-  // 2026-11-16 真栈实测：setPointerCapture 之后浏览器已把 pointermove 回投到
-  // 拖拽条（window 捕获段可见 target=拖拽条），但 React 合成事件链不再派发
-  // 该节点的 onPointerMove（drag handler 一次都不触发）。改为拖动会话期间
-  // window 捕获段监听，指针移出 13px 拖拽条后仍持续跟手；组件卸载/取消/再次
-  // 打开时由 effect cleanup 收口。
-  const startDialogDrag = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
-    if (event.button !== 0)
-      return;
-    const current = visibleDialogPositionRef.current;
-    if (!current)
-      return;
-    event.preventDefault();
-    event.stopPropagation();
-    dragStateRef.current = {
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startLeft: current.left,
-      startTop: current.top,
-    };
-    // 指针捕获保持事件目标稳定（触屏/笔走隐式捕获）；移动由 window 捕获段
-    // 监听消费（React 合成 onPointerMove 在捕获后不派发，真栈实测）。
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    setDragActive(true);
-  }, []);
-
-  React.useEffect(() => {
-    if (!dragActive)
-      return;
-    const end = (): void => {
-      dragStateRef.current = null;
-      setDragActive(false);
-    };
-    const onMove = (event: PointerEvent): void => {
-      const drag = dragStateRef.current;
-      if (!drag || drag.pointerId !== event.pointerId)
-        return;
-      // 丢失 pointerup（窗口失焦/OS 级释放）时按钮已抬起：结束会话，避免
-      // 之后的悬停移动拖动对话框。
-      if (event.buttons === 0) {
-        end();
-        return;
-      }
-      event.stopPropagation();
-      setDragPosition({
-        left: drag.startLeft + (event.clientX - drag.startClientX),
-        top: drag.startTop + (event.clientY - drag.startClientY),
-      });
-    };
-    const onEnd = (event: PointerEvent): void => {
-      const drag = dragStateRef.current;
-      if (!drag || drag.pointerId !== event.pointerId)
-        return;
-      end();
-    };
-    window.addEventListener('pointermove', onMove, true);
-    window.addEventListener('pointerup', onEnd, true);
-    window.addEventListener('pointercancel', onEnd, true);
-    window.addEventListener('blur', end);
-    return () => {
-      window.removeEventListener('pointermove', onMove, true);
-      window.removeEventListener('pointerup', onEnd, true);
-      window.removeEventListener('pointercancel', onEnd, true);
-      window.removeEventListener('blur', end);
-    };
-  }, [dragActive]);
 
   if (labels.length === 0 && glyphLayouts.length === 0 && !editor)
     return null;
@@ -877,7 +804,7 @@ export function SketchDimensionEditor({
           </React.Fragment>
         );
       })}
-      {editor && dialogPlacement && dialogOffset && (
+      {editor && dialogPlacement && visibleDialogPosition && dialogOffset && (
         <div
           className="part-studio-dimension-editor-wrap"
           style={{ left: editor.left, top: editor.top }}
@@ -885,133 +812,29 @@ export function SketchDimensionEditor({
           {/* live 2026-11-16 dimension-dialog：拖拽条 209×13 + 面板 209×34。
               包装元素 100×26 + translateY(-50%)，输入框垂直中心 = 锚点 top；
               对话框默认偏移 -21/-13（面板向输入行左侧扩展 21px，拖拽条在输入
-              行上方），边缘与拖动位置由纯函数钳制。 */}
-          <div
-            ref={dialogRef}
-            className="part-studio-dimension-editor-dialog"
-            data-testid="sketch-dimension-dialog"
-            style={{ left: dialogOffset.left, top: dialogOffset.top }}
-          >
-            <div
-              className="part-studio-dimension-editor-dragbar"
-              data-testid="sketch-dimension-dragbar"
-              aria-hidden="true"
-              onPointerDown={startDialogDrag}
-            >
-              {/* live 握把：三枚 7×7 空心方（1px #333 描边、透明填充、1px 间距）。 */}
-              <span className="part-studio-dimension-editor-grip" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-              </span>
-            </div>
-            <div className="part-studio-dimension-editor-panel">
-              {/* 禁用展开器（live node-expander-disabled pe-none）：纯装饰，无交互。 */}
-              <span
-                className="part-studio-dimension-editor-expander"
-                data-testid="sketch-dimension-expander"
-                aria-hidden="true"
-              >
-                <OnshapeIcon name="collapsed" size={12} />
-              </span>
-              <span className="part-studio-dimension-editor-field">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  inputMode="decimal"
-                  data-testid="sketch-dimension-input"
-                  data-error={failed ? 'true' : 'false'}
-                  className="part-studio-dimension-editor"
-                  value={editor.value}
-                  onChange={(event) => {
-                    setEditor({ ...editor, value: event.target.value });
-                    setFailed(false);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-                      // 输入法合成期间方向键用于候选导航，不步进。
-                      if (event.nativeEvent.isComposing)
-                        return;
-                      // live：有选区（刚打开时全选）不步进——不拦默认行为，由
-                      // 浏览器折叠选区；光标态才 ±1（角度无证据，保持默认）。
-                      const input = event.currentTarget;
-                      const { selectionStart, selectionEnd } = input;
-                      if (selectionStart === null || selectionEnd === null || selectionStart !== selectionEnd)
-                        return;
-                      const next = stepConstraintEditorValue({
-                        kind: editor.kind,
-                        text: editor.value,
-                        initialText: editor.initialValue,
-                        rawValue: editor.rawValue,
-                        direction: event.key === 'ArrowUp' ? 1 : -1,
-                      });
-                      if (next === undefined)
-                        return;
-                      event.preventDefault();
-                      setEditor({ ...editor, value: next });
-                      setFailed(false);
-                      return;
-                    }
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      void commit();
-                      return;
-                    }
-                    if (event.key === 'Escape') {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      cancel();
-                    }
-                  }}
-                />
-                <span
-                  className="part-studio-dimension-editor-unit"
-                  data-testid="sketch-dimension-unit"
-                  aria-hidden="true"
-                >
-                  {dimensionEditorUnit(editor.kind)}
-                </span>
-              </span>
-              {/* 禁用参数状态切换（live「dropdown」）：普通数值尺寸不可用。 */}
-              <button
-                type="button"
-                className="part-studio-dimension-editor-state-toggle"
-                data-testid="sketch-dimension-state-toggle"
-                disabled
-                aria-hidden="true"
-                tabIndex={-1}
-              >
-                <OnshapeIcon name="hole-tolerance-precision" size={20} />
-              </button>
-              <span className="part-studio-dimension-editor-buttons">
-                <button
-                  type="button"
-                  className="part-studio-dimension-editor-confirm"
-                  aria-label={t('partStudio.sketch.panel.confirm')}
-                  title={t('partStudio.sketch.panel.confirm')}
-                  disabled={committing}
-                  data-testid="sketch-dimension-confirm"
-                  // 按钮按下不夺走输入框焦点（live：对话框保持活动）。
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => void commit()}
-                >
-                  <OnshapeIcon name="ok-button" size={14} />
-                </button>
-                <button
-                  type="button"
-                  className="part-studio-dimension-editor-cancel"
-                  aria-label={t('partStudio.sketch.panel.cancel')}
-                  title={t('partStudio.sketch.panel.cancel')}
-                  disabled={committing}
-                  data-testid="sketch-dimension-cancel"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={cancel}
-                >
-                  <OnshapeIcon name="cancel-button" size={14} />
-                </button>
-              </span>
-            </div>
-          </div>
+              行上方），边缘与拖动位置由纯函数钳制。外壳与放置值弹层共用
+              `SketchDimensionDialog`（W17b），仅 testid 面不同。 */}
+          <SketchDimensionDialog
+            testIds={DIMENSION_EDITOR_DIALOG_TEST_IDS}
+            kind={editor.kind}
+            value={editor.value}
+            initialValue={editor.initialValue}
+            rawValue={editor.rawValue}
+            unit={dimensionEditorUnit(editor.kind)}
+            error={failed}
+            busy={committing}
+            offset={dialogOffset}
+            dragOrigin={visibleDialogPosition}
+            onDragPosition={setDragPosition}
+            onValueChange={(value) => {
+              setEditor((current) => (current ? { ...current, value } : current));
+              setFailed(false);
+            }}
+            inputRef={inputRef}
+            dialogRef={dialogRef}
+            onConfirm={() => { void commit(); }}
+            onCancel={cancel}
+          />
         </div>
       )}
     </React.Fragment>
