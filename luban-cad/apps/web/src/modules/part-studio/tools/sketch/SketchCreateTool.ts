@@ -20,7 +20,9 @@
  *   「阶段提示 + 线长/角度/矩形宽高/圆与弧半径」；SketchToolFeedbackOverlay
  *   在光标旁呈现。标准 ToolAssistance 同步发出（editor 原工具通道，辅助技术
  *   可用）。2026-11-16 E6/S5：矩形（拐角/中心）拖拽的宽/高改为贴边数值
- *   （sketch-edge-labels，视口投影），覆盖层不再为这两项渲染白卡片。
+ *   （sketch-edge-labels，视口投影），覆盖层不再为这两项渲染白卡片；
+ *   2026-11-16 W12 同一机制扩展到直线长度（贴线读数）与中心点圆直径
+ *   （`Ø` 点标签，落在圆心→光标半径段中点）。
  *   提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
  * - 橡皮筋/构造线：**Dynamics 通道**（PrimitiveTool 标准预览生命周期，
  *   Tool.ts:673-680）——onDynamicFrame 同时绘制工作预览与 editor SketchTools
@@ -65,14 +67,18 @@ import { sketchPlaneFrameFrom } from './sketch-plane.js';
 import { autoWeldConstraints } from './sketch-auto-weld.js';
 import { pickSketchPlaneLocal } from './sketch-pick.js';
 import { POLYGON_DEFAULT_SIDES, POLYGON_MAX_SIDES, POLYGON_MIN_SIDES, regularPolygonVertices, type PolygonMode } from './sketch-polygon.js';
-import { computeSketchLiveMeasures } from './sketch-live-measures.js';
+import { computeSketchLiveMeasures, formatSketchLiveNumber } from './sketch-live-measures.js';
 import type { SketchLiveMeasure } from './sketch-live-measures.js';
-import { sketchRectangleEdgeSegments } from './sketch-edge-labels.js';
+import {
+  sketchLineEdgeSegment,
+  sketchPointLabelCenter,
+  sketchRectangleEdgeSegments,
+} from './sketch-edge-labels.js';
 import {
   clearSketchToolFeedback,
   publishSketchToolFeedback,
 } from './sketch-tool-feedback.js';
-import type { SketchToolEdgeLabel } from './sketch-tool-feedback.js';
+import type { SketchToolDrawLabel } from './sketch-tool-feedback.js';
 import type { SketchPlaneFrame, SketchPoint2 } from './sketch-plane.js';
 
 export type SketchCreateKind = 'line' | 'rectangle' | 'centerRectangle' | 'alignedRectangle' | 'circle' | 'perimeterCircle' | 'polygonInscribed' | 'polygonCircumscribed' | 'arc' | 'centerArc' | 'spline' | 'bezier';
@@ -119,6 +125,12 @@ export abstract class SketchCreateTool extends PrimitiveTool {
 
   /** 形状种类（测试/诊断面）。 */
   protected abstract readonly sketchKind: SketchCreateKind;
+  /**
+   * 直线工具发布贴边长度标签（2026-11-16 W12 Onshape live：长度读数贴线旁）。
+   * 中点线复用 `sketchKind='line'`，但其镜像段与读数语义不同（读数=半长），
+   * 保持既有白卡片。
+   */
+  protected readonly lineEdgeLabel: boolean = false;
   /**
    * 提交成功后保留的锚点（2026-11-13 Onshape live：绘制工具提交后保持激活）：
    * 缺省空 = 工具保持激活但开始下一形状；直线覆写为 [上一段终点]（连续链）。
@@ -429,14 +441,17 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       ? computeSketchLiveMeasures(this.sketchKind, this._anchors, this._cursorLocal)
       : [];
     // 2026-11-16 E6/S5 Onshape live：矩形拖拽的宽/高不再走光标旁白卡片，
-    // 改为贴在对应边旁（同一数值/格式）。非矩形工具仍发 measures 白卡片。
-    const edgeLabels = this._edgeLabels(measures);
+    // 改为贴在对应边旁（同一数值/格式）；W12 同口径扩展直线长度与圆直径。
+    // 未发标签的工具仍走 measures 白卡片。
+    const drawLabels = this._drawLabels(measures);
     const cx = this._cursorView ? Math.round(this._cursorView.x) : -1;
     const cy = this._cursorView ? Math.round(this._cursorView.y) : -1;
-    const edgeSignature = edgeLabels
-      ?.map((label) => `${label.labelKey}@${Math.round(label.start.x)},${Math.round(label.start.y)}-${Math.round(label.end.x)},${Math.round(label.end.y)}`)
+    const drawSignature = drawLabels
+      ?.map((label) => label.kind === 'edge'
+        ? `edge:${label.labelKey}@${Math.round(label.start.x)},${Math.round(label.start.y)}-${Math.round(label.end.x)},${Math.round(label.end.y)}`
+        : `point:${label.labelKey}@${Math.round(label.point.x)},${Math.round(label.point.y)}:${label.value}`)
       .join('|') ?? '';
-    const signature = `${hint}|${measures.map((m) => `${m.labelKey}:${m.value}`).join('|')}|${cx},${cy}|${edgeSignature}`;
+    const signature = `${hint}|${measures.map((m) => `${m.labelKey}:${m.value}`).join('|')}|${cx},${cy}|${drawSignature}`;
     if (signature === this._feedbackSignature) return;
     this._feedbackSignature = signature;
     publishSketchToolFeedback({
@@ -444,44 +459,87 @@ export abstract class SketchCreateTool extends PrimitiveTool {
       ...(hint ? { hint } : {}),
       measures,
       ...(this._cursorView ? { cursor: this._cursorView } : {}),
-      ...(edgeLabels ? { edgeLabels } : {}),
+      ...(drawLabels ? { drawLabels } : {}),
     });
   }
 
   /**
-   * 矩形拖拽中的贴边宽/高标签（视口 CSS px）：边段在草图局部坐标由
-   * `sketchRectangleEdgeSegments` 给出，经 `_plane.toWorld` + 视口
-   * `worldToView` 投影——与 `_cursorView` 同一坐标空间，不新增第二条投影路径。
-   * 非矩形（含对齐矩形）/无锚点/无光标/无尺寸/无视口 → undefined（不发标签）。
+   * 画布数值标签（视口 CSS px；2026-11-16 W12）：
+   * - 矩形（拐角/中心）：宽/高边段由 `sketchRectangleEdgeSegments` 给出；
+   * - 直线：长度贴在线旁，端点经 `sketchLineEdgeSegment` 规范化方位；
+   * - 中心点圆：直径点标签落在圆心→光标半径段中点（水平、`Ø` 前缀）。
+   * 边段/点在草图局部坐标给出，经 `_plane.toWorld` + 视口 `worldToView`
+   * 投影——与 `_cursorView` 同一坐标空间，不新增第二条投影路径。
+   * 非上述工具（含对齐矩形/中点线）/无锚点/无光标/无尺寸/无视口 → undefined
+   * （不发标签，覆盖层回落白卡片）。
    */
-  private _edgeLabels(measures: readonly SketchLiveMeasure[]): readonly SketchToolEdgeLabel[] | undefined {
-    if (this.sketchKind !== 'rectangle' && this.sketchKind !== 'centerRectangle') return undefined;
+  private _drawLabels(measures: readonly SketchLiveMeasure[]): readonly SketchToolDrawLabel[] | undefined {
     const anchor = this._anchors[0];
     const cursor = this._cursorLocal;
-    const [width, height] = measures;
-    if (!anchor || !cursor || !width || !height) return undefined;
+    if (!anchor || !cursor) return undefined;
     const viewport = IModelApp.viewManager.selectedView;
     if (!viewport) return undefined;
-
-    const segments = sketchRectangleEdgeSegments(this.sketchKind, anchor, cursor);
     const project = (point: SketchPoint2): { x: number; y: number } => {
       const view = viewport.worldToView(this._plane.toWorld(point));
       return { x: view.x, y: view.y };
     };
-    return [
-      {
-        labelKey: width.labelKey,
-        value: width.value,
-        start: project(segments.width.start),
-        end: project(segments.width.end),
-      },
-      {
-        labelKey: height.labelKey,
-        value: height.value,
-        start: project(segments.height.start),
-        end: project(segments.height.end),
-      },
-    ];
+
+    if (this.sketchKind === 'rectangle' || this.sketchKind === 'centerRectangle') {
+      const [width, height] = measures;
+      if (!width || !height) return undefined;
+      const segments = sketchRectangleEdgeSegments(this.sketchKind, anchor, cursor);
+      return [
+        {
+          kind: 'edge',
+          labelKey: width.labelKey,
+          value: width.value,
+          start: project(segments.width.start),
+          end: project(segments.width.end),
+        },
+        {
+          kind: 'edge',
+          labelKey: height.labelKey,
+          value: height.value,
+          start: project(segments.height.start),
+          end: project(segments.height.end),
+        },
+      ];
+    }
+
+    if (this.sketchKind === 'line' && this.lineEdgeLabel) {
+      // line 的 measures = [length, angle]；长度贴线渲染时 live 同一帧没有白卡片
+      // （只有旋转的长度读数），因此角度卡也由本标签抑制——measure 列表不变。
+      const [lengthMeasure, angleMeasure] = measures;
+      if (!lengthMeasure) return undefined;
+      const segment = sketchLineEdgeSegment(project(anchor), project(cursor));
+      return [{
+        kind: 'edge',
+        labelKey: lengthMeasure.labelKey,
+        value: lengthMeasure.value,
+        start: segment.start,
+        end: segment.end,
+        ...(angleMeasure ? { suppressesLabelKeys: [angleMeasure.labelKey] } : {}),
+      }];
+    }
+
+    if (this.sketchKind === 'circle') {
+      // 半径 measure 仍原样留在 measures（白卡片回退/其它消费方不变）；直径按
+      // 2×半径在工具侧派生，不改 computeSketchLiveMeasures 的 radius 输出。
+      const radiusMeasure = measures[0];
+      const radiusMm = Math.hypot(cursor.u - anchor.u, cursor.v - anchor.v);
+      if (!radiusMeasure || !(radiusMm > 1e-12)) return undefined;
+      return [{
+        kind: 'point',
+        labelKey: 'partStudio.sketch.live.diameter',
+        // 白卡片抑制配对：直径点标签替代圆的半径读数。
+        suppressesLabelKeys: [radiusMeasure.labelKey],
+        value: formatSketchLiveNumber(2 * radiusMm),
+        point: sketchPointLabelCenter(project(anchor), project(cursor)),
+        prefix: 'Ø',
+      }];
+    }
+
+    return undefined;
   }
 
   /**
@@ -533,6 +591,8 @@ export class SketchLineTool extends SketchCreateTool {
   public static override toolId = 'Sketch.Line';
   public static override iconSpec = 'icon-line';
   protected readonly sketchKind = 'line';
+  /** W12 Onshape live：直线长度读数贴在线上方（中点略上方、随线旋转）。 */
+  protected override readonly lineEdgeLabel = true;
   protected readonly requiredPoints = 2;
   protected readonly promptKeys = [
     'partStudio.sketch.create.line.firstPrompt',

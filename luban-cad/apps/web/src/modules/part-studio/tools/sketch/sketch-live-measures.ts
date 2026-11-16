@@ -19,7 +19,11 @@ export interface SketchLiveMeasure {
   value: string;
 }
 
-function formatNumber(value: number, decimals = 2): string {
+/**
+ * 实时数值格式：去尾零、最多两位小数（草图单位为 mm）。导出供工具计算派生
+ * 读数（如圆直径=2×半径）复用同一格式；`computeSketchLiveMeasures` 输出不变。
+ */
+export function formatSketchLiveNumber(value: number, decimals = 2): string {
   if (!Number.isFinite(value)) return '?';
   const fixed = value.toFixed(decimals);
   return fixed.replace(/\.?0+$/, '') || '0';
@@ -61,27 +65,27 @@ export function computeSketchLiveMeasures(
       const angle = (Math.atan2(cursor.v - first.v, cursor.u - first.u) * 180) / Math.PI;
       const normalized = (angle + 360) % 360;
       return [
-        { labelKey: 'partStudio.sketch.live.length', value: formatNumber(len) },
+        { labelKey: 'partStudio.sketch.live.length', value: formatSketchLiveNumber(len) },
         { labelKey: 'partStudio.sketch.live.angle', value: `${normalized.toFixed(1)}°` },
       ];
     }
 
     case 'rectangle':
       return [
-        { labelKey: 'partStudio.sketch.live.width', value: formatNumber(Math.abs(cursor.u - first.u)) },
-        { labelKey: 'partStudio.sketch.live.height', value: formatNumber(Math.abs(cursor.v - first.v)) },
+        { labelKey: 'partStudio.sketch.live.width', value: formatSketchLiveNumber(Math.abs(cursor.u - first.u)) },
+        { labelKey: 'partStudio.sketch.live.height', value: formatSketchLiveNumber(Math.abs(cursor.v - first.v)) },
       ];
 
     case 'centerRectangle':
       return [
-        { labelKey: 'partStudio.sketch.live.width', value: formatNumber(2 * Math.abs(cursor.u - first.u)) },
-        { labelKey: 'partStudio.sketch.live.height', value: formatNumber(2 * Math.abs(cursor.v - first.v)) },
+        { labelKey: 'partStudio.sketch.live.width', value: formatSketchLiveNumber(2 * Math.abs(cursor.u - first.u)) },
+        { labelKey: 'partStudio.sketch.live.height', value: formatSketchLiveNumber(2 * Math.abs(cursor.v - first.v)) },
       ];
 
     case 'alignedRectangle': {
       if (anchors.length === 1) {
         return [
-          { labelKey: 'partStudio.sketch.live.length', value: formatNumber(length(first, cursor)) },
+          { labelKey: 'partStudio.sketch.live.length', value: formatSketchLiveNumber(length(first, cursor)) },
           {
             labelKey: 'partStudio.sketch.live.angle',
             value: `${(((Math.atan2(cursor.v - first.v, cursor.u - first.u) * 180) / Math.PI + 360) % 360).toFixed(1)}°`,
@@ -94,43 +98,43 @@ export function computeSketchLiveMeasures(
       const base = Math.hypot(dx, dy);
       if (base < 1e-12) return [];
       const height = Math.abs((cursor.u - first.u) * (-dy / base) + (cursor.v - first.v) * (dx / base));
-      return [{ labelKey: 'partStudio.sketch.live.height', value: formatNumber(height) }];
+      return [{ labelKey: 'partStudio.sketch.live.height', value: formatSketchLiveNumber(height) }];
     }
 
     case 'circle':
-      return [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(length(first, cursor)) }];
+      return [{ labelKey: 'partStudio.sketch.live.radius', value: formatSketchLiveNumber(length(first, cursor)) }];
 
     case 'polygonInscribed':
     case 'polygonCircumscribed':
       return anchors.length === 1
-        ? [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(length(first, cursor)) }]
+        ? [{ labelKey: 'partStudio.sketch.live.radius', value: formatSketchLiveNumber(length(first, cursor)) }]
         : [];
 
     case 'perimeterCircle': {
       if (anchors.length === 1) {
-        return [{ labelKey: 'partStudio.sketch.live.length', value: formatNumber(length(first, cursor)) }];
+        return [{ labelKey: 'partStudio.sketch.live.length', value: formatSketchLiveNumber(length(first, cursor)) }];
       }
       const second = anchors[1]!;
       const radius = radiusThroughThreePoints(first, second, cursor);
       return radius === undefined
         ? []
-        : [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(radius) }];
+        : [{ labelKey: 'partStudio.sketch.live.radius', value: formatSketchLiveNumber(radius) }];
     }
 
     case 'arc': {
       if (anchors.length === 1) {
-        return [{ labelKey: 'partStudio.sketch.live.length', value: formatNumber(length(first, cursor)) }];
+        return [{ labelKey: 'partStudio.sketch.live.length', value: formatSketchLiveNumber(length(first, cursor)) }];
       }
       const second = anchors[1]!;
       const radius = radiusThroughThreePoints(first, second, cursor);
       return radius === undefined
         ? []
-        : [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(radius) }];
+        : [{ labelKey: 'partStudio.sketch.live.radius', value: formatSketchLiveNumber(radius) }];
     }
 
     case 'centerArc': {
       if (anchors.length === 1) {
-        return [{ labelKey: 'partStudio.sketch.live.radius', value: formatNumber(length(first, cursor)) }];
+        return [{ labelKey: 'partStudio.sketch.live.radius', value: formatSketchLiveNumber(length(first, cursor)) }];
       }
       const start = anchors[1]!;
       const startAngle = Math.atan2(start.v - first.v, start.u - first.u);

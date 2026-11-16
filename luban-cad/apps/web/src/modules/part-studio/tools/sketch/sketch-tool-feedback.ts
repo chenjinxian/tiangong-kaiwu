@@ -12,12 +12,17 @@
 import type { SketchLiveMeasure } from './sketch-live-measures.js';
 
 /**
- * 绘制中贴边的数值标签（2026-11-16 E6/S5 Onshape live：拐角矩形拖拽时，
- * 宽度数值贴在第一条轴所在的边上、高度数值贴在垂直边上；蓝字、无底色/
- * 描边/引线，文字随边旋转）。start/end 是边的视口坐标（CSS px，相对画布
- * 左上角；与 `cursor` 同一坐标空间）——覆盖层据此算中点/角度/外偏移。
+ * 绘制中的画布数值标签（2026-11-16 E6/S5 + W12 Onshape live）——两种形态：
+ * - `edge`：贴在边旁的数值（矩形宽/高、直线长度）。start/end 是边的视口
+ *   坐标（CSS px，相对画布左上角；与 `cursor` 同一坐标空间），覆盖层据此
+ *   算中点/角度/外偏移并随边旋转；
+ * - `point`：点标签（中心点圆直径）。point 是标签中心的视口坐标，水平不
+ *   旋转；可见文本 = `prefix` + `value`（如 `Ø20`）。
+ * 两者都只做显示投影：数值由 sketch-live-measures 产出，位置由工具投影到
+ * 视口，不碰 IModelApp、RPC、schema 或草图数据。
  */
 export interface SketchToolEdgeLabel {
+  kind: 'edge';
   /** i18n 键（与 `measures` 同一 labelKey——覆盖层据此避免重复渲染白卡片）。 */
   labelKey: string;
   /** 已格式化数值（复用 computeSketchLiveMeasures 的格式）。 */
@@ -26,7 +31,32 @@ export interface SketchToolEdgeLabel {
   start: { x: number; y: number };
   /** 边终点（视口坐标）。 */
   end: { x: number; y: number };
+  /**
+   * 本标签额外抑制的光标卡尺寸键（缺省只抑制同 `labelKey` 的 measure）。
+   * 直线：长度贴线渲染时 live 无白卡片，连角度卡一并抑制（measure 列表不变）。
+   */
+  suppressesLabelKeys?: readonly string[];
 }
+
+/** 点标签（中心点圆直径；水平不旋转，落在圆心→光标半径段中点）。 */
+export interface SketchToolPointLabel {
+  kind: 'point';
+  /** i18n 键（语义键；可见文本 = `prefix` + `value`，不渲染键名本身）。 */
+  labelKey: string;
+  /** 已格式化数值（复用 computeSketchLiveMeasures 的格式）。 */
+  value: string;
+  /** 标签中心（视口坐标）。 */
+  point: { x: number; y: number };
+  /** 文本前缀（如直径符号 `Ø`）。 */
+  prefix?: string;
+  /**
+   * 本标签额外抑制的光标卡尺寸键（缺省只抑制同 `labelKey` 的 measure）。
+   * 中心点圆：直径点标签（语义键=`diameter`）抑制 `radius` 卡。
+   */
+  suppressesLabelKeys?: readonly string[];
+}
+
+export type SketchToolDrawLabel = SketchToolEdgeLabel | SketchToolPointLabel;
 
 export interface SketchToolFeedback {
   toolId: string;
@@ -37,10 +67,11 @@ export interface SketchToolFeedback {
   /** 视口坐标（CSS px，相对画布左上角）。 */
   cursor?: { x: number; y: number };
   /**
-   * 贴边数值标签（2026-11-16 E6/S5 Onshape live）：矩形拖拽时宽度/高度直接
-   * 贴在对应边旁，不再使用光标旁白卡片。旧发布方不带该字段仍合法。
+   * 画布数值标签（2026-11-16 E6/S5 Onshape live；W12 扩展直线长度与圆直径）：
+   * 矩形宽度/高度与直线长度贴在边旁，中心点圆直径落在半径段中点，相应尺寸
+   * 不再使用光标旁白卡片。旧发布方不带该字段仍合法。
    */
-  edgeLabels?: readonly SketchToolEdgeLabel[];
+  drawLabels?: readonly SketchToolDrawLabel[];
   /**
    * 视口锚点徽标（CSS px，相对画布左上角；与 `cursor` 同一坐标空间）。
    * 2026-11-15 E3 Onshape live：草图圆角悬停角点时，画布在角点画橙色圆点 +

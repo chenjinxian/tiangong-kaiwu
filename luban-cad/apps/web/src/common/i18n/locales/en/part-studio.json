@@ -1136,6 +1136,7 @@
       "width": "Width",
       "height": "Height",
       "radius": "Radius",
+      "diameter": "Diameter",
       "angle": "Angle"
     },
     "create": {

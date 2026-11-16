@@ -1136,6 +1136,7 @@
       "width": "宽度",
       "height": "高度",
       "radius": "半径",
+      "diameter": "直径",
       "angle": "角度"
     },
     "create": {

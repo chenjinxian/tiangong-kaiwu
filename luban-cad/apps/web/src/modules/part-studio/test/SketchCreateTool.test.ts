@@ -67,12 +67,17 @@ import {
   clearSketchToolFeedback,
   getSketchToolFeedback,
 } from '../tools/sketch/sketch-tool-feedback.js';
-import type { SketchToolFeedback } from '../tools/sketch/sketch-tool-feedback.js';
+import type {
+  SketchToolEdgeLabel,
+  SketchToolFeedback,
+  SketchToolPointLabel,
+} from '../tools/sketch/sketch-tool-feedback.js';
 import type { SketchPoint2 } from '../tools/sketch/sketch-plane.js';
 import {
   SketchArc3PointTool,
   SketchCenterCircleTool,
   SketchCenterRectangleTool,
+  SketchCreateTool,
   SketchLineTool,
   SketchMidlineTool,
   SketchPerimeterCircleTool,
@@ -364,8 +369,8 @@ const makeEvent = (x: number, y: number): BeButtonEvent => ({
 } as unknown as BeButtonEvent);
 
 /** 走真实工具生命周期：安装 → 落第一点 → 只移动光标（不落第二点）→ 读反馈。 */
-async function driveRectangleTool(
-  tool: SketchRectangleTool | SketchCenterRectangleTool,
+async function driveCreateTool(
+  tool: SketchCreateTool,
   anchor: SketchPoint2,
   cursor: SketchPoint2,
 ): Promise<SketchToolFeedback> {
@@ -377,7 +382,7 @@ async function driveRectangleTool(
   return feedback;
 }
 
-describe('W11：矩形拖拽贴边标签（edgeLabels 与 measures 配对/边段投影）', () => {
+describe('W11：矩形拖拽画布标签（drawLabels 与 measures 配对/边段投影）', () => {
   afterEach(() => {
     clearSketchToolFeedback();
     (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = undefined;
@@ -389,13 +394,15 @@ describe('W11：矩形拖拽贴边标签（edgeLabels 与 measures 配对/边段
 
   it('拐角矩形：width/height 与同名 measure 一一对应，边段 = anchor→(cursor.u,anchor.v)→cursor', async () => {
     installViewport();
-    const feedback = await driveRectangleTool(
+    const feedback = await driveCreateTool(
       new SketchRectangleTool(),
       { u: 10, v: 5 },
       { u: 40, v: 25 },
     );
 
-    const labels = feedback.edgeLabels ?? [];
+    const labels = (feedback.drawLabels ?? []).filter(
+      (label): label is SketchToolEdgeLabel => label.kind === 'edge',
+    );
     expect(labels).toHaveLength(2);
     const [widthMeasure, heightMeasure] = feedback.measures;
     const [widthLabel, heightLabel] = labels;
@@ -418,13 +425,15 @@ describe('W11：矩形拖拽贴边标签（edgeLabels 与 measures 配对/边段
 
   it('中心矩形：从中心反射对角点起算（边长 2|Δu| / 2|Δv|），不是从中心起算', async () => {
     installViewport();
-    const feedback = await driveRectangleTool(
+    const feedback = await driveCreateTool(
       new SketchCenterRectangleTool(),
       { u: 20, v: 20 },
       { u: 40, v: 28 },
     );
 
-    const labels = feedback.edgeLabels ?? [];
+    const labels = (feedback.drawLabels ?? []).filter(
+      (label): label is SketchToolEdgeLabel => label.kind === 'edge',
+    );
     expect(labels).toHaveLength(2);
     const [widthLabel, heightLabel] = labels;
     expect(widthLabel?.value).toBe('40'); // 2·|40−20|
@@ -437,6 +446,118 @@ describe('W11：矩形拖拽贴边标签（edgeLabels 与 measures 配对/边段
     expect(widthLabel?.end).toEqual({ x: 40, y: 12 });
     expect(heightLabel?.start).toEqual({ x: 40, y: 12 });
     expect(heightLabel?.end).toEqual({ x: 40, y: 28 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-11-16 W12：直线长度贴边标签 + 中心点圆 Ø 直径点标签（工具发布面）
+// 假视口恒等投影：标签坐标可直接与局部 (u,v) 对比；绘图工具同一状态机
+// （安装 → 落第一点 → 只移动光标）驱动。
+// ---------------------------------------------------------------------------
+describe('W12：直线/中心点圆画布标签（drawLabels 发布）', () => {
+  afterEach(() => {
+    clearSketchToolFeedback();
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = undefined;
+  });
+
+  const installViewport = (): void => {
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = fakeViewport;
+  };
+
+  it('直线：长度复用同名 measure，边段 = anchor→cursor（随线旋转由覆盖层负责）', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchLineTool(),
+      { u: 10, v: 5 },
+      { u: 40, v: 25 },
+    );
+
+    const labels = feedback.drawLabels ?? [];
+    expect(labels).toHaveLength(1);
+    const label = labels[0];
+    expect(label?.kind).toBe('edge');
+    const edge = label as SketchToolEdgeLabel;
+    expect(edge.labelKey).toBe('partStudio.sketch.live.length');
+    expect(edge.value).toBe(feedback.measures[0]?.value);
+    expect(edge.value).toBe('36.06'); // √(30²+20²)
+    expect(edge.start).toEqual({ x: 10, y: 5 });
+    expect(edge.end).toEqual({ x: 40, y: 25 });
+    // 角度保留在 measures（列表不变），但由同一标签一并抑制白卡片（live 无卡）。
+    expect(feedback.measures.map((m) => m.labelKey)).toEqual([
+      'partStudio.sketch.live.length',
+      'partStudio.sketch.live.angle',
+    ]);
+    expect(edge.suppressesLabelKeys).toEqual(['partStudio.sketch.live.angle']);
+  });
+
+  it('直线：反向拖拽时端点规范化（标签仍在线上方一侧，中点/长度不变）', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchLineTool(),
+      { u: 40, v: 5 },
+      { u: 10, v: 5 },
+    );
+
+    const edge = feedback.drawLabels?.[0] as SketchToolEdgeLabel | undefined;
+    expect(edge?.start).toEqual({ x: 10, y: 5 });
+    expect(edge?.end).toEqual({ x: 40, y: 5 });
+    expect(edge?.value).toBe('30');
+  });
+
+  it('中心点圆：Ø 直径点标签落在圆心→光标半径段中点（直径=2×半径，半径卡配对）', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchCenterCircleTool(),
+      { u: 10, v: 10 },
+      { u: 13, v: 14 },
+    );
+
+    // 半径 measure 原样保留（其它消费方/白卡片回退不变）。
+    expect(feedback.measures).toEqual([
+      { labelKey: 'partStudio.sketch.live.radius', value: '5' },
+    ]);
+    const label = feedback.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(label?.kind).toBe('point');
+    expect(label?.labelKey).toBe('partStudio.sketch.live.diameter');
+    expect(label?.suppressesLabelKeys).toEqual(['partStudio.sketch.live.radius']);
+    expect(label?.prefix).toBe('Ø');
+    expect(label?.value).toBe('10'); // 2×5
+    expect(label?.point).toEqual({ x: 11.5, y: 12 });
+  });
+
+  it('中心点圆：零半径（光标回到圆心）不发标签，半径白卡片回退', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchCenterCircleTool(),
+      { u: 10, v: 10 },
+      { u: 10, v: 10 },
+    );
+
+    expect(feedback.drawLabels).toBeUndefined();
+    expect(feedback.measures[0]).toEqual({ labelKey: 'partStudio.sketch.live.radius', value: '0' });
+  });
+
+  it('中点线：与直线共用 sketchKind 但不发长度标签（镜像段/读数语义不同，保持白卡片）', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchMidlineTool(),
+      { u: 10, v: 10 },
+      { u: 20, v: 10 },
+    );
+
+    expect(feedback.drawLabels).toBeUndefined();
+    expect(feedback.measures[0]?.labelKey).toBe('partStudio.sketch.live.length');
+  });
+
+  it('无视口：直线不回退到贴边标签（交给白卡片），不抛错', async () => {
+    const feedback = await driveCreateTool(
+      new SketchLineTool(),
+      { u: 10, v: 5 },
+      { u: 40, v: 25 },
+    );
+
+    expect(feedback.drawLabels).toBeUndefined();
+    expect(feedback.measures[0]?.labelKey).toBe('partStudio.sketch.live.length');
   });
 });
 

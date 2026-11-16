@@ -133,7 +133,7 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
     expect(container.innerHTML).toBe('');
   });
 
-  it('edgeLabels：宽/高贴在对应边中点外侧，且不再渲染同项白卡片', () => {
+  it('drawLabels（edge）：宽/高贴在对应边中点外侧，且不再渲染同项白卡片', () => {
     publishSketchToolFeedback({
       toolId: 'Sketch.Rectangle',
       hint: '点击放置矩形对角点',
@@ -142,14 +142,16 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
         { labelKey: 'partStudio.sketch.live.height', value: '19.05' },
       ],
       cursor: { x: 200, y: 200 },
-      edgeLabels: [
+      drawLabels: [
         {
+          kind: 'edge',
           labelKey: 'partStudio.sketch.live.width',
           value: '82.55',
           start: { x: 100, y: 100 },
           end: { x: 200, y: 100 },
         },
         {
+          kind: 'edge',
           labelKey: 'partStudio.sketch.live.height',
           value: '19.05',
           start: { x: 200, y: 100 },
@@ -177,7 +179,7 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
     expect(screen.queryByTestId('sketch-tool-feedback')).toBeNull();
   });
 
-  it('edgeLabels：对角边 45° 旋转，反向边翻正（不加 180° 颠倒）', () => {
+  it('drawLabels（edge）：对角边 45° 旋转，反向边翻正（不加 180° 颠倒）', () => {
     publishSketchToolFeedback({
       toolId: 'Sketch.Rectangle',
       measures: [
@@ -185,14 +187,16 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
         { labelKey: 'partStudio.sketch.live.height', value: '10' },
       ],
       cursor: { x: 200, y: 200 },
-      edgeLabels: [
+      drawLabels: [
         {
+          kind: 'edge',
           labelKey: 'partStudio.sketch.live.width',
           value: '10',
           start: { x: 100, y: 100 },
           end: { x: 200, y: 200 },
         },
         {
+          kind: 'edge',
           labelKey: 'partStudio.sketch.live.height',
           value: '10',
           start: { x: 200, y: 200 },
@@ -216,15 +220,17 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
         { labelKey: 'partStudio.sketch.live.height', value: '100' },
       ],
       cursor: { x: 100, y: 200 },
-      edgeLabels: [
+      drawLabels: [
         // 第二角点与第一角点同 u：宽边两端点投影重合（零长度）。
         {
+          kind: 'edge',
           labelKey: 'partStudio.sketch.live.width',
           value: '0',
           start: { x: 100, y: 100 },
           end: { x: 100, y: 100 },
         },
         {
+          kind: 'edge',
           labelKey: 'partStudio.sketch.live.height',
           value: '100',
           start: { x: 100, y: 100 },
@@ -240,7 +246,7 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
     expect(screen.getByTestId('sketch-tool-feedback').getAttribute('data-measures')).toBe('width=0');
   });
 
-  it('非矩形（线长）仍用白卡片（edgeLabels 不出场时行为不变）', () => {
+  it('无 drawLabels 时行为不变：线长仍用白卡片', () => {
     publishSketchToolFeedback({
       toolId: 'Sketch.Line',
       measures: [{ labelKey: 'partStudio.sketch.live.length', value: '42' }],
@@ -251,6 +257,115 @@ describe('SketchToolFeedbackOverlay（顶部提示 pill + 光标旁尺寸卡片�
     expect(screen.getByTestId('sketch-tool-feedback').getAttribute('data-measures')).toBe('length=42');
     expect(screen.queryByTestId('sketch-draw-edge-label-length')).toBeNull();
     expect(screen.queryByTestId('sketch-draw-edge-label-width')).toBeNull();
+  });
+
+  it('drawLabels（edge·直线）：长度贴在线中点上方并随线旋转，角度卡一并抑制（无白卡片）', () => {
+    publishSketchToolFeedback({
+      toolId: 'Sketch.Line',
+      measures: [
+        { labelKey: 'partStudio.sketch.live.length', value: '14.14' },
+        { labelKey: 'partStudio.sketch.live.angle', value: '45.0°' },
+      ],
+      cursor: { x: 200, y: 200 },
+      drawLabels: [{
+        kind: 'edge',
+        labelKey: 'partStudio.sketch.live.length',
+        value: '14.14',
+        start: { x: 100, y: 100 },
+        end: { x: 200, y: 200 },
+        // live：直线拖拽同一帧只有旋转的长度读数，没有白卡片。
+        suppressesLabelKeys: ['partStudio.sketch.live.angle'],
+      }],
+    });
+    render(<SketchToolFeedbackOverlay />);
+
+    const label = screen.getByTestId('sketch-draw-edge-label-length');
+    expect(label.textContent).toBe('14.14');
+    expect(label.getAttribute('aria-hidden')).toBe('true');
+    // 单条边标签的内部参考点=自身中点 → 法线不翻转：右向对角边偏移到上方。
+    const offset = 8 * Math.SQRT1_2;
+    expect(Number.parseFloat(label.style.left)).toBeCloseTo(150 + offset, 6);
+    expect(Number.parseFloat(label.style.top)).toBeCloseTo(150 - offset, 6);
+    expect(rotationDeg(label)).toBeCloseTo(45, 6);
+
+    // 长度已贴边 + 角度被同一标签抑制 → 不渲染白卡片。
+    expect(screen.queryByTestId('sketch-tool-feedback')).toBeNull();
+  });
+
+  it('drawLabels（edge·直线）：未声明抑制角度时角度仍留白卡片（抑制按 key 驱动，不按工具一刀切）', () => {
+    publishSketchToolFeedback({
+      toolId: 'Sketch.Line',
+      measures: [
+        { labelKey: 'partStudio.sketch.live.length', value: '14.14' },
+        { labelKey: 'partStudio.sketch.live.angle', value: '45.0°' },
+      ],
+      cursor: { x: 200, y: 200 },
+      drawLabels: [{
+        kind: 'edge',
+        labelKey: 'partStudio.sketch.live.length',
+        value: '14.14',
+        start: { x: 100, y: 100 },
+        end: { x: 200, y: 200 },
+      }],
+    });
+    render(<SketchToolFeedbackOverlay />);
+
+    expect(screen.getByTestId('sketch-tool-feedback').getAttribute('data-measures')).toBe('angle=45.0°');
+  });
+
+  it('drawLabels（point·圆）：Ø 直径标签水平落在半径段中点，半径白卡片被抑制', () => {
+    publishSketchToolFeedback({
+      toolId: 'Sketch.CenterCircle',
+      hint: '点击放置圆半径点',
+      measures: [{ labelKey: 'partStudio.sketch.live.radius', value: '5' }],
+      cursor: { x: 160, y: 140 },
+      drawLabels: [{
+        kind: 'point',
+        labelKey: 'partStudio.sketch.live.diameter',
+        suppressesLabelKeys: ['partStudio.sketch.live.radius'],
+        value: '10',
+        point: { x: 130, y: 120 },
+        prefix: 'Ø',
+      }],
+    });
+    render(<SketchToolFeedbackOverlay />);
+
+    const label = screen.getByTestId('sketch-draw-point-label-diameter');
+    expect(label.textContent).toBe('Ø10');
+    expect(label.className).toContain('part-studio-sketch-draw-label');
+    expect(label.getAttribute('aria-hidden')).toBe('true');
+    expect(label.style.left).toBe('130px');
+    expect(label.style.top).toBe('120px');
+    // 水平不旋转：只有居中平移，没有 rotate。
+    expect(label.style.transform).toBe('translate(-50%, -50%)');
+    expect(label.style.transform).not.toContain('rotate');
+
+    // 半径卡被直径点标签替代；阶段提示 pill 保留。
+    expect(screen.queryByTestId('sketch-tool-feedback')).toBeNull();
+    expect(screen.getByTestId('sketch-tool-hint').textContent).toContain('点击放置圆半径点');
+  });
+
+  it('drawLabels（point）与未配对的 measure：白卡片只保留未替代项', () => {
+    publishSketchToolFeedback({
+      toolId: 'Sketch.CenterCircle',
+      measures: [
+        { labelKey: 'partStudio.sketch.live.radius', value: '5' },
+        { labelKey: 'partStudio.sketch.live.angle', value: '0.0°' },
+      ],
+      cursor: { x: 160, y: 140 },
+      drawLabels: [{
+        kind: 'point',
+        labelKey: 'partStudio.sketch.live.diameter',
+        suppressesLabelKeys: ['partStudio.sketch.live.radius'],
+        value: '10',
+        point: { x: 130, y: 120 },
+        prefix: 'Ø',
+      }],
+    });
+    render(<SketchToolFeedbackOverlay />);
+
+    expect(screen.getByTestId('sketch-draw-point-label-diameter').textContent).toBe('Ø10');
+    expect(screen.getByTestId('sketch-tool-feedback').getAttribute('data-measures')).toBe('angle=0.0°');
   });
 });
 
@@ -275,8 +390,8 @@ describe('SketchToolFeedbackOverlay 样式钉版（CSS 文本）', () => {
     expect(card).toMatch(/background:\s*rgba\(255,\s*255,\s*255,\s*0\.97\)/);
   });
 
-  it('贴边数值标签：Onshape live token（#4a90e2 / 13.3333px / 无底色描边）', () => {
-    const label = cssRuleBlock('.part-studio-sketch-edge-label');
+  it('画布数值标签（边/点共用）：Onshape live token（#4a90e2 / 13.3333px / 无底色描边）', () => {
+    const label = cssRuleBlock('.part-studio-sketch-draw-label');
     expect(label).toMatch(/position:\s*absolute/);
     expect(label).toMatch(/color:\s*#4a90e2/);
     expect(label).toMatch(/font-size:\s*13\.3333px/);

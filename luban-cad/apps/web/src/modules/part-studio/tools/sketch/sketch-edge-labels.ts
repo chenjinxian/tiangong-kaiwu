@@ -2,12 +2,13 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 绘制中贴边数值标签的纯几何（2026-11-16 E6/S5 Onshape live）：矩形拖拽时
- * 宽度/高度数值直接贴在对应边旁——边中点、沿边法线向矩形外侧偏移 ~8px，
- * 文字随边旋转且保持正立（角度归一到 (−90°, 90°]）。live 实测蓝字 ≈#4a90e2、
+ * 绘制中数值标签的纯几何（2026-11-16 E6/S5 Onshape live；W12 扩展直线与圆）：
+ * 矩形拖拽时宽度/高度、直线拖拽时长度的数值贴在对应边旁——边中点、沿边法线
+ * 偏移 ~8px，文字随边旋转且保持正立（角度归一到 (−90°, 90°]）；中心点圆拖拽时
+ * 直径落在圆心→光标半径段的中点（水平不旋转）。live 实测蓝字 ≈#4a90e2、
  * 13.3333px、无底色/描边/引线；产品数值仍沿用既有 mm 两位去尾零格式。
  *
- * 只做显示投影：数值由 sketch-live-measures 产出，边段由工具锚点/光标给出；
+ * 只做显示投影：数值由 sketch-live-measures 产出，边段/点由工具锚点/光标给出；
  * 不碰 IModelApp、RPC、schema 或草图数据（P0-06 派生显示数据只做投影）。
  */
 import type { SketchPoint2 } from './sketch-plane.js';
@@ -30,6 +31,12 @@ export interface SketchRectangleEdgeSegments {
   width: SketchEdgeSegment;
   /** 高度边（草图局部 v 方向；长度=高）。 */
   height: SketchEdgeSegment;
+}
+
+/** 视口坐标边段（CSS px；标签渲染输入）。 */
+export interface SketchViewEdgeSegment {
+  start: SketchEdgePoint;
+  end: SketchEdgePoint;
 }
 
 /** 边标签的显示布局（边中点沿法线外移后的中心 + 正立旋转角）。 */
@@ -100,4 +107,24 @@ export function layoutSketchEdgeLabel(
   else if (angleDeg <= -90) angleDeg += 180;
 
   return { x: midX + nx * offsetPx, y: midY + ny * offsetPx, angleDeg };
+}
+
+/**
+ * 直线拖拽长度标签的边段（视口坐标；W12）：端点按视口 x 递增规范化（竖线按
+ * y 递增）。标签法向取边向量 +90°，规范化后读数稳定落在线的“上方”一侧
+ * （live：中点略上方）；交换端点不改变中点，旋转角由覆盖层归一到正立区间。
+ * 只对单条边标签有意义——矩形两条边仍由 `sketchRectangleEdgeSegments` +
+ * 内部参考点决定外侧。
+ */
+export function sketchLineEdgeSegment(start: SketchEdgePoint, end: SketchEdgePoint): SketchViewEdgeSegment {
+  const flip = start.x > end.x || (start.x === end.x && start.y > end.y);
+  return flip ? { start: end, end: start } : { start, end };
+}
+
+/**
+ * 点标签中心（视口坐标；W12）：两点中点。中心点圆的直径读数落在圆心→光标
+ * 的半径段中点（live：水平不旋转）。
+ */
+export function sketchPointLabelCenter(center: SketchEdgePoint, cursor: SketchEdgePoint): SketchEdgePoint {
+  return { x: (center.x + cursor.x) / 2, y: (center.y + cursor.y) / 2 };
 }

@@ -12,6 +12,9 @@
  *
  * 2026-11-16 E6/S5 live：矩形拖拽时宽/高数值直接贴在对应边旁（蓝字
  * #4a90e2 13.3333px、无底色/描边/引线、随边旋转且保持正立），不再进白卡片。
+ * 2026-11-16 W12 同一机制扩展到直线长度（贴线旋转读数）与中心点圆直径
+ * （水平 `Ø` 点标签，落在圆心→光标半径段中点）——两类标签共用同一蓝色文本
+ * 语言，只按边布局或点位置区分。
  *
  * 纯视觉层：pointer-events:none，不参与拾取；aria-hidden（屏幕阅读器另有
  * ToolAssistance 通道）。
@@ -22,6 +25,10 @@ import { layoutSketchEdgeLabel } from '../tools/sketch/sketch-edge-labels.js';
 import {
   getSketchToolFeedback,
   subscribeSketchToolFeedback,
+} from '../tools/sketch/sketch-tool-feedback.js';
+import type {
+  SketchToolEdgeLabel,
+  SketchToolPointLabel,
 } from '../tools/sketch/sketch-tool-feedback.js';
 import './SketchToolFeedbackOverlay.css';
 
@@ -88,10 +95,17 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
     </div>
   ) : null;
 
-  // 2026-11-16 E6/S5 Onshape live：矩形拖拽的宽/高贴在对应边旁。位置=边中点
-  // 沿法线外移（背离矩形内部），文字随边旋转并归一到 (−90°, 90°] 保持正立。
-  // 内部参考点取两条边中点的平均（凸四边形内部），避免第三次投影。
-  const edgeLabels = feedback.edgeLabels ?? [];
+  // 2026-11-16 E6/S5 Onshape live：矩形拖拽的宽/高贴在对应边旁（W12：直线
+  // 长度同构）。位置=边中点沿法线外移（背离图形内部），文字随边旋转并归一到
+  // (−90°, 90°] 保持正立。内部参考点取各边中点的平均（凸四边形内部），单条
+  // 边标签时即其自身中点（法线不翻转——直线读数稳定落在线上方）。
+  const drawLabels = feedback.drawLabels ?? [];
+  const edgeLabels = drawLabels.filter(
+    (label): label is SketchToolEdgeLabel => label.kind === 'edge',
+  );
+  const pointLabels = drawLabels.filter(
+    (label): label is SketchToolPointLabel => label.kind === 'point',
+  );
   const edgeMidpoints = edgeLabels.map((label) => ({
     x: (label.start.x + label.end.x) / 2,
     y: (label.start.y + label.end.y) / 2,
@@ -107,17 +121,26 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
     const layout = layoutSketchEdgeLabel(label.start, label.end, interior);
     return layout ? [{ label, layout }] : [];
   });
-  // 白卡片的抑制集只能来自**实际渲染**的边标签：折叠的边没有标签时，对应
-  // measure 必须回落到白卡片，不得静默消失（2026-11-16 W11 review）。
-  const edgeLabelKeys = new Set(renderedEdgeLabels.map(({ label }) => label.labelKey));
+  // 白卡片的抑制集只能来自**实际渲染**的标签：折叠的边/退化的点没有标签时，
+  // 对应 measure 必须回落到白卡片，不得静默消失（2026-11-16 W11 review）。
+  // 除标签自身的 labelKey 外，标签可声明额外抑制项 `suppressesLabelKeys`
+  // （圆直径点标签抑制 radius 卡；直线长度贴线时抑制 angle 卡——live 同帧无白卡）。
+  const suppressedMeasureKeys = new Set<string>();
+  const suppressKeysOf = (label: { labelKey: string; suppressesLabelKeys?: readonly string[] }): void => {
+    suppressedMeasureKeys.add(label.labelKey);
+    for (const key of label.suppressesLabelKeys ?? []) suppressedMeasureKeys.add(key);
+  };
+  for (const { label } of renderedEdgeLabels) suppressKeysOf(label);
+  for (const label of pointLabels) suppressKeysOf(label);
+
+  const labelSuffix = (labelKey: string): string => labelKey.split('.').pop() ?? 'value';
   const edgeLabelNodes = renderedEdgeLabels.map(({ label, layout }) => {
-    const suffix = label.labelKey.split('.').pop() ?? 'value';
     return (
       <span
-        key={label.labelKey}
-        className="part-studio-sketch-edge-label"
-        data-testid={`sketch-draw-edge-label-${suffix}`}
-        data-edge-label={label.labelKey}
+        key={`edge:${label.labelKey}`}
+        className="part-studio-sketch-draw-label"
+        data-testid={`sketch-draw-edge-label-${labelSuffix(label.labelKey)}`}
+        data-draw-label={label.labelKey}
         style={{
           left: layout.x,
           top: layout.y,
@@ -129,12 +152,32 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
       </span>
     );
   });
+  // 点标签（W12 中心点圆直径）：水平不旋转、以 point 为中心；可见文本 =
+  // 前缀 + 数值（live：`Ø2.98`，无标签名/白卡）。
+  const pointLabelNodes = pointLabels.map((label) => {
+    return (
+      <span
+        key={`point:${label.labelKey}`}
+        className="part-studio-sketch-draw-label"
+        data-testid={`sketch-draw-point-label-${labelSuffix(label.labelKey)}`}
+        data-draw-label={label.labelKey}
+        style={{
+          left: label.point.x,
+          top: label.point.y,
+          transform: 'translate(-50%, -50%)',
+        }}
+        aria-hidden="true"
+      >
+        {label.prefix ?? ''}{label.value}
+      </span>
+    );
+  });
 
   // 光标旁卡片只承载实时尺寸：无尺寸（或没有光标）时不渲染空白卡片。
-  // 已贴边的数值不再重复进白卡片（2026-11-16 E6/S5）。
+  // 已由画布标签呈现的数值不再重复进白卡片（2026-11-16 E6/S5；W12 同口径）。
   let measuresCard: React.JSX.Element | null = null;
   const cursor = feedback.cursor;
-  const cardMeasures = feedback.measures.filter((measure) => !edgeLabelKeys.has(measure.labelKey));
+  const cardMeasures = feedback.measures.filter((measure) => !suppressedMeasureKeys.has(measure.labelKey));
   if (cursor && cardMeasures.length > 0) {
     const { x, y } = cursor;
     const flipX = x > window.innerWidth - 280;
@@ -173,12 +216,13 @@ export function SketchToolFeedbackOverlay(): React.JSX.Element | null {
     );
   }
 
-  if (!hintPill && !measuresCard && !badge && edgeLabelNodes.length === 0) return null;
+  if (!hintPill && !measuresCard && !badge && edgeLabelNodes.length === 0 && pointLabelNodes.length === 0) return null;
   return (
     <>
       {hintPill}
       {badge}
       {edgeLabelNodes}
+      {pointLabelNodes}
       {measuresCard}
     </>
   );

@@ -186,7 +186,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   ±90° 旋转归一化。验证：web **2050/2050**、tsc(src/e2e)/eslint 绿；真栈
   新 spec `sketch-draw-readout` 2 passed（修复后复跑 38.6 s）、`tutorial2`
   全链 **2 passed（4.6 min）**，终体积 **357.730 cm³**、去材 0.422 与基线
-  一致（旧白卡断言换为贴边读数，数值边界未放宽）。
+  一致（旧白卡断言换为贴边读数，数值边界未放宽）。**W12**：直线绘制贴线
+  长度读数（角度不进白卡）、中心圆半径段中点水平 `Ø<直径>` 读数（半径卡
+  替代；圆弧等未采工具保持白卡）；web **2065/2065**，真栈三路径
+  `sketch-draw-readout` **2 passed（47.6 s）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

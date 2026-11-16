@@ -2,13 +2,16 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 绘制中贴边数值标签纯几何（2026-11-16 E6/S5 Onshape live）：矩形宽/高
- * 边段（草图局部）与视口标签布局（中点外移 + 正立旋转）。
+ * 绘制中数值标签纯几何（2026-11-16 E6/S5 + W12 Onshape live）：矩形宽/高
+ * 边段（草图局部）、直线长度边段与圆直径点标签位置（视口），以及视口标签
+ * 布局（中点法向外移 + 正立旋转）。
  */
 import { describe, expect, it } from 'vitest';
 import {
   SKETCH_EDGE_LABEL_OFFSET_PX,
   layoutSketchEdgeLabel,
+  sketchLineEdgeSegment,
+  sketchPointLabelCenter,
   sketchRectangleEdgeSegments,
 } from '../tools/sketch/sketch-edge-labels.js';
 
@@ -75,5 +78,45 @@ describe('layoutSketchEdgeLabel（边中点沿法线外移 + 正立旋转）', (
 
   it('零长度边：不渲染歧义标签', () => {
     expect(layoutSketchEdgeLabel({ x: 10, y: 10 }, { x: 10, y: 10 })).toBeUndefined();
+  });
+});
+
+describe('sketchLineEdgeSegment（直线长度标签边段；W12）', () => {
+  it('右向拖动：端点保持 anchor→cursor（标签落在线上方）', () => {
+    const segment = sketchLineEdgeSegment({ x: 100, y: 100 }, { x: 200, y: 140 });
+    expect(segment).toEqual({ start: { x: 100, y: 100 }, end: { x: 200, y: 140 } });
+    // 单条边标签（内部参考点=自身中点）时法线不翻转：右向边偏移到屏幕上方。
+    const layout = layoutSketchEdgeLabel(segment.start, segment.end, {
+      x: (segment.start.x + segment.end.x) / 2,
+      y: (segment.start.y + segment.end.y) / 2,
+    });
+    expect(layout!.y).toBeLessThan((100 + 140) / 2);
+  });
+
+  it('左向拖动：交换端点使标签仍落在线上方（中点/旋转不变）', () => {
+    const rightward = sketchLineEdgeSegment({ x: 100, y: 100 }, { x: 200, y: 100 });
+    const leftward = sketchLineEdgeSegment({ x: 200, y: 100 }, { x: 100, y: 100 });
+    expect(leftward).toEqual(rightward);
+    const layout = layoutSketchEdgeLabel(leftward.start, leftward.end);
+    expect(layout!.x).toBe(150);
+    expect(layout!.y).toBe(100 - SKETCH_EDGE_LABEL_OFFSET_PX);
+    expect(layout!.angleDeg).toBe(0);
+  });
+
+  it('竖线：向下拖动保持、向上拖动交换（标签固定落在线右侧）', () => {
+    const down = sketchLineEdgeSegment({ x: 50, y: 100 }, { x: 50, y: 200 });
+    const up = sketchLineEdgeSegment({ x: 50, y: 200 }, { x: 50, y: 100 });
+    expect(down).toEqual({ start: { x: 50, y: 100 }, end: { x: 50, y: 200 } });
+    expect(up).toEqual(down);
+  });
+});
+
+describe('sketchPointLabelCenter（点标签中心；W12）', () => {
+  it('圆心→光标的中点（直径读数落在半径段中途）', () => {
+    expect(sketchPointLabelCenter({ x: 100, y: 100 }, { x: 160, y: 140 })).toEqual({ x: 130, y: 120 });
+  });
+
+  it('光标回到圆心：中点=圆心（退化半径由工具侧拒绝发标签）', () => {
+    expect(sketchPointLabelCenter({ x: 80, y: 60 }, { x: 80, y: 60 })).toEqual({ x: 80, y: 60 });
   });
 });
