@@ -11,7 +11,9 @@
  *   被替代，输入边数不改变读数）；
  * - 圆心圆弧（W25）：阶段 1 `R` 半径点标签落在圆心→光标段中点；阶段 2
  *   （起点已锚）固定在圆心→起点中点、扫角光标不移动/不改值，无角度白卡。
- * 全部 Esc 退出工具、取消草图 = 不提交任何几何。
+ * - 相切圆弧（W28）：切点选定后移动光标，`R` 半径点标签水平落在
+ *   「切点→弧终点（光标）」弦的投影中点，随光标移动并更新读数。
+ * 除 W28 先提交一条直线作切点基线外，其余工具 Esc 退出、取消草图 = 不提交几何。
  */
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
@@ -55,8 +57,8 @@ function midpointOf(a: { x: number; y: number }, b: { x: number; y: number }): {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16 + W25）', () => {
-  test('矩形宽/高、直线长度、圆/多边形 Ø 直径、三点弧/圆心弧 R 半径读数可见；Esc 退出不提交', async ({ page, request }) => {
+test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16 + W25 + W28）', () => {
+  test('矩形宽/高、直线长度、圆/多边形 Ø 直径、三点弧/圆心弧/相切弧 R 半径读数可见；Esc 退出不提交', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 120_000);
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
@@ -221,6 +223,63 @@ test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16 + W25）', () 
     await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
     await page.keyboard.press('Escape');
     await expectToolExited(page, 'Sketch.CenterArc');
+
+    // ── W28 相切圆弧：切点→弧终点的弦投影中点 `R` 半径点标签 ──
+    // live 2026-11-17：点选线端点定切点、移动光标定弧终点，`R<半径>` 水平落在
+    // 弦的投屏中点（无白卡）。先提交一条 P(0,0)→P(10,0) 直线（两次点击，Esc
+    // 退出工具），再从 P(0,0) 切出：光标 P(5,5) → r=5；换 P(5,10) → r=6.25，
+    // 标签随新弦中点移动并更新读数。
+    await activate(page, '线');
+    await clickWorld(page, hub, P(0, 0));
+    await clickWorld(page, hub, P(10, 0));
+    await page.waitForTimeout(1_200);
+    await page.keyboard.press('Escape');
+    await expectToolExited(page, 'Sketch.Line');
+
+    const [tChordStart1, tChordEnd1] = await projectWorld(page, hub, [P(0, 0), P(5, 5)]);
+    const [tChordStart2, tChordEnd2] = await projectWorld(page, hub, [P(0, 0), P(5, 10)]);
+    const tChordMidpoint1 = midpointOf(tChordStart1!, tChordEnd1!);
+    const tChordMidpoint2 = midpointOf(tChordStart2!, tChordEnd2!);
+
+    await activate(page, '相切圆弧');
+    await clickWorld(page, hub, P(0, 0));
+    await hoverWorld(page, hub, P(5, 5));
+    const tangentArcLabel = page.getByTestId('sketch-draw-point-label-radius');
+    await expect(tangentArcLabel, '相切圆弧切点选定后应有 R 半径点标签')
+      .toBeVisible({ timeout: 10_000 });
+    const tangentText1 = (await tangentArcLabel.textContent())?.trim() ?? '';
+    expect(tangentText1.startsWith('R'), `半径读数应以 R 开头：${tangentText1}`).toBe(true);
+    const tangentRadius1 = Number(tangentText1.slice('R'.length));
+    expect(tangentRadius1).toBeGreaterThan(4.5);
+    expect(tangentRadius1).toBeLessThan(5.5);
+    // 点标签水平不旋转（只有居中平移）。
+    expect(await tangentArcLabel.getAttribute('style')).not.toContain('rotate');
+    // 标签中心 = 切点/光标投影弦中点（±2 px，吸收画布/文字包围盒取整）。
+    await expect.poll(async () => {
+      const center = await labelCenter(tangentArcLabel);
+      return Math.max(Math.abs(center.x - tChordMidpoint1.x), Math.abs(center.y - tChordMidpoint1.y));
+    }, { timeout: 10_000 }).toBeLessThanOrEqual(2);
+    // 相切圆弧本就不发光标旁白卡片（measures 恒空）；阶段提示 pill 保留。
+    await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
+    await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
+
+    // 光标移到 P(5,10)：标签跟随新弦中点、读数更新（r=6.25）。
+    await hoverWorld(page, hub, P(5, 10));
+    await expect.poll(async () => (await tangentArcLabel.textContent())?.trim())
+      .not.toBe(tangentText1);
+    const tangentText2 = (await tangentArcLabel.textContent())?.trim() ?? '';
+    expect(tangentText2.startsWith('R'), `半径读数应以 R 开头：${tangentText2}`).toBe(true);
+    const tangentRadius2 = Number(tangentText2.slice('R'.length));
+    expect(tangentRadius2).toBeGreaterThan(6);
+    expect(tangentRadius2).toBeLessThan(6.5);
+    await expect.poll(async () => {
+      const center = await labelCenter(tangentArcLabel);
+      return Math.max(Math.abs(center.x - tChordMidpoint2.x), Math.abs(center.y - tChordMidpoint2.y));
+    }, { timeout: 10_000 }).toBeLessThanOrEqual(2);
+    await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
+    await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expectToolExited(page, 'Sketch.TangentArc');
 
     // ── W16 内切多边形：与中心点圆同一圆心→光标半径状态的 Ø 直径点标签 ──
     // 圆心 P(0,0)、光标 P(10,0) → 半径 10 mm；live 2026-11-16（内切多边形）

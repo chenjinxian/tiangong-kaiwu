@@ -127,7 +127,8 @@ export function sketchLineEdgeSegment(start: SketchEdgePoint, end: SketchEdgePoi
 /**
  * 点标签中心（视口坐标；W12）：两点中点。中心点圆/正多边形的直径读数落在
  * 圆心→光标的半径段中点（live：水平不旋转）；W25 圆心圆弧半径读数同样落在
- * 圆心→半径点（阶段 1 光标 / 阶段 2 起点）的投影中点。
+ * 圆心→半径点（阶段 1 光标 / 阶段 2 起点）的投影中点；W28 相切圆弧半径读数
+ * 落在「切点→光标（弧终点）」弦的投影中点。
  */
 export function sketchPointLabelCenter(center: SketchEdgePoint, cursor: SketchEdgePoint): SketchEdgePoint {
   return { x: (center.x + cursor.x) / 2, y: (center.y + cursor.y) / 2 };

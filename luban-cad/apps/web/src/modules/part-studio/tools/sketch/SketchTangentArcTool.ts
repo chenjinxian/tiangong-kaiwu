@@ -14,6 +14,9 @@
  * 取点沿用草图工具链统一 `pickHitLocal`（sketch-pick：热捕捉 → 光标射线∩草图
  * 平面 → 回退）；世界点经草图平面架投影为局部 (u,v)。提交走 applyUpdate 乐观
  * 整体覆写，拒收只回滚本次 id。
+ *
+ * 2026-11-17 W28 Onshape live：切点选定后移动光标，画布在「切点→弧终点（光标）」
+ * 弦投影中点显示水平 `R<半径>` 点标签（无白卡）；未选起点/退化弧不发标签。
  */
 import {
   BeButtonEvent,
@@ -32,8 +35,15 @@ import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import { pickHitLocal, resolveSketchPlaneFrame } from './SketchAddConstraintTool.js';
+import { sketchPointLabelCenter } from './sketch-edge-labels.js';
+import { formatSketchLiveNumber } from './sketch-live-measures.js';
 import type { SketchPlaneFrame } from './sketch-plane.js';
-import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
+import {
+  clearSketchToolFeedback,
+  publishSketchToolFeedback,
+  publishSketchToolHint,
+} from './sketch-tool-feedback.js';
+import type { SketchToolDrawLabel } from './sketch-tool-feedback.js';
 
 const PREVIEW_COLOR = ColorDef.from(0, 120, 215);
 const PICK_TOL = 3.0;
@@ -77,7 +87,16 @@ export class SketchTangentArcTool extends PrimitiveTool {
   public override async onMouseMotion(ev: BeButtonEvent): Promise<void> {
     await super.onMouseMotion(ev);
     this._cursorView = { x: ev.viewPoint.x, y: ev.viewPoint.y };
-    if (this._hintText) publishSketchToolHint(this.toolId, this._hintText, this._cursorView);
+    // 2026-11-17 W28 Onshape live：切点已选后，移动光标在「切点→弧终点」
+    // 弦投影中点发布水平 `R<半径>` 点标签（无白卡）；未选起点/退化弧不发。
+    const drawLabels = this._drawLabels(ev);
+    publishSketchToolFeedback({
+      toolId: this.toolId,
+      ...(this._hintText ? { hint: this._hintText } : {}),
+      measures: [],
+      ...(this._cursorView ? { cursor: this._cursorView } : {}),
+      ...(drawLabels ? { drawLabels } : {}),
+    });
   }
 
   public override async onDataButtonDown(ev: BeButtonEvent): Promise<EventHandled> {
@@ -164,6 +183,33 @@ export class SketchTangentArcTool extends PrimitiveTool {
   public override async onRestartTool(): Promise<void> {
     const tool = new SketchTangentArcTool();
     if (!(await tool.run())) return this.exitTool();
+  }
+
+  /**
+   * 画布数值标签（视口 CSS px；2026-11-17 W28 Onshape live）：切点已选时，
+   * `R<半径>` 点标签水平落在**切点→当前弧终点（光标）的弦投影中点**——live
+   * 采样三处光标均守此规则，读数=相切弧半径。切点/光标经草图平面架
+   * `toWorld` + 视口 `worldToView` 投影（与 `_cursorView` 同一坐标空间，
+   * 不新增第二条投影路径）。未选起点/退化弧（`_buildArc` 无解）/无视口 →
+   * undefined（不发标签；本工具 `measures` 恒空，无白卡片可抑制）。
+   */
+  private _drawLabels(ev: BeButtonEvent): readonly SketchToolDrawLabel[] | undefined {
+    const start = this._start;
+    if (!start) return undefined;
+    const hit = pickHitLocal(ev, this._plane);
+    const built = this._buildArc(start, hit);
+    if (!built) return undefined;
+    const viewport = IModelApp.viewManager.selectedView;
+    if (!viewport) return undefined;
+    const startView = viewport.worldToView(this._plane.toWorld(start.point));
+    const endView = viewport.worldToView(this._plane.toWorld(hit));
+    return [{
+      kind: 'point',
+      labelKey: 'partStudio.sketch.live.radius',
+      value: formatSketchLiveNumber(built.radius),
+      point: sketchPointLabelCenter(startView, endView),
+      prefix: 'R',
+    }];
   }
 
   private _pickLineEndpoint(entities: readonly SketchEntityDto[], hit: Pt): LineAnchor | undefined {
