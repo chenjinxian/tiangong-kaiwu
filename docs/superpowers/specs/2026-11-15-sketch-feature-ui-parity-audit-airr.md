@@ -852,3 +852,21 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   `context-menu-states` **8 passed（3.1 min，其他菜单不受影响）**。
 - 残留：行内匿名 flex 文本的 `text-overflow:ellipsis` 不生效（live 用 span；
   当前文案均不溢出，未加包装）；选择子菜单动作仍为能力缺口（诚实禁用）。
+
+### 2026-11-17 W25 圆心圆弧绘制读数（R 点标签）
+
+- live：圆心圆弧两阶段均为蓝色水平 `R<半径>` 点标签、无白卡/角度卡；阶段 1
+  （圆心已锚）标签居中于圆心→光标半径段的投影中点；阶段 2（圆心+起点已锚）
+  固定在圆心→起点半径段中点，扫角光标不移动标签/不改读数，live 阶段 2 不显示
+  角度。
+- 实现：`computeSketchLiveMeasures` 的 centerArc 阶段 2 由角度改为半径
+  （center→start，光标不参与）；`SketchCreateTool._drawLabels` 增 centerArc
+  分支（阶段 1 半径点=光标、阶段 2=起点；`sketchPointLabelCenter` 投影中点、
+  `R` 前缀、抑制半径卡；零半径/无视口回退既有白卡片）。无契约/后端改动。
+- 验证：目标单测 44/44（6 新增）、全量 web **2164/2164**、tsc(src+e2e)/eslint
+  绿；真栈 `sketch-draw-readout` **2 passed（58.7 s，含阶段 1/2 中点 ±2 px、
+  同值、无白卡断言）**。
+- 残留：相切圆弧 `R` 读数为切点→光标弦中点（两位置吻合），但工具是独立
+  PrimitiveTool、需接 drawLabels 通道，未实现；周边圆 `Ø` 读数三次采样位置
+  不一致（圆内靠原点/圆右侧/圆下方），锚点未定，不做；阶段 2 不再显示扫角
+  （live 无该读数；若要角度需新 labelKey）。
