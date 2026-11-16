@@ -895,3 +895,19 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   live 一致；平面/框架/钣金等其余变体仍用家族图标（待图标长尾波次）；探针
   工具栏的 SMJog/PCB 等自定义行不采纳；全 full 子项→箭头禁用分支在真实特征
   数据下已不可达（规则未改，无直接测试）。
+
+### 2026-11-17 W27 特征飞菜单其余行图标 + 两处行 tooltip
+
+- live：平面/框架/钣金模型 40 个子项各有独立 Onshape sprite（此前复用家族
+  图标）；40 枚 payload 逐字节取自 live（39 枚 viewBox 20×20，mate-connector
+  10×10）。行 tooltip 与标签不同的两行：薄片（tab）→页签、角点（corner）→
+  尖角；其余同行标签。探针工具栏的自定义行（SMJog/PCB）不采纳。
+- 实现：`onshape-icons` 新增 40 枚 sprite；`ONSHAPE_TOOL_ICONS` 补 40 个
+  id→sprite 映射；tab/corner 增 `tooltipKey`（zh 页签/尖角，en Sheet/
+  Sharp corner）。行集/顺序/标签/能力/激活/行为零变更。
+- 验证：`toolbar-live-parity` + `ribbon-registry` **221/221**、全量 web
+  **2178/2178**、tsc(src+e2e)/eslint 绿；真栈 `feature-toolbar-variants`
+  **3 passed（49.7 s：平面 26 / 框架 5 / 钣金 12 行、每行 svg、代表子项图标
+  互异且异于主钮、薄片/角点 title 页签/尖角）**。
+- 残留：en tooltip 为翻译（live en 未采）；SMJog/PCB 自定义行不采纳；
+  mate-connector sprite 按 live 的 10×10 viewBox 渲染。

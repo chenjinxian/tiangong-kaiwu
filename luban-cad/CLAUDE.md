@@ -256,7 +256,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   capability 由 fillet(full) 改挂独立 gated（引导 zh/en，gated 集 55），消除
   静默 no-op。全量 web **2174/2174**、tsc(src+e2e)/eslint 绿；真栈新
   `feature-toolbar-variants` **2 passed（36.1 s）** + 特征对话框回归
-  **11 passed（3.1 min）**。
+  **11 passed（3.1 min）**。**W27**：平面/框架/钣金 40 个子项改用 live
+  sprite（39 枚 20×20 + mate-connector 10×10，payload 逐字节 + FNV-1a 钉死）；
+  薄片/角点行 tooltip 改为 live 页签/尖角。全量 web **2178/2178**、
+  tsc(src+e2e)/eslint 绿；真栈 `feature-toolbar-variants` **3 passed
+  （49.7 s，平面 26/框架 5/钣金 12 行 + 子项图标互异）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
