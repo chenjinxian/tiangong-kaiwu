@@ -209,6 +209,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   监听）；ArrowUp/Down 无选区时长度类 ±1 mm（原始值为基线、IME/选区不步进）；
   长度初值 5 位小数。web **2098/2098**（重跑；首轮一次无关 flake 未复现）、
   tsc(src/e2e)/eslint 绿；真栈 `sketch-dimension-edit` **3 passed（1.4 min）**。
+  **W17b**：双击编辑器与放置值弹层共用同一 `SketchDimensionDialog`（209×47
+  唯一视觉）；放置弹层居中于点击（−104.5/−31，top ≥8）、长度初值 5 位/
+  角度 7 位、`mm`/`deg` 后缀、光标态 ±1 mm 步进（角度 W18）；偏移弹层保留
+  产品旧卡。web **2102/2102**、tsc(src/e2e)/eslint 绿；真栈
+  `sketch-dimension-edit` 3 passed + 扩展后的放置标注流通过
+  （`tutorial2-tools` 8 passed；1 个既有 count off-by-one known-red
+  「竖直 约束数」未涉本次改动）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
