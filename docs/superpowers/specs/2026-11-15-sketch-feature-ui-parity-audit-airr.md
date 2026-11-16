@@ -747,3 +747,14 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   通过、`tutorial2` **2 passed（4.7 min）**（体积 357.730 cm³ / 去材 0.422 不变）。
 - 残留：放置弹层的角度候选通道未开（`SketchDimensionKind` 不含 angle；若接通
   需把度换算回弧度）。
+
+### 2026-11-16 W19 尺寸工具连续标注（S1b）
+
+- live：✓/✗ 关闭值弹层后单尺寸工具保持安装（`is-active`），清空拾取即可继续
+  下一次标注，无需重激活 ribbon；Esc 退出。
+- 实现：`SketchDimensionTool` 的 `dimensionPopupClosed` 回调改为清等待态 +
+  清拾取 + 刷新提示、不 `exitTool`；弹层打开期间仍忽略画布拾取；候选/提交/
+  事件契约不变；旧槽位工具（非 ribbon、独立类层级、无 live 证据）保持退出。
+- 验证：目标单测 42/42、全量 web **2115/2115**、tsc(src/e2e)/eslint 绿；
+  真栈 `tutorial2-tools` 标注流 **2 passed（1.3 min）**：确认后不重激活直接
+  拾取圆弧 → 第二个值弹层；✗ 不落约束（12 条不变），随后半径/距离照常落库。
