@@ -250,6 +250,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   固定圆心→起点中点、扫角光标不移动/不改值、无角度卡；阶段 2 读数由角度改
   半径）；全量 web **2164/2164**、tsc(src+e2e)/eslint 绿；真栈
   `sketch-draw-readout` **2 passed（58.7 s，含 ±2 px 中点/同值/无白卡）**。
+  **W26**：特征飞菜单组主钮 = 最近使用变体（label/tooltip/图标切换、主钮激活
+  该变体；与草图共用会话 map；快捷键同记）；六个主变体改用 live sprite
+  （enclose/face-blend/body-draft/circular-pattern/wrap/decal）；面混合
+  capability 由 fillet(full) 改挂独立 gated（引导 zh/en，gated 集 55），消除
+  静默 no-op。全量 web **2174/2174**、tsc(src+e2e)/eslint 绿；真栈新
+  `feature-toolbar-variants` **2 passed（36.1 s）** + 特征对话框回归
+  **11 passed（3.1 min）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

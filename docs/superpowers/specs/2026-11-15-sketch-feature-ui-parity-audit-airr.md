@@ -870,3 +870,28 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   PrimitiveTool、需接 drawLabels 通道，未实现；周边圆 `Ø` 读数三次采样位置
   不一致（圆内靠原点/圆右侧/圆下方），锚点未定，不做；阶段 2 不再显示扫角
   （live 无该读数；若要角度需新 labelKey）。
+
+### 2026-11-17 W26 特征工具栏主钮记忆最近使用变体
+
+- live：特征 9 个飞菜单组的主钮 = **最近选择的变体**（行 label/tooltip/icon
+  立即切换并 is-active；行序不变）。观测：加厚→封闭 / 圆角→面混合 /
+  拔模→主体拔模 / 线性阵列→环形阵列 / 变换→包覆 / 平面→偏移曲面 /
+  框架→框架修剪 / 钣金模型→法兰 / custom→添加自定义特征。探针文档工具栏是
+  自定义布局，行集/顺序仍以 2026-11-13 默认工具栏审计为准；本轮只采用「主钮
+  记忆变体」机制与六个主变体的 live sprite。
+- 实现：`RibbonDropdown` 的 `selectedId`/`onSelect` 扩到特征模式（与草图共用
+  同一会话 map；仅飞菜单组 id 参与展示读取，特征/草图组 id 不重叠，命令 id
+  可同名）；特征主钮激活态 = `activeToolId === selectedId`；快捷键按模式经
+  `ribbonToolGroupFor`/`sketchToolGroupFor` 记录；六个变体图标改用 live
+  sprite（enclose/face-blend/body-draft/circular-pattern/wrap/decal，新增前五
+  枚逐字节 payload）；**面混合** capability 由 `fillet`(full) 改挂独立
+  `faceBlend`(gated) + zh/en 引导（gated 集 54→55），修复菜单/主钮静默 no-op。
+  无契约/后端改动。
+- 验证：目标单测 **314/314**（4 文件）、全量 web **2174/2174**、
+  tsc(src+e2e)/eslint 绿；真栈新 `feature-toolbar-variants` **2 passed
+  （36.1 s）** + `feature-flow-parity`/`pattern-second-direction-ui`/
+  `part-studio` **11 passed（3.1 min）**。
+- 残留：对话框型变体不写 `activeToolId`，主钮按压态只在真实工具激活时与
+  live 一致；平面/框架/钣金等其余变体仍用家族图标（待图标长尾波次）；探针
+  工具栏的 SMJog/PCB 等自定义行不采纳；全 full 子项→箭头禁用分支在真实特征
+  数据下已不可达（规则未改，无直接测试）。
