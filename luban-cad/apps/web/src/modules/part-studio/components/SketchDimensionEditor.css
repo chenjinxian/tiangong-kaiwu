@@ -1,19 +1,25 @@
 /* 草图尺寸数值内联编辑（ADR-0018 S1e，Onshape 双击尺寸改值）。
-   2026-11-16 live dimension-dialog 口径：拖拽条 159×13 白底（24×14 四点握把
-   居中）、面板 159×34 白底 0 圆角、阴影 0 5px 10px rgba(0,0,0,0.2)、下内边距
-   5px；输入 100×26 透明无边框、仅 inset 0 -1px 0 #1651b0 下划线、字号
-   13.3333px；按钮组 52×28（确认 22×22 实心 #009400 白勾，取消 22×22 白底
-   1px #cccccc 红 X，radius 4——与草图值弹层同一视觉语言）；错误态只把下划线
-   转 #c0392b，无其它装饰。包装元素 100×26 + translateY(-50%)（输入框垂直
-   中心 = 标签中心）；可见对话框 159×47 的位置由纯函数钳制在视口内（内联
-   left/top 覆写默认 -1/-13）。拖拽条为装饰（不实现拖动），默认光标。 */
+   2026-11-16 W17 live dimension-dialog 全结构：可见对话框 209×47——拖拽条
+   209×13 白底 + 1px #cccccc 边框（box-sizing: border-box，height 13 含边框）、
+   cursor: move、居中三枚 7×7 空心方握把（1px #333 描边、透明填充、1px 间距）；
+   面板 209×34 白底 0 圆角、阴影 0 5px 10px rgba(0,0,0,0.2)、下内边距 5px。
+   面板内容自左向右（live 坐标）：禁用展开器 20×20（x+1,y+3，#d7d7d7 chevron、
+   不可点）、输入 100×26（面板 x+21，透明无边框、仅 inset 0 -1px 0 #1651b0
+   下划线、字号 13.3333px）、禁用参数状态切换 20×20（输入 x+105、y+5、
+   rgba(16,16,16,0.3)、radius 3、not-allowed）、按钮组 52×28（toggle x+25、
+   padding 5px 0 0 4px、22×22 两枚、4px 间距；确认实心 #009400 白勾、取消白底
+   1px #cccccc 红 X、radius 4——与草图值弹层同一视觉语言）；右侧余 6px。
+   错误态只把下划线转 #c0392b，无其它装饰。包装元素 100×26 + translateY(-50%)
+  （输入框垂直中心 = 标签中心）；可见对话框位置由纯函数钳制在视口内（内联
+   left/top 覆写默认 -21/-13）。仅 13px 拖拽条可拖（面板不拖）。 */
 
 .part-studio-dimension-editor-wrap {
   position: fixed;
   z-index: 40;
   /* 输入行锚点：left = 输入框左缘、top 经 translateY(-50%) 居中到标签中心；
-     对话框默认相对它偏移 -1px/-13px（13px = 上方拖拽条），边缘由
-     layoutDimensionEditorDialog 内联覆写钳制。 */
+     对话框默认相对它偏移 -21px/-13px（面板向左侧扩展 21px、上方 13px 拖拽条），
+     边缘与拖动位置由 layoutDimensionEditorDialog/clampDimensionEditorPosition
+     内联覆写钳制。 */
   width: 100px;
   height: 26px;
   transform: translateY(-50%);
@@ -22,53 +28,71 @@
 
 .part-studio-dimension-editor-dialog {
   position: absolute;
-  left: -1px;
+  left: -21px;
   top: -13px;
   display: flex;
   flex-direction: column;
-  width: 159px;
+  width: 209px;
   background: #ffffff;
 }
 
+/* 拖拽条 209×13（live）：白底 + 1px #cccccc 边框（height 含边框）；整条可拖。 */
 .part-studio-dimension-editor-dragbar {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 159px;
+  width: 209px;
   height: 13px;
+  border: 1px solid #cccccc;
   background: #ffffff;
+  cursor: move;
+  touch-action: none;
 }
 
-/* 24×14 握把：四个 3×3 方点居中（2×2）。 */
+/* 24×14 握把：三枚 7×7 空心方居中（1px 间距，live ◻︎◻︎◻︎ 的视觉等价）。 */
 .part-studio-dimension-editor-grip {
-  display: grid;
-  grid-template-columns: repeat(2, 3px);
-  grid-template-rows: repeat(2, 3px);
-  align-content: center;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   width: 24px;
   height: 14px;
 }
 
 .part-studio-dimension-editor-grip > span {
-  width: 3px;
-  height: 3px;
-  background: #8c8c8c;
+  box-sizing: border-box;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #333333;
+  background: transparent;
 }
 
 .part-studio-dimension-editor-panel {
   box-sizing: border-box;
   display: flex;
   align-items: flex-start;
-  gap: 7px;
-  width: 159px;
+  width: 209px;
   height: 34px;
   /* live：面板下内边距 5px（输入行贴面板顶部，锚点即输入框左上角）。 */
   padding: 0 0 5px;
   border-radius: 0;
   background: #ffffff;
   box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* 禁用展开器（live node-expander-disabled pe-none）：20×20、chevron #d7d7d7、
+   纯装饰（无点击、无 title、不参与指针命中）。 */
+.part-studio-dimension-editor-expander {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 3px 0 0 1px;
+  color: #d7d7d7;
+  pointer-events: none;
 }
 
 .part-studio-dimension-editor-field {
@@ -82,8 +106,8 @@
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  /* 右侧内边距留给只读单位后缀，避免与面板内按钮相撞。 */
-  padding: 0 24px 0 4px;
+  /* 右侧内边距留给只读单位后缀，避免与面板内按钮相撞（live 左内边距 3px）。 */
+  padding: 0 24px 0 3px;
   border: none;
   border-radius: 0;
   outline: none;
@@ -113,15 +137,37 @@
   box-shadow: inset 0 -1px 0 #c0392b;
 }
 
-/* 按钮组 52×28（live）：22×22 两枚 + 8px 间距；视觉与草图值弹层
-   __confirm/__cancel 完全一致（同一套 Onshape sprite，不引第二套语言）。 */
-.part-studio-dimension-editor-buttons {
-  display: flex;
+/* 禁用参数状态切换（live「dropdown」）：普通数值尺寸不可用——20×20、
+   radius 3、透明底、rgba(16,16,16,0.3) 图标、not-allowed；不实现菜单。 */
+.part-studio-dimension-editor-state-toggle {
+  display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 5px 0 0 5px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(16, 16, 16, 0.3);
+  cursor: not-allowed;
+}
+
+/* 按钮组 52×28（live）：padding 5px 0 0 4px、22×22 两枚 + 4px 间距；视觉与
+   草图值弹层 __confirm/__cancel 完全一致（同一套 Onshape sprite，不引第二套
+   语言）。 */
+.part-studio-dimension-editor-buttons {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 4px;
   width: 52px;
   height: 28px;
+  margin-left: 5px;
+  padding: 5px 0 0 4px;
 }
 
 .part-studio-dimension-editor-confirm,

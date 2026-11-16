@@ -7,6 +7,10 @@
  * 2026-11-16 W10a（live dimension-dialog）：确认/取消按钮存在且带 live aria
  * 标签；输入框 blur 不关闭对话框（旧 blur-cancel 行为会关闭）；失焦后窗口级
  * Enter/Escape 仍生效；确认走同一 commit 路径、取消丢弃（不写模型）。
+ *
+ * 2026-11-16 W17（live 尺寸对话框全结构）：对话框 209×47、拖拽条三枚空心方
+ * 握把、禁用展开器与禁用参数状态切换、拖拽条拖动可见对话框（重开复位）、
+ * 方向键无选区时 ±1 步进（有选区/角度不步进、不提交）。
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -14,7 +18,11 @@ import { Point3d, Vector3d } from '@itwin/core-geometry';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import type { SketchConstraintDto } from '@luban-cad/shared';
 import type { SketchConstraintGlyphAnnotation, SketchLinearDimensionAnnotation } from '@luban-cad/viewer';
-import { SketchDimensionEditor } from '../components/SketchDimensionEditor.js';
+import {
+  DIMENSION_EDITOR_DIALOG_WIDTH,
+  DIMENSION_EDITOR_INPUT_HEIGHT,
+  SketchDimensionEditor,
+} from '../components/SketchDimensionEditor.js';
 
 /** 受控相机事件源（jsdom 无真 viewport；fire() 触发全部 addListener 注册者）。 */
 interface FakeViewChanged {
@@ -205,7 +213,10 @@ const DIMENSION_CONSTRAINT: SketchConstraintDto = {
 };
 const DIMENSION_LABEL_CENTER = { clientX: 140, clientY: 123 };
 
-function renderDimensionEditor(onCommit: ReturnType<typeof vi.fn> = vi.fn()): {
+function renderDimensionEditor(
+  onCommit: ReturnType<typeof vi.fn> = vi.fn(),
+  constraint: SketchConstraintDto = DIMENSION_CONSTRAINT,
+): {
   canvas: HTMLCanvasElement;
 } {
   const { canvas, viewport } = makeViewport();
@@ -218,7 +229,7 @@ function renderDimensionEditor(onCommit: ReturnType<typeof vi.fn> = vi.fn()): {
     <SketchDimensionEditor
       viewport={viewport}
       annotations={[DIMENSION_ANNOTATION]}
-      constraints={[DIMENSION_CONSTRAINT]}
+      constraints={[constraint]}
       onCommit={onCommit as unknown as (constraintId: number, value: number) => void}
     />,
   );
@@ -237,11 +248,11 @@ describe('SketchDimensionEditor W10a：live 尺寸对话框', () => {
     expect(cancel.getAttribute('aria-label')).toBe('取消');
     expect(cancel.querySelector('svg')).not.toBeNull();
     expect(cancel.textContent).toBe('');
-    // 拖拽条握把 4 个方点（aria-hidden，不参与可访问性树）。
+    // 拖拽条握把 3 枚空心方（aria-hidden，不参与可访问性树）。
     const dragbar = confirm.closest('.part-studio-dimension-editor-dialog')!
       .querySelector('.part-studio-dimension-editor-dragbar')!;
     expect(dragbar.getAttribute('aria-hidden')).toBe('true');
-    expect(dragbar.querySelectorAll('.part-studio-dimension-editor-grip > span')).toHaveLength(4);
+    expect(dragbar.querySelectorAll('.part-studio-dimension-editor-grip > span')).toHaveLength(3);
   });
 
   it('输入框 focusout 不关闭对话框（React blur 映射 focusout；旧 blur-cancel 会关闭）', () => {
@@ -336,5 +347,168 @@ describe('SketchDimensionEditor W10a：live 尺寸对话框', () => {
     fireEvent.click(screen.getByTestId('sketch-dimension-confirm'));
     await waitFor(() => expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 25));
     await waitFor(() => expect(screen.queryByTestId('sketch-dimension-input')).toBeNull());
+  });
+});
+
+// ── 2026-11-16 W17：live 尺寸对话框全结构 / 拖拽 / 方向键步进 ──────────────
+/** jsdom 26 无 PointerEvent（实测）：用 MouseEvent 以 pointer* 事件名派发
+ *（与仓内 ViewCube/SketchStatusReadout 同一先例），坐标/按键字段可用。 */
+function firePointer(
+  element: Element,
+  type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
+  init: MouseEventInit,
+): void {
+  fireEvent(element, new MouseEvent(type, { bubbles: true, cancelable: true, ...init }));
+}
+
+/** 可见对话框 client 位置（包装元素 translateY(-50%)：client top = top − 13）。 */
+function dialogClientPosition(dialog: HTMLElement): { left: number; top: number } {
+  const wrap = dialog.parentElement as HTMLElement;
+  return {
+    left: parseFloat(wrap.style.left) + parseFloat(dialog.style.left),
+    top: parseFloat(wrap.style.top) - DIMENSION_EDITOR_INPUT_HEIGHT / 2 + parseFloat(dialog.style.top),
+  };
+}
+
+const STEP_CONSTRAINT: SketchConstraintDto = {
+  id: DIMENSION_ID,
+  kind: 'distance',
+  refs: [11],
+  value: 15.74582793,
+};
+
+describe('SketchDimensionEditor W17：live 尺寸对话框结构', () => {
+  it('对话框宽 209；拖拽条带 live 类（1px #ccc 边框由 CSS 钉）；握把三枚方点', () => {
+    renderDimensionEditor();
+    expect(DIMENSION_EDITOR_DIALOG_WIDTH).toBe(209);
+    const dialog = screen.getByTestId('sketch-dimension-dialog');
+    expect(dialog.classList.contains('part-studio-dimension-editor-dialog')).toBe(true);
+    const dragbar = screen.getByTestId('sketch-dimension-dragbar');
+    expect(dragbar.classList.contains('part-studio-dimension-editor-dragbar')).toBe(true);
+    expect(dragbar.getAttribute('aria-hidden')).toBe('true');
+    expect(dragbar.querySelectorAll('.part-studio-dimension-editor-grip > span')).toHaveLength(3);
+  });
+
+  it('禁用展开器（aria-hidden、chevron 图标）与禁用参数状态切换（disabled、图标）', () => {
+    renderDimensionEditor();
+    const expander = screen.getByTestId('sketch-dimension-expander');
+    expect(expander.classList.contains('part-studio-dimension-editor-expander')).toBe(true);
+    expect(expander.getAttribute('aria-hidden')).toBe('true');
+    expect(expander.querySelector('svg')).not.toBeNull();
+
+    const toggle = screen.getByTestId('sketch-dimension-state-toggle') as HTMLButtonElement;
+    expect(toggle.classList.contains('part-studio-dimension-editor-state-toggle')).toBe(true);
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.getAttribute('aria-hidden')).toBe('true');
+    expect(toggle.querySelector('svg')).not.toBeNull();
+  });
+});
+
+describe('SketchDimensionEditor W17：拖拽条移动可见对话框', () => {
+  it('pointerdown + move +40/+30 → 可见对话框跟随；重新打开复位到锚点默认位置', () => {
+    const { canvas } = renderDimensionEditor();
+    const dragbar = screen.getByTestId('sketch-dimension-dragbar');
+    const dialog = screen.getByTestId('sketch-dimension-dialog') as HTMLElement;
+    const before = dialogClientPosition(dialog);
+
+    firePointer(dragbar, 'pointerdown', { button: 0, clientX: 300, clientY: 200 });
+    firePointer(dragbar, 'pointermove', { clientX: 340, clientY: 230, buttons: 1 });
+    firePointer(dragbar, 'pointerup', { clientX: 340, clientY: 230 });
+
+    const after = dialogClientPosition(dialog);
+    expect(after.left - before.left).toBeCloseTo(40, 5);
+    expect(after.top - before.top).toBeCloseTo(30, 5);
+
+    // 关闭再打开：回到锚点默认偏移（-21/-13），不保留拖拽位移。
+    fireEvent.click(screen.getByTestId('sketch-dimension-cancel'));
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+    const reopened = screen.getByTestId('sketch-dimension-dialog') as HTMLElement;
+    expect(parseFloat(reopened.style.left)).toBe(-21);
+    expect(parseFloat(reopened.style.top)).toBe(-13);
+  });
+
+  it('面板/输入区不可拖：pointerdown + move 不改变可见对话框位置', () => {
+    renderDimensionEditor();
+    const dialog = screen.getByTestId('sketch-dimension-dialog') as HTMLElement;
+    const panel = dialog.querySelector('.part-studio-dimension-editor-panel') as HTMLElement;
+    const before = dialogClientPosition(dialog);
+    firePointer(panel, 'pointerdown', { button: 0, clientX: 300, clientY: 200 });
+    firePointer(panel, 'pointermove', { clientX: 340, clientY: 230, buttons: 1 });
+    firePointer(panel, 'pointerup', { clientX: 340, clientY: 230 });
+    expect(dialogClientPosition(dialog)).toEqual(before);
+  });
+
+  it('指针移出拖拽条后 window 监听继续跟手（事件目标不再是拖拽条）', () => {
+    renderDimensionEditor();
+    const dragbar = screen.getByTestId('sketch-dimension-dragbar');
+    const dialog = screen.getByTestId('sketch-dimension-dialog') as HTMLElement;
+    const before = dialogClientPosition(dialog);
+    firePointer(dragbar, 'pointerdown', { button: 0, clientX: 300, clientY: 200 });
+    firePointer(document.body, 'pointermove', { clientX: 330, clientY: 220, buttons: 1 });
+    firePointer(document.body, 'pointerup', { clientX: 330, clientY: 220 });
+    const after = dialogClientPosition(dialog);
+    expect(after.left - before.left).toBeCloseTo(30, 5);
+    expect(after.top - before.top).toBeCloseTo(20, 5);
+  });
+
+  it('丢失 pointerup（buttons=0 的 move）：会话结束，后续悬停 move 不再移动', () => {
+    renderDimensionEditor();
+    const dragbar = screen.getByTestId('sketch-dimension-dragbar');
+    const dialog = screen.getByTestId('sketch-dimension-dialog') as HTMLElement;
+    firePointer(dragbar, 'pointerdown', { button: 0, clientX: 300, clientY: 200 });
+    // 丢失抬起的首次 move（按钮已为 0）→ 结束会话，不移动。
+    firePointer(document.body, 'pointermove', { clientX: 330, clientY: 220, buttons: 0 });
+    const afterLoss = dialogClientPosition(dialog);
+    // 之后的按住移动（没有新的 pointerdown）也不得拖动。
+    firePointer(document.body, 'pointermove', { clientX: 360, clientY: 240, buttons: 1 });
+    expect(dialogClientPosition(dialog)).toEqual(afterLoss);
+  });
+});
+
+describe('SketchDimensionEditor W17：方向键步进（live）', () => {
+  it('未编辑文本按约束原始值 ±1；步进后按当前文本步进；不提交', () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, STEP_CONSTRAINT);
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('15.74583');
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const steppedDown = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(steppedDown.value).toBe('14.74582793');
+
+    steppedDown.setSelectionRange(steppedDown.value.length, steppedDown.value.length);
+    fireEvent.keyDown(steppedDown, { key: 'ArrowUp' });
+    // 步进后文本已不是初始格式化：基线改为 Number(text) → 15.74582793。
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74582793');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('sketch-dimension-input')).not.toBeNull();
+  });
+
+  it('有选区时 ArrowDown 不步进（live：默认行为折叠选区）', () => {
+    renderDimensionEditor(vi.fn(), STEP_CONSTRAINT);
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    input.select();
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(input.value.length);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74583');
+  });
+
+  it('输入法合成中的 ArrowDown 不步进（候选导航交给输入法）', () => {
+    renderDimensionEditor(vi.fn(), STEP_CONSTRAINT);
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    input.setSelectionRange(input.value.length, input.value.length);
+    fireEvent.keyDown(input, { key: 'ArrowDown', isComposing: true });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74583');
+  });
+
+  it('角度 ArrowDown 不步进（无 live 证据，保持默认行为）', () => {
+    renderDimensionEditor(vi.fn(), { id: DIMENSION_ID, kind: 'angle', refs: [11], value: Math.PI / 6 });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('30');
+    input.setSelectionRange(2, 2);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
   });
 });

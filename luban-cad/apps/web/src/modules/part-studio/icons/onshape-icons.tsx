@@ -149,6 +149,7 @@ export const ONSHAPE_ICON_NAMES = [
   "cancel-button",
   "edit-button",
   "sketch-analysis-tools",
+  "hole-tolerance-precision",
 ] as const;
 
 export type OnshapeIconName = typeof ONSHAPE_ICON_NAMES[number];
@@ -292,6 +293,7 @@ export const ONSHAPE_ICONS: Record<OnshapeIconName, OnshapeIconData> = {
   "cancel-button": { viewBox: "0 0 24 24", html: "<path d=\"M17.8278 8.3308l-3.6591 3.681 3.6591 3.6589c.153.153.153.401 0 .554l-1.6611 1.661a.3904.3904 0 01-.5529 0l-3.653-3.653-3.631 3.653a.3917.3917 0 01-.554 0l-1.661-1.661a.3917.3917 0 010-.554l3.631-3.653-3.631-3.631a.3917.3917 0 010-.554l1.661-1.661a.3917.3917 0 01.554 0l3.624 3.624 3.66-3.681a.3904.3904 0 01.5529 0l1.6611 1.661c.152.154.152.402 0 .555z\" fill=\"var(--os-icon-accent-cancel, #BD3039)\"></path>" },
   "edit-button": { viewBox: "0 0 20 20", html: "<path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M8.5 15.5L18.5 5 15 1.5 5 12l-2.4275 5.0436c-.1997.4148.22.8562.6443.6778L8.5 15.5zm-3-2.5l-1.2133 2.277.8198.7819L7.5 15l-2-2zM17 5l-2-2-9 9.5 2 2L17 5z\" fill=\"var(--os-icon-outline-primary, #333333)\"></path>" },
   "sketch-analysis-tools": { viewBox: "0 0 18 18", html: "<path d=\"M3.5 12.625H15v1.25H3.5v-1.25z\" fill=\"var(--os-icon-accent-primary, #1651B0)\"></path><path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M17 9c0 1.8487-.6271 3.551-1.6802 4.9057l1.3873 1.3872c.3905.3905.3905 1.0237 0 1.4142-.3905.3905-1.0237.3905-1.4142 0l-1.3873-1.3872C12.551 16.3729 10.8487 17 9 17c-4.4183 0-8-3.5817-8-8s3.5817-8 8-8 8 3.5817 8 8zm-1 0c0 3.866-3.134 7-7 7s-7-3.134-7-7 3.134-7 7-7a6.995 6.995 0 012.1545.3378L8.5 5.1251l-3.75 7.7912 8.125-3.4162 2.719-2.855C15.8569 7.381 16 8.1738 16 9zm-1.0167-3.6351a7.0344 7.0344 0 00-2.5381-2.4598L9.75 5.7501l2.5 2.5 2.7333-2.8852zm-7.375 3.8564L9.125 6.3751l2.5 2.5-2.9919 1.3236-1.0248-.9774z\" fill=\"var(--os-icon-outline-primary, #333333)\"></path>" },
+  "hole-tolerance-precision": { viewBox: "0 0 20 20", html: "<path d=\"M3 13.5L6 16v-2h8v2l3-2.5v4.4884h1v-6h-1V13.5L14 11v2H6v-2l-3 2.5zm0 0v4.4884H2v-6h1V13.5z\" fill=\"currentColor\"></path><path d=\"M9.5 2.5a.5.5 0 011 0V4H12a.5.5 0 010 1h-1.5v1.5a.5.5 0 01-1 0V5H8a.5.5 0 010-1h1.5V2.5zM7.5 8a.5.5 0 000 1h5a.5.5 0 000-1h-5z\" fill=\"currentColor\"></path>" },
 };
 
 export function OnshapeIcon({ name, size = 20, className }: { name: OnshapeIconName; size?: number; className?: string }): React.JSX.Element | null {

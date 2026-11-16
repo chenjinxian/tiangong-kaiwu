@@ -7,6 +7,10 @@
  * 2026-11-16 W10a（live dimension-dialog）：编辑中点击画布空白不关闭对话框
  * （值不静默提交）；确认按钮提交（同一 updateSketchConstraint 路径）、取消
  * 按钮关闭并丢弃；Enter 提交路径保留。
+ *
+ * 2026-11-16 W17（live 尺寸对话框全结构）：对话框 209×47；禁用展开器 +
+ * 禁用参数状态切换；拖拽条拖动对话框；输入框方向键 ±1 步进（不提交），
+ * ✗ 取消丢弃。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchConstraintDto, SketchDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -167,6 +171,53 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeLessThan(0.001);
     await expect(input).toHaveCount(0);
     await waitForLabelLayout(LENGTH_ID);
+
+    // ---- 1b) live 尺寸对话框结构 / 拖拽条拖动 / 方向键步进（不提交） ----
+    const lengthAtLive = await centerOf(LENGTH_ID);
+    await page.mouse.dblclick(lengthAtLive.x, lengthAtLive.y);
+    const dialog = page.getByTestId('sketch-dimension-dialog');
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    const dialogBox = await dialog.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect(Math.abs(dialogBox!.width - 209)).toBeLessThanOrEqual(1);
+    expect(Math.abs(dialogBox!.height - 47)).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId('sketch-dimension-expander')).toBeAttached();
+    await expect(page.getByTestId('sketch-dimension-state-toggle')).toBeDisabled();
+
+    // 拖拽条（仅 13px 条可拖）：+40/+30 → 对话框位移 ≥20（边缘钳制允许略小）。
+    const dragbar = page.getByTestId('sketch-dimension-dragbar');
+    const dragbarBox = await dragbar.boundingBox();
+    expect(dragbarBox).not.toBeNull();
+    const dragStartX = dragbarBox!.x + dragbarBox!.width / 2;
+    const dragStartY = dragbarBox!.y + dragbarBox!.height / 2;
+    await page.mouse.move(dragStartX, dragStartY);
+    await page.mouse.down();
+    await page.mouse.move(dragStartX + 40, dragStartY + 30, { steps: 5 });
+    await page.mouse.up();
+    const draggedBox = await dialog.boundingBox();
+    expect(draggedBox).not.toBeNull();
+    expect(draggedBox!.x - dialogBox!.x).toBeGreaterThanOrEqual(20);
+    expect(draggedBox!.y - dialogBox!.y).toBeGreaterThanOrEqual(20);
+
+    // 方向键步进（live）：点入输入框得到光标（无选区），ArrowDown −1、ArrowUp 还原。
+    const stepInput = page.getByTestId('sketch-dimension-input');
+    const stepBefore = Number(await stepInput.inputValue());
+    expect(Number.isFinite(stepBefore)).toBe(true);
+    await stepInput.click();
+    // 兜底折叠选区（刚打开时全选；live 有选区不步进）：光标本就在末尾，无副作用。
+    await stepInput.press('End');
+    await stepInput.press('ArrowDown');
+    const afterDown = Number(await stepInput.inputValue());
+    expect(Math.abs(afterDown - (stepBefore - 1))).toBeLessThan(1e-6);
+    await stepInput.press('ArrowUp');
+    const afterUp = Number(await stepInput.inputValue());
+    expect(Math.abs(afterUp - stepBefore)).toBeLessThan(1e-6);
+
+    // ✗ 取消：步进不提交，长度保持 20。
+    await page.getByTestId('sketch-dimension-cancel').click();
+    await expect(stepInput).toHaveCount(0);
+    const afterStepCancel = await getSketchRpc(ctx, sketchId, token);
+    expect(lineLength(afterStepCancel)).toBeCloseTo(20, 2);
 
     // ---- 2) 长度 20 → 30（水平约束保持，几何整体重解算；保留 Enter 提交路径） ----
     const lengthAt = await centerOf(LENGTH_ID);

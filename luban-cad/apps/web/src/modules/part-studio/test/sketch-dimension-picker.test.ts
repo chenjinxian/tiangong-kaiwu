@@ -1,7 +1,8 @@
 /**
  * ADR-0018 S1e：尺寸标签命中与约束 id 解析（纯逻辑）；
  * 2026-11-15：内联输入框放置（贴标签左侧）与只读单位后缀；
- * 2026-11-16 W10a：可见尺寸对话框（159×47）视口钳制（边缘标签不裁切按钮组）。
+ * 2026-11-16 W10a：可见尺寸对话框视口钳制（边缘标签不裁切按钮组）；
+ * 2026-11-16 W17：对话框 209×47（面板向左扩展 21px，默认偏移 -21/-13）。
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -19,6 +20,7 @@ import {
   DIMENSION_EDITOR_INPUT_HEIGHT,
   DIMENSION_EDITOR_VIEWPORT_MARGIN,
   DIMENSION_EDITOR_WIDTH,
+  clampDimensionEditorPosition,
   computeDimensionEditorPlacement,
   constraintEntityIds,
   dimensionEditorUnit,
@@ -111,18 +113,20 @@ describe('computeDimensionEditorPlacement（贴标签左侧）', () => {
   });
 });
 
-describe('layoutDimensionEditorDialog（可见对话框 159×47 视口钳制）', () => {
+describe('layoutDimensionEditorDialog（可见对话框 209×47 视口钳制）', () => {
   const viewport = { width: 1024, height: 768 };
 
-  it('未钳制：默认偏移 -1/-13（拖拽条在输入行上方），输入框中心 = 标签中心', () => {
+  it('未钳制：默认偏移 -21/-13（面板向左扩展 21px），输入框中心 = 标签中心', () => {
     const anchor = { x: 400, y: 300 };
     const dialog = layoutDimensionEditorDialog({ anchor, viewport });
-    expect(dialog.offsetLeft).toBe(-1);
+    expect(dialog.offsetLeft).toBe(-21);
     expect(dialog.offsetTop).toBe(-13);
-    expect(dialog.left).toBe(anchor.x - 1);
+    expect(dialog.left).toBe(anchor.x - 21);
     expect(dialog.top).toBe(anchor.y - DIMENSION_EDITOR_INPUT_HEIGHT / 2 - 13);
     // 输入框（26px）顶部 = 面板顶部（对话框 + 13px 拖拽条）→ 中心仍在锚点。
     expect(dialog.top + 13 + DIMENSION_EDITOR_INPUT_HEIGHT / 2).toBe(anchor.y);
+    // 输入框左缘 = 面板左缘 + 21（面板 x+21 处是输入框）→ 恰在锚点。
+    expect(dialog.left + 21).toBe(anchor.x);
   });
 
   it('右/上边缘标签：对话框钳制在 [4, 视口−尺寸−4]，面板与按钮不裁切', () => {
@@ -152,6 +156,20 @@ describe('layoutDimensionEditorDialog（可见对话框 159×47 视口钳制）'
     });
     expect(tiny.left).toBe(DIMENSION_EDITOR_VIEWPORT_MARGIN);
     expect(tiny.top).toBe(DIMENSION_EDITOR_VIEWPORT_MARGIN);
+  });
+});
+
+describe('clampDimensionEditorPosition（拖拽位置 209×47 视口钳制）', () => {
+  const viewport = { width: 1024, height: 768 };
+
+  it('视口内原样返回；越界钳制到 4px 边距', () => {
+    expect(clampDimensionEditorPosition({ left: 300, top: 200 }, viewport)).toEqual({ left: 300, top: 200 });
+    expect(clampDimensionEditorPosition({ left: -100, top: -100 }, viewport))
+      .toEqual({ left: DIMENSION_EDITOR_VIEWPORT_MARGIN, top: DIMENSION_EDITOR_VIEWPORT_MARGIN });
+    expect(clampDimensionEditorPosition({ left: 5000, top: 5000 }, viewport)).toEqual({
+      left: viewport.width - DIMENSION_EDITOR_DIALOG_WIDTH - DIMENSION_EDITOR_VIEWPORT_MARGIN,
+      top: viewport.height - DIMENSION_EDITOR_DIALOG_HEIGHT - DIMENSION_EDITOR_VIEWPORT_MARGIN,
+    });
   });
 });
 
@@ -203,8 +221,8 @@ function cssBlock(selector: string): string {
   return match[1] ?? '';
 }
 
-describe('内联编辑/live 皮肤钉（2026-11-16 dimension-dialog）', () => {
-  it('锚点包装 100×26 + translateY(-50%)（输入框中心=标签中心）；对话框默认 -1/-13', () => {
+describe('内联编辑/live 皮肤钉（2026-11-16 W17 dimension-dialog）', () => {
+  it('锚点包装 100×26 + translateY(-50%)（输入框中心=标签中心）；对话框默认 -21/-13、宽 209', () => {
     const wrap = cssBlock('.part-studio-dimension-editor-wrap');
     expect(wrap).toContain('position: fixed');
     expect(wrap).toContain('width: 100px');
@@ -212,26 +230,35 @@ describe('内联编辑/live 皮肤钉（2026-11-16 dimension-dialog）', () => {
     expect(wrap).toContain('transform: translateY(-50%)');
     expect(wrap).toContain('font: 13.3333px');
     const dialog = cssBlock('.part-studio-dimension-editor-dialog');
-    expect(dialog).toContain('left: -1px');
+    expect(dialog).toContain('left: -21px');
     expect(dialog).toContain('top: -13px');
-    expect(dialog).toContain('width: 159px');
+    expect(dialog).toContain('width: 209px');
   });
 
-  it('拖拽条 159×13 白底（装饰性：默认光标，非 move）；24×14 四点握把居中', () => {
+  it('拖拽条 209×13 白底 + 1px #cccccc 边框、cursor move；24×14 三枚 7×7 空心方握把', () => {
     const bar = cssBlock('.part-studio-dimension-editor-dragbar');
-    expect(bar).toContain('width: 159px');
+    expect(bar).toContain('box-sizing: border-box');
+    expect(bar).toContain('width: 209px');
     expect(bar).toContain('height: 13px');
     expect(bar).toContain('background: #ffffff');
-    expect(bar).not.toContain('cursor: move');
+    expect(bar).toContain('border: 1px solid #cccccc');
+    expect(bar).toContain('cursor: move');
+    expect(bar).toContain('touch-action: none');
     const grip = cssBlock('.part-studio-dimension-editor-grip');
+    expect(grip).toContain('display: flex');
     expect(grip).toContain('width: 24px');
     expect(grip).toContain('height: 14px');
-    expect(grip).toContain('grid-template-columns: repeat(2, 3px)');
+    expect(grip).toContain('gap: 1px');
+    const square = cssBlock('.part-studio-dimension-editor-grip > span');
+    expect(square).toContain('width: 7px');
+    expect(square).toContain('height: 7px');
+    expect(square).toContain('border: 1px solid #333333');
+    expect(square).toContain('background: transparent');
   });
 
-  it('面板 159×34 白底 0 圆角、0 5px 10px 阴影、下内边距 5px', () => {
+  it('面板 209×34 白底 0 圆角、0 5px 10px 阴影、下内边距 5px', () => {
     const panel = cssBlock('.part-studio-dimension-editor-panel');
-    expect(panel).toContain('width: 159px');
+    expect(panel).toContain('width: 209px');
     expect(panel).toContain('height: 34px');
     expect(panel).toContain('background: #ffffff');
     expect(panel).toContain('border-radius: 0');
@@ -239,7 +266,24 @@ describe('内联编辑/live 皮肤钉（2026-11-16 dimension-dialog）', () => {
     expect(panel).toContain('padding: 0 0 5px');
   });
 
-  it('输入 100×26 透明/无边框/radius 0、inset 下划线 #1651b0、13.3333px；错误态 #c0392b', () => {
+  it('禁用展开器 20×20 #d7d7d7 不可点；禁用参数状态切换 20×20 rgba(16,16,16,0.3) radius 3', () => {
+    const expander = cssBlock('.part-studio-dimension-editor-expander');
+    expect(expander).toContain('width: 20px');
+    expect(expander).toContain('height: 20px');
+    expect(expander).toContain('margin: 3px 0 0 1px');
+    expect(expander).toContain('color: #d7d7d7');
+    expect(expander).toContain('pointer-events: none');
+    const toggle = cssBlock('.part-studio-dimension-editor-state-toggle');
+    expect(toggle).toContain('width: 20px');
+    expect(toggle).toContain('height: 20px');
+    expect(toggle).toContain('margin: 5px 0 0 5px');
+    expect(toggle).toContain('border-radius: 3px');
+    expect(toggle).toContain('background: transparent');
+    expect(toggle).toContain('color: rgba(16, 16, 16, 0.3)');
+    expect(toggle).toContain('cursor: not-allowed');
+  });
+
+  it('输入 100×26 透明/无边框/radius 0、inset 下划线 #1651b0、左内边距 3px；错误态 #c0392b', () => {
     const field = cssBlock('.part-studio-dimension-editor-field');
     expect(field).toContain('width: 100px');
     expect(field).toContain('height: 26px');
@@ -249,16 +293,20 @@ describe('内联编辑/live 皮肤钉（2026-11-16 dimension-dialog）', () => {
     expect(input).toContain('background: transparent');
     expect(input).toContain('box-shadow: inset 0 -1px 0 #1651b0');
     expect(input).toContain('font-size: 13.3333px');
+    expect(input).toContain('padding: 0 24px 0 3px');
     expect(input).not.toContain('#2850aa');
     const error = cssBlock('.part-studio-dimension-editor[data-error=\'true\']');
     expect(error).toContain('box-shadow: inset 0 -1px 0 #c0392b');
     expect(error).not.toContain('border:');
   });
 
-  it('按钮组 52×28；确认实心 #009400 白勾、取消白底 1px #cccccc 红 X、radius 4', () => {
+  it('按钮组 52×28（padding 5px 0 0 4px、4px 间距）；确认实心 #009400 白勾、取消白底 1px #cccccc 红 X、radius 4', () => {
     const buttons = cssBlock('.part-studio-dimension-editor-buttons');
     expect(buttons).toContain('width: 52px');
     expect(buttons).toContain('height: 28px');
+    expect(buttons).toContain('gap: 4px');
+    expect(buttons).toContain('padding: 5px 0 0 4px');
+    expect(buttons).toContain('margin-left: 5px');
     expect(editorCss).toMatch(
       /\.part-studio-dimension-editor-confirm,[\s\S]*?\.part-studio-dimension-editor-cancel\s*\{[^}]*width: 22px;[^}]*height: 22px;[^}]*border-radius: 4px;/,
     );
