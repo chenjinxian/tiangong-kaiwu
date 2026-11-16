@@ -831,3 +831,24 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
 - 残留：仅会话内记忆（刷新回默认；live 跨刷新持久化未采）；gated 变体可从
   菜单成为主钮（主钮点击仍走能力引导，不伪造）；主钮 aria-label 取 tooltip
   （live 的隐藏 label 为行文案，可见 tooltip 已逐字对齐）。
+
+### 2026-11-17 W24 尺寸标签右键菜单皮肤（live 复采）
+
+- live：菜单 **154×251**（ul `margin:2px 0 0` → 点击 y+2）；白底、`1px solid
+  #ccc`、radius 4、shadow `0 5px 10px rgba(0,0,0,.2)`、12px/18px
+  Flama/Open Sans；行 152×22、`padding:2px 8px 2px 35px`；hover
+  `rgb(222,241,251)`；Onshape 禁用色 `--os-text-quaternary` = #555（无 hover）；
+  7 条 1px `#ddd` 分隔线；行分组/顺序 = 18 行 live 表；添加评论/删除尺寸 =
+  17×17 sprite（`add-comment` / `clear-field-button`，left 10 绝对定位）；
+  选择行 `::after content:"►" right:7 #666`，悬停子菜单存在但产品无该能力 →
+  保持诚实禁用，不伪造动作。
+- 实现：仅尺寸菜单加 `.part-studio-sketch-dimension-menu` 作用域覆盖
+  （154 宽、margin-top 2、22/12px 行、#DEF1FB hover、#555 禁用、#ddd 分隔、
+  图标与 ►），基础 `.part-studio-tree-menu*` 与其他空白/实体菜单不变；新增
+  两枚 sprite 图标；菜单夹紧 154×253；行启用/禁用、testid、动作零变更。
+- 验证：`sketch-entity-picker` 单测 **24/24**、全量 web **2158/2158**、
+  tsc(src+e2e)/eslint 绿；真栈 `sketch-dimension-edit` **4 passed（2.1 min，
+  含菜单/行/图标计算样式与 hover/禁用色断言）** + `sketch-entity-menu` +
+  `context-menu-states` **8 passed（3.1 min，其他菜单不受影响）**。
+- 残留：行内匿名 flex 文本的 `text-overflow:ellipsis` 不生效（live 用 span；
+  当前文案均不溢出，未加包装）；选择子菜单动作仍为能力缺口（诚实禁用）。

@@ -239,7 +239,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   回默认）；全量 web **2158/2158**、tsc(src+e2e)/eslint 绿；真栈新
   `sketch-toolbar-variants` **2 passed（39.1 s）** + `sketch-create-parity`/
   中心圆弧/中心矩形/相切圆弧/草图倒角 **6 passed（3.5 min）** +
-  `tutorial2` 严格 **2 passed（4.6 min，体积/去材不变）**。
+  `tutorial2` 严格 **2 passed（4.6 min，体积/去材不变）**。**W24**：尺寸标签
+  右键菜单按 live 复采对齐皮肤（154×251、22px 行/12px·18px、#DEF1FB hover、
+  #555 禁用、7 条 #ddd 分隔、add-comment/clear-field-button 17px 图标、
+  选择行 CSS ►；仅作用域覆盖，其他菜单不变；选择子菜单保持诚实禁用）。
+  全量 web **2158/2158**、tsc(src+e2e)/eslint 绿；真栈
+  `sketch-dimension-edit` **4 passed（2.1 min，含计算样式断言）** +
+  `sketch-entity-menu`+`context-menu-states` **8 passed（3.1 min）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
