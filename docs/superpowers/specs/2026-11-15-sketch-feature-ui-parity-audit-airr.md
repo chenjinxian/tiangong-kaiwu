@@ -911,3 +911,22 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   互异且异于主钮、薄片/角点 title 页签/尖角）**。
 - 残留：en tooltip 为翻译（live en 未采）；SMJog/PCB 自定义行不采纳；
   mate-connector sprite 按 live 的 10×10 viewBox 渲染。
+
+### 2026-11-17 W28 相切圆弧绘制读数（R 点标签）
+
+- live：切点选定后移动光标，蓝色水平 `R<半径>` 点标签落在「切点→弧终点
+  （光标）」弦的**投屏中点**，随光标移动/更新读数，同帧无白卡；三次采样守
+  同一规则（第三样本标签中心 (837.5,388.5) vs 弦中点 (837,386) CSS，
+  ≤2.5 px）。
+- 实现：`SketchTangentArcTool.onMouseMotion` 发布完整反馈
+  （hint / measures=[] / cursor / drawLabels）；私有 `_drawLabels` 用
+  `_buildArc` 的半径、草图平面 `toWorld` + 视口 `worldToView` 投影到
+  `sketchPointLabelCenter`，前缀 `R`；无起点/退化弧/无视口不发标签。提示、
+  预览、提交路径、连续模式与清理不变；overlay/i18n/契约/后端零改动。
+- 验证：新单测 `sketch-tangent-arc-readout` **8/8**、全量 web
+  **2186/2186**、tsc(src+e2e)/eslint 绿；真栈 `sketch-draw-readout`
+  **2 passed（1.3 min：先提交 P(0,0)→P(10,0) 基线直线，切点 P(0,0) +
+  光标 P(5,5)/P(5,10)；标签中心 ±2 px 弦中点、第二光标读数 r=5→6.25、
+  无白卡、Esc 退出）**。
+- 残留：e2e 基线直线提交使用 1.2 s 软等待（可后续改实体计数轮询）；周边圆
+  `Ø` 读数锚点仍未定（三次采样位置不一致），不实现。

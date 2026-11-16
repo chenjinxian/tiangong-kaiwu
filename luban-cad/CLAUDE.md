@@ -260,7 +260,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   sprite（39 枚 20×20 + mate-connector 10×10，payload 逐字节 + FNV-1a 钉死）；
   薄片/角点行 tooltip 改为 live 页签/尖角。全量 web **2178/2178**、
   tsc(src+e2e)/eslint 绿；真栈 `feature-toolbar-variants` **3 passed
-  （49.7 s，平面 26/框架 5/钣金 12 行 + 子项图标互异）**。
+  （49.7 s，平面 26/框架 5/钣金 12 行 + 子项图标互异）**。**W28**：相切圆弧
+  绘制 `R` 点标签落在「切点→光标」弦的投影中点（随光标移动/更新，无白卡；
+  无起点/退化弧/无视口不发）。全量 web **2186/2186**、tsc(src+e2e)/eslint
+  绿；真栈 `sketch-draw-readout` **2 passed（1.3 min：±2 px 弦中点、r=5→
+  6.25、无白卡）**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
