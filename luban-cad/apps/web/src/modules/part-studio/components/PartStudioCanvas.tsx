@@ -69,6 +69,7 @@ import { TransformDialog } from '../dialogs/TransformDialog.js';
 import { SplitPartDialog } from '../dialogs/SplitPartDialog.js';
 import { SketchDialog, sketchPlaneFromOption } from '../dialogs/SketchDialog.js';
 import { cPlanePlaneOptions } from '../internal/cplane.js';
+import { NEW_FEATURE_LABEL_KEYS, nextFeatureName } from '../internal/feature-naming.js';
 import type { SketchDialogResult } from '../dialogs/SketchDialog.js';
 import { readBrepFaceHandle } from '../internal/brep-topology.js';
 import { withExclusiveBrepCommand } from '../internal/brep-command-coordinator.js';
@@ -588,21 +589,44 @@ export function PartStudioCanvas({
     ];
   }, [featureEntries, sketchFacePlane, t]);
 
-  // featureMirror 源特征（2026-11-08 live 证据）：后端首版仅 extrude/revolve/hole；
-  // 抑制行不作为候选，源 id 直接取树条目 id。
-  const mirrorSourceFeatureOptions = React.useMemo<readonly FeatureDialogFeatureOption[]>(
+  // 源特征候选（featureMirror 2026-11-08 live 证据 / featurePattern 源 chips A4）：
+  // 后端两能力的源均限 extrude/revolve/hole；抑制行不作为候选，id 直接取树条目
+  // id，label 取树派生名（自定义重命名优先）——只影响显示，载荷仍是结构引用。
+  const sourceFeatureOptions = React.useMemo<readonly FeatureDialogFeatureOption[]>(
     () => mapFeatureEntries(featureEntries, featureTypeLabel)
       .filter((node) => !node.isSuppressed
         && (node.type === 'extrude' || node.type === 'revolve' || node.type === 'hole'))
       .map((node) => ({ id: node.id, label: node.name, featureType: node.type })),
     [featureEntries, featureTypeLabel],
   );
+  // F3（2026-11-16）：featurePattern 源 chips 只用于只读显示（载荷仍是结构引用
+  // sourceFeatureIds）。被抑制的源不再出现在新插入候选里，但既有阵列仍引用它——
+  // 显示表必须保留抑制行，否则 chip 回退成原始 id（0x…）。FeatureDialog 的
+  // 源选择器仍用上面的过滤表（抑制行不可被新选为源）。
+  const patternSourceLabelOptions = React.useMemo<readonly FeatureDialogFeatureOption[]>(
+    () => mapFeatureEntries(featureEntries, featureTypeLabel)
+      .filter((node) => node.type === 'extrude' || node.type === 'revolve' || node.type === 'hole')
+      .map((node) => ({ id: node.id, label: node.name, featureType: node.type })),
+    [featureEntries, featureTypeLabel],
+  );
 
-  /** 新建 cPlane 的默认名（与树命名一致：平面 N，N=现有 cPlane 数+1）。 */
-  const newCPlaneName = React.useMemo(() => {
-    const count = featureEntries.filter((entry) => entry.featureType === 'cPlane').length;
-    return `${t('partStudio.tree.featureTypes.cPlane')} ${count + 1}`;
-  }, [featureEntries, t]);
+  /**
+   * 新建特征默认名（C1）：Onshape 新建标题 = `<类型标签> <同类条目数+1>`。
+   * 词条优先显式映射（布尔运算/镜像/特征阵列等与现有词库一致），未列出的类型
+   * 回退树类型标签（未知类型再回退原始 featureType）；编辑模式仍用落库名。
+   */
+  const newFeatureLabel = React.useCallback((featureType: string): string => {
+    const key = NEW_FEATURE_LABEL_KEYS[featureType];
+    if (key !== undefined) {
+      const label = t(key);
+      if (label !== key) return label;
+    }
+    return featureTypeLabel(featureType);
+  }, [t, featureTypeLabel]);
+  const newFeatureName = React.useCallback(
+    (featureType: string): string => nextFeatureName(featureType, featureEntries, newFeatureLabel),
+    [featureEntries, newFeatureLabel],
+  );
 
   const handleSketchDialogCancel = React.useCallback(() => {
     setSketchDraftPlane(null);
@@ -1300,13 +1324,15 @@ export function PartStudioCanvas({
           不泄漏进下一单）。 */}
       {dialog.active === 'feature' && (dialog.featureType === 'hole' ? (
         /* ADR-0006 切片 A：孔使用专用对话框（草图点+blind/throughAll），
-           提交同走 FeatureService 的 hole op；不套用通用 FeatureDialog。 */
+           提交同走 FeatureService 的 hole op；不套用通用 FeatureDialog。
+           F1（2026-11-16）：新建标题必须按树派生名编号（孔 N），不能再用 ribbon
+           类型标签「孔」——可见标题仍是 Ø…↧… 摘要（HoleDialog 内）。 */
         <HoleDialog
           key={dialog.mode === 'edit' ? dialog.featureId : 'new-hole'}
           featureName={
             dialog.mode === 'edit'
               ? dialog.featureName
-              : t(`partStudio.ribbon.tools.${dialog.featureType}.label`)
+              : newFeatureName(dialog.featureType)
           }
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
@@ -1326,7 +1352,7 @@ export function PartStudioCanvas({
            提交 insertFeature/updateParams；不套用通用 FeatureDialog。 */
         <CPlaneDialog
           key={dialog.mode === 'edit' ? dialog.featureId : 'new-cPlane'}
-          featureName={dialog.mode === 'edit' ? dialog.featureName : newCPlaneName}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : newFeatureName('cPlane')}
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           applyOp={applyOp}
@@ -1339,7 +1365,7 @@ export function PartStudioCanvas({
            移除面 + 壁厚 + 方向；Hollow 契约未支持，不渲染假控件）。 */
         <ShellDialog
           key={dialog.mode === 'edit' ? dialog.featureId : 'new-shell'}
-          featureName={dialog.mode === 'edit' ? dialog.featureName : t('partStudio.ribbon.tools.shell.label')}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : newFeatureName('shell')}
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           applyOp={applyOp}
@@ -1357,7 +1383,7 @@ export function PartStudioCanvas({
            偏移/给定深度 + 距离；「重新应用圆角」后端未支持，禁用并提示。 */
         <MoveFaceDialog
           key={dialog.mode === 'edit' ? dialog.featureId : 'new-moveFace'}
-          featureName={dialog.mode === 'edit' ? dialog.featureName : t('partStudio.ribbon.tools.moveFace.label')}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : newFeatureName('moveFace')}
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           applyOp={applyOp}
@@ -1378,7 +1404,7 @@ export function PartStudioCanvas({
           featureName={
             dialog.mode === 'edit'
               ? dialog.featureName
-              : t('partStudio.ribbon.tools.transform.label')
+              : newFeatureName('transform')
           }
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
@@ -1399,7 +1425,7 @@ export function PartStudioCanvas({
           featureName={
             dialog.mode === 'edit'
               ? dialog.featureName
-              : t('partStudio.ribbon.tools.splitPart.label')
+              : newFeatureName('splitPart')
           }
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
@@ -1418,8 +1444,9 @@ export function PartStudioCanvas({
            产品未支持的假控件。 */
         <FeaturePatternDialog
           key={dialog.mode === 'edit' ? dialog.featureId : 'new-featurePattern'}
-          featureName={dialog.mode === 'edit' ? dialog.featureName : t('partStudio.tree.featureTypes.featurePattern')}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : newFeatureName('featurePattern')}
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          features={patternSourceLabelOptions}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           applyOp={applyOp}
           previewOp={previewOp}
@@ -1441,8 +1468,11 @@ export function PartStudioCanvas({
           featureName={
             dialog.mode === 'edit'
               ? dialog.featureName
-              : t(`partStudio.ribbon.tools.${dialog.featureType}.label`)
+              : newFeatureName(dialog.featureType)
           }
+          // F2：标题/toast 跟随实际提交类型（镜像特征作用域→特征镜像、
+          // 布尔作用域→并集/差集），与树派生名同口径。
+          featureNameForType={newFeatureName}
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           mode={dialog.mode}
           // 编辑模式也必须知道特征类型（按类型回显/提交 updateParams）。
@@ -1453,7 +1483,7 @@ export function PartStudioCanvas({
           leaseOk={leaseOk}
           canEdit={canEdit}
           sketches={sketches}
-          features={mirrorSourceFeatureOptions}
+          features={sourceFeatureOptions}
           connection={connection}
           connectionKey={connection?.key}
           hasBodies={hasBodies}

@@ -323,7 +323,7 @@ export function TransformDialog({
   }, [submitDisabled, applyOp, buildParams, editMode, featureId, targetBodyKey, t, featureName, onConfirm]);
 
   // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
-  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.(), confirmLabel: featureName });
 
   const targetLabel = targetBody?.name && targetBody.name.trim() !== ''
     ? `${targetBody.name} (${targetBody.bodyKey})`

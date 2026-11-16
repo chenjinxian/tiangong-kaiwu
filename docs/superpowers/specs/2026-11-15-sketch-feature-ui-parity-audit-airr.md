@@ -465,3 +465,38 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
 - 已完成基线：SK-1（草图创建对话框，`fd31417f`；2026-11-15 按 live 重校准）、
   SK-2（工具栏/飞菜单）、SK-6 部分（实体右键菜单、删除）、SK-9（相机命令/平面框）。
 - live 采集已打通（探测 Chrome 登录恢复）；后续按波次继续采集/修复。
+
+### 2026-11-16 命名 / 诚实波次（纯前端）
+
+- **C1 新特征命名**：新增 `internal/feature-naming.ts`——`nextFeatureName(type,
+  entries, labelFor)` 按树内同 `featureType` 计数 +1（抑制特征计入；删除后的
+  空号可复用，与 Onshape 行为一致），15 类标签键。cPlane/shell/moveFace/
+  transform/splitPart/featurePattern 与通用 FeatureDialog 插入均使用编号名，
+  编辑既有特征保持原名；FeaturePatternDialog 源 chips 由原始 id 改为可读
+  特征名（无匹配时回退 id）。
+- **A4/A5**：FeaturePatternDialog 接收可选 `features` 列表渲染源标签；补共享
+  底栏（禁用透明度滑杆 + ?），与其余对话框一致。
+- **A3/D2/D3/E1/D7 诚实化**：倒角面→边分解提示；CPlane 仅基准面/世界原点提示；
+  `CAPABILITY_SCOPE_NOTES`（cPlane 作用域说明，能力状态仍 full、行为不变）；
+  草图阵列提示明示「实例为独立副本，无关联阵列约束」；草图实体菜单「选择▸」
+  渲染 live 捕获的五行常驻禁用子项（逐项真实原因 title）。
+- **D7 菜单可达性修复**：五行子项使菜单实际高度超过原有 520 估算，末项
+  「删除草图图元」落在视口外且菜单不可滚（真栈表现为点击重试至 7 min 超时）。
+  菜单改为以 `innerHeight - top - 8` 为内联 maxHeight + `overflowY: auto`，
+  单元测试钉「top + maxHeight ≤ 视口高」不变量。
+- **审查修复轮 F1–F6**：孔新特征名按树编号（可见标题仍为 Ø/↧ 摘要）；
+  镜像特征作用域/布尔作用域的标题与成功 toast 跟随实际提交类型
+  （`featureMirror`/`booleanAdd`/`booleanSubtract`，`featureNameForType`
+  仅显示、`submittedFeatureType` 仍是提交权威）；FeaturePatternDialog 源
+  chips 对**被抑制**源也显示树派生名（显示表不过滤抑制行，候选选择器仍过滤）；
+  `CAPABILITY_SCOPE_NOTES` 注释改为事实（注册表/能力矩阵记录，当前可见提示
+  在 CPlaneDialog）；pattern 底部 ?/滑杆补真实原因 title；菜单夹紧公式精确到
+  极小视口（top/maxHeight 下界 0）。未做：水平夹紧、窗口 resize 重定位
+  （记录残留）。
+- **验证**：web **2000/2000**（首跑 1 例未捕获用例失败，立即重跑全绿，按
+  flake 记录）、tsc（src/e2e）/eslint 绿；真栈（修复后）`feature-pattern-edit-ui`
+  4 + `feature-mirror-ui` 1 **5 passed（2.7 min）**、`split-part-ui` +
+  `hole`（完全贯穿）+ `boolean-intersect-ui` **4 passed（2.0 min，含 setup）**；
+  修复前已绿：`sketch-entity-menu` 4、`shell` 2、`transform-ui` 2、
+  `sketch-pattern` 9、`move-face-ui` 1。`split-part-ui` 曾因 MS 429 窗口
+  中断一次，干净窗口复跑通过（非产品失败）。

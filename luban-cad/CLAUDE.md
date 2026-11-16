@@ -178,6 +178,21 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **命名 / 诚实禁用波次（2026-11-16，纯前端；AIRR 同上 §10）**：
+  C1 新特征命名 `<类型> N`（同类型树条目计数、抑制计入、空洞复用；标题/toast
+  按实际提交类型取名——镜像特征作用域=特征镜像 N、布尔=并集/差集 N，孔可见
+  标题仍为 Ø/↧ 摘要）；FeaturePatternDialog 源 chips 显示树派生名（含被抑制
+  源）并补共享底栏；A3 倒角面→边提示、D2 CPlane 仅基准面提示、D3 cPlane
+  作用域注记（能力状态仍 full）、E1 草图阵列「实例为独立副本」披露、D7
+  选择子菜单五行常驻禁用。**D7 回归修复**：实体菜单末项曾被渲染到视口外
+  （菜单无 maxHeight/overflow，Playwright 点击重试至 7 min 超时——现场易误判
+  为挂起）；现以视口剩余空间为 maxHeight + `overflow-y:auto`，单测钉不越界。
+  验证：web **2000/2000**（首跑 1 例 flake，重跑全绿）、tsc（src/e2e）/eslint
+  绿；真栈修复后 `feature-pattern-edit-ui` 4 + `feature-mirror-ui` 1 与
+  `split-part-ui` + `hole`（完全贯穿）+ `boolean-intersect-ui` 共 **9 passed
+  （两次运行，含 setup）**；修复前已绿 `sketch-entity-menu` 4、`shell` 2、
+  `transform-ui` 2、`sketch-pattern` 9、`move-face-ui` 1；一次 MS 429 中断
+  已干净窗口复跑（非产品失败）。
 - **草图/特征全量 UI 对标执行（2026-11-15，纯前端；AIRR
   `docs/superpowers/specs/2026-11-15-sketch-feature-ui-parity-audit-airr.md`，
   私有矩阵 `D:/Github/onshape-parity-data/docs/UI-DIALOG-AUDIT-20261115.md`）**：

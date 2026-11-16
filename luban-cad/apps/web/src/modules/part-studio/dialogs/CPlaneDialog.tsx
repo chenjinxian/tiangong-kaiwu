@@ -155,7 +155,7 @@ export function CPlaneDialog({
   };
 
   // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
-  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.(), confirmLabel: featureName });
 
   return (
     <div
@@ -244,6 +244,7 @@ export function CPlaneDialog({
             <div
               className={`part-studio-feature-dialog__profile-field part-studio-cplane__reference-field${reference === undefined ? ' is-empty' : ' is-selected'}`}
               data-testid="cplane-reference-field"
+              title={t('partStudio.cPlaneDialog.onlyDatumHint')}
             >
               <span id="cplane-reference-label" className="part-studio-feature-dialog__query-label">
                 {t('partStudio.cPlaneDialog.reference')}
@@ -325,6 +326,16 @@ export function CPlaneDialog({
             </ul>
           )}
         </section>
+
+        {/* 审计 D2（2026-11-16）：图元菜单只有三基准面，live 的面/边/点参考
+            未实现——常驻诚实提示（字段 title 同文案）。 */}
+        <p
+          role="note"
+          className="part-studio-feature-dialog__hint"
+          data-testid="part-studio-cplane-only-datum-hint"
+        >
+          {t('partStudio.cPlaneDialog.onlyDatumHint')}
+        </p>
 
         {planeMode === 'reference' && (
           <section className="part-studio-feature-dialog__distance part-studio-cplane__offset-row">

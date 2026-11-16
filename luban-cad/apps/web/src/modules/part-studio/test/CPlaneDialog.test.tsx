@@ -210,6 +210,20 @@ describe('CPlaneDialog（ADR-0006 切片 B1）', () => {
     expect(cplaneCss).toMatch(/\.part-studio-feature-dialog__query-label\s*\{[^}]*font-size: 12px/);
   });
 
+  // 审计 D2（2026-11-16）：图元菜单只有三基准面/世界原点，面/边/点参考未实现
+  // ——常驻诚实提示（选中后仍在），字段 title 同文案。
+  it('仅基准面诚实提示：常驻 + 字段 title（面/边/点参考未实现）', () => {
+    renderDialog();
+    const hint = screen.getByTestId('part-studio-cplane-only-datum-hint');
+    expect(hint.textContent).toBe('仅支持基准面/世界原点；面/边/点参考未实现。');
+    expect(screen.getByTestId('cplane-reference-field').getAttribute('title'))
+      .toBe('仅支持基准面/世界原点；面/边/点参考未实现。');
+
+    fireEvent.click(screen.getByTestId('cplane-reference-chip'));
+    fireEvent.click(screen.getByTestId('cplane-reference-front'));
+    expect(screen.getByTestId('part-studio-cplane-only-datum-hint')).toBe(hint);
+  });
+
   it('偏移/偏移距离 live 值行：下划线 + 右对齐 mm + 禁用计算器 + 底栏滑杆禁用；默认仍为 0', () => {
     renderDialog();
     fireEvent.click(screen.getByTestId('cplane-reference-chip'));

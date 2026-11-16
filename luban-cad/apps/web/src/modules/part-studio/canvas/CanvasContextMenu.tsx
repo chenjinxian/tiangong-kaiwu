@@ -7,7 +7,9 @@
  * - 空白态（2026-11-13 Onshape live `context-menus-20261113`）：全部显示/
  *   选择▸（gated）/创建选定内容…（gated）/缩放到合适大小/等轴测；
  * - 特征对话框打开（同证据）：首两项 确认 <特征>/取消——经 `dialog-commands`
- *   命令槽与对话框 ✓/✗ 同源（feature-dialog 全族登记）；
+ *   命令槽与对话框 ✓/✗ 同源（feature-dialog 全族登记）；R1（2026-11-16）：
+ *   显示名优先用对话框登记的 `confirmLabel`（草稿标题=实际提交类型，例如
+ *   「特征镜像 1」），未登记时回退下方按 store/ribbon 的旧派生；
  * - 草图模式右键菜单归 SketchEntityPicker（唯一权威）；
  * - 选中态按 primary.kind 重构（part/face/edge/feature/vertex）——os-12
  *   可落地子集：编辑特征（M4-T6 起 edit 模式 FeatureDialog 宿主路由）/显示依赖（gated）/隐藏
@@ -55,7 +57,7 @@ import {
   SvgWindowZoomIn,
 } from '@itwin/itwinui-icons-react';
 import { isGated } from '../internal/capabilities.js';
-import { runDialogCommand } from '../internal/dialog-commands.js';
+import { runDialogCommand, useDialogCommandConfirmLabel } from '../internal/dialog-commands.js';
 import {
   fitView,
   standardView,
@@ -423,13 +425,17 @@ export function CanvasContextMenu({
   // 2026-11-13：状态相关菜单数据源（Onshape live context-menus-20261113）。
   // 草图模式右键菜单归 SketchEntityPicker（唯一权威）；这里只处理特征对话框。
   const dialogState = usePartStudioStore((s) => s.dialog);
+  // R1：对话框自报显示名（标题/实际提交类型）优先；未登记时回退 store/ribbon
+  // 派生（旧口径，测试/壳期无命令槽时保持可用）。
+  const registeredConfirmLabel = useDialogCommandConfirmLabel();
   const featureDialogLabel = React.useMemo(() => {
+    if (registeredConfirmLabel !== undefined) return registeredConfirmLabel;
     if (dialogState.active !== 'feature') return undefined;
     if (dialogState.mode === 'edit' && dialogState.featureName) return dialogState.featureName;
     const key = `partStudio.ribbon.tools.${dialogState.featureType}.label`;
     const label = t(key);
     return label === key ? dialogState.featureType : label;
-  }, [dialogState, t]);
+  }, [dialogState, registeredConfirmLabel, t]);
   const [gatedCapability, setGatedCapability] = React.useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState(false);
   // 视口边缘钳制（终审 T5-④）：anchor 落在右/下边缘时菜单被截出视口外——

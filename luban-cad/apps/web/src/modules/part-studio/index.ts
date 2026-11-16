@@ -17,11 +17,17 @@ export { usePartStudioStore } from './stores/use-part-studio-store.js';
 export type { PartStudioActions, PartStudioStore } from './stores/use-part-studio-store.js';
 export {
   CAPABILITY_GUIDANCE,
+  CAPABILITY_SCOPE_NOTES,
   TOOL_CAPABILITIES,
   capabilityOf,
+  capabilityScopeNoteOf,
   isGated,
 } from './internal/capabilities.js';
-export type { Capability, CapabilityGuidance } from './internal/capabilities.js';
+export type {
+  Capability,
+  CapabilityGuidance,
+  CapabilityScopeNote,
+} from './internal/capabilities.js';
 // M3 Task 4：ribbon 注册表（ribbon/树/画布/页签的命令数据源契约——跨切片
 // 消费面经此 barrel 取 registry 数据与类型；Ribbon/CommandPalette 组件由
 // PartStudioPage 聚合，不单独外销）。

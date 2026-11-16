@@ -87,14 +87,14 @@ test.describe('画布右键菜单状态差异（Onshape 2026-11-13）', () => {
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden();
 
-    // 打开拉伸对话框（ribbon 特征工具），右键 → 确认 拉伸 / 取消 前置。
+    // 打开拉伸对话框（ribbon 特征工具），右键 → 确认 拉伸 N / 取消 前置。
     const featureToolbar = page.getByRole('toolbar', { name: '特征工具' });
     await featureToolbar.getByRole('button', { name: '拉伸', exact: true }).click();
     const dialog = page.getByTestId('part-studio-feature-dialog');
     await expect(dialog).toBeVisible({ timeout: 30_000 });
 
     await rightClick(page, { x: box.x + box.w * 0.12, y: box.y + box.h * 0.86 });
-    await expect(menu.getByRole('menuitem', { name: '确认 拉伸' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: /^确认 拉伸/ })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: '取消' })).toBeVisible();
     await menu.getByRole('menuitem', { name: '取消' }).click();
     await expect(dialog).toBeHidden({ timeout: 15_000 });

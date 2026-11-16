@@ -297,6 +297,32 @@ describe('布尔作用域双页签（实体|曲面|薄壁 × 新建|加入|移�
     expect(payload.resultType).toBe('thinWall');
     expect(payload.booleanScope).toBe('remove');
   });
+
+  // F2（2026-11-16）：标题跟随实际提交类型——booleanAdd 基础类型 + 加入/移除
+  // 作用域映射为 booleanAdd/booleanSubtract，树行分别是「并集 N/差集 N」。
+  it('F2：布尔作用域切换 → 标题跟随提交类型（加入=并集、移除=差集）', async () => {
+    const featureNameForType = vi.fn((featureType: string) =>
+      featureType === 'booleanSubtract' ? '差集 1' : '并集 1');
+    renderDialog({
+      featureName: '并集 1',
+      featureNameForType,
+      mode: 'new',
+      featureType: 'booleanAdd',
+      applyOp: vi.fn(async (): Promise<FeatureOpResult> => ({ ok: true })),
+    });
+    const user = userEvent.setup();
+    expect(screen.getByRole('dialog', { name: '并集 1' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '并集 1' })).toBeDefined();
+
+    await user.click(screen.getByRole('tab', { name: '移除' }));
+    expect(featureNameForType).toHaveBeenCalledWith('booleanSubtract');
+    expect(screen.getByRole('dialog', { name: '差集 1' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '差集 1' })).toBeDefined();
+
+    await user.click(screen.getByRole('tab', { name: '加入' }));
+    expect(featureNameForType).toHaveBeenCalledWith('booleanAdd');
+    expect(screen.getByRole('dialog', { name: '并集 1' })).toBeDefined();
+  });
 });
 
 describe('芯片式实体选择框 + 快速拾取', () => {
@@ -2801,6 +2827,45 @@ describe('B4 mirror 通道（世界平面三选一）', () => {
     }, { timeout: 3000 });
   });
 
+  // F2（2026-11-16）：特征镜像作用域提交 featureMirror，标题/aria-label 必须
+  // 跟随显示「特征镜像 N」（树派生名），而不是零件镜像的「镜像 N」。
+  it('F2：标题跟随提交类型——特征镜像作用域显示「特征镜像 N」，切回零件恢复「镜像 N」', async () => {
+    const featureNameForType = vi.fn((featureType: string) =>
+      featureType === 'featureMirror' ? '特征镜像 1' : '镜像 2');
+    const { user } = renderMirrorDialog(makeApplyOp(), {
+      featureName: '镜像 2',
+      featureNameForType,
+      features: [{ id: 'f-ext', label: '拉伸 1', featureType: 'extrude' }],
+    });
+    const scope = screen.getByTestId('part-studio-feature-dialog-mirror-scope');
+    expect(screen.getByRole('dialog', { name: '镜像 2' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '镜像 2' })).toBeDefined();
+
+    await user.selectOptions(scope, 'feature');
+    expect(featureNameForType).toHaveBeenCalledWith('featureMirror');
+    expect(screen.getByRole('dialog', { name: '特征镜像 1' })).toBeDefined();
+    expect(screen.getByRole('heading', { name: '特征镜像 1' })).toBeDefined();
+
+    await user.selectOptions(scope, 'body');
+    expect(screen.getByRole('dialog', { name: '镜像 2' })).toBeDefined();
+  });
+
+  it('F2：特征镜像提交成功 toast 用标题名（特征镜像 N），载荷类型仍由 submittedFeatureType 决定', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderMirrorDialog(applyOp, {
+      featureName: '镜像 2',
+      featureNameForType: (featureType: string) => featureType === 'featureMirror' ? '特征镜像 1' : '镜像 2',
+      features: [{ id: 'f-ext', label: '拉伸 1', featureType: 'extrude' }],
+    });
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-scope'), 'feature');
+    await user.selectOptions(screen.getByTestId('part-studio-feature-dialog-mirror-source'), 'f-ext');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({ kind: 'insertFeature', featureType: 'featureMirror' });
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalled());
+    const details = mocks.outputMessage.mock.calls.at(-1)?.[0] as { briefMessage: string };
+    expect(details.briefMessage).toBe('特征镜像 1 已创建');
+  });
+
   it('多体：面属于非目标 body → owner mismatch 提示 + 提交禁用；改回同体恢复', async () => {
     const applyOp = makeApplyOp();
     const face = {
@@ -3363,6 +3428,18 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
       featureType: 'chamfer',
       params: { mode: 2, propagateSmooth: true, edges: [EDGE_1], values1: 3, values2: 3 },
     });
+  });
+
+  // 审计 A3（2026-11-16）：Onshape live 倒角图元字段接受“面”（面→边自动
+  // 分解）；产品只有边拾取通道——常驻诚实提示，圆角通道（live 只有边）不出现。
+  it('倒角常驻诚实提示：面→边分解未支持，请逐条选择边（圆角不出现）', () => {
+    const chamfer = renderFilletDialog(makeApplyOp(), { featureType: 'chamfer', featureName: '倒角' });
+    expect(screen.getByTestId('part-studio-feature-dialog-chamfer-face-hint').textContent)
+      .toBe('面→边分解未支持，请逐条选择边。');
+    chamfer.unmount();
+
+    renderFilletDialog(makeApplyOp(), { featureType: 'fillet', featureName: '圆角' });
+    expect(screen.queryByTestId('part-studio-feature-dialog-chamfer-face-hint')).toBeNull();
   });
 
   it('chamfer 双距离模式：距离 1=2 / 距离 2=4 → 载荷 mode=2 / values1=2 / values2=4', async () => {

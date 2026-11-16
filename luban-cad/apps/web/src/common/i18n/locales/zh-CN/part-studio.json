@@ -851,6 +851,7 @@
     "chamferAngleInvalid": "请输入有效的倒角角度（0–180°）",
     "chamferEdgesLabel": "要创建倒角的图元",
     "chamferNoEdgesHint": "选择要倒角的边",
+    "chamferFaceHint": "面→边分解未支持，请逐条选择边。",
     "propagateSmoothLabel": "切向延伸",
     "addEdge": "添加边",
     "stopPick": "结束拾取",
@@ -923,8 +924,10 @@
       "backward": "反向"
     },
     "transparencyLabel": "透明度",
+    "transparencyUnavailable": "透明度滑杆尚未接入动态预览着色，暂不可用。",
     "finish": "成品",
     "helpText": "在画布中拾取面或草图区域以添加实体；✓ 提交特征，✗ 放弃更改。",
+    "helpUnavailable": "帮助内容尚未接入。",
     "secondEndUnsupported": "第二个终止位置尚未支持",
     "depthLabel": "深度",
     "calculatorLabel": "计算器",
@@ -1074,6 +1077,10 @@
     "entityMenuAnalyze": "曲线/曲面分析…",
     "entityMenuClearSelection": "清除选定内容",
     "entityMenuSelect": "选择",
+    "entityMenuSelectTangentConnected": "相切相连边",
+    "entityMenuSelectEqualDiameter": "等长/等径边",
+    "entityMenuSelectParallel": "平行边",
+    "entityMenuSelectRelationUnsupported": "按相切/等长/平行关系筛选边的选择过滤器尚未实现。",
     "entityMenuAddComment": "添加评论",
     "entityMenuFit": "缩放到合适大小",
     "entityMenuZoom": "放大选定对象",
@@ -1088,8 +1095,8 @@
     "blankMenuCreateSelection": "创建选定内容…",
     "blankMenuSelectOther": "选择其他…",
     "patternSelectPrompt": "选择要阵列的草图图元",
-    "patternPrompt": "线性阵列：拖动手柄或点击数值；Enter 确认，Esc 取消",
-    "patternPromptCircular": "环形阵列：拖动中心/角度手柄或实例数；Enter 确认，Esc 取消",
+    "patternPrompt": "线性阵列：拖动手柄或点击数值；实例为独立副本，无关联阵列约束；Enter 确认，Esc 取消",
+    "patternPromptCircular": "环形阵列：拖动中心/角度手柄或实例数；实例为独立副本，无关联阵列约束；Enter 确认，Esc 取消",
     "patternPromptTransform": "变换：拖动移动/旋转/缩放手柄；Enter 确认，Esc 取消",
     "patternMove": "拖动移动选中图元",
     "patternRotate": "拖动旋转选中图元",
@@ -1863,6 +1870,12 @@
     "selectOther": {
       "title": "选择其他",
       "message": "「选择其他…」候选列表尚未实现。"
+    },
+    "scope": {
+      "cPlane": {
+        "available": "基准面（Top/Front/Right）、偏移距离、反转法线；平面点 = 世界原点",
+        "notImplemented": "线角度/线点/三点平面定义仅只读回显（删除后重建）；任意面/边/点参考未实现"
+      }
     }
   },
   "viewCube": {
@@ -2046,6 +2059,7 @@
       "threePoint": "三点平面"
     },
     "advancedReadonlyHint": "该平面使用高级定义（{{definition}}）。本对话框仅支持基准面偏移/世界原点编辑；请删除该平面后重新创建。",
+    "onlyDatumHint": "仅支持基准面/世界原点；面/边/点参考未实现。",
     "modeRowTitle": "类型是产品扩展：基准面 = 所选基准面 + 偏移；平面点 = 世界原点子集（参考法线 + 自定义世界原点 X/Y/Z）。Onshape live 的参考类型由图元自动推断，没有独立类型行。"
   },
   "appearances": {

@@ -404,6 +404,37 @@ describe('buildSketchTransform（旋转/缩放）', () => {
   });
 });
 
+// 审计 E1（2026-11-16）：草图阵列实例是独立几何副本（无关联阵列约束），
+// 必须在提示语中向用户披露；原有操作说明保留。词表文本钉（组件单测无宿主）。
+describe('草图阵列提示语：独立副本披露（审计 E1）', () => {
+  function sketchLocale(locale: string): Record<string, string> {
+    const dict = JSON.parse(readFileSync(
+      resolve(__dirname, `../../../common/i18n/locales/${locale}/part-studio.json`),
+      'utf8',
+    )) as { sketch: Record<string, string> };
+    return dict.sketch;
+  }
+
+  it('线性/环形阵列提示含独立副本披露，且保留 Enter/Esc 操作说明', () => {
+    const zh = sketchLocale('zh-CN');
+    expect(zh.patternPrompt).toContain('实例为独立副本，无关联阵列约束');
+    expect(zh.patternPromptCircular).toContain('实例为独立副本，无关联阵列约束');
+    expect(zh.patternPrompt).toContain('Enter 确认，Esc 取消');
+    expect(zh.patternPromptCircular).toContain('Enter 确认，Esc 取消');
+
+    const en = sketchLocale('en');
+    const disclosure = 'independent copies with no associative pattern constraint';
+    expect(en.patternPrompt).toContain(disclosure);
+    expect(en.patternPromptCircular).toContain(disclosure);
+    expect(en.patternPrompt).toContain('Enter accepts, Esc cancels');
+  });
+
+  it('变换提示不变（变换移动既有图元，不产生阵列实例）', () => {
+    const zh = sketchLocale('zh-CN');
+    expect(zh.patternPromptTransform).not.toContain('独立副本');
+  });
+});
+
 // 2026-11-15 live 探针 f1-pattern-clip：线性阵列实例数 = 浅褐 chip，间距 =
 // 纯文本 + 白色光晕；提示条统一 E4 pill 皮肤。jsdom 不算样式 → CSS 文本钉。
 const gizmoCss = readFileSync(resolve(__dirname, '../components/SketchPlanePicker.css'), 'utf8');

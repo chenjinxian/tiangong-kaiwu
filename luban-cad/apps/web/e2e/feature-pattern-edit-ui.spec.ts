@@ -141,7 +141,9 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     // 当前参数预览（data-dynamic=1 由 FeaturePreviewOverlay 状态驱动）。
     await expect(page.getByTestId('part-studio-feature-preview'))
       .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
-    await expect(dialog.getByTestId('part-studio-feature-pattern-source')).toHaveText(bossFeatureId);
+    // A4（2026-11-16）：源 chip 显示特征树派生名（不是 0x… id）；本种子中
+    // 盒体拉伸=拉伸 1、凸台拉伸=拉伸 2。
+    await expect(dialog.getByTestId('part-studio-feature-pattern-source')).toHaveText('拉伸 2');
     await expect(dialog.getByTestId('part-studio-feature-pattern-count')).toHaveValue('3');
     await expect(dialog.getByTestId('part-studio-feature-pattern-spacing')).toHaveValue('6');
     await expect(dialog.getByTestId('part-studio-feature-pattern-axis')).toContainText('只读');
@@ -387,8 +389,9 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
       .toHaveAttribute('data-dynamic', '1', { timeout: 30_000 });
     const source = dialog.getByTestId('part-studio-feature-pattern-source');
     await expect(source).toHaveAttribute('data-multi', 'true');
-    await expect(dialog.getByTestId('part-studio-feature-pattern-source-0')).toHaveText(bossAId);
-    await expect(dialog.getByTestId('part-studio-feature-pattern-source-1')).toHaveText(bossBId);
+    // A4：多源 chip 同样显示树派生名（凸台 A=拉伸 2、凸台 B=拉伸 3）。
+    await expect(dialog.getByTestId('part-studio-feature-pattern-source-0')).toHaveText('拉伸 2');
+    await expect(dialog.getByTestId('part-studio-feature-pattern-source-1')).toHaveText('拉伸 3');
     await expect(dialog.getByTestId('part-studio-feature-pattern-multi-source-hint')).toContainText('结构引用');
     await expect(dialog.getByTestId('part-studio-feature-pattern-count')).toHaveValue('3');
     await dialog.getByTestId('part-studio-feature-pattern-count').fill('2');

@@ -316,8 +316,17 @@ export interface FeatureDialogResult {
 }
 
 export interface FeatureDialogProps {
-  /** 特征名（标题=对话框可访问名，os-31「Extrude 1」；new 模式=类型标签）。 */
+  /** 特征名（标题=对话框可访问名，os-31「Extrude 1」；new 模式=类型标签+序号）。 */
   featureName: string;
+  /**
+   * F2（2026-11-16）：new 模式标题/成功 toast 的类型名解析器（宿主注入
+   * `newFeatureName`）。对话框可能提交与 `featureType` 不同的类型（镜像特征
+   * 作用域→featureMirror；布尔作用域→booleanAdd/booleanSubtract），标题必须
+   * 跟随实际提交类型，否则与树派生名（特征镜像 N/并集 N/差集 N）不一致。
+   * 只影响显示；载荷类型权威仍是提交路径内的 submittedFeatureType。编辑模式
+   * 保持落库特征名。
+   */
+  featureNameForType?: (featureType: string) => string;
   /** 编辑模式特征 id（updateParams 寻址；new 模式缺省）。 */
   featureId?: string;
   /**
@@ -602,6 +611,7 @@ function mirrorPlaneLineForWorldPlane(plane: 'XY' | 'YZ' | 'XZ'): FeatureMirrorP
  */
 export function FeatureDialog({
   featureName,
+  featureNameForType,
   featureId,
   mode = 'edit',
   featureType,
@@ -1175,6 +1185,15 @@ export function FeatureDialog({
   const [mirrorSourceFeatureId, setMirrorSourceFeatureId] = React.useState('');
   const mirrorFeatureReady = mirrorScope === 'body'
     || (mirrorSourceFeatureId !== '' && mirrorPlaneChoice !== 'FACE');
+  // F2（2026-11-16）：新建标题/成功 toast 必须跟随实际提交类型——镜像特征
+  // 作用域提交 featureMirror，布尔作用域提交 booleanAdd/booleanSubtract；
+  // 否则标题显示「镜像 N/布尔运算 N」而树行是「特征镜像 N/并集 N/差集 N」。
+  // 仅显示层派生，不改载荷；提交类型权威仍是 handleConfirm 内的
+  // submittedFeatureType。编辑模式保持落库名。
+  const submittedForName = mirrorChannel && mirrorScope === 'feature' ? 'featureMirror' : effectiveFeatureType;
+  const displayFeatureName = mode === 'edit' || !featureNameForType || submittedForName === undefined
+    ? featureName
+    : featureNameForType(submittedForName);
   // B5 pattern 通道：kind（ribbon 入口可指定初始值）+ count（含原件，缺省 2——
   // 2026-11-15 live 默认）+ spacing（linear 缺省 10）/ angle（circular 缺省 360°）
   // + axis（linear 缺省 X；circular 锁定 Z，见下方载荷/渲染）。
@@ -2452,7 +2471,7 @@ export function FeatureDialog({
         IModelApp.notifications.outputMessage(
           new NotifyMessageDetails(
             OutputMessagePriority.Success,
-            t('partStudio.featureDialog.submitSuccess', { name: featureName }),
+            t('partStudio.featureDialog.submitSuccess', { name: displayFeatureName }),
           ),
         );
         onConfirm?.(buildResult());
@@ -2580,12 +2599,12 @@ export function FeatureDialog({
     t,
     onConfirm,
     buildResult,
-    featureName,
+    displayFeatureName,
   ]);
 
   // 2026-11-13：画布右键菜单前置的「确认 / 取消」与对话框 ✓/✗ 同源
   //（Onshape live：特征对话框打开时右键菜单首两项为 确认 <特征> / 取消）。
-  useDialogCommandHandler({ onConfirm: handleConfirm, onCancel: () => onCancel?.() });
+  useDialogCommandHandler({ onConfirm: handleConfirm, onCancel: () => onCancel?.(), confirmLabel: displayFeatureName });
 
   // 选中草图（Onshape：最近一张草图自动激活，面域在视口拾取）。
   const selectedSketch = sketchOptions.find((option) => option.id === selectedSketchId);
@@ -2759,7 +2778,7 @@ export function FeatureDialog({
       ref={rootRef}
       role="dialog"
       aria-modal="false"
-      aria-label={featureName}
+      aria-label={displayFeatureName}
       aria-busy={submitting || undefined}
       className="part-studio-feature-dialog"
       data-testid="part-studio-feature-dialog"
@@ -2774,7 +2793,7 @@ export function FeatureDialog({
               : 'part-studio-feature-dialog__title'
           }
         >
-          {featureName}
+          {displayFeatureName}
         </h2>
         <DialogHeaderButtons disabled={submitDisabled} onConfirm={handleConfirm} onCancel={() => onCancel?.()} />
       </header>
@@ -3920,6 +3939,18 @@ export function FeatureDialog({
                 )}
                 {filletEdges.length === 0 && edgePickTrigger}
               </div>
+            )}
+            {/* 审计 A3（2026-11-16）：Onshape live 倒角图元字段接受“面”（面→边
+                自动分解），产品拾取器只有边通道、无面分解。常驻诚实提示，避免
+                用户选了面却静默无法加入。仅倒角通道（圆角 live 只有边）。 */}
+            {chamferChannel && (
+              <p
+                role="note"
+                className="part-studio-feature-dialog__hint"
+                data-testid="part-studio-feature-dialog-chamfer-face-hint"
+              >
+                {t('partStudio.featureDialog.chamferFaceHint')}
+              </p>
             )}
             {edgePickChannel && picking && (
               <p

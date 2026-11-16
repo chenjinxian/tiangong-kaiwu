@@ -21,7 +21,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, SketchDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, SketchDto } from '@luban-cad/shared';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 
 // M6-a T6：面域读面 RPC 替身（FeatureDialog 拉伸草图通道 getSketch 直调）。
@@ -137,6 +137,8 @@ function renderCanvas(
     connection?: BriefcaseConnection;
     bodies?: readonly BodyInfo[];
     canEdit?: boolean;
+    featureEntries?: readonly FeatureTreeEntry[];
+    featureParams?: unknown;
   },
 ): void {
   render(
@@ -145,6 +147,8 @@ function renderCanvas(
       applyOp={applyOp}
       sketches={opts?.sketches}
       bodies={opts?.bodies}
+      featureEntries={opts?.featureEntries}
+      featureParams={opts?.featureParams}
       canEdit={opts?.canEdit ?? true}
       connection={
         opts?.connection
@@ -162,6 +166,10 @@ function resetStore(): void {
     dialog: { active: null },
     viewOnly: { isActive: false },
   });
+}
+
+function treeEntry(id: string, featureType: string, orderKey: number): FeatureTreeEntry {
+  return { id, featureType, orderKey, suppressed: false, status: 0, params: {} };
 }
 
 beforeEach(() => {
@@ -210,16 +218,89 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     expect((withinDialog().getByRole('combobox', { name: '方向轴' }) as HTMLSelectElement).value).toBe('Z');
   });
 
-  it('new 模式与 edit 模式 key 不同族（new-extrude），互不串挂', async () => {
-    renderCanvas();
+  it('new 模式与 edit 模式 key 不同族（new-extrude），互不串挂；C1 标题按同类条目编号', async () => {
+    renderCanvas(undefined, { featureEntries: [treeEntry('ex1', 'extrude', 1)] });
     actOpenEdit('ex1', '拉伸 1');
     expect(screen.getByRole('dialog', { name: '拉伸 1' })).toBeDefined();
     act(() => {
       usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
     });
-    // new 模式标题=类型标签（词库），非上一特征的名称残留。
-    expect(screen.getByRole('dialog', { name: '拉伸' })).toBeDefined();
+    // C1（2026-11-16）：new 模式标题=类型标签+序号（现有 1 条 extrude → 拉伸 2），
+    // 非上一特征的名称残留。
+    expect(screen.getByRole('dialog', { name: '拉伸 2' })).toBeDefined();
     expect(screen.queryByRole('dialog', { name: '拉伸 1' })).toBeNull();
+  });
+
+  it('C1：新建特征标题按同类树条目编号（非 cPlane 路由同样生效，无关类型忽略）', () => {
+    renderCanvas(undefined, {
+      featureEntries: [
+        treeEntry('f1', 'fillet', 1),
+        treeEntry('f2', 'hole', 2),
+        treeEntry('f3', 'fillet', 3),
+      ],
+    });
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'fillet' });
+    });
+    // 2 条同类 fillet → 圆角 3；孔/其它类型不参与计数。
+    expect(screen.getByRole('dialog', { name: '圆角 3' })).toBeDefined();
+
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'shell' });
+    });
+    expect(screen.getByRole('dialog', { name: '抽壳 1' })).toBeDefined();
+
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'transform' });
+    });
+    expect(screen.getByRole('dialog', { name: '变换 1' })).toBeDefined();
+  });
+
+  // F1（2026-11-16）：孔的新建标题必须按树派生名编号（「孔 N」），不能再用
+  // ribbon 类型标签「孔」——否则对话框 aria-label/成功 toast 与树行不一致。
+  it('F1：新建孔对话框标题按同类条目编号（空树 → 孔 1）', () => {
+    renderCanvas();
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'hole' });
+    });
+    expect(screen.getByRole('dialog', { name: '孔 1' })).toBeDefined();
+  });
+
+  it('F1：已有 1 条孔条目 → 新建孔标题为「孔 2」（与树派生序号同口径）', () => {
+    renderCanvas(undefined, { featureEntries: [treeEntry('h1', 'hole', 1)] });
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'hole' });
+    });
+    expect(screen.getByRole('dialog', { name: '孔 2' })).toBeDefined();
+  });
+
+  // F3（2026-11-16）：featurePattern 的源 chips 只用于显示；源被抑制后仍引用
+  // 它的既有阵列必须显示树名，不能回退原始结构 id（0x…）。
+  it('F3：featurePattern 源 chips 对已抑制源仍显示树名（不回退原始 id）', () => {
+    renderCanvas(undefined, {
+      featureEntries: [
+        { id: 'ex1', featureType: 'extrude', orderKey: 1, suppressed: true, status: 0, params: {} },
+        treeEntry('fp1', 'featurePattern', 2),
+      ],
+      featureParams: {
+        sourceFeatureId: 'ex1',
+        kind: 'linear',
+        count: 3,
+        spacing: 6,
+        axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 } },
+      },
+    });
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({
+        mode: 'edit',
+        featureId: 'fp1',
+        featureName: '特征阵列 1',
+        featureType: 'featurePattern',
+      });
+    });
+    const source = screen.getByTestId('part-studio-feature-pattern-source');
+    expect(source.textContent).toBe('拉伸 1');
+    expect(source.textContent).not.toBe('ex1');
   });
 
   it('new 模式提交 → applyOp 直通（insertFeature/extrude 草图通道——M6-a T6 sketches/connectionKey 透传生效）+ closeDialog', async () => {

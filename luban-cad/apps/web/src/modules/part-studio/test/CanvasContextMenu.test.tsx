@@ -635,4 +635,37 @@ describe('CanvasContextMenu 特征对话框状态（Onshape live context-menus-2
     await user.click(screen.getByRole('menuitem', { name: '取消' }));
     expect(cancel).toHaveBeenCalledTimes(1);
   });
+
+  // R1（2026-11-16）：对话框登记的命令槽可携带显示名——菜单「确认 <名称>」必须
+  // 与对话框标题一致（特征镜像/布尔 草稿标题 ≠ 按 ribbon 派生的旧名）。
+  it('R1：已登记 confirmLabel 优先于 store/ribbon 派生（特征镜像 1）', () => {
+    function DialogCommandHarness(): null {
+      useDialogCommandHandler({
+        onConfirm: vi.fn(),
+        onCancel: vi.fn(),
+        confirmLabel: '特征镜像 1',
+      });
+      return null;
+    }
+    usePartStudioStore.setState({
+      dialog: { active: 'feature', mode: 'new', featureType: 'mirror' },
+    });
+    render(
+      <>
+        <DialogCommandHarness />
+        <CanvasContextMenu anchor={ANCHOR} onClose={vi.fn()} />
+      </>,
+    );
+    const menu = screen.getByRole('menu', { name: '画布菜单' });
+    expect(within(menu).getByRole('menuitem', { name: '确认 特征镜像 1' })).toBeDefined();
+    expect(within(menu).queryByRole('menuitem', { name: '确认 镜像' })).toBeNull();
+  });
+
+  it('R1：无命令槽登记时回退旧派生（mirror 新建 → 确认 镜像）', () => {
+    usePartStudioStore.setState({
+      dialog: { active: 'feature', mode: 'new', featureType: 'mirror' },
+    });
+    render(<CanvasContextMenu anchor={ANCHOR} onClose={vi.fn()} />);
+    expect(screen.getByRole('menuitem', { name: '确认 镜像' })).toBeDefined();
+  });
 });

@@ -300,7 +300,7 @@ export function ShellDialog({
   }, [submitDisabled, applyOp, editMode, featureId, buildParams, ownerBodyKey, t, featureName, onConfirm]);
 
   // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
-  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.(), confirmLabel: featureName });
 
   return (
     <div

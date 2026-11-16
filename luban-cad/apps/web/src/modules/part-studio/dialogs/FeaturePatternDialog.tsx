@@ -15,6 +15,9 @@
  * 切片 12：多源阵列（`sourceFeatureIds`，shared 1.59）回显全部源特征 chips，
  * 提交时按落库形状保留单源/多源键，不把多源误判为「源缺失」；
  * 不渲染方向/面选择器等无产品能力的假控件。
+ * 2026-11-16 A4：源 chips 经可选 `features` 表显示特征名；缺省/未命中回退原始
+ * id（只读显示层，不动 sourceFeatureIds 结构引用与 updateParams 载荷）。
+ * 2026-11-16 A5：补齐共享底栏（禁用透明度滑杆 + `?` 帮助），与其他特征对话框同皮肤。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -31,10 +34,22 @@ import type { FeatureOp, FeatureOpResult, PreviewResult } from '@luban-cad/share
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 import { useDialogCommandHandler } from '../internal/dialog-commands.js';
 
+/** A4：源特征显示项（id=落库结构引用，label=树派生/自定义名）。 */
+export interface FeaturePatternFeatureOption {
+  id: string;
+  label: string;
+  featureType: string;
+}
+
 export interface FeaturePatternDialogProps {
   featureName: string;
   /** 编辑模式特征 id（本对话框只支持 updateParams）。 */
   featureId?: string;
+  /**
+   * 源特征显示表（A4）：只用于只读 chips 显示；载荷仍是 `sourceFeatureIds`
+   * 原值。缺省或 id 未命中 → 回退原始 id（不崩溃，不改语义）。
+   */
+  features?: readonly FeaturePatternFeatureOption[];
   initialParams?: unknown;
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /** 改参预览（后端影子求值几何 → TileRpc 动态图形；失败静默无预览）。 */
@@ -121,6 +136,7 @@ const vecText = (v: Vec3): string =>
 export function FeaturePatternDialog({
   featureName,
   featureId,
+  features,
   initialParams,
   applyOp,
   previewOp,
@@ -167,6 +183,17 @@ export function FeaturePatternDialog({
 
   const sourceIds = React.useMemo(() => stored.sourceFeatureIds
     ?? (stored.sourceFeatureId !== undefined ? [stored.sourceFeatureId] : []), [stored]);
+  // A4：源 chips 显示特征名（宿主下传 features）；无表/未命中回退原始 id。
+  const featureLabelById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const feature of features ?? [])
+      map.set(feature.id, feature.label);
+    return map;
+  }, [features]);
+  const sourceLabels = React.useMemo(
+    () => sourceIds.map((id) => featureLabelById.get(id) ?? id),
+    [sourceIds, featureLabelById],
+  );
   const multiSource = stored.sourceFeatureIds !== undefined;
   const axis = stored.axis;
   const axisValid = axis !== undefined
@@ -283,7 +310,7 @@ export function FeaturePatternDialog({
   }, [submitDisabled, applyOp, featureId, buildParams, t, featureName, onConfirm]);
 
   // 2026-11-13：画布右键菜单前置「确认 / 取消」→ 与本对话框 ✓/✗ 同源命令。
-  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.() });
+  useDialogCommandHandler({ onConfirm: () => void confirm(), onCancel: () => onCancel?.(), confirmLabel: featureName });
 
   const countLabel = t(centeredActive
     ? 'partStudio.featureDialog.patternCountLabelCentered'
@@ -334,14 +361,14 @@ export function FeaturePatternDialog({
                   key={`${id}-${index}`}
                   className="part-studio-feature-dialog__profile-chip"
                   data-testid={`part-studio-feature-pattern-source-${index}`}
-                >{id}</span>
+                >{sourceLabels[index] ?? id}</span>
               ))}
             </span>
           ) : (
             <span
               className="part-studio-feature-dialog__profile-chip"
               data-testid="part-studio-feature-pattern-source"
-            >{sourceIds[0]}</span>
+            >{sourceLabels[0] ?? sourceIds[0]}</span>
           )}
         </section>
         <p role="note" className="part-studio-feature-dialog__hint" data-testid="part-studio-feature-pattern-locked-hint">
@@ -608,6 +635,29 @@ export function FeaturePatternDialog({
           <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>
         </label>
       </div>
+      {/* A5：共享底栏（Onshape 皮肤）——透明度滑杆仅占位（真滑杆通道未接，诚实禁用）+ ? 帮助。
+          F5/R2（2026-11-16）：禁用态给出真实原因 title——滑杆未接入动态预览着色
+          （编辑模式有动态预览，但滑杆不驱动其 alpha），?=帮助内容未接入；不留静默按钮。 */}
+      <footer className="part-studio-feature-dialog__footer">
+        <div className="part-studio-feature-dialog__transparency">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            defaultValue={0}
+            disabled
+            title={t('partStudio.featureDialog.transparencyUnavailable')}
+            aria-label={t('partStudio.featureDialog.transparencyLabel')}
+            className="part-studio-feature-dialog__transparency-slider"
+          />
+        </div>
+        <button
+          type="button"
+          className="part-studio-feature-dialog__help"
+          title={t('partStudio.featureDialog.helpUnavailable')}
+          aria-label={t('partStudio.featureDialog.help')}
+        >?</button>
+      </footer>
       {previewHost !== null && dynamicPreview !== undefined && createPortal(
         <FeaturePreviewOverlay
           viewport={viewport ?? null}

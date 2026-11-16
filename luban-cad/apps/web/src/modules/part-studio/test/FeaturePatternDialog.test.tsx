@@ -6,7 +6,9 @@
 //  3) 数值域校验（count 2..1000、居中奇数、spacing>0、angle (0,360]）；
 //  4) 圆周形态用 angle 并保留原轴；
 //  5) 源/轴缺失或退化 → 禁提交；
-//  6) canEdit=false 全禁用。
+//  6) canEdit=false 全禁用；
+//  7) A4（2026-11-16）：源 chips 显示 features 映射的特征名，缺省/未命中回退 id；
+//  8) A5（2026-11-16）：共享底栏（禁用透明度滑杆 + ? 帮助）。
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -80,9 +82,49 @@ describe('FeaturePatternDialog', () => {
     expect(within(kind).queryByRole('option', { name: '圆周阵列' })).toBeNull();
   });
 
-  it('落库回显：居中总数 5 → 每侧 3、居中勾选 + 提示', () => {
-    const { applyOp } = renderDialog({}, stored({ centered: true, count: 5 }));
+  it('A5：底栏 = 禁用透明度滑杆 + ? 帮助（与其他特征对话框共享皮肤）', () => {
+    renderDialog();
+    const slider = screen.getByRole('slider', { name: '透明度' }) as HTMLInputElement;
+    expect(slider.disabled).toBe(true);
+    // F5（2026-11-16）：禁用态必须给出真实原因（无假控件、无静默按钮）。
+    expect(slider.getAttribute('title')).toBe('透明度滑杆尚未接入动态预览着色，暂不可用。');
+    const help = screen.getByRole('button', { name: '帮助' });
+    expect(help.textContent).toBe('?');
+    expect(help.getAttribute('title')).toBe('帮助内容尚未接入。');
+  });
+
+  it('A4：源 chips 显示 features 映射的特征名（载荷仍是结构引用 id）', async () => {
+    const { applyOp, user } = renderDialog({
+      features: [{ id: '0x20000000008', label: '拉伸 1', featureType: 'extrude' }],
+    }, stored({ centered: false }));
+    expect(screen.getByTestId('part-studio-feature-pattern-source').textContent).toBe('拉伸 1');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({ params: { sourceFeatureId: '0x20000000008' } });
+  });
+
+  it('A4：无 features 表 / id 未命中 → 回退原始 id（不崩溃，载荷不变）', () => {
+    // 缺省 features：原始 id 回退（既有行为保持）。
+    renderDialog();
     expect(screen.getByTestId('part-studio-feature-pattern-source').textContent).toBe('0x20000000008');
+
+    // 部分映射：命中项显示名，未命中项回退 id。
+    renderDialog({
+      features: [{ id: '0x20000000008', label: '拉伸 1', featureType: 'extrude' }],
+    }, stored({
+      sourceFeatureId: undefined,
+      sourceFeatureIds: ['0x20000000008', '0x20000000009'],
+    }));
+    const multi = screen.getAllByTestId('part-studio-feature-pattern-source').at(-1)!;
+    expect(multi.getAttribute('data-multi')).toBe('true');
+    expect(within(multi).getByTestId('part-studio-feature-pattern-source-0').textContent).toBe('拉伸 1');
+    expect(within(multi).getByTestId('part-studio-feature-pattern-source-1').textContent).toBe('0x20000000009');
+  });
+
+  it('落库回显：居中总数 5 → 每侧 3、居中勾选 + 提示', () => {
+    const { applyOp } = renderDialog({
+      features: [{ id: '0x20000000008', label: '拉伸 1', featureType: 'extrude' }],
+    }, stored({ centered: true, count: 5 }));
+    expect(screen.getByTestId('part-studio-feature-pattern-source').textContent).toBe('拉伸 1');
     expect((screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement).value).toBe('linear');
     expect((screen.getByRole('textbox', { name: '每侧实例数（含原件）' }) as HTMLInputElement).value).toBe('3');
     expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('6');
@@ -282,14 +324,19 @@ describe('FeaturePatternDialog', () => {
   });
 
   // ADR-0007 切片 12：多源阵列（shared 1.59 sourceFeatureIds）回显与保形。
-  it('多源阵列：全部源 chips 回显，载荷保留 sourceFeatureIds', async () => {
-    const { applyOp, user } = renderDialog({}, stored({
+  it('多源阵列：全部源 chips 回显特征名（A4），载荷保留 sourceFeatureIds', async () => {
+    const { applyOp, user } = renderDialog({
+      features: [
+        { id: '0x20000000008', label: '拉伸 1', featureType: 'extrude' },
+        { id: '0x20000000009', label: '拉伸 2', featureType: 'extrude' },
+      ],
+    }, stored({
       sourceFeatureId: undefined,
       sourceFeatureIds: ['0x20000000008', '0x20000000009'],
     }));
     expect(screen.getByTestId('part-studio-feature-pattern-source').getAttribute('data-multi')).toBe('true');
-    expect(screen.getByTestId('part-studio-feature-pattern-source-0').textContent).toBe('0x20000000008');
-    expect(screen.getByTestId('part-studio-feature-pattern-source-1').textContent).toBe('0x20000000009');
+    expect(screen.getByTestId('part-studio-feature-pattern-source-0').textContent).toBe('拉伸 1');
+    expect(screen.getByTestId('part-studio-feature-pattern-source-1').textContent).toBe('拉伸 2');
     expect(screen.getByTestId('part-studio-feature-pattern-multi-source-hint').textContent)
       .toContain('结构引用');
     const count = screen.getByRole('textbox', { name: '实例数' });

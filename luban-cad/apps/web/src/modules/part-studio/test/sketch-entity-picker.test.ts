@@ -143,6 +143,11 @@ describe('草图实体右键菜单（Onshape live 顺序）', () => {
       '曲线/曲面分析…',
       '清除选定内容',
       '选择',
+      '相切相连边',
+      '等长/等径边',
+      '平行边',
+      '创建选定内容…',
+      '选择其他…',
       '添加评论',
       '缩放到合适大小',
       '放大选定对象',
@@ -154,6 +159,67 @@ describe('草图实体右键菜单（Onshape live 顺序）', () => {
     expect((within(menu).getByRole('menuitem', { name: '删除草图图元' }) as HTMLButtonElement).disabled).toBe(false);
     // 未复制时粘贴项不出现（Onshape：粘贴在复制后出现，仍紧随复制）。
     expect(within(menu).queryByRole('menuitem', { name: '粘贴草图图元' })).toBeNull();
+  });
+
+  // 审计 D7 回归：夹紧估算高度小于实际行高时，末项（删除草图图元）曾被渲染到
+  // 视口外且菜单不可滚 → e2e 点击无限重试直到超时。菜单必须以预留空间为
+  // maxHeight 且可纵向滚动，保证 top + maxHeight 不越出视口。
+  it('实体菜单受视口夹紧并可滚动（末项任意视口下可达）', () => {
+    renderPicker();
+    const menu = openEntityMenu();
+    const top = Number.parseFloat(menu.style.top);
+    const maxHeight = Number.parseFloat(menu.style.maxHeight);
+    expect(Number.isFinite(top)).toBe(true);
+    expect(Number.isFinite(maxHeight)).toBe(true);
+    expect(menu.style.overflowY).toBe('auto');
+    expect(top + maxHeight).toBeLessThanOrEqual(window.innerHeight);
+  });
+
+  // F6（2026-11-16）：极小视口（innerHeight < 128）下旧下界 Math.max(120, …)
+  // 会让 maxHeight 越过视口——改为精确夹紧（top 与 maxHeight 下界 0）。
+  it('极小视口（innerHeight=100）：top + maxHeight 仍不越界', () => {
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: 100 });
+    try {
+      renderPicker();
+      const menu = openEntityMenu();
+      const top = Number.parseFloat(menu.style.top);
+      const maxHeight = Number.parseFloat(menu.style.maxHeight);
+      expect(Number.isFinite(top)).toBe(true);
+      expect(Number.isFinite(maxHeight)).toBe(true);
+      expect(maxHeight).toBeGreaterThanOrEqual(0);
+      expect(menu.style.overflowY).toBe('auto');
+      expect(top + maxHeight).toBeLessThanOrEqual(window.innerHeight);
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: originalInnerHeight });
+    }
+  });
+
+  // 审计 D7（2026-11-16）：选择▸ 父项禁用之外，渲染 live 捕获的五个子项为
+  // 常驻禁用行（相切相连边/等长·等径边/平行边/创建选定内容…/选择其他…），
+  // 逐项诚实 title；不新增任何动作。
+  it('选择子菜单：五个 live 捕获行常驻禁用 + 逐项诚实原因 title', () => {
+    renderPicker();
+    const menu = openEntityMenu();
+    expect((within(menu).getByRole('menuitem', { name: '选择' }) as HTMLButtonElement).disabled).toBe(true);
+
+    const group = within(menu).getByTestId('sketch-entity-menu-select-submenu');
+    const rows = within(group).getAllByRole('menuitem');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      '相切相连边',
+      '等长/等径边',
+      '平行边',
+      '创建选定内容…',
+      '选择其他…',
+    ]);
+    for (const row of rows)
+      expect((row as HTMLButtonElement).disabled).toBe(true);
+    const relationReason = '按相切/等长/平行关系筛选边的选择过滤器尚未实现。';
+    expect(rows[0]!.getAttribute('title')).toBe(relationReason);
+    expect(rows[1]!.getAttribute('title')).toBe(relationReason);
+    expect(rows[2]!.getAttribute('title')).toBe(relationReason);
+    expect(rows[3]!.getAttribute('title')).toBe('创建命名选定内容（saved selection）尚未实现。');
+    expect(rows[4]!.getAttribute('title')).toBe('「选择其他…」候选列表尚未实现。');
   });
 
   it('点击首项「确认 草图 N」→ 菜单关闭并调用 onFinishSketch', () => {

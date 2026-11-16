@@ -1446,6 +1446,17 @@
   padding-inline-start: var(--iui-size-xs);
 }
 
+/* 草图实体菜单「选择▸」子菜单组（审计 D7）：live 五行常驻灰显，左缩进
+   以表达层级（无 hover 展开行为，不伪造动作）。 */
+.part-studio-tree-menu__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-tree-menu__item--submenu {
+  padding-inline-start: calc(var(--iui-size-xs) + var(--iui-size-s));
+}
+
 /* 零件属性对话框（只读字段）。 */
 .part-studio-tree-properties {
   display: grid;

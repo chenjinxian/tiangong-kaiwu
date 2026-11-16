@@ -14,6 +14,11 @@
  *
  * 纪律：这是 UI 命令转发，不是第二套事务通道——确认仍走对话框自身的
  * applyOp/FeatureOp 管道（P0-05/P0-10 不变）。
+ *
+ * R1（2026-11-16）：登记可携带 `confirmLabel`（对话框显示名，例如「特征镜像 1」）。
+ * 画布右键「确认 <特征>」优先使用它，避免菜单按 ribbon 类型标签派生的旧名
+ *（镜像/布尔运算）与对话框标题（特征镜像/布尔/并集/差集 N）不一致；未登记
+ * 显示名时菜单保留旧派生回退。
  */
 
 import React from 'react';
@@ -24,9 +29,41 @@ export type DialogCommand = 'confirm' | 'cancel';
 export interface DialogCommandHandlers {
   onConfirm(): void;
   onCancel(): void;
+  /** R1：画布菜单「确认 <名称>」显示名（缺省 undefined=菜单回退旧派生）。 */
+  confirmLabel?: string;
 }
 
 let activeHandlers: DialogCommandHandlers | undefined;
+const labelListeners = new Set<() => void>();
+
+function notifyLabelListeners(): void {
+  for (const listener of labelListeners)
+    listener();
+}
+
+/** 当前活动对话框的确认显示名（无登记=undefined）。 */
+export function dialogCommandConfirmLabel(): string | undefined {
+  return activeHandlers?.confirmLabel;
+}
+
+const subscribeConfirmLabel = (onStoreChange: () => void): (() => void) => {
+  labelListeners.add(onStoreChange);
+  return () => {
+    labelListeners.delete(onStoreChange);
+  };
+};
+
+/**
+ * 订阅活动对话框确认显示名（CanvasContextMenu 消费）：对话框切换/镜像作用域
+ * 改标题时菜单标签即时跟随；无对话框=undefined（菜单回退旧派生）。
+ */
+export function useDialogCommandConfirmLabel(): string | undefined {
+  return React.useSyncExternalStore(
+    subscribeConfirmLabel,
+    dialogCommandConfirmLabel,
+    dialogCommandConfirmLabel,
+  );
+}
 
 /**
  * 发命令给当前对话框。返回是否送达（无对话框=false）。
@@ -55,18 +92,23 @@ export function hasDialogCommandHandler(): boolean {
 export function useDialogCommandHandler(handlers: DialogCommandHandlers, enabled = true): void {
   const ref = React.useRef(handlers);
   ref.current = handlers;
+  const confirmLabel = handlers.confirmLabel;
   React.useEffect(() => {
     if (!enabled)
       return;
     const registered: DialogCommandHandlers = {
       onConfirm: () => ref.current.onConfirm(),
       onCancel: () => ref.current.onCancel(),
+      confirmLabel,
     };
     activeHandlers = registered;
+    notifyLabelListeners();
     return () => {
       // 只清自己登记的槽位（StrictMode 双挂载/对话框切换顺序防御）。
-      if (activeHandlers === registered)
+      if (activeHandlers === registered) {
         activeHandlers = undefined;
+        notifyLabelListeners();
+      }
     };
-  }, [enabled]);
+  }, [enabled, confirmLabel]);
 }

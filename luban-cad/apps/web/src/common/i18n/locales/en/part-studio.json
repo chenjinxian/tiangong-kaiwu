@@ -851,6 +851,7 @@
     "chamferAngleInvalid": "Enter a valid chamfer angle (0–180°)",
     "chamferEdgesLabel": "Entities to chamfer",
     "chamferNoEdgesHint": "Select edges to chamfer",
+    "chamferFaceHint": "Face-to-edge decomposition is not supported; select edges individually.",
     "propagateSmoothLabel": "Tangent propagation",
     "addEdge": "Add edges",
     "stopPick": "Finish picking",
@@ -923,8 +924,10 @@
       "backward": "Backward"
     },
     "transparencyLabel": "Transparency",
+    "transparencyUnavailable": "The transparency slider is not wired to the dynamic-preview overlay alpha yet, so it is disabled.",
     "finish": "Finish",
     "helpText": "Pick faces or sketch regions in the canvas to add entities; ✓ commits the feature, ✗ discards changes.",
+    "helpUnavailable": "Help content is not available yet.",
     "secondEndUnsupported": "Second end position is not supported yet",
     "depthLabel": "Depth",
     "calculatorLabel": "Calculator",
@@ -1082,8 +1085,8 @@
     "blankMenuCreateSelection": "Create selection…",
     "blankMenuSelectOther": "Select other…",
     "patternSelectPrompt": "Select sketch entities to pattern",
-    "patternPrompt": "Linear pattern: drag the handles or click a value; Enter accepts, Esc cancels",
-    "patternPromptCircular": "Circular pattern: drag the center/angle handles or instance count; Enter accepts, Esc cancels",
+    "patternPrompt": "Linear pattern: drag the handles or click a value; instances are independent copies with no associative pattern constraint; Enter accepts, Esc cancels",
+    "patternPromptCircular": "Circular pattern: drag the center/angle handles or instance count; instances are independent copies with no associative pattern constraint; Enter accepts, Esc cancels",
     "patternPromptTransform": "Transform: drag move/rotate/scale handles; Enter accepts, Esc cancels",
     "patternMove": "Drag to move the selection",
     "patternRotate": "Drag to rotate the selection",
@@ -1111,6 +1114,10 @@
     "useDegenerate": "The source geometry is degenerate and cannot be used",
     "useFailed": "Use (project) commit failed: {{message}}",
     "entityMenuSelect": "Select",
+    "entityMenuSelectTangentConnected": "Tangent-connected edges",
+    "entityMenuSelectEqualDiameter": "Equal-length/equal-diameter edges",
+    "entityMenuSelectParallel": "Parallel edges",
+    "entityMenuSelectRelationUnsupported": "Selection filters by tangent/equal/parallel edge relations are not implemented yet.",
     "entityMenuAddComment": "Add comment",
     "entityMenuFit": "Zoom to fit",
     "entityMenuZoom": "Zoom to selection",
@@ -1863,6 +1870,12 @@
     "selectOther": {
       "title": "Select other",
       "message": "The \"Select other…\" candidate list is not implemented yet."
+    },
+    "scope": {
+      "cPlane": {
+        "available": "Datum planes (Top/Front/Right), offset distance, flip normal; plane point = world origin",
+        "notImplemented": "Line-angle/line-point/three-point plane definitions are read-only (delete and recreate); arbitrary face/edge/point references are not implemented"
+      }
     }
   },
   "viewCube": {
@@ -2046,6 +2059,7 @@
       "threePoint": "Three-point plane"
     },
     "advancedReadonlyHint": "This plane uses an advanced definition ({{definition}}). This dialog only supports datum-plane offset or world-origin editing; delete this plane and recreate it.",
+    "onlyDatumHint": "Only datum planes and the world origin are supported; face/edge/point references are not implemented.",
     "modeRowTitle": "Type is a product extension: Reference plane = selected datum plane + offset; Plane point = world-origin subset (reference normal + custom world origin X/Y/Z). Onshape live infers the reference type from the entity, so there is no separate type row."
   },
   "appearances": {

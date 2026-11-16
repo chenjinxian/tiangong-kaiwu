@@ -14,11 +14,15 @@
 // 定位：纯注册表枚举断言（无组件/RPC），钉死后续 ribbon（T4）/能力
 // 引导对话框（T5+）消费的契约面。
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
   CAPABILITY_GUIDANCE,
+  CAPABILITY_SCOPE_NOTES,
   TOOL_CAPABILITIES,
+  capabilityScopeNoteOf,
   isGated,
 } from '../internal/capabilities.js';
 
@@ -119,6 +123,57 @@ describe('isGated', () => {
   it('未登记工具默认 full（完整 UI 面：不灰化不删减）', () => {
     expect(isGated('someFutureTool')).toBe(false);
     expect(isGated('')).toBe(false);
+  });
+});
+
+// 审计 D3（2026-11-16）：cPlane 保持 full（入口可用、行为不变），但高级定义
+// 只读、仅基准面/偏移/世界原点可编辑——作用域注记登记在
+// CAPABILITY_SCOPE_NOTES，作为注册表/能力矩阵记录（当前无 UI 消费者；
+// 用户可见提示在 CPlaneDialog 的 onlyDatumHint 与逐控件禁用 title），
+// 不再只停留在行内注释。
+describe('CAPABILITY_SCOPE_NOTES full 能力作用域注记', () => {
+  it('cPlane 仍为 full（不改变行为/不禁用编辑），且有可消费的注记键', () => {
+    expect(TOOL_CAPABILITIES.cPlane).toBe('full');
+    expect(isGated('cPlane')).toBe(false);
+    expect(capabilityScopeNoteOf('cPlane')).toEqual({
+      availableKey: 'partStudio.capabilities.scope.cPlane.available',
+      notImplementedKey: 'partStudio.capabilities.scope.cPlane.notImplemented',
+    });
+  });
+
+  it('注记键只登记已注册的 full 能力（gated 已有 CAPABILITY_GUIDANCE）', () => {
+    for (const [toolId, note] of Object.entries(CAPABILITY_SCOPE_NOTES)) {
+      expect(TOOL_CAPABILITIES[toolId], `作用域注记引用了未登记能力 ${toolId}`).toBe('full');
+      expect(note.availableKey).toBe(`partStudio.capabilities.scope.${toolId}.available`);
+      expect(note.notImplementedKey).toBe(`partStudio.capabilities.scope.${toolId}.notImplemented`);
+    }
+  });
+
+  it('未登记作用域注记默认 undefined', () => {
+    expect(capabilityScopeNoteOf('extrude')).toBeUndefined();
+    expect(capabilityScopeNoteOf('someFutureTool')).toBeUndefined();
+  });
+
+  it('注记 i18n 键在 zh-CN/en 词表存在且非空（键不悬空）', () => {
+    for (const locale of ['zh-CN', 'en']) {
+      const dict = JSON.parse(readFileSync(
+        resolve(__dirname, `../../../common/i18n/locales/${locale}/part-studio.json`),
+        'utf8',
+      )) as {
+        capabilities?: {
+          scope?: Record<string, { available?: string; notImplemented?: string }>;
+        };
+      };
+      for (const [toolId, note] of Object.entries(CAPABILITY_SCOPE_NOTES)) {
+        const section = dict.capabilities?.scope?.[toolId];
+        expect(section?.available, `${locale} 缺少 ${toolId}.available`).toBeTruthy();
+        expect(section?.notImplemented, `${locale} 缺少 ${toolId}.notImplemented`).toBeTruthy();
+        const availableKey = note.availableKey.split('.').at(-1)!;
+        const notImplementedKey = note.notImplementedKey.split('.').at(-1)!;
+        expect(section?.[availableKey as 'available']).toBeTruthy();
+        expect(section?.[notImplementedKey as 'notImplemented']).toBeTruthy();
+      }
+    }
   });
 });
 

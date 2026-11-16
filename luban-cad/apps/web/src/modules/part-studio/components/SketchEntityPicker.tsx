@@ -727,11 +727,49 @@ export function SketchEntityPicker({
       })()}
       {menu && (() => {
         const width = 220;
-        const height = 400;
+        // 审计 D7（2026-11-16）：选择子菜单新增五行常驻禁用行 → 夹紧高度 +120。
+        // 夹紧值必须与渲染高度自洽：实际行数高度可能超过估算，若无 maxHeight
+        // 末尾项（删除草图图元）会落到视口外且无处可滚（e2e 实测 7 min 超时）。
+        // 以夹紧预留的空间作为 maxHeight + 纵向滚动，保证任意视口下末项可达。
+        const height = 520;
         const left = Math.min(menu.x, Math.max(8, window.innerWidth - width - 8));
-        const top = Math.min(menu.y, Math.max(8, window.innerHeight - height - 8));
+        // F6（2026-11-16）：夹紧必须精确覆盖极小视口——旧 `Math.max(120, …)` 在
+        // innerHeight < 128 时会让 maxHeight 越过视口（末项不可达）；下界取 0 并
+        // 让 top 也被 0 下界夹紧，保证 top + maxHeight <= innerHeight。
+        const top = Math.min(menu.y, Math.max(0, window.innerHeight - height - 8));
+        const maxHeight = Math.max(0, window.innerHeight - top - 8);
         const construction = isConstructionRef.current?.(menu.selection.entityId) ?? false;
         const disabledHint = t('partStudio.tree.unsupported');
+        // 审计 D7：live 捕获的「选择▸」子项（group-d 2026-11-12
+        // 相切相连边·等长/等径边·平行边·创建选定内容…·选择其他…）。产品无
+        // 边关系过滤器/命名选定/重叠候选通道——全部诚实禁用 + 逐项原因 title。
+        const selectSubmenuRows: { testId: string; labelKey: string; titleKey: string }[] = [
+          {
+            testId: 'sketch-entity-menu-select-tangent-connected',
+            labelKey: 'partStudio.sketch.entityMenuSelectTangentConnected',
+            titleKey: 'partStudio.sketch.entityMenuSelectRelationUnsupported',
+          },
+          {
+            testId: 'sketch-entity-menu-select-equal-diameter',
+            labelKey: 'partStudio.sketch.entityMenuSelectEqualDiameter',
+            titleKey: 'partStudio.sketch.entityMenuSelectRelationUnsupported',
+          },
+          {
+            testId: 'sketch-entity-menu-select-parallel',
+            labelKey: 'partStudio.sketch.entityMenuSelectParallel',
+            titleKey: 'partStudio.sketch.entityMenuSelectRelationUnsupported',
+          },
+          {
+            testId: 'sketch-entity-menu-select-create-selection',
+            labelKey: 'partStudio.sketch.blankMenuCreateSelection',
+            titleKey: 'partStudio.capabilities.createSelection.message',
+          },
+          {
+            testId: 'sketch-entity-menu-select-other',
+            labelKey: 'partStudio.sketch.blankMenuSelectOther',
+            titleKey: 'partStudio.capabilities.selectOther.message',
+          },
+        ];
         return (
           <div
             ref={menuRef}
@@ -739,7 +777,7 @@ export function SketchEntityPicker({
             role="menu"
             aria-label={t('partStudio.sketch.entityMenuLabel')}
             data-testid="sketch-entity-menu"
-            style={{ left, top }}
+            style={{ left, top, maxHeight, overflowY: 'auto' }}
             onMouseDown={(event) => event.stopPropagation()}
             onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
           >
@@ -845,6 +883,26 @@ export function SketchEntityPicker({
               {t('partStudio.sketch.entityMenuSelect')}
               <span className="part-studio-tree-menu__submenu" aria-hidden="true">›</span>
             </button>
+            <div
+              className="part-studio-tree-menu__group"
+              role="group"
+              aria-label={t('partStudio.sketch.entityMenuSelect')}
+              data-testid="sketch-entity-menu-select-submenu"
+            >
+              {selectSubmenuRows.map((row) => (
+                <button
+                  key={row.testId}
+                  type="button"
+                  role="menuitem"
+                  className="part-studio-tree-menu__item part-studio-tree-menu__item--submenu"
+                  data-testid={row.testId}
+                  disabled
+                  title={t(row.titleKey)}
+                >
+                  {t(row.labelKey)}
+                </button>
+              ))}
+            </div>
             <button type="button" role="menuitem" className="part-studio-tree-menu__item" disabled title={disabledHint}>
               {t('partStudio.sketch.entityMenuAddComment')}
             </button>

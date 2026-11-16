@@ -7,6 +7,8 @@
  * 对话框（不灰化不删减）。翻转 gated→full = 本文件数据变更 + 后端工作，
  * UI 零改动。初始 gated 集合钉死 spec §5：拔模/抽壳/外部螺纹/钣金系/
  * 框架系/曲面/曲线/渲染/工程图/材料/外观/通知/打印/装配体编辑。
+ * full 不等于“全部子域可用”：受限 full 能力的作用域注记登记在
+ * CAPABILITY_SCOPE_NOTES（审计 D3，2026-11-16）。
  */
 
 /** 能力档位：full=可用；gated=UI 全量呈现、点击走能力引导。 */
@@ -16,6 +18,22 @@ export type Capability = 'full' | 'gated';
 export interface CapabilityGuidance {
   titleKey: string;
   messageKey: string;
+}
+
+/**
+ * full 档位的能力作用域注记（i18n 键）：`full` 只表示入口可用，不代表
+ * Onshape live 的全部子域都可用。与 `gated` 的分工：gated=点击走能力引导；
+ * 作用域注记=入口可用、部分子域只读/未实现（由对话框逐控件诚实禁用）。
+ * 本表是能力矩阵/注册表的作用域记录（供审计与后续矩阵消费），**当前没有 UI
+ * 消费方**——用户可见提示在 `partStudio.cPlaneDialog.onlyDatumHint` 及
+ * `CPlaneDialog` 的逐控件禁用 title 中。新增受限 full 能力时在此登记，不要
+ * 只写在行内注释里。
+ */
+export interface CapabilityScopeNote {
+  /** 已可用子域（能力矩阵“支持”列）。 */
+  availableKey: string;
+  /** 只读/未实现子域（能力矩阵“限制”列）。 */
+  notImplementedKey: string;
 }
 
 /**
@@ -83,7 +101,10 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   deleteFace: 'gated', // 删除面（内核 DeleteSubEntity 0 回包——blocked-kernel）
   moveFace: 'full', // 移动面（ADR-0014 切片 1/2 + MoveFaceDialog：面 + 偏移/给定深度距离；逐面距离编辑/converter 未接）
   replaceFace: 'gated', // 替换面（editor IPC 未暴露——blocked）
-  cPlane: 'full', // 平面
+  // 平面（作用域受限：仅基准面/偏移/世界原点可编辑；LINE_ANGLE/LINE_POINT/
+  // THREE_POINT 落库定义只读回显。入口保持 full，作用域注记见
+  // CAPABILITY_SCOPE_NOTES.cPlane——审计 D3，2026-11-16）。
+  cPlane: 'full',
   userFeatures: 'gated', // 添加自定义特征（FeatureScript 自定义特征不在本版本——W1.2b 续审计）
 
   // —— 初始 gated 集合（spec §5；材料/外观、曲面/曲线各拆两条）——
@@ -205,3 +226,21 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   createSelection: guidanceFor('createSelection'),
   selectOther: guidanceFor('selectOther'),
 };
+
+/**
+ * full 能力的作用域注记（审计 D3，2026-11-16）：cPlane 入口为 full，但
+ * 高级定义（线角度/线点/三点）只读、且只有基准面/偏移/世界原点可编辑。
+ * 键集不要求与 gated 集合同步——gated 已有 CAPABILITY_GUIDANCE；
+ * capabilities.test.ts 钉死：注记键必须是已登记的 full 能力。
+ */
+export const CAPABILITY_SCOPE_NOTES: Record<string, CapabilityScopeNote> = {
+  cPlane: {
+    availableKey: 'partStudio.capabilities.scope.cPlane.available',
+    notImplementedKey: 'partStudio.capabilities.scope.cPlane.notImplemented',
+  },
+};
+
+/** 查询能力作用域注记（缺省 undefined：无注记或 gated 走能力引导）。 */
+export function capabilityScopeNoteOf(toolId: string): CapabilityScopeNote | undefined {
+  return CAPABILITY_SCOPE_NOTES[toolId];
+}
