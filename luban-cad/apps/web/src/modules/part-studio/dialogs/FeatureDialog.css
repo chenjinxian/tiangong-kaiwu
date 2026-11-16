@@ -2712,3 +2712,100 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* ── featurePattern 对话框（W10c 2026-11-16 live 形状）──────────────────────
+ * live 行序：作用域下拉 → 操作页签（每枚 55×26）→ 图元 chips → 方向 query →
+ * 距离（值 + mm + 26×26 计算器）→ 实例数（值 + 26×26 计算器）→ 居中 →
+ * 第二个方向折叠组（20×27 箭头，禁用灰 #d7d7d7）→ 跳过实例 → 底栏。
+ * 载荷/提交语义不变；这里只钉行度量与折叠组皮肤。 */
+.part-studio-feature-dialog[data-feature='featurePattern'] .part-studio-feature-dialog__distance-label {
+  color: #666666;
+  font-size: 12px;
+}
+
+.part-studio-feature-dialog[data-feature='featurePattern'] .part-studio-feature-dialog__input,
+.part-studio-feature-pattern-dialog__scope-row .part-studio-feature-dialog__select {
+  font-size: 13.3333px;
+}
+
+.part-studio-feature-dialog[data-feature='featurePattern'] .part-studio-feature-dialog__static-value {
+  font-size: 13.3333px;
+}
+
+/* 数值行：实例数 = 标签 + 值 + 图标；距离 = 标签 + 值 + mm + 图标（图标不换行）。 */
+.part-studio-feature-pattern-dialog__value-row {
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+}
+
+.part-studio-feature-pattern-dialog__value-row--with-unit {
+  grid-template-columns: 62px minmax(0, 1fr) auto auto;
+}
+
+.part-studio-feature-dialog[data-feature='featurePattern'] .part-studio-feature-dialog__calculator {
+  inline-size: 26px;
+  block-size: 26px;
+}
+
+.part-studio-feature-dialog[data-feature='featurePattern'] .part-studio-feature-dialog__calculator svg {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+/* 操作页签（live 每枚 55×26；全部禁用、无活动页签）。 */
+.part-studio-feature-pattern-dialog__operation-tabs .part-studio-feature-dialog__tab {
+  block-size: 26px;
+  font-size: 12px;
+  line-height: 24px;
+}
+
+/* 折叠组头（第二个方向 / 跳过实例）：20×27 箭头 + 标签。 */
+.part-studio-feature-pattern-dialog__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.part-studio-feature-pattern-dialog__group-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  min-block-size: 27px;
+}
+
+.part-studio-feature-pattern-dialog__group-header .part-studio-feature-dialog__checkbox {
+  min-block-size: 27px;
+  font-size: 13.3333px;
+}
+
+.part-studio-feature-pattern-dialog__expander {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  inline-size: 20px;
+  block-size: 27px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 11px;
+  line-height: 27px;
+}
+
+.part-studio-feature-pattern-dialog__expander:disabled {
+  color: #d7d7d7;
+  cursor: default;
+}
+
+.part-studio-feature-pattern-dialog__chevron--disabled {
+  color: #d7d7d7;
+}
+
+/* 折叠内容缩进 + 竖引导线（live 缩进对齐）。 */
+.part-studio-feature-pattern-dialog__group-body {
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: 10px;
+  padding-inline-start: 10px;
+  border-inline-start: 1px solid #d7d7d7;
+}

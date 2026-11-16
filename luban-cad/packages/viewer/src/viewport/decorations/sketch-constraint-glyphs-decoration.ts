@@ -6,13 +6,16 @@
  * 屏幕空间小方块（固定像素大小，不随相机缩放），内含约束符号。
  * 2026-11-15 live 复测（dpr=2 截图量取）：选中 chip 的浅蓝填充为 40×40 设备像素
  * = **20×20 CSS px**，据此将方块尺寸对齐到 20。
+ * 2026-11-16 live 像素量取（dpr=2）：未选中 chip 40×40 设备 px = **20×20 CSS px**，
+ * 内部纯白填充 **#FFFFFF**，边缘只有 1–2px 抗锯齿过渡、无深色描边线（扫描：
+ * 背景 213,219,225 → 224,228,233 → 白）；符号主色约 rgb(84–89) ≈ **#555555**。
+ * 选中态填充 rgb(226,240,250) = **#E2F0FA** 由 web 层 HTML overlay（multiply）负责，
+ * 本装饰器只画白底与符号。
  * 锚点由 web 层从草图约束解析成世界坐标（与尺寸标注同源）；本装饰器只负责
  * 投影、碰撞避让与制图样式，因此与草图求解/数据契约解耦。
  *
- * live 证据（私有 `ui-evidence/sketch-constraint-glyphs-20261112/`）：
- * Postman / Top View Drivetrain Reference Sketch 86 约束——⊥ / ∥ / = / — / |
- * / 中点（—•—）/ 重合（X）/ 镜像（双形+虚线轴）；glyph 成排聚在实体附近，
- * 选中时方块浅蓝底（截图 10-postman-sketch1.png）。
+ * live 观测的约束种类：⊥ / ∥ / = / — / | / 中点（—•—）/ 重合（X）/ 镜像
+ * （双形+虚线轴）；glyph 成排聚在实体附近，选中时方块浅蓝底。
  */
 import {
   type DecorateContext,
@@ -48,9 +51,9 @@ export const CONSTRAINT_GLYPH_SIZE = 20;
 const GLYPH_OFFSET_Y = -16;
 const GLYPH_STEP_X = CONSTRAINT_GLYPH_SIZE + 2;
 
-const BOX_FILL = 'rgba(251, 250, 248, 0.96)';
-const BOX_STROKE = 'rgba(57, 65, 74, 0.72)';
-const SYMBOL_STROKE = '#39414a';
+/** live 2026-11-16：未选中 chip 内部纯白、无描边；选中 #E2F0FA 由 web overlay 负责。 */
+const BOX_FILL = '#ffffff';
+const SYMBOL_STROKE = '#555555';
 
 interface ScreenPoint { x: number; y: number }
 interface ScreenRect { left: number; top: number; right: number; bottom: number }
@@ -111,7 +114,7 @@ function circle(ctx: CanvasRenderingContext2D, x: number, y: number, radius: num
   ctx.stroke();
 }
 
-/** 在方块中心绘制约束符号（坐标相对中心；笔画 1.2px 深灰）。 */
+/** 在方块中心绘制约束符号（坐标相对中心；笔画 1.2px #555555，live 2026-11-16 采样）。 */
 export function drawConstraintGlyphSymbol(
   ctx: CanvasRenderingContext2D,
   kind: SketchConstraintGlyphKind,
@@ -237,13 +240,11 @@ export class SketchConstraintGlyphsDecoration {
     for (const item of layout) {
       const { left, top, right, bottom } = item.rect;
       const size = right - left;
+      // 纯白填充、无描边（live 2026-11-16：chip 边缘无深色边框线）。
       ctx.fillStyle = BOX_FILL;
-      ctx.strokeStyle = BOX_STROKE;
-      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.rect(left, top, size, bottom - top);
       ctx.fill();
-      ctx.stroke();
       drawConstraintGlyphSymbol(ctx, item.annotation.kind, item.center.x, item.center.y);
     }
     ctx.restore();

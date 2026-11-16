@@ -2032,7 +2032,15 @@
     "secondCountCenteredInvalid": "Second-direction instances per side must be an integer between 2 and 500 (including the original)",
     "secondSpacingInvalid": "Second-direction spacing must be a positive number",
     "totalInstancesInvalid": "Total instances across both directions must not exceed 1000",
-    "multiSourceHint": "Multiple source features are patterned in order; the source list is a structural reference and cannot be changed here."
+    "multiSourceHint": "Multiple source features are patterned in order; the source list is a structural reference and cannot be changed here.",
+    "scopeFixedHint": "The scope is fixed to Feature pattern by the feature type; Part pattern/Face pattern do not apply to feature patterns (delete and rebuild as the desired type).",
+    "operationTabsLabel": "Pattern operation",
+    "operationTabsHint": "featurePattern reuses the source feature's operation (add/remove); independent New/Add/Remove/Intersect operation tabs are not implemented.",
+    "secondDirectionExpand": "Expand or collapse the second direction",
+    "secondDirectionExpandHint": "Check \"Second direction\" to expand this group.",
+    "secondDirectionNoAxis": "This feature has no stored second-direction axis, so a second direction cannot be added (delete and rebuild with a second-direction axis).",
+    "secondDirectionCircularUnavailable": "Circular patterns do not support a second direction.",
+    "calculatorUnavailable": "The calculator popover is not implemented yet; enter a value directly."
   },
   "cPlaneDialog": {
     "mode": "Type",

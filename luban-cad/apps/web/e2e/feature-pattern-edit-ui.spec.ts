@@ -152,6 +152,23 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     await expect(axisRow.getByTestId('part-studio-feature-pattern-direction-value'))
       .toHaveAttribute('title', /只读/);
     await expect(dialog.getByTestId('part-studio-feature-pattern-locked-hint')).toContainText('不可更改');
+    // W10c（2026-11-16 live 形状）：阵列范围=只读禁用「特征阵列」；操作页签四个
+    // 全禁用且无活动页签；距离行 mm + 实例数/距离行禁用计算器；无落库第二方向 →
+    // 勾选与箭头诚实禁用。
+    const scope = dialog.getByTestId('part-studio-feature-pattern-scope');
+    await expect(scope).toBeDisabled();
+    await expect(scope).toHaveValue('feature');
+    const operationTabs = dialog.getByRole('tablist', { name: '阵列操作' });
+    await expect(operationTabs.getByRole('tab')).toHaveCount(4);
+    for (const tab of await operationTabs.getByRole('tab').all()) {
+      await expect(tab).toBeDisabled();
+      expect(await tab.getAttribute('aria-selected')).toBeNull();
+    }
+    await expect(dialog.locator('[data-field="feature-pattern-spacing"]')).toContainText('mm');
+    await expect(dialog.getByTestId('part-studio-feature-pattern-spacing-calculator')).toBeDisabled();
+    await expect(dialog.getByTestId('part-studio-feature-pattern-count-calculator')).toBeDisabled();
+    await expect(dialog.getByRole('checkbox', { name: '第二个方向' })).toBeDisabled();
+    await expect(dialog.getByTestId('part-studio-feature-pattern-second-expander')).toBeDisabled();
     await dialog.getByTestId('part-studio-feature-pattern-count').fill('4');
     const confirm = dialog.getByTestId('part-studio-feature-pattern-confirm');
     await expect(confirm).toBeEnabled({ timeout: 15_000 });
@@ -278,6 +295,19 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     await expect(dialog.getByTestId('part-studio-feature-pattern-second-count')).toHaveValue('2');
     await expect(dialog.getByTestId('part-studio-feature-pattern-second-spacing')).toHaveValue('8');
     await expect(dialog.getByTestId('part-studio-feature-pattern-second-axis')).toContainText('第二方向轴');
+
+    // W10c（2026-11-16 live 形状）：第二个方向折叠组默认展开；箭头收起隐藏字段
+    // （载荷语义不变），再展开恢复——其后既有字段编辑保持可用。
+    const secondExpander = dialog.getByTestId('part-studio-feature-pattern-second-expander');
+    const secondBody = dialog.getByTestId('part-studio-feature-pattern-second-body');
+    await expect(secondExpander).toBeEnabled();
+    await expect(secondExpander).toHaveAttribute('aria-expanded', 'true');
+    await expect(secondBody).toBeVisible();
+    await secondExpander.click();
+    await expect(secondExpander).toHaveAttribute('aria-expanded', 'false');
+    await expect(secondBody).toHaveCount(0);
+    await secondExpander.click();
+    await expect(secondBody).toBeVisible();
 
     await dialog.getByTestId('part-studio-feature-pattern-second-count').fill('3');
     await dialog.getByTestId('part-studio-feature-pattern-second-spacing').fill('5');

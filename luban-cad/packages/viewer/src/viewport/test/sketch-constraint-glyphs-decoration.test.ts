@@ -1,6 +1,8 @@
 /**
  * SketchConstraintGlyphsDecoration（Onshape 约束 glyph，2026-11-12）：
  * 投影/上移放置、重叠右移避让、非空间视口 no-op、setGlyphs 失效重绘、dispose。
+ * 2026-11-16 live 像素：未选中 chip 纯白填充、无方块描边，符号 #555555
+ *（选中 #E2F0FA 由 web 层 HTML overlay 负责，不在此断言）。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DecorateContext, ScreenViewport } from '@itwin/core-frontend';
@@ -61,6 +63,31 @@ function makeCtx(): Record<string, ReturnType<typeof vi.fn>> {
   } as unknown as Record<string, ReturnType<typeof vi.fn>>;
 }
 
+/** 记录每次 fill/stroke 时的样式，用于断言方块“只有白 fill、没有 stroke”。 */
+function makeRecordingCtx() {
+  const fills: string[] = [];
+  const strokes: string[] = [];
+  const mocks = {
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    rect: vi.fn(),
+    arc: vi.fn(),
+    setLineDash: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 0,
+  };
+  mocks.fill.mockImplementation(() => { fills.push(mocks.fillStyle); });
+  mocks.stroke.mockImplementation(() => { strokes.push(mocks.strokeStyle); });
+  return { ctx: mocks as unknown as CanvasRenderingContext2D, mocks, fills, strokes };
+}
+
 const glyph = (id: string, kind: SketchConstraintGlyphAnnotation['kind'], x: number, y: number): SketchConstraintGlyphAnnotation => ({
   id,
   kind,
@@ -111,6 +138,13 @@ describe('drawConstraintGlyphSymbol', () => {
       expect(ctx.stroke!.mock.calls.length + ctx.fill!.mock.calls.length).toBeGreaterThan(0);
     }
   });
+
+  it('符号颜色 #555555（live 2026-11-16 采样，不再是深色）', () => {
+    const ctx = makeCtx();
+    drawConstraintGlyphSymbol(ctx as unknown as CanvasRenderingContext2D, 'horizontal', 20, 20);
+    expect(ctx.strokeStyle).toBe('#555555');
+    expect(ctx.fillStyle).toBe('#555555');
+  });
 });
 
 describe('SketchConstraintGlyphsDecoration', () => {
@@ -138,6 +172,34 @@ describe('SketchConstraintGlyphsDecoration', () => {
     expect(addCanvasDecoration).not.toHaveBeenCalled();
     decoration.setGlyphs([glyph('constraint-1', 'mirror', 2, 2)]);
     expect(invalidate).toHaveBeenCalled();
+    decoration.dispose();
+  });
+
+  it('未选中 chip：20px 纯白 #ffffff 填充、无方块描边；符号 #555555（live 2026-11-16）', () => {
+    const annotation = glyph('constraint-1', 'horizontal', 1, 1);
+    const { viewport } = makeViewport();
+    const decoration = new SketchConstraintGlyphsDecoration(viewport, [annotation]);
+    const { context, addCanvasDecoration } = makeContext(viewport);
+    decoration.decorate(context);
+    expect(addCanvasDecoration).toHaveBeenCalledTimes(1);
+
+    const { drawDecoration } = addCanvasDecoration.mock.calls[0]![0] as {
+      drawDecoration: (ctx: CanvasRenderingContext2D) => void;
+    };
+    const { ctx, mocks, fills, strokes } = makeRecordingCtx();
+    drawDecoration(ctx);
+
+    const [expected] = layoutSketchConstraintGlyphs([annotation], viewport);
+    expect(mocks.rect).toHaveBeenCalledTimes(1);
+    expect(mocks.rect).toHaveBeenCalledWith(
+      expected!.rect.left,
+      expected!.rect.top,
+      CONSTRAINT_GLYPH_SIZE,
+      CONSTRAINT_GLYPH_SIZE,
+    );
+    // 方块只有白 fill；horizontal 符号仅一条横线。若深色方块描边回归，strokes 会多一次。
+    expect(fills).toEqual(['#ffffff']);
+    expect(strokes).toEqual(['#555555']);
     decoration.dispose();
   });
 });

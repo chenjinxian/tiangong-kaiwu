@@ -3,10 +3,11 @@
  * Licensed under the MIT License.
  *
  * 草图尺寸数值内联编辑（ADR-0018 S1e，2026-11-12 Onshape 对拍）：
- * 草图编辑态（无绘制工具激活）双击视口尺寸数值 → 原位输入框（当前值全选），
- * Enter 提交 `updateSketchConstraint`、Escape/点击别处取消；后端拒收（冲突/
- * 非尺寸约束）保留输入框并标注错误。标签命中区由 viewer 布局纯函数给出
- *（与绘制同源，不复制堆叠避让逻辑）。
+ * 草图编辑态（无绘制工具激活）双击视口尺寸数值 → 原位尺寸对话框（当前值全选），
+ * Enter/确认按钮提交 `updateSketchConstraint`、Escape/取消按钮丢弃；后端拒收
+ *（冲突/非尺寸约束）保留输入框并标注错误。点击画布空白不关闭对话框（live
+ * 2026-11-16：输入失焦后对话框仍活动，窗口级 Enter/Escape 继续生效）。标签
+ * 命中区由 viewer 布局纯函数给出（与绘制同源，不复制堆叠避让逻辑）。
  *
  * 仅 distance/radius/diameter/length/angle 可改值（后端 updateSketchConstraint 白名单）；
  * 角度在界面上显示度数、提交时换算回弧度（shared 契约为弧度）。
@@ -15,12 +16,21 @@
  * 重合/镜像…）同样可单击选中、Delete 删除——命中区由 viewer 同一布局纯函数
  * 给出，选中高亮浅蓝（live 截图口径），删除走宿主 updateSketch 移除该约束。
  *
- * 2026-11-15（dialog-audit extra/item6-fillet-radius-popup-detail 对拍）：
- * 输入框贴标签左侧（垂直居中于标签矩形，标签保持可见；无标签矩形回退双击点）、
- * 100×26 白底 1px #2850aa 无阴影、只读单位后缀（长度类 mm / 角度 °，仅视觉，
- * 解析仍用数值文本）；选中 glyph 高亮=纯 #e2f0fa 填充（无边框/圆角）。
+ * 2026-11-15（live 对拍）：输入框贴标签左侧（垂直中心对齐标签中心；无标签
+ * 矩形回退双击点）、只读单位后缀（长度类 mm / 角度 °，仅视觉，解析仍用数值
+ * 文本）；选中 glyph 高亮=纯 #e2f0fa 填充（无边框/圆角）。
+ *
+ * 2026-11-16（W10a live dimension-dialog 对拍）：完整尺寸对话框皮肤——上方
+ * 13px 拖拽条（24×14 四点握把）+ 159×34 白面板（0 圆角、0 5px 10px
+ * rgba(0,0,0,0.2) 阴影、下内边距 5px）；输入 100×26 透明无边框、仅 1px
+ * #1651b0 内下划线（错误态 #c0392b）、13.3333px；右侧 52×28 按钮组（确认
+ * 22×22 实心 #009400 白勾 / 取消 22×22 白底 1px #cccccc 红 X，radius 4，
+ * 与草图值弹层同一视觉语言）。放置锚点不变（输入框左缘 + 垂直中心 = 标签
+ * 中心）；可见对话框 159×47 由 `layoutDimensionEditorDialog` 钳制在视口内
+ *（默认相对输入行偏移 -1/-13，拖拽条在输入行上方）。
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ScreenViewport } from '@itwin/core-frontend';
 import type { SketchConstraintDto } from '@luban-cad/shared';
 import {
@@ -29,6 +39,7 @@ import {
   sketchDimensionLabels,
 } from '@luban-cad/viewer';
 import type { SketchConstraintGlyphAnnotation, SketchDimensionAnnotation } from '@luban-cad/viewer';
+import { OnshapeIcon } from '../icons/onshape-icons.js';
 import {
   constraintIdFromDimensionLabel,
   hitTestSketchConstraintGlyph,
@@ -82,8 +93,20 @@ interface EditorState {
 
 /** 内联输入框尺寸（与 CSS 同值；纯布局计算用）。 */
 export const DIMENSION_EDITOR_WIDTH = 100;
+/** 输入框高度（live 26px；与 CSS 同值，用于输入框垂直中心换算）。 */
+export const DIMENSION_EDITOR_INPUT_HEIGHT = 26;
 /** 输入框右缘与标签左缘的间距（px，live 口径「紧贴标签左侧」）。 */
 export const DIMENSION_EDITOR_GAP = 4;
+/** 可见尺寸对话框宽度（live：拖拽条/面板 159px）。 */
+export const DIMENSION_EDITOR_DIALOG_WIDTH = 159;
+/** 拖拽条高度（live 13px）。 */
+export const DIMENSION_EDITOR_DRAGBAR_HEIGHT = 13;
+/** 面板高度（live 34px）。 */
+export const DIMENSION_EDITOR_PANEL_HEIGHT = 34;
+/** 可见对话框总高 = 拖拽条 + 面板（live 47px）。 */
+export const DIMENSION_EDITOR_DIALOG_HEIGHT = DIMENSION_EDITOR_DRAGBAR_HEIGHT + DIMENSION_EDITOR_PANEL_HEIGHT;
+/** 视口边缘安全间距（钳制用，px）。 */
+export const DIMENSION_EDITOR_VIEWPORT_MARGIN = 4;
 
 export interface ScreenRectLike {
   left: number;
@@ -99,9 +122,13 @@ export interface ScreenPointLike {
 
 /**
  * 内联输入框放置（纯几何，ADR-0018 S1e 2026-11-15 Onshape 对拍）：
- * 有标签矩形时输入框右缘贴标签左缘左侧 gap、垂直中心对齐标签中心（标签
- * 保持可见不被覆盖）；无标签矩形回退到双击点（水平/垂直居中，与旧行为
- * 等价的视觉位置）。返回 client 坐标，CSS 侧 `translateY(-50%)` 完成垂直居中。
+ * 有标签矩形时输入框右缘贴标签左缘左侧 gap、垂直中心对齐标签中心；无标签
+ * 矩形回退到双击点（水平/垂直居中，与旧行为等价的视觉位置）。返回 client
+ * 坐标，CSS 侧 `translateY(-50%)` 完成输入框垂直居中。
+ *
+ * 2026-11-16 live 更正：可见对话框（159×47，含拖拽条与按钮组）会覆盖标签
+ * 区域——不再承诺「标签保持可见」；边缘标签由 `layoutDimensionEditorDialog`
+ * 钳制对话框位置，避免按钮/面板被视口裁切。
  */
 export function computeDimensionEditorPlacement(input: {
   labelRect?: ScreenRectLike | null;
@@ -124,9 +151,90 @@ export function computeDimensionEditorPlacement(input: {
   return { left: click.x - width / 2, top: click.y };
 }
 
+export interface DimensionEditorDialogPlacement {
+  /** 可见对话框（159×47）左上角 client 坐标（钳制后）。 */
+  left: number;
+  top: number;
+  /** 对话框相对锚点包装元素的 CSS 偏移（未钳制时 -1/-13）。 */
+  offsetLeft: number;
+  offsetTop: number;
+}
+
+/**
+ * 可见尺寸对话框定位 + 视口边缘钳制（纯几何，2026-11-16 W10a 复核）：
+ * 锚点 = 输入框左缘 + 垂直中心（`computeDimensionEditorPlacement` 不变）。
+ * 包装元素 `translateY(-50%)`（100×26）后输入行顶部 = anchor.top − 13；
+ * 对话框顶部再上移 13px（拖拽条）→ 未钳制时对话框 top = anchor.top − 26、
+ * left = anchor.left − 1，输入框垂直中心恒等于 anchor.top（标签中心）。
+ * 边缘标签把 159×47 对话框钳制到 [margin, viewport − size − margin]：只移动
+ * 对话框，保证拖拽条/按钮组完整落在视口内（必要时允许输入框偏离标签中心）。
+ */
+export function layoutDimensionEditorDialog(input: {
+  anchor: ScreenPointLike;
+  viewport: { width: number; height: number };
+  margin?: number;
+}): DimensionEditorDialogPlacement {
+  const margin = input.margin ?? DIMENSION_EDITOR_VIEWPORT_MARGIN;
+  const wrapLeft = input.anchor.x;
+  const wrapTop = input.anchor.y - DIMENSION_EDITOR_INPUT_HEIGHT / 2;
+  const desiredLeft = wrapLeft - 1;
+  const desiredTop = wrapTop - DIMENSION_EDITOR_DRAGBAR_HEIGHT;
+  const maxLeft = Math.max(margin, input.viewport.width - DIMENSION_EDITOR_DIALOG_WIDTH - margin);
+  const maxTop = Math.max(margin, input.viewport.height - DIMENSION_EDITOR_DIALOG_HEIGHT - margin);
+  const left = Math.min(Math.max(desiredLeft, margin), maxLeft);
+  const top = Math.min(Math.max(desiredTop, margin), maxTop);
+  return { left, top, offsetLeft: left - wrapLeft, offsetTop: top - wrapTop };
+}
+
 /** 只读单位后缀（视觉仅显示；解析/载荷仍是数值文本）：角度 °，其余 mm。 */
 export function dimensionEditorUnit(kind: SketchConstraintDto['kind']): 'mm' | '°' {
   return kind === 'angle' ? '°' : 'mm';
+}
+
+/** 可编辑控件（INPUT/TEXTAREA/SELECT/contentEditable）。 */
+function isEditableTarget(target: EventTarget | null): target is HTMLElement {
+  return target instanceof HTMLElement
+    && (target.isContentEditable
+      || target.tagName === 'INPUT'
+      || target.tagName === 'TEXTAREA'
+      || target.tagName === 'SELECT');
+}
+
+/** 交互控件（按钮/菜单项/下拉/链接…，含本对话框两个按钮）。 */
+const INTERACTIVE_SELECTOR = [
+  'button',
+  'a[href]',
+  '[role="button"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="option"]',
+  '[role="combobox"]',
+  '[role="tab"]',
+  '[role="slider"]',
+  '[role="spinbutton"]',
+  '[role="textbox"]',
+  '[role="searchbox"]',
+].join(', ');
+
+/** Enter 聚焦交互控件时必须交给控件自身/浏览器默认激活（不得偷换成提交）。 */
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest(INTERACTIVE_SELECTOR) !== null;
+}
+
+/**
+ * 可见的打开菜单/弹出层：Escape 先让浮层自行收合，不抢它的取消语义。
+ * 只认实际可见的节点（`getClientRects` 为空 = display:none/未布局）。
+ */
+function hasOpenMenuOrPopover(): boolean {
+  const candidates = document.querySelectorAll<HTMLElement>(
+    '[role="menu"], [role="listbox"], [role="combobox"][aria-expanded="true"], [aria-haspopup][aria-expanded="true"]',
+  );
+  for (const candidate of candidates) {
+    if (candidate.getClientRects().length > 0 && getComputedStyle(candidate).visibility !== 'hidden')
+      return true;
+  }
+  return false;
 }
 
 /**
@@ -168,10 +276,14 @@ export function SketchDimensionEditor({
   overlayHitTestRef,
   onGlyphHover,
 }: SketchDimensionEditorProps): React.JSX.Element | null {
+  const { t } = useTranslation();
   const [viewVersion, setViewVersion] = React.useState(0);
   const [editor, setEditor] = React.useState<EditorState | null>(null);
   const [failed, setFailed] = React.useState(false);
+  /** 提交中：确认/取消按钮置灰（committingRef 是同一守卫的同步镜像）。 */
+  const [committing, setCommitting] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const dialogRef = React.useRef<HTMLDivElement | null>(null);
   const committingRef = React.useRef(false);
 
   const labels = React.useMemo(
@@ -424,17 +536,29 @@ export function SketchDimensionEditor({
     };
   }, [viewport]);
 
+  // 打开时聚焦并整段选中当前值（live 行为）；只在「打开」这一次执行——不能
+  // 依赖 editor 对象本身（每次 onChange 都是新引用），否则每输入一个字符都会
+  // 重新全选，多字符值无法键入。
+  const editorConstraintId = editor?.constraintId ?? null;
   React.useEffect(() => {
-    if (!editor)
+    if (editorConstraintId === null)
       return;
     const input = inputRef.current;
     input?.focus();
     input?.select();
-  }, [editor]);
+  }, [editorConstraintId]);
 
-  const commit = async (): Promise<void> => {
+  /** 取消：关闭对话框并丢弃输入（与 Escape 同语义，不写模型）。 */
+  const cancel = React.useCallback((): void => {
+    if (committingRef.current)
+      return;
+    setEditor(null);
+    setFailed(false);
+  }, []);
+
+  const commit = React.useCallback(async (): Promise<void> => {
     const current = editorRef.current;
-    if (!current)
+    if (!current || committingRef.current)
       return;
     const value = parseConstraintEditorValue(current.kind, current.value);
     if (value === undefined) {
@@ -442,6 +566,7 @@ export function SketchDimensionEditor({
       return;
     }
     committingRef.current = true;
+    setCommitting(true);
     try {
       const result = await onCommitRef.current(current.constraintId, value);
       if (result && !result.ok) {
@@ -452,8 +577,85 @@ export function SketchDimensionEditor({
       setFailed(false);
     } finally {
       committingRef.current = false;
+      setCommitting(false);
     }
-  };
+  }, []);
+
+  // 2026-11-16 live：点击画布/其它 UI 不关闭对话框（旧 blur-cancel 已移除），
+  // 输入失焦后 Enter/Escape 仍须生效 → 窗口捕获段监听。作用域纪律（评审复核）：
+  // - Enter 只在本对话框语境（画布/body）提交；输入框自身处理；按钮/菜单项等
+  //   交互控件与外层编辑框一律放行（Enter 聚焦取消按钮=取消，不得偷换成提交）。
+  // - Escape 只在输入框（自身处理）/本对话框控件/画布/body 上取消；可见菜单或
+  //   弹层打开、焦点在外部可编辑控件时放行，避免吞掉别处的取消语义。
+  // - 输入法合成（isComposing）期间不拦任何键。
+  // 捕获段先于 React 合成事件触发（defaultPrevented 仍为 false），故按 target
+  // 身份跳过输入框，避免双触发；Escape 命中时拦断传播（同输入框内），否则会
+  // 连带退出草图模式。
+  const editorOpen = editor !== null;
+  React.useEffect(() => {
+    if (!editorOpen)
+      return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.isComposing || event.defaultPrevented)
+        return;
+      if (event.key !== 'Enter' && event.key !== 'Escape')
+        return;
+      const active = event.target instanceof HTMLElement
+        ? event.target
+        : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+
+      if (event.key === 'Enter') {
+        if (active === inputRef.current)
+          return;
+        if (isEditableTarget(active) || isInteractiveTarget(active))
+          return;
+        if (hasOpenMenuOrPopover())
+          return;
+        event.preventDefault();
+        void commit();
+        return;
+      }
+
+      if (active === inputRef.current)
+        return;
+      if (hasOpenMenuOrPopover())
+        return;
+      const inDialog = active !== null && dialogRef.current?.contains(active) === true;
+      const onCanvasOrBody = active === null || active === document.body
+        || active === document.documentElement || active === viewport?.canvas;
+      if (!inDialog && !onCanvasOrBody)
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancel();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [editorOpen, commit, cancel, viewport]);
+
+  // 视口尺寸变化 → 重算对话框钳制位置（编辑器打开期间）。
+  React.useEffect(() => {
+    if (!editorOpen)
+      return;
+    const onResize = (): void => { setViewVersion((version) => version + 1); };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [editorOpen]);
+
+  // 可见对话框（159×47）定位：锚点仍是输入框左缘 + 垂直中心，只做视口钳制。
+  const dialogPlacement = editor
+    ? layoutDimensionEditorDialog({
+        anchor: { x: editor.left, y: editor.top },
+        viewport: {
+          width: typeof window === 'undefined'
+            ? DIMENSION_EDITOR_DIALOG_WIDTH + DIMENSION_EDITOR_VIEWPORT_MARGIN * 2
+            : window.innerWidth,
+          height: typeof window === 'undefined'
+            ? DIMENSION_EDITOR_DIALOG_HEIGHT + DIMENSION_EDITOR_VIEWPORT_MARGIN * 2
+            : window.innerHeight,
+        },
+      })
+    : null;
 
   if (labels.length === 0 && glyphLayouts.length === 0 && !editor)
     return null;
@@ -519,50 +721,92 @@ export function SketchDimensionEditor({
           </React.Fragment>
         );
       })}
-      {editor && (
-        <span
+      {editor && dialogPlacement && (
+        <div
           className="part-studio-dimension-editor-wrap"
           style={{ left: editor.left, top: editor.top }}
         >
-          <input
-            ref={inputRef}
-            type="text"
-            inputMode="decimal"
-            data-testid="sketch-dimension-input"
-            data-error={failed ? 'true' : 'false'}
-            className="part-studio-dimension-editor"
-            value={editor.value}
-            onChange={(event) => {
-              setEditor({ ...editor, value: event.target.value });
-              setFailed(false);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                void commit();
-                return;
-              }
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                setEditor(null);
-                setFailed(false);
-              }
-            }}
-            onBlur={() => {
-              // Enter 提交过程中的失焦不打断；点击别处取消（不静默改值）。
-              if (!committingRef.current)
-                setEditor(null);
-            }}
-          />
-          <span
-            className="part-studio-dimension-editor-unit"
-            data-testid="sketch-dimension-unit"
-            aria-hidden="true"
+          {/* live 2026-11-16 dimension-dialog：拖拽条 159×13 + 面板 159×34。
+              包装元素 100×26 + translateY(-50%)，输入框垂直中心 = 锚点 top；
+              对话框默认偏移 -1/-13（拖拽条在输入行上方），边缘由纯函数钳制。 */}
+          <div
+            ref={dialogRef}
+            className="part-studio-dimension-editor-dialog"
+            style={{ left: dialogPlacement.offsetLeft, top: dialogPlacement.offsetTop }}
           >
-            {dimensionEditorUnit(editor.kind)}
-          </span>
-        </span>
+            <div className="part-studio-dimension-editor-dragbar" aria-hidden="true">
+              <span className="part-studio-dimension-editor-grip" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
+            <div className="part-studio-dimension-editor-panel">
+              <span className="part-studio-dimension-editor-field">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode="decimal"
+                  data-testid="sketch-dimension-input"
+                  data-error={failed ? 'true' : 'false'}
+                  className="part-studio-dimension-editor"
+                  value={editor.value}
+                  onChange={(event) => {
+                    setEditor({ ...editor, value: event.target.value });
+                    setFailed(false);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void commit();
+                      return;
+                    }
+                    if (event.key === 'Escape') {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      cancel();
+                    }
+                  }}
+                />
+                <span
+                  className="part-studio-dimension-editor-unit"
+                  data-testid="sketch-dimension-unit"
+                  aria-hidden="true"
+                >
+                  {dimensionEditorUnit(editor.kind)}
+                </span>
+              </span>
+              <span className="part-studio-dimension-editor-buttons">
+                <button
+                  type="button"
+                  className="part-studio-dimension-editor-confirm"
+                  aria-label={t('partStudio.sketch.panel.confirm')}
+                  title={t('partStudio.sketch.panel.confirm')}
+                  disabled={committing}
+                  data-testid="sketch-dimension-confirm"
+                  // 按钮按下不夺走输入框焦点（live：对话框保持活动）。
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => void commit()}
+                >
+                  <OnshapeIcon name="ok-button" size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="part-studio-dimension-editor-cancel"
+                  aria-label={t('partStudio.sketch.panel.cancel')}
+                  title={t('partStudio.sketch.panel.cancel')}
+                  disabled={committing}
+                  data-testid="sketch-dimension-cancel"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={cancel}
+                >
+                  <OnshapeIcon name="cancel-button" size={14} />
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
       )}
     </React.Fragment>
   );

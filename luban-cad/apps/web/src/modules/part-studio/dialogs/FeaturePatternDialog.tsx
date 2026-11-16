@@ -4,8 +4,8 @@
  *
  * FeaturePatternDialog（ADR-0007 切片 8：featurePattern 编辑 UI）。
  *
- * 证据：`ui-evidence/feature-dialogs-20261108/onshape/linear-pattern.{json,png}`
- * 的字段（阵列类型/方向/距离/实例数/居中）。featurePattern 由回放/转换器创建，
+ * 证据：2026-11-08 live「线性阵列」编辑对话框采集到的字段（阵列类型/方向/
+ * 距离/实例数/居中）。featurePattern 由回放/转换器创建，
  * 树双击编辑走本对话框；**源特征与轴是结构引用**（updateParams 不改），只读
  * 展示并禁用，允许编辑 kind/count/spacing?/angle?；linear 可切换「居中」——
  * 勾选后实例数输入切为**每侧 N（含原件）**，载荷 `count = 2N−1` + `centered:true`
@@ -18,6 +18,12 @@
  * 2026-11-16 A4：源 chips 经可选 `features` 表显示特征名；缺省/未命中回退原始
  * id（只读显示层，不动 sourceFeatureIds 结构引用与 updateParams 载荷）。
  * 2026-11-16 A5：补齐共享底栏（禁用透明度滑杆 + `?` 帮助），与其他特征对话框同皮肤。
+ * 2026-11-16 W10c（live 对话框形状）：顶部只读「阵列范围」禁用下拉（作用域由
+ * 特征类型固定为特征阵列）+ 四个禁用操作页签（featurePattern 沿用源特征操作，
+ * 独立操作页签未实现）+ 距离行 mm 单位与实例数/距离行禁用计算器（live 26×26
+ * 图标钮，数值行 13.3333px）+ 「第二个方向」折叠组（live 20×27 箭头；有落库轴
+ * = 勾选/箭头可用/默认展开，无落库轴 = 勾选与箭头诚实禁用、灰 #d7d7d7）+
+ * 「跳过实例」组保持禁用折叠行。载荷与提交语义不变。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -160,6 +166,9 @@ export function FeaturePatternDialog({
   const [spacing, setSpacing] = React.useState(() => (stored.spacing !== undefined ? String(stored.spacing) : '10'));
   const [angle, setAngle] = React.useState(() => (stored.angle !== undefined ? String(stored.angle) : '360'));
   const [secondEnabled, setSecondEnabled] = React.useState(stored.secondDirection !== undefined);
+  // W10c：折叠组默认展开（有落库第二方向时，树行编辑流程/既有 e2e 直接可编辑）；
+  // 折叠只是可见性状态，不参与载荷（收起时仍按 secondDirectionActive 提交/校验）。
+  const [secondExpanded, setSecondExpanded] = React.useState(stored.secondDirection !== undefined);
   const [secondCentered, setSecondCentered] = React.useState(stored.secondDirection?.centered === true);
   const [secondCount, setSecondCount] = React.useState(() => {
     const storedSecond = stored.secondDirection;
@@ -212,8 +221,12 @@ export function FeaturePatternDialog({
   const secondAxis = stored.secondDirection?.axis;
   const secondAxisValid = secondAxis !== undefined
     && Math.hypot(secondAxis.direction.x, secondAxis.direction.y, secondAxis.direction.z) > 1e-9;
-  const secondSectionVisible = kind === 'linear' && secondEnabled && stored.secondDirection !== undefined;
-  const secondCenteredActive = secondSectionVisible && secondCentered;
+  // W10c：secondProvided=落库能力；secondDirectionActive=载荷语义（勾选且 linear）；
+  // secondFieldsVisible=可见性（再叠折叠状态）。新增第二方向需要落库轴，无通道。
+  const secondProvided = stored.secondDirection !== undefined;
+  const secondDirectionActive = kind === 'linear' && secondEnabled && secondProvided;
+  const secondFieldsVisible = secondDirectionActive && secondExpanded;
+  const secondCenteredActive = secondDirectionActive && secondCentered;
   const secondCountNumber = Number(secondCount);
   const effectiveSecondCount = secondCenteredActive ? secondCountNumber * 2 - 1 : secondCountNumber;
   const secondSpacingNumber = Number(secondSpacing);
@@ -222,12 +235,12 @@ export function FeaturePatternDialog({
     : Number.isInteger(secondCountNumber) && secondCountNumber >= 2 && secondCountNumber <= 1000;
   const secondSpacingValid = Number.isFinite(secondSpacingNumber) && secondSpacingNumber > 0;
   const totalCount = effectiveCount * effectiveSecondCount;
-  const totalOverLimit = secondSectionVisible && countValid && secondCountValid
+  const totalOverLimit = secondDirectionActive && countValid && secondCountValid
     && Number.isFinite(totalCount) && totalCount > 1000;
   const sourceMissing = sourceIds.length === 0;
   const submitDisabled = busy || !canEdit || !editMode || sourceMissing || !axisValid
     || !countValid || (kind === 'linear' ? !spacingValid : !angleValid)
-    || (secondSectionVisible
+    || (secondDirectionActive
       && (!secondAxisValid || !secondCountValid || !secondSpacingValid || totalOverLimit));
 
   const buildParams = React.useCallback((): Record<string, unknown> | undefined => {
@@ -243,7 +256,7 @@ export function FeaturePatternDialog({
       axis: storedAxis,
       ...(centeredActive ? { centered: true } : {}),
       // 取消勾选 = 从载荷移除第二方向（updateParams 整体替换参数；可撤销）。
-      ...(secondSectionVisible && secondAxis !== undefined ? {
+      ...(secondDirectionActive && secondAxis !== undefined ? {
         secondDirection: {
           count: effectiveSecondCount,
           spacing: secondSpacingNumber,
@@ -253,7 +266,7 @@ export function FeaturePatternDialog({
       } : {}),
     };
   }, [stored, sourceIds, kind, centeredActive, effectiveCount, spacingNumber, angleNumber,
-    secondSectionVisible, secondAxis, effectiveSecondCount, secondSpacingNumber, secondCenteredActive]);
+    secondDirectionActive, secondAxis, effectiveSecondCount, secondSpacingNumber, secondCenteredActive]);
 
   // 改参预览（2026-11-08）：后端 featurePattern 影子求值回传结果 entryArray，
   // 前端经 TileRpc 动态图形显示；参数非法/无预览时静默清空（不渲染假 overlay）。
@@ -339,6 +352,58 @@ export function FeaturePatternDialog({
             {error}
           </p>
         )}
+        {/* W10c（2026-11-16 live 行序）：作用域行 = 只读禁用下拉。featurePattern 由
+            回放/转换器创建，作用域固定为「特征阵列」（零件/面阵列属其他特征类型）；
+            只读回显 + 真实原因，不与源结构引用联动。 */}
+        <section
+          className="part-studio-feature-dialog__distance part-studio-feature-pattern-dialog__scope-row"
+          data-field="feature-pattern-scope"
+          data-testid="part-studio-feature-pattern-scope-row"
+          title={t('partStudio.featurePatternDialog.scopeFixedHint')}
+        >
+          <label
+            className="part-studio-feature-dialog__distance-label"
+            htmlFor="part-studio-feature-pattern-scope"
+          >
+            {t('partStudio.featureDialog.patternScopeLabel')}
+          </label>
+          <select
+            id="part-studio-feature-pattern-scope"
+            aria-label={t('partStudio.featureDialog.patternScopeLabel')}
+            className="part-studio-feature-dialog__select"
+            defaultValue="feature"
+            disabled
+            title={t('partStudio.featurePatternDialog.scopeFixedHint')}
+            data-testid="part-studio-feature-pattern-scope"
+          >
+            <option value="body">{t('partStudio.featureDialog.patternScopeOptions.body')}</option>
+            <option value="feature">{t('partStudio.featureDialog.patternScopeOptions.feature')}</option>
+            <option value="face">{t('partStudio.featureDialog.patternScopeOptions.face')}</option>
+          </select>
+        </section>
+        {/* 操作页签（live：紧随机作用域下拉）：featurePattern 沿用源特征的操作
+            （加入/移除），独立的「新建/加入/移除/相交」页签无产品通道——四个页签
+            全部禁用，不伪造活动页签（无 aria-selected）。 */}
+        <div
+          role="tablist"
+          aria-label={t('partStudio.featurePatternDialog.operationTabsLabel')}
+          className="part-studio-feature-dialog__tablist part-studio-feature-pattern-dialog__operation-tabs"
+          data-testid="part-studio-feature-pattern-operation-tabs"
+        >
+          {(['new', 'add', 'remove', 'intersect'] as const).map((operation) => (
+            <button
+              key={operation}
+              type="button"
+              role="tab"
+              aria-disabled="true"
+              disabled
+              title={t('partStudio.featurePatternDialog.operationTabsHint')}
+              className="part-studio-feature-dialog__tab part-studio-feature-dialog__tab--disabled"
+            >
+              {t(`partStudio.featureDialog.booleanScopes.${operation}`)}
+            </button>
+          ))}
+        </div>
         <section className="part-studio-feature-dialog__distance" data-field="feature-pattern-source">
           <span className="part-studio-feature-dialog__distance-label">
             {t('partStudio.featurePatternDialog.sourceLabel')}
@@ -409,7 +474,11 @@ export function FeaturePatternDialog({
             <option value="circular">{t('partStudio.featureDialog.patternModeOptions.circular')}</option>
           </select>
         </section>
-        <section className="part-studio-feature-dialog__distance" data-field="feature-pattern-count">
+        {/* W10c：实例数行 = 值 + 禁用计算器（live 26×26 图标钮；计算器弹层未接）。 */}
+        <section
+          className="part-studio-feature-dialog__distance part-studio-feature-pattern-dialog__value-row"
+          data-field="feature-pattern-count"
+        >
           <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-pattern-count">
             {countLabel}
           </label>
@@ -424,6 +493,25 @@ export function FeaturePatternDialog({
             onChange={(event) => setCount(event.target.value)}
             data-testid="part-studio-feature-pattern-count"
           />
+          <button
+            type="button"
+            className="part-studio-feature-dialog__calculator"
+            aria-label={t('partStudio.featureDialog.calculatorLabel')}
+            title={t('partStudio.featurePatternDialog.calculatorUnavailable')}
+            disabled
+            data-testid="part-studio-feature-pattern-count-calculator"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+              <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+              <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+              <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+              <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+              <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+            </svg>
+          </button>
         </section>
         <label
           className="part-studio-feature-dialog__checkbox"
@@ -447,7 +535,11 @@ export function FeaturePatternDialog({
           </p>
         )}
         {kind === 'linear' ? (
-          <section className="part-studio-feature-dialog__distance" data-field="feature-pattern-spacing">
+          // W10c：距离行 = 值 + mm 单位 + 禁用计算器（载荷仍是 mm 数值）。
+          <section
+            className="part-studio-feature-dialog__distance part-studio-feature-pattern-dialog__value-row part-studio-feature-pattern-dialog__value-row--with-unit"
+            data-field="feature-pattern-spacing"
+          >
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-pattern-spacing">
               {t('partStudio.featureDialog.patternSpacingLabel')}
             </label>
@@ -462,6 +554,26 @@ export function FeaturePatternDialog({
               onChange={(event) => setSpacing(event.target.value)}
               data-testid="part-studio-feature-pattern-spacing"
             />
+            <span className="part-studio-feature-dialog__value-unit">mm</span>
+            <button
+              type="button"
+              className="part-studio-feature-dialog__calculator"
+              aria-label={t('partStudio.featureDialog.calculatorLabel')}
+              title={t('partStudio.featurePatternDialog.calculatorUnavailable')}
+              disabled
+              data-testid="part-studio-feature-pattern-spacing-calculator"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+              </svg>
+            </button>
           </section>
         ) : (
           <section className="part-studio-feature-dialog__angle" data-field="feature-pattern-angle">
@@ -508,22 +620,65 @@ export function FeaturePatternDialog({
             </span>
           )}
         </section>
-        {stored.secondDirection !== undefined && (
-          <section className="part-studio-feature-dialog__distance" data-field="feature-pattern-second-direction">
+        {/* W10c（2026-11-16 live 形状）：第二个方向 = 折叠组。头部 = 20×27 箭头
+            （live 折叠 affordance）+ 驱动复选框；有落库第二方向 → 勾选/箭头可用/
+            默认展开；无落库轴 → 勾选与箭头诚实禁用（新增轴无产品通道，灰
+            #d7d7d7）。折叠只改可见性：收起时仍按 secondDirectionActive 提交与
+            校验，绝不因视图收起静默丢键。 */}
+        <section
+          className="part-studio-feature-pattern-dialog__group"
+          data-field="feature-pattern-second-direction"
+          data-testid="part-studio-feature-pattern-second-group"
+        >
+          <div className="part-studio-feature-pattern-dialog__group-header">
+            <button
+              type="button"
+              className="part-studio-feature-pattern-dialog__expander"
+              aria-expanded={secondFieldsVisible}
+              aria-label={t('partStudio.featurePatternDialog.secondDirectionExpand')}
+              title={!(secondProvided && kind === 'linear')
+                ? t(!secondProvided
+                  ? 'partStudio.featurePatternDialog.secondDirectionNoAxis'
+                  : 'partStudio.featurePatternDialog.secondDirectionCircularUnavailable')
+                : secondEnabled
+                  ? undefined
+                  : t('partStudio.featurePatternDialog.secondDirectionExpandHint')}
+              disabled={busy || !canEdit || !(secondProvided && kind === 'linear' && secondEnabled)}
+              data-testid="part-studio-feature-pattern-second-expander"
+              onClick={() => setSecondExpanded((expanded) => !expanded)}
+            >
+              <span className="part-studio-feature-pattern-dialog__chevron" aria-hidden="true">
+                {secondFieldsVisible ? '▾' : '▸'}
+              </span>
+            </button>
             <label
               className="part-studio-feature-dialog__checkbox"
               data-testid="part-studio-feature-pattern-second-enabled"
+              title={!secondProvided
+                ? t('partStudio.featurePatternDialog.secondDirectionNoAxis')
+                : kind === 'circular'
+                  ? t('partStudio.featurePatternDialog.secondDirectionCircularUnavailable')
+                  : undefined}
             >
               <input
                 type="checkbox"
-                checked={secondEnabled && kind === 'linear'}
-                disabled={busy || !canEdit || kind === 'circular'}
-                onChange={(event) => setSecondEnabled(event.target.checked)}
+                checked={secondDirectionActive}
+                disabled={busy || !canEdit || !secondProvided || kind === 'circular'}
+                onChange={(event) => {
+                  setSecondEnabled(event.target.checked);
+                  // live：勾选驱动复选框即启开并展开箭头（与「默认展开」同语义）。
+                  if (event.target.checked) setSecondExpanded(true);
+                }}
               />
               <span>{t('partStudio.featureDialog.secondDirectionLabel')}</span>
             </label>
-            {secondSectionVisible && (
-              <>
+          </div>
+          {secondFieldsVisible && (
+            <div
+              className="part-studio-feature-pattern-dialog__group-body"
+              data-testid="part-studio-feature-pattern-second-body"
+            >
+              <React.Fragment>
                 {!secondAxisValid && (
                   <p
                     role="alert"
@@ -632,10 +787,10 @@ export function FeaturePatternDialog({
                     {t('partStudio.featurePatternDialog.totalInstancesInvalid')}
                   </p>
                 )}
-              </>
-            )}
-          </section>
-        )}
+              </React.Fragment>
+            </div>
+          )}
+        </section>
         {!countValid && (
           <p role="alert" className="part-studio-feature-dialog__alert" data-testid="part-studio-feature-pattern-count-invalid">
             {t(centeredActive
@@ -643,19 +798,27 @@ export function FeaturePatternDialog({
               : 'partStudio.featureDialog.patternCountInvalid')}
           </p>
         )}
-        {/* Onshape live（linear-pattern.json/跳过实例）：行位于最后；实例点选通道
-            尚未实现（私有证据未复现视口交互），诚实禁用并标注未支持。
-            A6（2026-11-16）：补折叠箭头 affordance（同仓储禁用行 span idiom），
-            仍禁用、原因 title 不变。 */}
-        <label
-          className="part-studio-feature-dialog__checkbox"
-          title={t('partStudio.featureDialog.notSupported')}
-          data-testid="part-studio-feature-pattern-skip-instances"
-        >
-          <input type="checkbox" checked={false} disabled onChange={() => undefined} />
-          <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>
-          <span className="part-studio-tree-menu__submenu" aria-hidden="true" data-testid="part-studio-feature-pattern-skip-chevron">›</span>
-        </label>
+        {/* Onshape live（跳过实例）：行位于最后；实例点选通道尚未实现（视口交互
+            未复现），诚实禁用并标注未支持，内容永不渲染（能力缺失）。
+            W10c（2026-11-16）：行 = 折叠组头（20×27 禁用箭头 + 禁用复选框），
+            箭头仍为 aria-hidden 装饰（非可点控件），testid/禁用原因保持既有语义。 */}
+        <div className="part-studio-feature-pattern-dialog__group">
+          <div className="part-studio-feature-pattern-dialog__group-header">
+            <label
+              className="part-studio-feature-dialog__checkbox"
+              title={t('partStudio.featureDialog.notSupported')}
+              data-testid="part-studio-feature-pattern-skip-instances"
+            >
+              <span
+                className="part-studio-feature-pattern-dialog__expander part-studio-feature-pattern-dialog__chevron--disabled"
+                aria-hidden="true"
+                data-testid="part-studio-feature-pattern-skip-chevron"
+              >›</span>
+              <input type="checkbox" checked={false} disabled onChange={() => undefined} />
+              <span>{t('partStudio.featureDialog.skipInstancesLabel')}</span>
+            </label>
+          </div>
+        </div>
       </div>
       {/* A5：共享底栏（Onshape 皮肤）——透明度滑杆仅占位（真滑杆通道未接，诚实禁用）+ ? 帮助。
           F5/R2（2026-11-16）：禁用态给出真实原因 title——滑杆未接入动态预览着色

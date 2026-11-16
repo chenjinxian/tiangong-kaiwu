@@ -3,6 +3,10 @@
  *
  * 覆盖：进入草图编辑 → 双击半径数值 → 输入新值 Enter → getSketch 解算后半径更新；
  * 双击线长数值 → 新长度生效（几何全链重解算）；输入框关闭、草图保持编辑态。
+ *
+ * 2026-11-16 W10a（live dimension-dialog）：编辑中点击画布空白不关闭对话框
+ * （值不静默提交）；确认按钮提交（同一 updateSketchConstraint 路径）、取消
+ * 按钮关闭并丢弃；Enter 提交路径保留。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchConstraintDto, SketchDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -125,20 +129,46 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
       return { x: box!.x + (parts[0] ?? 0), y: box!.y + (parts[1] ?? 0) };
     };
 
-    // ---- 1) 半径 4 → 6 ----
+    /**
+     * 标注布局刷新等待（W10a 复核）：提交后 React 重算标注是异步的；先等输入框
+     * 卸载（宿主 applyConstraintValue 完成后 commit 才关框），再等 marker 重新
+     * 挂载 + 两帧布局稳定 + data-center 可解析，避免用陈旧位置双击。
+     */
+    const waitForLabelLayout = async (constraintId: number): Promise<void> => {
+      const marker = page.locator(`[data-testid="sketch-dimension-label"][data-constraint-id="${constraintId}"]`);
+      await expect(marker).toBeAttached({ timeout: 30_000 });
+      await page.evaluate(() => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }));
+      await expect.poll(async () => {
+        const center = await marker.getAttribute('data-center');
+        const parts = (center ?? '').split(',').map(Number);
+        return parts.length === 2 && parts.every((value) => Number.isFinite(value));
+      }, { timeout: 20_000, intervals: [100, 200, 400] }).toBe(true);
+    };
+
+    // ---- 1) 半径 4 → 6（live 2026-11-16：编辑中点击画布空白不关闭对话框；
+    //         确认按钮走同一 updateSketchConstraint 提交路径） ----
     const radiusAt = await centerOf(RADIUS_ID);
     await page.mouse.dblclick(radiusAt.x, radiusAt.y);
     const input = page.getByTestId('sketch-dimension-input');
     await expect(input).toBeVisible({ timeout: 10_000 });
+    // 空画布右上区（y=+40，x 左移 200 避开右上 ViewCube 150×150 stage；
+    // 草图对话框在左上 ≤300px，种子几何居中）：对话框保持打开（旧 blur-cancel
+    // 会关闭）。
+    await page.mouse.click(box!.x + box!.width - 200, box!.y + 40);
+    await expect(input).toBeVisible();
+    await expect(page.getByTestId('sketch-dimension-confirm')).toBeVisible();
     await input.fill('6');
-    await input.press('Enter');
+    await page.getByTestId('sketch-dimension-confirm').click();
     await expect.poll(async () => {
       const value = circleRadius(await getSketchRpc(ctx, sketchId, token));
       return value === null ? 999 : Math.abs(value - 6);
     }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeLessThan(0.001);
     await expect(input).toHaveCount(0);
+    await waitForLabelLayout(LENGTH_ID);
 
-    // ---- 2) 长度 20 → 30（水平约束保持，几何整体重解算） ----
+    // ---- 2) 长度 20 → 30（水平约束保持，几何整体重解算；保留 Enter 提交路径） ----
     const lengthAt = await centerOf(LENGTH_ID);
     await page.mouse.dblclick(lengthAt.x, lengthAt.y);
     const input2 = page.getByTestId('sketch-dimension-input');
@@ -150,6 +180,21 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
       return value === null ? 999 : Math.abs(value - 30);
     }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBeLessThan(0.01);
     await expect(input2).toHaveCount(0);
+    // 解算后标注布局异步刷新：等 marker 重新挂载 + data-center 稳定再读位置。
+    await waitForLabelLayout(LENGTH_ID);
+
+    // ---- 2b) 取消按钮：关闭并丢弃（不静默改值） ----
+    const lengthAt2 = await centerOf(LENGTH_ID);
+    await page.mouse.dblclick(lengthAt2.x, lengthAt2.y);
+    const input3 = page.getByTestId('sketch-dimension-input');
+    await expect(input3).toBeVisible({ timeout: 10_000 });
+    await input3.fill('999');
+    await page.getByTestId('sketch-dimension-cancel').click();
+    await expect(input3).toHaveCount(0);
+    await expect.poll(async () => {
+      const value = lineLength(await getSketchRpc(ctx, sketchId, token));
+      return value === null ? 999 : Math.abs(value - 30);
+    }, { timeout: 20_000, intervals: [600, 1000, 2000] }).toBeLessThan(0.01);
 
     // 草图保持编辑态；半径与其它约束未被改值路径破坏。
     await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();

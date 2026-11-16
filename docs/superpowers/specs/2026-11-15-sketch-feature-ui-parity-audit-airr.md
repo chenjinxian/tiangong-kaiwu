@@ -544,3 +544,53 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   点击「单击此处重新连接」8 s 后仍未恢复。S1a/S3a/S5/S6a/S7、featurePattern
   live 形态（P1–P4）、boolean filled（B1–B3）、B5、C5 等继续阻塞，未改相关
   UI。A2（值行 chevron）裁定不做（无展开行为的惰性键=假可供性）。
+
+### 2026-11-16 重新登录后补采（S3a / E5 / E6 / pattern）
+
+- **S3a 内联尺寸编辑**：双击画布尺寸标签打开 `dimension-dialog`（179×62）：
+  drag 条 159×13（4 方点 grip）、panel 159×34 白底 radius 0、
+  shadow `0 5px 10px rgba(0,0,0,.2)`；输入 100×26 透明底、底部 inset
+  1px #1651b0；✓ 22×22 #009400 radius 4，✗ 22×22 白底 1px #cccccc
+  radius 4。**点击画布空白不关闭**；Esc 取消、Enter/✓ 提交、✗ 取消。
+  旧实现（1px #2850aa 全边框、无按钮、blur 取消）据此纠正。
+- **E5 约束 chip**：未选中 20×20 CSS、填充纯白 #FFFFFF、**无深色描边**；
+  符号核心 ~#555；选中填充 #E2F0FA（web overlay multiply 保持）。
+  viewer 装饰器由 `rgba(251,250,248,.96)`+深描边改为纯白无描边、符号 #555。
+- **E6 绘制中读数**：拐角矩形拖动时宽/高数值沿边方向旋转显示（宽在顶边
+  内侧、高在左边外侧，蓝色无卡片、无尺寸线箭头，值=文档单位 3 位小数）。
+  我方当前光标旁 measures 卡为产品扩展，边对齐标签列入后续切片。
+- **pattern 编辑形态**：作用域 select → 新建/加入/移除/相交页签 →
+  要阵列化的图元 query（×）→ 方向 query（×）→ 距离（单位+图标）→
+  实例数（图标）→ 居中 → 第二个方向 collapsible（未启用时 expander 禁用
+  #d7d7d7，勾选后自动展开：方向/距离/实例数/居中，缩进竖线）→ 跳过实例
+  collapsible → 透明度滑杆 + ?。据此外观收紧 FeaturePatternDialog
+  （作用域/操作页签诚实禁用、距离/实例数单位与图标、第二个方向折叠组）。
+- **仍未采到**：S1a 数量输入下拉（Deg 尺寸上未能重现）、E7 使用候选
+  （此前多次无可见候选）、boolean/孔/拉伸新建对话框（本轮工具栏点击未
+  弹出，待重试）、B5/C5。未采到前不改对应 UI。
+- **实现（W10a/b/c，2026-11-16）**：
+  - S3a：`SketchDimensionEditor` 重做为 live dimension-dialog（drag 条 +
+    159×34 白面板 + 100×26 输入（inset 1px #1651b0）+ ✓/✗ 按钮）；
+    **点击画布不关闭**，Esc/✗ 取消、Enter/✓ 提交，失焦后窗口级 Enter/Esc
+    仍生效，提交中按钮禁用；错误态改为红色下划线。旧 blur-cancel 移除。
+  - E5：viewer 约束 chip 改纯白无描边、符号 #555；选中 #E2F0FA 仍由 web
+    overlay multiply 负责；20px 尺寸/布局/命中不变；viewer dist 重建。
+  - pattern 形态：FeaturePatternDialog 增加只读作用域行（特征阵列）、四个
+    禁用操作页签（无伪活动）、距离 mm + 禁用计算器、实例数禁用计算器、
+    第二个方向折叠组（有落库轴=勾选/可用/默认展开；无轴=勾选与箭头禁用
+    +原因；折叠仅可见性）、跳过实例禁用折叠行；载荷/提交语义不变。
+  - **审查修复（W10 复审）**：键盘作用域重做（Cancel 按钮上的 Enter 归按钮、
+    外部输入框 Enter 不提交、Escape 不吞其他消费者）；可见对话框
+    （159×47）按视口夹紧（近边缘不裁按钮，输入垂直中心仍对标签中心），
+    删除「标签保持可见」旧陈述（live 对话框覆盖标签）；drag 条去假
+    `cursor: move`；blur 单测改用 `focusOut`（原 fireEvent.blur 为惰性断言）；
+    e2e 空白点击改右上角并等待标注重排；pattern 作用域标签复用既有键、
+    expander 在 busy/只读时禁用。
+  - 验证：web **2034/2034**、viewer **159/159**、tsc(src/e2e/viewer)/
+    eslint 绿；真栈 `sketch-dimension-edit`（含点击空白不关闭/✓提交/✗取消）
+    + `sketch-constraint-glyphs` **4 passed（1.6 min，含 setup）**、
+    `feature-pattern-edit-ui` **4 passed（1.9 min，含 setup）**；审查修复后
+    `sketch-dimension-edit` + `feature-pattern-edit-ui` 合跑 **6 passed
+    （2.8 min，含 setup）**。
+  - 注：一次 Playwright 收集出现「test.describe 不在预期位置/No tests found」，
+    显式 `--config=playwright.config.ts` 后正常（环境性，已如实记录）。

@@ -178,6 +178,20 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
+  S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
+  shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
+  ✓22×22 #009400 / ✗白底 1px #cccccc radius 4）；**点击画布不关闭**，
+  Esc/✗ 取消、Enter/✓ 提交；失焦后 Enter/Escape 仍生效（窗口监听按焦点
+  作用域放行按钮/外部输入/打开的菜单）；可见对话框按视口夹紧。E5：未选中
+  约束 chip 20×20 纯白无描边、符号 #555（选中 #E2F0FA 仍由 web overlay
+  multiply）；viewer dist 重建。pattern：作用域只读行 + 四个禁用操作页签
+  + 距离 mm/计算器 + 第二方向折叠组（有落轴=勾选/可用/默认展开；无轴=
+  禁用+原因；折叠仅可见性）+ 跳过实例禁用折叠。验证：web **2034/2034**、
+  viewer **159/159**、tsc(src/e2e)/eslint 绿；真栈 `sketch-dimension-edit`
+  + `sketch-constraint-glyphs` 4、`feature-pattern-edit-ui` 4，审查修复后
+  dimension+pattern 合跑 **6 passed（2.8 min）**。残留：纯白 chip 在白画布
+  上的可见性仅记录未截图复核；S1a/E7 仍未采到。
 - **命名 / 诚实禁用波次（2026-11-16，纯前端；AIRR 同上 §10）**：
   C1 新特征命名 `<类型> N`（同类型树条目计数、抑制计入、空洞复用；标题/toast
   按实际提交类型取名——镜像特征作用域=特征镜像 N、布尔=并集/差集 N，孔可见

@@ -2032,7 +2032,15 @@
     "secondCountCenteredInvalid": "第二方向每侧实例数须为 2–500 的整数（含原件）",
     "secondSpacingInvalid": "第二方向间距须为正数",
     "totalInstancesInvalid": "两个方向的总实例数不得超过 1000",
-    "multiSourceHint": "多源特征按顺序阵列；源特征列表是结构引用，编辑中不可更改。"
+    "multiSourceHint": "多源特征按顺序阵列；源特征列表是结构引用，编辑中不可更改。",
+    "scopeFixedHint": "作用域由特征类型固定为「特征阵列」；零件阵列/面阵列不适用于特征阵列（请删除后重建为对应类型）。",
+    "operationTabsLabel": "阵列操作",
+    "operationTabsHint": "特征阵列沿用源特征的操作（加入/移除）；独立的「新建/加入/移除/相交」操作页签尚未实现。",
+    "secondDirectionExpand": "展开或收起第二个方向",
+    "secondDirectionExpandHint": "勾选「第二个方向」后可展开该组。",
+    "secondDirectionNoAxis": "该特征未落库第二方向轴，无法新增第二方向（请删除后重建并指定第二方向轴）。",
+    "secondDirectionCircularUnavailable": "圆周阵列不支持第二方向。",
+    "calculatorUnavailable": "计算器弹层尚未接入；数值请直接输入。"
   },
   "cPlaneDialog": {
     "mode": "类型",

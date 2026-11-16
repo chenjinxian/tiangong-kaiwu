@@ -9,7 +9,10 @@
 //  6) canEdit=false 全禁用；
 //  7) A4（2026-11-16）：源 chips 显示 features 映射的特征名，缺省/未命中回退 id；
 //  8) A5（2026-11-16）：共享底栏（禁用透明度滑杆 + ? 帮助）；
-//  9) A6（2026-11-16）：轴方向只读值行（「方向」+ 向量）、跳过实例行折叠箭头。
+//  9) A6（2026-11-16）：轴方向只读值行（「方向」+ 向量）、跳过实例行折叠箭头；
+// 10) W10c（2026-11-16 live 形状）：只读阵列范围 + 四个禁用操作页签（无活动页签）、
+//     距离行 mm 单位 + 实例数/距离行禁用计算器、第二个方向折叠组（有/无落库两态、
+//     收起不改载荷）、跳过实例组禁用折叠行。
 import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -268,7 +271,9 @@ describe('FeaturePatternDialog', () => {
   });
 
   // ADR-0007 切片 11：已有 secondDirection 的阵列可编辑第二方向；
-  // 第二方向轴是结构引用（只读回显），非第二方向的旧阵列不渲染该区。
+  // 第二方向轴是结构引用（只读回显）。W10c（2026-11-16）：折叠组头始终渲染
+  // （有落库轴=可用/默认展开，无落库轴=禁用+原因），内容只在既有第二方向
+  // 且展开时渲染。
   const secondAxis = {
     origin: { x: 0, y: 0, z: 0 },
     direction: { x: 0, y: 1, z: 0 },
@@ -386,5 +391,101 @@ describe('FeaturePatternDialog', () => {
     expect(screen.queryByTestId('part-studio-feature-pattern-total-invalid')).toBeNull();
     expect(confirm().disabled).toBe(false);
     expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  // ── W10c（2026-11-16 live 对话框形状）────────────────────────────────────
+  it('W10c：阵列范围=只读禁用「特征阵列」（固定原因）；操作页签四个全禁用且无活动页签', () => {
+    renderDialog();
+    const scope = screen.getByRole('combobox', { name: '阵列范围' }) as HTMLSelectElement;
+    expect(scope.value).toBe('feature');
+    expect(scope.disabled).toBe(true);
+    expect(scope.getAttribute('title')).toContain('特征阵列');
+    expect(screen.getByTestId('part-studio-feature-pattern-scope-row').getAttribute('title'))
+      .toContain('零件阵列');
+
+    const tabs = screen.getByRole('tablist', { name: '阵列操作' });
+    const items = within(tabs).getAllByRole('tab');
+    expect(items.map((tab) => tab.textContent)).toEqual(['新建', '加入', '移除', '相交']);
+    for (const tab of items) {
+      expect((tab as HTMLButtonElement).disabled).toBe(true);
+      expect(tab.getAttribute('aria-disabled')).toBe('true');
+      // 不伪造活动页签：无 aria-selected、无 active 类。
+      expect(tab.hasAttribute('aria-selected')).toBe(false);
+      expect(tab.className).not.toContain('part-studio-feature-dialog__tab--active');
+    }
+  });
+
+  it('W10c：距离行=mm 单位 + 禁用计算器；实例数行=禁用计算器（真实原因，载荷仍为 mm）', () => {
+    renderDialog();
+    const spacingSection = screen.getByTestId('part-studio-feature-pattern-spacing').closest('section')!;
+    expect(spacingSection.textContent).toContain('mm');
+    const countSection = screen.getByTestId('part-studio-feature-pattern-count').closest('section')!;
+    // live：实例数无单位（只有值与图标）。
+    expect(countSection.textContent).not.toContain('mm');
+    for (const [testId, section] of [
+      ['part-studio-feature-pattern-spacing-calculator', spacingSection],
+      ['part-studio-feature-pattern-count-calculator', countSection],
+    ] as const) {
+      const calc = within(section).getByTestId(testId) as HTMLButtonElement;
+      expect(calc.disabled).toBe(true);
+      expect(calc.getAttribute('aria-label')).toBe('计算器');
+      expect(calc.getAttribute('title')).toContain('计算器');
+    }
+  });
+
+  it('W10c：第二个方向折叠组——有落库=勾选/箭头可用/默认展开；收起隐藏字段但不改载荷', async () => {
+    const { applyOp, user } = renderDialog({}, stored({
+      secondDirection: { count: 2, spacing: 8, axis: secondAxis },
+    }));
+    const enabled = screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement;
+    const expander = screen.getByTestId('part-studio-feature-pattern-second-expander') as HTMLButtonElement;
+    expect(enabled.checked).toBe(true);
+    expect(enabled.disabled).toBe(false);
+    expect(expander.disabled).toBe(false);
+    expect(expander.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('part-studio-feature-pattern-second-body')).toBeTruthy();
+
+    await user.click(expander);
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('part-studio-feature-pattern-second-body')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: '第二方向实例数量（含原件）' })).toBeNull();
+    // 折叠只改可见性：仍按勾选状态提交第二方向（不静默丢键）。
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      params: { secondDirection: { count: 2, spacing: 8, axis: secondAxis } },
+    });
+
+    await user.click(expander);
+    expect(expander.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('part-studio-feature-pattern-second-body')).toBeTruthy();
+  });
+
+  it('W10c：无落库第二方向 → 勾选与箭头诚实禁用（原因）+ 内容不渲染', () => {
+    renderDialog();
+    const enabled = screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement;
+    const expander = screen.getByTestId('part-studio-feature-pattern-second-expander') as HTMLButtonElement;
+    expect(enabled.checked).toBe(false);
+    expect(enabled.disabled).toBe(true);
+    expect(enabled.closest('label')?.getAttribute('title')).toContain('第二方向轴');
+    expect(expander.disabled).toBe(true);
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+    expect(expander.getAttribute('title')).toContain('第二方向轴');
+    expect(screen.queryByTestId('part-studio-feature-pattern-second-body')).toBeNull();
+  });
+
+  it('W10c：取消勾选 → 箭头随驱动复选框禁用；重新勾选自动展开（live 语义）', async () => {
+    const { user } = renderDialog({}, stored({
+      secondDirection: { count: 2, spacing: 8, axis: secondAxis },
+    }));
+    const enabled = screen.getByRole('checkbox', { name: '第二个方向' });
+    const expander = screen.getByTestId('part-studio-feature-pattern-second-expander') as HTMLButtonElement;
+    await user.click(enabled);
+    expect(expander.disabled).toBe(true);
+    expect(expander.getAttribute('aria-expanded')).toBe('false');
+    expect(expander.getAttribute('title')).toContain('勾选');
+    await user.click(enabled);
+    expect(expander.disabled).toBe(false);
+    expect(expander.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('part-studio-feature-pattern-second-body')).toBeTruthy();
   });
 });
