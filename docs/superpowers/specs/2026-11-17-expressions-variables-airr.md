@@ -220,3 +220,28 @@
   实现为可逆推断；变量 `已测量/来自导入` 结构未采到，诚实禁用。
 - **发布**：未发布（release/publish 未授权）；shared 1.72.0 / 私有后端 / web 同批
   待下一次发布。
+
+## 11. S4a 特征深度表达式（2026-11-17 recon）
+
+**Live 证据**（详见 ADR-0020 §2.7）：拉伸 `深度` 接受算术与 `#变量`；晚于特征创建的
+变量在字段中不可见（补全仅 `新建变量…`、提交拒收）；从字段内联创建 `#foo` 后变量
+出现在特征之前并可提交；提交后字段显示求值结果、聚焦显示表达式原文；纯算术同样
+生效。
+
+**设计裁决**：`ExtrudeParams.distanceExpression?: string`（`distance` 保持必填并作为
+物化快照，shared 1.73.0）；仅 blind；后端在 FeatureService 写边界（insert/update/
+preview）用变量表 + shared 求值器物化，错误零变更；`updateVariables` 预计算
+`featureChanges`（逐特征 before/after params 快照）与变量/草图同事务写回，oplog
+可选字段（旧 payload 兼容）、undo/redo 快照恢复；rebuildAll 只消费物化后的
+`distance`（FeatureEngine 不改）。变量为 Part Studio 级单表、所有变量对所有字段
+可见（登记为相对 live 有序可见性的产品超集）。
+
+**门**：
+- shared：`ExtrudeParams.distanceExpression` 类型/版本 1.73.0/op DSL 往返。
+- 后端：schema blind-only、字面量与 `#var` 求值、类型（length/number/any）、错误
+  优先级/零变更、insert/update/preview、updateVariables 传播/撤销/冷重开、旧
+  oplog 无 featureChanges 兼容、表单字段一致性。
+- web：FeatureDialog 深度表达式输入（聚焦表达式/失焦值）、`#` 补全/内联创建、
+  提交载荷/编辑保留/非 blind 清除、无效态禁用、本地预览；真栈 e2e（变量驱动拉伸体积、
+  改变量重算、原生单次 undo/redo、push+冷重开）+ 回归 `tutorial2`/extrude specs。
+- **不发布**（release/publish 未授权）。

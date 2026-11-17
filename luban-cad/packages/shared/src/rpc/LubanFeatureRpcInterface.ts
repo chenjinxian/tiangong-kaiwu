@@ -174,6 +174,9 @@
  * contract 先行，UI 需 live 面拉伸对话框证据）。
  * v1.71（ADR-0020）：SketchConstraintDto.expression + VariableDto/updateVariables/getVariables。
  * v1.72（ADR-0020 S3）：`VariableDto.type?/description?`（缺省 type=length；后端按尺寸量纲校验）。
+ * v1.73（ADR-0020 S4a）：`ExtrudeParams.distanceExpression?`——仅拉伸盲孔深度接受表达式；
+ * `distance` 保持必填并作为后端物化的求值快照（写入/变量变更时覆盖），非 blind 终止条件
+ * 带表达式显式拒收。首切片不引入通用 expressions 映射（其他特征字段后续切片复用求值器）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -262,7 +265,18 @@ export interface ExtrudeVertexRef {
 
 export interface ExtrudeParams {
   profile: Array<{ x: number; y: number }>;
+  /** 深度（mm）。**必填**：无 `distanceExpression` 时即设计值；有表达式时是后端在写入/
+   *  变量变更时求值后的**物化快照**（求解/重建只消费本数值，冷重开无需再解析表达式）。 */
   distance: number;
+  /** v1.73（ADR-0020 S4a）：深度表达式（设计意图；如 `"25.4 / 2"`、`"#width * 2"`）。
+   *  - 仅 **blind**（缺省 endBound 或 `"blind"`）合法；throughAll/upToNext/upToSurface/
+   *    upToVertex 携带表达式由后端显式拒收（无静默降级）。
+   *  - 后端在 FeatureService 写边界（insert/update/preview）用 Part Studio 变量表 + shared
+   *    求值器权威求值并物化 `distance`；表达式保留落库（设计意图），求值结果不单独落库。
+   *  - 变量变更（`updateVariables`）会传播重算含本键的特征并物化新 `distance`；任一错误整
+   *    op 零变更。仅 length/number/any 类型的变量可用于深度字段。
+   *  - web 提交形态：`{ distance: 求值, distanceExpression: 原文 }`；纯数值提交删除本键。 */
+  distanceExpression?: string;
   sketchId?: string;
   /** v1.19：特征内布尔操作（缺省按 legacy：newBody=true→"new"，否则 "add"）。
    * `mergeScope` 为显式合并目标（Tutorial 2 E2/E3 = 单 Part 1）；空/缺省=自动（全部上游体）。
@@ -1095,7 +1109,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.72.0";
+  public static interfaceVersion = "1.73.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

@@ -269,6 +269,7 @@ export {
   evaluateExpression,
   evaluateVariableTable,
   isValidVariableName,
+  MAX_EXPRESSION_LENGTH,
 } from './expressions/expression-evaluator.js';
 export type {
   ExpressionVariableRef,

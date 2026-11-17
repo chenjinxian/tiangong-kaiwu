@@ -17,6 +17,7 @@ import {
   type ExpressionResult,
   type ExpressionVariableRef,
   isValidVariableName,
+  MAX_EXPRESSION_LENGTH,
 } from "./expression-evaluator.js";
 
 /** 断言成功并返回数值（失败时打印整包便于定位）。 */
@@ -323,9 +324,11 @@ describe("表达式求值器：边界与纯函数性", () => {
     expect(okValue(evaluateExpression(`${"1+".repeat(300)}1`))).toBe(301); // 601 字符，正常
   });
 
-  it("长度边界：恰好 1024 字符可求值、1025 字符拒收", () => {
-    expect(okValue(evaluateExpression("0".repeat(1024)))).toBe(0);
-    expect(evaluateExpression("0".repeat(1025))).toMatchObject({ ok: false, code: "syntax", position: 1024 });
+  it("长度边界：恰好 1024 字符可求值、1025 字符拒收（导出的 MAX_EXPRESSION_LENGTH 为同一来源）", () => {
+    expect(MAX_EXPRESSION_LENGTH).toBe(1024); // v1.73：后端 schema 复用该导出，禁止两侧硬编码漂移
+    expect(okValue(evaluateExpression("0".repeat(MAX_EXPRESSION_LENGTH)))).toBe(0);
+    expect(evaluateExpression("0".repeat(MAX_EXPRESSION_LENGTH + 1)))
+      .toMatchObject({ ok: false, code: "syntax", position: MAX_EXPRESSION_LENGTH });
   });
 
   it("递归深度上限 64：64 层括号可求值、65 层 → syntax", () => {

@@ -502,6 +502,37 @@ describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
   });
 });
 
+describe("op DSL × v1.73（extrude distanceExpression 深度表达式）", () => {
+  it("insertFeature 携带 distanceExpression 往返深等 + 文本级稳定", () => {
+    const op: FeatureOp = {
+      kind: "insertFeature",
+      featureType: "extrude",
+      params: { profile: tri, distance: 20, sketchId: "sk-1", distanceExpression: "#width * 2" },
+    };
+    const dsl = opsToDsl([op]);
+    expect(dsl).toContain('"distanceExpression":"#width * 2"');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("updateParams 携带 distanceExpression（物化 distance + 表达式原文）往返深等", () => {
+    const op: FeatureOp = {
+      kind: "updateParams",
+      featureId: "f-1",
+      params: { profile: [], distance: 10, sketchId: "sk-1", distanceExpression: "5 * 2" },
+    };
+    const dsl = opsToDsl([op]);
+    expect(dsl).toContain('"distanceExpression":"5 * 2"');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("无表达式的旧 extrude 文本逐字不变（opDsl 无需改写）", () => {
+    const dsl = opsToDsl([{ kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1 } }]);
+    expect(dsl).toBe('op insertFeature extrude {"profile":[],"distance":1}');
+  });
+});
+
 describe("op DSL × v1.71（updateVariables 变量表整表覆写）", () => {
   const op: FeatureOp = {
     kind: "updateVariables",

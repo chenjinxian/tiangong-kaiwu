@@ -1,7 +1,7 @@
 # ADR-0020 — Sketch expressions and Part Studio variables (v1)
 
-- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3 live 证据已采集，
-  2026-11-17 按 §2.7 裁决实现）**
+- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3 已实现；S4a
+  拉伸深度表达式 2026-11-17 recon 后按 §2.7 实施）**
 - 日期：2026-11-17
 - 关联：AIRR `docs/superpowers/specs/2026-11-17-expressions-variables-airr.md`；
   `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared `LubanFeatureRpcInterface`
@@ -210,11 +210,58 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
   说明；✓ 创建并回填表达式、✗ 关闭且字段保持无效）；已存在变量从补全列表选择，
   不走创建分支。若成本超预期可拆 S3b，但不得以假面板占位。
 
-### 2.7 明确不做（v1 非目标）
+### 2.7 S4a 特征数值字段表达式（拉伸深度，2026-11-17 recon）
+
+**Live 证据（脱敏）**：拉伸对话框 `深度` 字段接受算术与 `#变量`（输入期合法）；该字段
+的自动补全对**晚于该特征创建**的变量只显示 `新建变量…`，提交时该变量被拒收
+（`os-invalid-textbox`、顶部 ✓ 禁用）——即 live 的特征字段只“看见”定义在特征位置
+之前的变量。输入未知 `#foo` + Enter 打开内联创建变量面板（名称=token、值=字段当前
+表达式/值）；创建后变量出现在**该特征之前**的树位置，字段随即可提交。特征顶部 ✓
+提交（表达式字段被编辑时首次点击归一化字段、第二次点击提交/关闭）。提交并重开后
+字段显示**求值结果**（如 `25.4 mm`），**聚焦时显示存储的表达式**（如 `#foo`）；
+纯算术（`25.4 + 0`）同样求值/提交。
+
+**裁决（S4a，仅拉伸盲孔深度）**
+
+1. **契约**：`ExtrudeParams.distanceExpression?: string`；`distance: number` 保持
+   必填并作为**物化快照**（写入/变量变更时由后端求值覆盖）。shared 1.72.0 →
+   **1.73.0**（additive）。仅 `endBound` 缺省/`"blind"` 允许；throughAll/upToSurface/
+   upToNext/upToVertex 带表达式显式拒收。不加通用 `expressions` 映射（后续字段族另
+   切片）。
+2. **权威求值在 FeatureService 写边界**（FeatureEngine 不改）：insertFeature/
+   updateParams 在 txn 前解析表达式（变量表 + shared 求值器）；合法则物化
+   `distance` 后照常存储/求值；错误显式、零变更（先求值后类型门，沿用 S3 口径）。
+   `previewOp` 同样归一化后再影子求值。只接受 length/number/any 变量；结果有限且
+   >0；表达式长度/深度沿用 shared 求值器边界。
+3. **变量变更传播**：`updateVariables` 预计算扩展 `featureChanges`（逐特征
+   before/after params 快照）——重算含 `distanceExpression` 的特征深度；任一错误整
+   op 零变更；与变量表/草图 params **同一事务**写回，oplog 增加可选
+   `featureChanges`（旧 payload 缺省=[] 兼容），undo/redo 恢复快照；随后既有
+   rebuildAll（同一原生多事务分组）按物化后的 params 重建。冷重开/ensureWarm 无需
+   解析器（存储的 distance 已是新值）。
+4. **可见性语义**：本产品变量为 Part Studio 级单表，**所有变量对所有特征字段可见**
+   （相对 live 的“仅此前定义的变量”是已登记的产品超集；有序可见性需变量顺序数据
+   模型，另立 ADR）。内联创建从特征字段追加到变量表，立即可用（树显示在变量段，
+   不重排到特征前）。
+5. **UI（S4b）**：复用 S2 的表达式校验与 `#` 补全/内联创建；字段聚焦显示表达式、
+   失焦显示 `值+单位`；提交时表达式走 `{distance: 求值, distanceExpression: 原文}`，
+   纯数值删除表达式；编辑其他字段不得丢失未触碰的表达式；非 blind 终止条件清除
+   表达式；顶部 ✓ 的两击归一化行为按 live 或产品一体化提交（以真栈验收为准）。
+   **发布门**：shared 1.73 / 后端 / S4b web 必须同批（P0-07）——旧 web 客户端编辑
+   任一字段会以自身状态整体覆写 params，静默丢掉 `distanceExpression`；S4b 必须
+   回显未触碰的表达式。
+6. **变量变更传播与抑制**：`updateVariables` 对**被抑制**的特征同样重算并物化深度
+   （取消抑制后使用最新值），不因抑制跳过；扫描只解析含 `distanceExpression` 的
+   特征行，其他特征零触碰。
+7. **不做**：通用字段表达式映射、其他特征字段（孔深/圆角半径/抽壳厚度/阵列间距）、
+   有序可见性、单位后缀解析（v1 固定 mm）。
+
+### 2.8 明确不做（v1 非目标）
 
 - 文档单位切换（in/mm 全局单位设置）与单位后缀/换算函数；
 - 函数库（sin/cos、条件、字符串）、配置变量（Configurations）、FeatureScript；
-- 特征参数（拉伸深度等）的表达式（后续切片，复用同一求值器）；
+- 其他特征字段（孔深/圆角半径/抽壳厚度/阵列间距等）的表达式（S4a 仅拉伸盲孔
+  深度；后续切片复用同一求值器）；通用表达式映射与有序变量可见性另行立项；
 - 变量作用域跨 Part Studio/跨文档；
 - 把表达式字符串存进 OpLog 之外的旁路存储。
 

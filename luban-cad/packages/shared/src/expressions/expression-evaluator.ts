@@ -46,8 +46,10 @@ export type VariableTableResult =
   | { ok: true; values: ReadonlyMap<string, number> }
   | ExpressionFailure;
 
-/** 表达式长度上限（UTF-16 码元；超限 → syntax）。 */
-const MAX_EXPRESSION_LENGTH = 1024;
+/** 表达式长度上限（UTF-16 码元；超限 → syntax）。
+ *  v1.73（ADR-0020 S4a）：公开导出——后端特征字段 schema（如 `ExtrudeParams.distanceExpression`
+ *  的 zod `.max()`）与求值器共用同一上限，避免两侧硬编码漂移。 */
+export const MAX_EXPRESSION_LENGTH = 1024;
 /** 解析递归深度上限（括号嵌套 + 一元运算符链；超限 → syntax）。 */
 const MAX_PARSE_DEPTH = 64;
 const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
