@@ -82,6 +82,7 @@ import { SketchDimensionEditor } from './SketchDimensionEditor.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
 import { copySketchEntities, pasteSketchClipboard } from '../internal/sketch-clipboard.js';
+import { withConstraintDriven } from '../tools/sketch/sketch-dimension-logic.js';
 import { commitActiveSketchPattern, hasActiveSketchPattern } from '../internal/sketch-pattern-session.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
@@ -541,6 +542,28 @@ export function PartStudioCanvas({
       (entry) => entry.kind !== 'sketchConstraint' && entry.kind !== 'sketchEntity',
     ));
   }, [sketchSystem, canEdit, canvasSelectionForSketchPlane, setCanvasSelection, t]);
+  /**
+   * W31-A（2026-11-17 live）：尺寸菜单首行 = driving ↔ driven（参考尺寸）切换。
+   * driven 不送求解器是 shared/backend 既有语义（本切片不改契约）；写面走既有
+   * wholesale `updateSketch`：保序/保 id/refs/value，`nextDriven=false` 删除
+   * `driven` 键（与 shared/ScenarioReplay「仅 true 才携带」口径一致）。
+   *
+   * 失败不改本地状态（本层无乐观本地副本；菜单已关，错误经既有
+   * `sketchSystem.error` 透出）；不新增自定义撤销——wholesale updateSketch 是
+   * 已登记的 E-5 非可逆 op，与既有草图改值/删除同口径。后端求解门禁会拒收
+   * 过约束草图（产品不入库过约束，live 允许过约束并显示错误态，差异如实登记）。
+   */
+  const toggleSketchConstraintDriven = React.useCallback(async (constraintId: number, nextDriven: boolean) => {
+    const sketch = sketchSystem?.activeSketch;
+    if (!sketch || !canEdit)
+      return;
+    if (!sketch.constraints.some((constraint) => constraint.id === constraintId))
+      return;
+    await sketchSystem.applyUpdate(
+      sketch.entities,
+      withConstraintDriven(sketch.constraints, constraintId, nextDriven),
+    );
+  }, [sketchSystem, canEdit]);
 
   // 打开草图对话框重置平面选择；关闭时清空（下一次打开不继承旧面）。
   React.useEffect(() => {
@@ -1138,6 +1161,7 @@ export function PartStudioCanvas({
           isOverlayPoint={(point) => sketchOverlayHitRef.current?.(point) ?? false}
           dimensionLabelHitTestRef={sketchDimensionLabelHitRef}
           onDeleteDimension={deleteSelectedSketchConstraint}
+          onToggleDimensionDriven={toggleSketchConstraintDriven}
           onSelectionChange={(entries) => {
             const others = canvasSelectionForSketchPlane.filter(
               (entry) => entry.kind !== 'sketchEntity' && entry.kind !== 'sketchConstraint',

@@ -608,3 +608,48 @@ describe('SketchDimensionEditor W20：尺寸标签命中 ref', () => {
     expect(overlayRef.current).toBeNull();
   });
 });
+
+// ── W31-A（2026-11-17 live）：driven（参考）尺寸双击为 no-op ────────────────
+// 本组只证明**双击门禁**：driven 双击不打开编辑器、不改选中；单击选中/标签
+// 命中语义是设计行为（driven 标注不被整类排除），由 W20 命中 ref 用例覆盖。
+describe('SketchDimensionEditor W31-A：driven 尺寸双击门禁（不打开编辑器/不改选中）', () => {
+  function renderForDoubleClick(
+    constraint: SketchConstraintDto,
+    onSelectConstraint: (constraintId: number | null) => void,
+  ): { canvas: HTMLCanvasElement } {
+    const { canvas, viewport } = makeViewport();
+    canvas.dataset.testCanvas = 'driven-dblclick';
+    document.querySelectorAll('canvas[data-test-canvas="driven-dblclick"]').forEach((stale) => stale.remove());
+    document.body.appendChild(canvas);
+    render(
+      <SketchDimensionEditor
+        viewport={viewport}
+        annotations={[DIMENSION_ANNOTATION]}
+        constraints={[constraint]}
+        onCommit={() => undefined}
+        onSelectConstraint={onSelectConstraint}
+      />,
+    );
+    return { canvas };
+  }
+
+  it('driven：双击标签 → 门禁不开编辑器/不选中（单击选中语义由 W20 用例覆盖）', () => {
+    const onSelectConstraint = vi.fn();
+    const { canvas } = renderForDoubleClick(
+      { ...DIMENSION_CONSTRAINT, driven: true },
+      onSelectConstraint,
+    );
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+    expect(screen.queryByTestId('sketch-dimension-input')).toBeNull();
+    expect(screen.queryByTestId('sketch-dimension-dialog')).toBeNull();
+    expect(onSelectConstraint).not.toHaveBeenCalled();
+  });
+
+  it('driving：双击标签 → 编辑器打开并预填（现状不回归）', () => {
+    const onSelectConstraint = vi.fn();
+    const { canvas } = renderForDoubleClick(DIMENSION_CONSTRAINT, onSelectConstraint);
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20');
+    expect(onSelectConstraint).toHaveBeenCalledWith(DIMENSION_ID);
+  });
+});

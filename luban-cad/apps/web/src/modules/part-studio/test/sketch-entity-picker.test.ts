@@ -103,8 +103,11 @@ function renderPicker(opts: {
   withTransform?: boolean;
   interactive?: boolean;
   contextMenuEnabled?: boolean;
+  canEdit?: boolean;
+  sketch?: SketchDto;
   dimensionLabelHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => number | null) | null>;
   onDeleteDimension?: (constraintId: number) => void | Promise<void>;
+  onToggleDimensionDriven?: (constraintId: number, nextDriven: boolean) => void | Promise<void>;
 } = {}): {
   onFinishSketch: ReturnType<typeof vi.fn>;
   onTransform: ReturnType<typeof vi.fn>;
@@ -115,15 +118,17 @@ function renderPicker(opts: {
   const onSelectionChange = vi.fn();
   render(React.createElement(SketchEntityPicker, {
     viewport: makeSketchViewport(),
-    sketch: SKETCH,
+    sketch: opts.sketch ?? SKETCH,
     selected: [],
     onSelectionChange,
     sketchName: '草图 1',
     onFinishSketch,
+    ...(opts.canEdit !== undefined ? { canEdit: opts.canEdit } : {}),
     ...(opts.interactive !== undefined ? { interactive: opts.interactive } : {}),
     ...(opts.contextMenuEnabled !== undefined ? { contextMenuEnabled: opts.contextMenuEnabled } : {}),
     ...(opts.dimensionLabelHitTestRef ? { dimensionLabelHitTestRef: opts.dimensionLabelHitTestRef } : {}),
     ...(opts.onDeleteDimension ? { onDeleteDimension: opts.onDeleteDimension } : {}),
+    ...(opts.onToggleDimensionDriven ? { onToggleDimensionDriven: opts.onToggleDimensionDriven } : {}),
     // FIX-2：缺省接线；withTransform=false 模拟只读/不可变换宿主（不下传）。
     ...(opts.withTransform === false ? {} : { onTransform }),
   }));
@@ -275,8 +280,9 @@ describe('草图实体右键菜单（Onshape live 顺序）', () => {
 });
 
 // ── W20（2026-11-16 live）：尺寸标签右键菜单 ────────────────────────────────
-// live：右键尺寸数值标签 = 草图空白菜单 + 首行「更改为驱动尺寸」（产品不表示
-// 驱动尺寸 → 诚实禁用）+ 末行（分隔线后）「删除尺寸」（宿主既有约束删除路径）。
+// live：右键尺寸数值标签 = 草图空白菜单 + 首行驱动/从动状态切换（W31-A 起
+// 按约束状态动态文案，宿主未接线时诚实禁用）+ 末行（分隔线后）「删除尺寸」
+//（宿主既有约束删除路径）。
 const DIMENSION_POINT = { x: 50, y: 0 };
 
 /** 只在实体线中点（canvas 局部 50,0）报告尺寸标签命中，其余 null。 */
@@ -302,7 +308,7 @@ describe('草图尺寸标签右键菜单（W20 live）', () => {
     vi.restoreAllMocks();
   });
 
-  it('命中标签 → 尺寸菜单：首项驱动禁用（诚实原因）、末项删除；不弹实体或空白菜单', () => {
+  it('命中标签 → 尺寸菜单：首项无回传通道时诚实禁用、末项删除；不弹实体或空白菜单', () => {
     renderPicker({
       dimensionLabelHitTestRef: dimensionHitRef(7),
       onDeleteDimension: vi.fn(),
@@ -318,8 +324,10 @@ describe('草图尺寸标签右键菜单（W20 live）', () => {
     expect(items.at(-1)!.getAttribute('data-testid')).toBe('sketch-dimension-menu-delete');
     expect((items.at(-1) as HTMLButtonElement).disabled).toBe(false);
     // W24 live：18 行 / 7 条分隔线，分组与行序逐项对齐（选择行无内联 ›）。
+    // W31-A：首行文案按约束状态（本用例命中 id 7 不在草图约束中 → 默认
+    // driving 口径「更改为从动尺寸」；无 onToggleDimensionDriven → 禁用）。
     expect(items.map((item) => (item.textContent ?? '').trim())).toEqual([
-      '更改为驱动尺寸',
+      '更改为从动尺寸',
       '确认 草图 1',
       '复制草图',
       '全部显示',
@@ -335,7 +343,7 @@ describe('草图尺寸标签右键菜单（W20 live）', () => {
     expect(Array.from(menu.children).map((child) =>
       child.getAttribute('role') === 'separator' ? '─' : (child.textContent ?? '').trim(),
     )).toEqual([
-      '更改为驱动尺寸', '─',
+      '更改为从动尺寸', '─',
       '确认 草图 1', '─',
       '复制草图', '─',
       '全部显示', '曲线/曲面分析…', '─',
@@ -464,5 +472,131 @@ describe('草图尺寸标签右键菜单（W20 live）', () => {
     renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7) });
     const menu = openDimensionMenu();
     expect((within(menu).getByTestId('sketch-dimension-menu-delete') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+// ── W31-A（2026-11-17 live）：尺寸菜单首行 = 驱动/从动状态切换 ───────────────
+const TOGGLE_CONSTRAINT_ID = 7;
+
+/** 带目标约束的草图（driven=true 时首行应显示「更改为驱动尺寸」）。 */
+function sketchWithLengthConstraint(driven?: boolean): SketchDto {
+  return {
+    ...SKETCH,
+    constraints: [{
+      kind: 'length',
+      id: TOGGLE_CONSTRAINT_ID,
+      refs: [11],
+      value: 20,
+      ...(driven === true ? { driven: true } : {}),
+    }],
+  };
+}
+
+describe('草图尺寸菜单驱动/从动切换（W31-A live）', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('driving 约束 → 首行「更改为从动尺寸」可点；点击回调 (id, true) 且关闭菜单', () => {
+    const onToggleDimensionDriven = vi.fn();
+    renderPicker({
+      sketch: sketchWithLengthConstraint(),
+      dimensionLabelHitTestRef: dimensionHitRef(TOGGLE_CONSTRAINT_ID),
+      onToggleDimensionDriven,
+    });
+    const menu = openDimensionMenu();
+    const row = within(menu).getByTestId('sketch-dimension-menu-driven') as HTMLButtonElement;
+    expect((row.textContent ?? '').trim()).toBe('更改为从动尺寸');
+    expect(row.disabled).toBe(false);
+    expect(row.getAttribute('title')).toBeNull();
+    fireEvent.click(row);
+    expect(onToggleDimensionDriven).toHaveBeenCalledTimes(1);
+    expect(onToggleDimensionDriven).toHaveBeenCalledWith(TOGGLE_CONSTRAINT_ID, true);
+    expect(screen.queryByTestId('sketch-dimension-menu')).toBeNull();
+  });
+
+  it('driven 约束 → 首行「更改为驱动尺寸」可点；点击回调 (id, false)', () => {
+    const onToggleDimensionDriven = vi.fn();
+    renderPicker({
+      sketch: sketchWithLengthConstraint(true),
+      dimensionLabelHitTestRef: dimensionHitRef(TOGGLE_CONSTRAINT_ID),
+      onToggleDimensionDriven,
+    });
+    const menu = openDimensionMenu();
+    const row = within(menu).getByTestId('sketch-dimension-menu-driven') as HTMLButtonElement;
+    expect((row.textContent ?? '').trim()).toBe('更改为驱动尺寸');
+    expect(row.disabled).toBe(false);
+    fireEvent.click(row);
+    expect(onToggleDimensionDriven).toHaveBeenCalledWith(TOGGLE_CONSTRAINT_ID, false);
+  });
+
+  it('未提供回调 → 首行禁用 + 诚实原因（文案仍按约束状态）', () => {
+    renderPicker({
+      sketch: sketchWithLengthConstraint(true),
+      dimensionLabelHitTestRef: dimensionHitRef(TOGGLE_CONSTRAINT_ID),
+    });
+    const menu = openDimensionMenu();
+    const row = within(menu).getByTestId('sketch-dimension-menu-driven') as HTMLButtonElement;
+    expect((row.textContent ?? '').trim()).toBe('更改为驱动尺寸');
+    expect(row.disabled).toBe(true);
+    expect(row.getAttribute('title')).toBe('该操作暂未支持');
+  });
+
+  it('canEdit=false（只读）→ 首行禁用，不伪造可点', () => {
+    const onToggleDimensionDriven = vi.fn();
+    renderPicker({
+      canEdit: false,
+      sketch: sketchWithLengthConstraint(),
+      dimensionLabelHitTestRef: dimensionHitRef(TOGGLE_CONSTRAINT_ID),
+      onToggleDimensionDriven,
+    });
+    const menu = openDimensionMenu();
+    const row = within(menu).getByTestId('sketch-dimension-menu-driven') as HTMLButtonElement;
+    expect(row.disabled).toBe(true);
+    expect(row.getAttribute('title')).toBe('该操作暂未支持');
+    fireEvent.click(row);
+    expect(onToggleDimensionDriven).not.toHaveBeenCalled();
+  });
+
+  it('陈旧命中（约束 id 不在当前草图）→ 首行禁用', () => {
+    const onToggleDimensionDriven = vi.fn();
+    renderPicker({
+      sketch: sketchWithLengthConstraint(),
+      dimensionLabelHitTestRef: dimensionHitRef(999),
+      onToggleDimensionDriven,
+    });
+    const menu = openDimensionMenu();
+    const row = within(menu).getByTestId('sketch-dimension-menu-driven') as HTMLButtonElement;
+    expect(row.disabled).toBe(true);
+    expect(row.getAttribute('title')).toBe('该操作暂未支持');
+  });
+
+  it('首行启用不改变行数/顺序/分隔线（W24 皮肤结构不变）', () => {
+    renderPicker({
+      sketch: sketchWithLengthConstraint(),
+      dimensionLabelHitTestRef: dimensionHitRef(TOGGLE_CONSTRAINT_ID),
+      onToggleDimensionDriven: vi.fn(),
+    });
+    const menu = openDimensionMenu();
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items).toHaveLength(11);
+    expect(within(menu).getAllByRole('separator')).toHaveLength(7);
+    expect(items.map((item) => (item.textContent ?? '').trim())).toEqual([
+      '更改为从动尺寸',
+      '确认 草图 1',
+      '复制草图',
+      '全部显示',
+      '曲线/曲面分析…',
+      '选择',
+      '选择其他…',
+      '添加评论',
+      '缩放到合适大小',
+      '视图垂直于草图平面',
+      '删除尺寸',
+    ]);
   });
 });

@@ -43,6 +43,10 @@
  * 2026-11-16（W17b）：live 的放置值弹层与双击编辑器是同一个 dimension-dialog；
  * 结构与拖拽/方向键行为抽到共享外壳 `SketchDimensionDialog`（本组件只做
  * 标签命中/定位/提交，面板结构与值弹层完全同源，不再有两套视觉）。
+ *
+ * W31-A（2026-11-17 从动/参考尺寸）：driven 尺寸只读——live 双击为 no-op
+ * （无编辑器、无提示）；本层在打开编辑器前直接返回，但命中/选中高亮/右键
+ * 菜单仍可用（不整类排除 driven 标注）。
  */
 import React from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
@@ -457,6 +461,10 @@ export function SketchDimensionEditor({
         return;
       event.preventDefault();
       event.stopPropagation();
+      // W31-A：driven（参考）尺寸只读——live 双击什么都不发生（无编辑器、
+      // 不改选中）；仍消费事件避免落到 iTwin 默认双击手势。
+      if (constraint.driven === true)
+        return;
       if (!EDITABLE_CONSTRAINT_KINDS.has(constraint.kind)) {
         onUnsupportedRef.current?.(constraint.kind);
         return;

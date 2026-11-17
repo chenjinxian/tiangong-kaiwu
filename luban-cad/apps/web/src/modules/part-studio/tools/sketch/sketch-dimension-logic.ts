@@ -17,6 +17,11 @@
  * 几何 → 打开既有尺寸对话框」的纯匹配器——同一实体（或同一对引用）已有尺寸时
  * 不再追加第二条。圆/弧的半径与直径是同一实体的等价测量，命中既有约束时以
  * 约束自身的 kind/value 为准（已有直径标注的圆不得再生成半径尺寸）。
+ *
+ * W31-A（2026-11-17 live）：`withConstraintDriven` 生成尺寸菜单「更改为驱动/
+ * 从动尺寸」后的约束集——整体覆写 updateSketch 的载荷投影：保序、保 id/refs/
+ * value；`nextDriven=false` **删除** `driven` 键（不写 false，与 shared/
+ * ScenarioReplay「仅 true 才携带」口径一致）。
  */
 import type { SketchConstraintDto, SketchRef } from '@luban-cad/shared';
 import { EDITABLE_CONSTRAINT_KINDS } from '../../internal/sketch-dimension-value.js';
@@ -150,6 +155,30 @@ function sameRefPair(a: readonly SketchRef[], b: readonly SketchRef[]): boolean 
   if (a0 === undefined || a1 === undefined || b0 === undefined || b1 === undefined) return false;
   const [na0, na1, nb0, nb1] = [normalizedRef(a0), normalizedRef(a1), normalizedRef(b0), normalizedRef(b1)];
   return (na0 === nb0 && na1 === nb1) || (na0 === nb1 && na1 === nb0);
+}
+
+/**
+ * W31-A：驱动的约束集投影（尺寸菜单驱动/从动切换的 updateSketch 载荷）。
+ *
+ * - 保序、保 id/refs/value（只动目标约束的 `driven` 键）；
+ * - `nextDriven=true` → 目标约束写 `driven: true`；
+ * - `nextDriven=false` → **删除** `driven` 键（不写 `false`：shared/ScenarioReplay
+ *   只在 true 时携带该字段）；
+ * - 未命中 `constraintId` → 原数组副本（调用方另行守卫，不产生写请求）。
+ */
+export function withConstraintDriven(
+  constraints: readonly SketchConstraintDto[],
+  constraintId: number,
+  nextDriven: boolean,
+): SketchConstraintDto[] {
+  return constraints.map((constraint) => {
+    if (constraint.id !== constraintId) return constraint;
+    if (nextDriven)
+      return { ...constraint, driven: true };
+    const next: SketchConstraintDto = { ...constraint };
+    delete (next as { driven?: boolean }).driven;
+    return next;
+  });
 }
 
 /**

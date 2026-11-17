@@ -18,14 +18,19 @@
  * 实体；工具右键**不再**直接退出（菜单项/Esc 承担）。
  *
  * W20（2026-11-16 Onshape live 尺寸标签菜单）：命中尺寸数值标签时优先开
- * **尺寸菜单**（草图空白菜单行 + 首行「更改为驱动尺寸」诚实禁用 + 末行
- * 「删除尺寸」），不拾取实体、不改变选择；命中通道由
+ * **尺寸菜单**（草图空白菜单行 + 首行驱动/从动状态切换 + 末行「删除尺寸」），
+ * 不拾取实体、不改变选择；命中通道由
  * `SketchDimensionEditor.dimensionLabelHitTestRef` 提供（只返回约束 id）。
  *
  * W24（2026-11-17 live）：尺寸菜单按 live 18 行 / 7 条分隔线重排（确认草图为
  * 独立分组、添加评论/删除尺寸带 17px sprite 图标、选择行由 CSS ► 表示无子菜单
  * 动作）；皮肤见 `PartStudioPage.css` 的 `.part-studio-sketch-dimension-menu`
  * 覆盖（其他树菜单不变）。
+ *
+ * W31-A（2026-11-17 live）：尺寸菜单首行是驱动/从动状态切换（当前 driven →
+ * 「更改为驱动尺寸」，否则 →「更改为从动尺寸」）；宿主提供回调且 canEdit 时
+ * 可点，点击后关闭菜单并回报 `(constraintId, nextDriven)`。宿主未接线/约束
+ * 陈旧时保持诚实禁用（不伪造可点）。
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -127,6 +132,12 @@ export interface SketchEntityPickerProps {
   dimensionLabelHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => number | null) | null>;
   /** W20：尺寸右键菜单「删除尺寸」（宿主既有约束删除路径，updateSketch 可撤销）。 */
   onDeleteDimension?: (constraintId: number) => void | Promise<void>;
+  /**
+   * W31-A（2026-11-17 live）：尺寸菜单首行驱动/从动切换——宿主走既有
+   * wholesale `updateSketch`（driven 不送求解器）；`nextDriven=false` 删除
+   * `driven` 键。缺省=行诚实禁用。
+   */
+  onToggleDimensionDriven?: (constraintId: number, nextDriven: boolean) => void | Promise<void>;
 }
 
 const CLICK_SLOP_PX = 4;
@@ -161,6 +172,7 @@ export function SketchEntityPicker({
   isOverlayPoint,
   dimensionLabelHitTestRef,
   onDeleteDimension,
+  onToggleDimensionDriven,
   sketchName,
   onFinishSketch,
   onShowAll,
@@ -237,6 +249,8 @@ export function SketchEntityPicker({
   dimensionLabelHitTestRefRef.current = dimensionLabelHitTestRef;
   const onDeleteDimensionRef = React.useRef(onDeleteDimension);
   onDeleteDimensionRef.current = onDeleteDimension;
+  const onToggleDimensionDrivenRef = React.useRef(onToggleDimensionDriven);
+  onToggleDimensionDrivenRef.current = onToggleDimensionDriven;
   const onPreviewChangeRef = React.useRef(onPreviewChange);
   onPreviewChangeRef.current = onPreviewChange;
   const onCommitDragRef = React.useRef(onCommitDrag);
@@ -801,6 +815,12 @@ export function SketchEntityPicker({
         const top = Math.min(dimensionMenu.y, Math.max(8, window.innerHeight - height - 8));
         const unsupported = t('partStudio.tree.unsupported');
         const close = (): void => setDimensionMenu(null);
+        // W31-A：首行 = 驱动/从动状态切换。约束取自当前草图（陈旧命中 id 不存在
+        // → 诚实禁用）；driven=true 时文案为「更改为驱动尺寸」（既有键），否则
+        // 「更改为从动尺寸」。
+        const constraint = sketch.constraints.find((candidate) => candidate.id === dimensionMenu.constraintId);
+        const driven = constraint?.driven === true;
+        const canToggleDriven = canEdit && onToggleDimensionDriven !== undefined && constraint !== undefined;
         return (
           <div
             ref={dimensionMenuRef}
@@ -817,10 +837,17 @@ export function SketchEntityPicker({
               role="menuitem"
               className="part-studio-tree-menu__item"
               data-testid="sketch-dimension-menu-driven"
-              disabled
-              title={unsupported}
+              disabled={!canToggleDriven}
+              title={canToggleDriven ? undefined : unsupported}
+              onClick={() => {
+                const constraintId = dimensionMenu.constraintId;
+                close();
+                void onToggleDimensionDrivenRef.current?.(constraintId, !driven);
+              }}
             >
-              {t('partStudio.sketch.dimensionMenuDriven')}
+              {driven
+                ? t('partStudio.sketch.dimensionMenuDriven')
+                : t('partStudio.sketch.dimensionMenuChangeToDriven')}
             </button>
             <div className="part-studio-tree-menu__separator" role="separator" />
             <button

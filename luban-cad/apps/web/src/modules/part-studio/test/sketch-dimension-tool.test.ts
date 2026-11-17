@@ -18,6 +18,7 @@ import {
   findExistingDimensionConstraint,
   inferDimensionCompletion,
   PARALLEL_LINE_ANGLE_MAX_DEG,
+  withConstraintDriven,
 } from '../tools/sketch/sketch-dimension-logic.js';
 import { resolveNearestPick } from '../tools/sketch/sketch-constraint-logic.js';
 import type { SketchPick } from '../tools/sketch/sketch-constraint-logic.js';
@@ -269,15 +270,72 @@ describe('W21：findExistingDimensionConstraint（纯匹配器）', () => {
     })).toMatchObject({ id: 13 });
   });
 
-  it('driven 参考尺寸只读：不参与匹配（W21 不实现驱动尺寸）', () => {
+  it('driven 参考尺寸只读：不参与匹配（W31-A：尺寸工具不改参考尺寸）', () => {
     expect(findExistingDimensionConstraint([dim(1, 'diameter', [4], 14, true)], { kind: 'diameter', refs: [4] }))
       .toBeUndefined();
+    // 同实体同时有 driving + driven：只命中 driving（driven 不得被改值）。
+    const mixed = findExistingDimensionConstraint([
+      dim(7, 'length', [1], 20, true),
+      dim(8, 'length', [1], 21),
+    ], { kind: 'length', refs: [1] });
+    expect(mixed).toMatchObject({ id: 8 });
+    expect(mixed?.driven).toBeUndefined();
   });
 
   it('多条命中 → 返回 id 最小者（确定性，与数组顺序无关）', () => {
     const constraints = [dim(9, 'length', [1], 20), dim(3, 'length', [1], 21), dim(7, 'length', [1], 22)];
     expect(findExistingDimensionConstraint(constraints, { kind: 'length', refs: [1] })?.id).toBe(3);
     expect(findExistingDimensionConstraint([...constraints].reverse(), { kind: 'length', refs: [1] })?.id).toBe(3);
+  });
+});
+
+// ── W31-A（2026-11-17 live）：尺寸菜单驱动/从动切换的约束集投影 ─────────────
+describe('W31-A：withConstraintDriven（updateSketch 载荷投影）', () => {
+  const base: SketchConstraintDto[] = [
+    { kind: 'horizontal', id: 1, refs: [11] },
+    { kind: 'length', id: 2, refs: [11], value: 20 },
+    { kind: 'radius', id: 3, refs: [21], value: 4 },
+  ];
+
+  it('driven=true：仅目标约束加 driven 键；保序/保 id/refs/value；其余引用不变', () => {
+    const next = withConstraintDriven(base, 2, true);
+    expect(next).toHaveLength(3);
+    expect(next.map((constraint) => constraint.id)).toEqual([1, 2, 3]);
+    expect(next[1]).toEqual({ kind: 'length', id: 2, refs: [11], value: 20, driven: true });
+    // 未命中的约束原引用透传（不复制、不重排）。
+    expect(next[0]).toBe(base[0]);
+    expect(next[2]).toBe(base[2]);
+    // 原数组不被修改（wholesale 覆写的输入保持纯函数语义）。
+    expect('driven' in base[1]!).toBe(false);
+  });
+
+  it('driven=false：删除 driven 键（不写 false），id/refs/value 保持', () => {
+    const driven: SketchConstraintDto[] = [
+      { kind: 'length', id: 2, refs: [11], value: 20, driven: true },
+      { kind: 'radius', id: 3, refs: [21], value: 4 },
+    ];
+    const next = withConstraintDriven(driven, 2, false);
+    expect(next[0]).toEqual({ kind: 'length', id: 2, refs: [11], value: 20 });
+    expect('driven' in next[0]!).toBe(false);
+    expect(next[1]).toBe(driven[1]);
+  });
+
+  it('未命中 constraintId：全体原样（数组副本，无 driven 漂移）', () => {
+    const next = withConstraintDriven(base, 999, true);
+    expect(next).toEqual(base);
+    expect(next.every((constraint, index) => constraint === base[index])).toBe(true);
+  });
+
+  it('只动目标约束：其它既有 driven:true 约束原样保留', () => {
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'length', id: 2, refs: [11], value: 20 },
+      { kind: 'distance', id: 4, refs: [11, 12], value: 30, driven: true },
+    ];
+    const next = withConstraintDriven(constraints, 2, true);
+    expect(next[0]).toEqual({ kind: 'length', id: 2, refs: [11], value: 20, driven: true });
+    // 未命中的参考尺寸不丢 driven、不复制（原引用透传）。
+    expect(next[1]).toBe(constraints[1]);
+    expect(next[1]?.driven).toBe(true);
   });
 });
 

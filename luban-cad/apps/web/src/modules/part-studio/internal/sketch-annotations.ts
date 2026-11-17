@@ -11,6 +11,12 @@
  * 标注侧向确定性规则（约束 DTO 目前不存放置点，故不做交互式放置）：
  * 取尺寸线法向中远离草图整体包围盒中心的一侧；垂线方向与中心共线时取 +法向。
  * 相同侧向的标注由视口装饰器做像素级堆叠避让。
+ *
+ * W31-A（2026-11-17 从动/参考尺寸）：`driven=true` 的约束不送求解器（backend
+ * SketchWireNormalizer 跳过），`constraint.value` 在几何变化后会过期——标签
+ * 改为显示**当前几何测量值**（显示层投影，不写回 params）；任何不可测情况
+ * 回退存储值（不猜、不 throw）。live 拖拽值跟踪未采到证据（探针拖拽未改变
+ * 几何）；本实现是 driven「只显示不求解」语义的正确投影，不是伪造 live 证据。
  */
 import { Vector3d } from '@itwin/core-geometry';
 import type { SketchConstraintDto, SketchDto, SketchEntityDto, SketchRef } from '@luban-cad/shared';
@@ -44,6 +50,20 @@ export function formatSketchDimensionValue(value: number | undefined, decimals =
   // 仅裁小小数部分（decimals=0 时无小数点，不能把整数的尾零裁掉）。
   if (!fixed.includes('.')) return fixed;
   return fixed.replace(/0+$/, '').replace(/\.$/, '') || '0';
+}
+
+/**
+ * 尺寸标签数值（W31-A）：driving（缺省）沿用存储值；driven（参考尺寸）优先
+ * 用当前几何测量值，测量不可得/非有限时回退存储值（不猜、不 throw）。
+ * 纯显示投影——不改 params（driven 不送求解器，存储值可能已过期）。
+ */
+export function resolveDimensionLabelValue(
+  constraint: SketchConstraintDto,
+  measured: number | undefined,
+): number | undefined {
+  if (constraint.driven === true && measured !== undefined && Number.isFinite(measured))
+    return measured;
+  return constraint.value;
 }
 
 function inlinePoint(ref: number | { x: number; y: number }, points: ReadonlyMap<number, LocalPoint>): LocalPoint | undefined {
@@ -218,6 +238,40 @@ function lineIntersection(lineA: LineItem, lineB: LineItem): LocalPoint | undefi
   return { x: lineA.a.x + ax * t, y: lineA.a.y + ay * t };
 }
 
+/** 尺寸线锚点对距离（W31-A：driven 标签的几何实测距离，沿用同一解析锚点）。 */
+function anchorsDistance(a: LocalPoint, b: LocalPoint): number {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+/**
+ * 标注弧夹角（度，0–180）——**口径是标注自身画出的两条射线**（vertex →
+ * fartherEndpoint），不是尺寸工具候选输入的 `lineAngleDeg`（0–90 锐角口径）。
+ * 这样 driven 标签文字与标注弧一致：钝角尺寸显示钝角，不做锐角补角化。
+ * 射线退化 → undefined（不猜）。
+ */
+function measuredAngleDegFromRays(vertex: LocalPoint, endA: LocalPoint, endB: LocalPoint): number | undefined {
+  const ax = endA.x - vertex.x;
+  const ay = endA.y - vertex.y;
+  const bx = endB.x - vertex.x;
+  const by = endB.y - vertex.y;
+  const lenA = Math.hypot(ax, ay);
+  const lenB = Math.hypot(bx, by);
+  if (lenA < EPS || lenB < EPS) return undefined;
+  const cos = Math.min(1, Math.max(-1, (ax * bx + ay * by) / (lenA * lenB)));
+  return Math.acos(cos) * 180 / Math.PI;
+}
+
+/**
+ * 角度标签文本（W31-A）：driven 用当前几何实测夹角（度）；driving/测量不可得
+ * 回退存储弧度值（既有 `abs*180/π` 换算），与 W18 live 同一 3 位小数格式。
+ */
+function angleLabelText(constraint: SketchConstraintDto, measuredDeg: number | undefined): string | undefined {
+  if (constraint.driven === true && measuredDeg !== undefined && Number.isFinite(measuredDeg))
+    return `${formatSketchDimensionValue(measuredDeg, ANGLE_DIMENSION_LABEL_DECIMALS)}°`;
+  if (constraint.value === undefined) return undefined;
+  return `${formatSketchDimensionValue(Math.abs(constraint.value) * 180 / Math.PI, ANGLE_DIMENSION_LABEL_DECIMALS)}°`;
+}
+
 /** 角度标注射线：取线段上离交点较远的端点（朝线段主体一侧）。 */
 function fartherEndpoint(line: LineItem, vertex: LocalPoint): LocalPoint {
   const da = Math.hypot(line.a.x - vertex.x, line.a.y - vertex.y);
@@ -306,7 +360,9 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
   const annotations: SketchDimensionAnnotation[] = [];
 
   const linear = (constraint: SketchConstraintDto, a: LocalPoint, b: LocalPoint): void => {
-    if (constraint.value === undefined) return;
+    // W31-A：driven 标签用当前几何实测距离（锚点对距离），driving 仍用存储值。
+    const value = resolveDimensionLabelValue(constraint, anchorsDistance(a, b));
+    if (value === undefined) return;
     const side = sideDirection(a, b, center);
     if (!side) return;
     annotations.push({
@@ -315,7 +371,7 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
       a: world(a),
       b: world(b),
       side: sideWorld(frame, side),
-      text: formatSketchDimensionValue(constraint.value),
+      text: formatSketchDimensionValue(value),
     });
   };
 
@@ -340,9 +396,11 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
       }
       case 'radius': {
         const ref = constraint.refs[0];
-        if (ref === undefined || constraint.value === undefined) break;
+        if (ref === undefined) break;
         const item = resolveRef(ref, entities, points);
         if (item?.kind !== 'circle' || item.radius < EPS) break;
+        const value = resolveDimensionLabelValue(constraint, item.radius);
+        if (value === undefined) break;
         const start = item.startAngle;
         const sweep = item.sweepAngle;
         const midAngle = typeof start === 'number' && typeof sweep === 'number'
@@ -356,15 +414,17 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
           center: world(item.center),
           point: world(point),
           side: sideWorld(frame, radial),
-          text: `R${formatSketchDimensionValue(constraint.value)}`,
+          text: `R${formatSketchDimensionValue(value)}`,
         });
         break;
       }
       case 'diameter': {
         const ref = constraint.refs[0];
-        if (ref === undefined || constraint.value === undefined) break;
+        if (ref === undefined) break;
         const item = resolveRef(ref, entities, points);
         if (item?.kind !== 'circle' || item.radius < EPS) break;
+        const value = resolveDimensionLabelValue(constraint, item.radius * 2);
+        if (value === undefined) break;
         const start = item.startAngle;
         const sweep = item.sweepAngle;
         const midAngle = typeof start === 'number' && typeof sweep === 'number'
@@ -378,26 +438,33 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
           center: world(item.center),
           point: world(point),
           side: sideWorld(frame, radial),
-          text: `⌀${formatSketchDimensionValue(constraint.value)}`,
+          text: `⌀${formatSketchDimensionValue(value)}`,
         });
         break;
       }
       case 'angle': {
         const [refA, refB] = constraint.refs;
-        if (refA === undefined || refB === undefined || constraint.value === undefined) break;
+        if (refA === undefined || refB === undefined) break;
         const itemA = resolveRef(refA, entities, points);
         const itemB = resolveRef(refB, entities, points);
         if (itemA?.kind !== 'line' || itemB?.kind !== 'line') break;
         const vertex = lineIntersection(itemA, itemB);
         if (!vertex) break;
+        // 标注弧的两条射线（与下方 a/b 锚点同源，保证文字与弧一致）。
+        const rayA = fartherEndpoint(itemA, vertex);
+        const rayB = fartherEndpoint(itemB, vertex);
+        // shared 契约 angle.value 为弧度；Onshape 显示度数（最多 3 位小数，W18 live）。
+        // W31-A：driven 用当前几何实测夹角（标注射线口径，0–180°），driving
+        // 仍用存储弧度值换算。
+        const text = angleLabelText(constraint, measuredAngleDegFromRays(vertex, rayA, rayB));
+        if (text === undefined) break;
         annotations.push({
           kind: 'angular',
           id: `dimension-${constraint.id}`,
           vertex: world(vertex),
-          a: world(fartherEndpoint(itemA, vertex)),
-          b: world(fartherEndpoint(itemB, vertex)),
-          // shared 契约 angle.value 为弧度；Onshape 显示度数（最多 3 位小数，W18 live）。
-          text: `${formatSketchDimensionValue(Math.abs(constraint.value) * 180 / Math.PI, ANGLE_DIMENSION_LABEL_DECIMALS)}°`,
+          a: world(rayA),
+          b: world(rayB),
+          text,
         });
         break;
       }

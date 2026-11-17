@@ -90,10 +90,18 @@ vi.mock('../components/SketchDimensionEditor.js', () => ({
 // onTransform（真实菜单/点击行为由 sketch-entity-picker.test 覆盖）。
 const sketchEntityPickerProbe = vi.hoisted(() => ({
   onTransform: null as (() => void) | null | undefined,
+  onToggleDimensionDriven: null as
+    | ((constraintId: number, nextDriven: boolean) => void | Promise<void>)
+    | null
+    | undefined,
 }));
 vi.mock('../components/SketchEntityPicker.js', () => ({
-  SketchEntityPicker: (props: { onTransform?: () => void }) => {
+  SketchEntityPicker: (props: {
+    onTransform?: () => void;
+    onToggleDimensionDriven?: (constraintId: number, nextDriven: boolean) => void | Promise<void>;
+  }) => {
     sketchEntityPickerProbe.onTransform = props.onTransform;
+    sketchEntityPickerProbe.onToggleDimensionDriven = props.onToggleDimensionDriven;
     return null;
   },
 }));
@@ -193,6 +201,7 @@ beforeEach(() => {
   curveDecorationCalls.calls = [];
   dimensionEditorProbe.onGlyphHover = null;
   sketchEntityPickerProbe.onTransform = null;
+  sketchEntityPickerProbe.onToggleDimensionDriven = null;
   resetStore();
 });
 
@@ -846,6 +855,102 @@ describe('D6（2026-11-16）：草图实体菜单「变换草图图元」宿主�
       />,
     );
     expect(sketchEntityPickerProbe.onTransform).toBeUndefined();
+  });
+});
+
+// ── W31-A（2026-11-17 live）：草图尺寸驱动/从动切换宿主接线 ─────────────────
+// 菜单行本身（动态文案/禁用条件/回调参数）由 sketch-entity-picker.test 覆盖；
+// 这里钉住宿主投影：整体覆写 updateSketch 的载荷（保序/保 id/refs/value，
+// driving 时删除 driven 键）与只读拒收。
+describe('W31-A（2026-11-17）：尺寸菜单驱动/从动切换宿主接线', () => {
+  function toggleSketch(driven?: boolean): SketchDto {
+    return {
+      id: 'sk1',
+      entities: [{ kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } }],
+      constraints: [
+        { kind: 'horizontal', id: 1, refs: [11] },
+        { kind: 'length', id: 2, refs: [11], value: 10, ...(driven === true ? { driven: true } : {}) },
+      ],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+    };
+  }
+
+  function renderToggleCanvas(
+    activeSketch: SketchDto,
+    applyUpdate: ReturnType<typeof vi.fn>,
+    canEdit = true,
+  ): void {
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk1');
+    });
+    const system = {
+      activeSketch,
+      loading: false,
+      applyUpdate,
+      applyConstraintValue: vi.fn(),
+      refresh: vi.fn(),
+    } as unknown as UseSketchSystem;
+    render(
+      <PartStudioCanvas
+        viewportRef={{ current: null } as RefObject<HTMLDivElement>}
+        sketchSystem={system}
+        canEdit={canEdit}
+      />,
+    );
+  }
+
+  it('切到 driven → updateSketch 整体覆写：保序/保 id/refs/value，目标约束 driven:true', async () => {
+    const applyUpdate = vi.fn(async () => ({ ok: true }));
+    renderToggleCanvas(toggleSketch(), applyUpdate);
+    expect(typeof sketchEntityPickerProbe.onToggleDimensionDriven).toBe('function');
+    await act(async () => {
+      await sketchEntityPickerProbe.onToggleDimensionDriven!(2, true);
+    });
+    expect(applyUpdate).toHaveBeenCalledTimes(1);
+    const [entities, constraints] = applyUpdate.mock.calls[0] as unknown as [unknown, SketchDto['constraints']];
+    expect(entities).toEqual(toggleSketch().entities);
+    expect(constraints).toEqual([
+      { kind: 'horizontal', id: 1, refs: [11] },
+      { kind: 'length', id: 2, refs: [11], value: 10, driven: true },
+    ]);
+  });
+
+  it('切回 driving → 删除 driven 键（不写 false）', async () => {
+    const applyUpdate = vi.fn(async () => ({ ok: true }));
+    renderToggleCanvas(toggleSketch(true), applyUpdate);
+    await act(async () => {
+      await sketchEntityPickerProbe.onToggleDimensionDriven!(2, false);
+    });
+    expect(applyUpdate).toHaveBeenCalledTimes(1);
+    const [, constraints] = applyUpdate.mock.calls[0] as unknown as [unknown, SketchDto['constraints']];
+    expect(constraints?.[1]).toEqual({ kind: 'length', id: 2, refs: [11], value: 10 });
+    expect(Object.prototype.hasOwnProperty.call(constraints?.[1], 'driven')).toBe(false);
+  });
+
+  it('canEdit=false（只读）→ 拒收，不发起写请求', async () => {
+    const applyUpdate = vi.fn(async () => ({ ok: true }));
+    renderToggleCanvas(toggleSketch(), applyUpdate, false);
+    await act(async () => {
+      await sketchEntityPickerProbe.onToggleDimensionDriven!(2, true);
+    });
+    expect(applyUpdate).not.toHaveBeenCalled();
+  });
+
+  it('其它既有 driven 约束原样保留（只改目标约束）', async () => {
+    const applyUpdate = vi.fn(async () => ({ ok: true }));
+    const withOtherDriven: SketchDto = {
+      ...toggleSketch(),
+      constraints: [
+        ...toggleSketch().constraints,
+        { kind: 'distance', id: 4, refs: [11, 12], value: 30, driven: true },
+      ],
+    };
+    renderToggleCanvas(withOtherDriven, applyUpdate);
+    await act(async () => {
+      await sketchEntityPickerProbe.onToggleDimensionDriven!(2, true);
+    });
+    const [, constraints] = applyUpdate.mock.calls[0] as unknown as [unknown, SketchDto['constraints']];
+    expect(constraints?.[2]).toEqual({ kind: 'distance', id: 4, refs: [11, 12], value: 30, driven: true });
   });
 });
 

@@ -1106,6 +1106,7 @@
     "blankMenuSelectOther": "选择其他…",
     "dimensionMenuLabel": "草图尺寸菜单",
     "dimensionMenuDriven": "更改为驱动尺寸",
+    "dimensionMenuChangeToDriven": "更改为从动尺寸",
     "dimensionMenuDelete": "删除尺寸",
     "patternSelectPrompt": "选择要阵列的草图图元",
     "patternPrompt": "线性阵列：拖动手柄或点击数值；实例为独立副本，无关联阵列约束；Enter 确认，Esc 取消",

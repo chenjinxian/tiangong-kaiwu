@@ -6,10 +6,11 @@
  * 世界系标注（尺寸线锚点 + 标注侧向 + 文本）。纯函数测试，不依赖 IModelApp。
  */
 import { describe, expect, it } from 'vitest';
-import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
+import type { SketchConstraintDto, SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import {
   buildSketchDimensionAnnotations,
   formatSketchDimensionValue,
+  resolveDimensionLabelValue,
 } from '../internal/sketch-annotations.js';
 
 function sketch(entities: SketchEntityDto[], constraints: SketchDto['constraints']): SketchDto {
@@ -217,6 +218,135 @@ describe('buildSketchDimensionAnnotations', () => {
       { kind: 'horizontal', id: 104, refs: [1] },
       { kind: 'length', id: 105, refs: [999], value: 1 },
       { kind: 'distance', id: 106, refs: [], value: 1 },
+    ]));
+    expect(annotations).toEqual([]);
+  });
+});
+
+// ── W31-A（2026-11-17 从动/参考尺寸）：driven 标签显示当前几何测量值 ─────────
+describe('resolveDimensionLabelValue（driven 显示层投影）', () => {
+  const lengthConstraint = (extra: Partial<SketchConstraintDto> = {}): SketchConstraintDto => ({
+    kind: 'length', id: 1, refs: [1], ...extra,
+  });
+
+  it('driving 恒用存储值（测量值不参与）', () => {
+    expect(resolveDimensionLabelValue(lengthConstraint({ value: 20 }), 30)).toBe(20);
+    expect(resolveDimensionLabelValue(lengthConstraint({ value: 20, driven: false }), 30)).toBe(20);
+  });
+
+  it('driven 优先当前几何测量值（存储值可能过期）', () => {
+    expect(resolveDimensionLabelValue(lengthConstraint({ value: 20, driven: true }), 30)).toBe(30);
+    // driven 不要求存储值存在（后端允许无 value 的参考尺寸）。
+    expect(resolveDimensionLabelValue(lengthConstraint({ driven: true }), 30)).toBe(30);
+  });
+
+  it('driven 测量不可得/非有限 → 回退存储值；两者皆无 → undefined（不猜）', () => {
+    expect(resolveDimensionLabelValue(lengthConstraint({ value: 20, driven: true }), undefined)).toBe(20);
+    expect(resolveDimensionLabelValue(lengthConstraint({ value: 20, driven: true }), Number.NaN)).toBe(20);
+    expect(resolveDimensionLabelValue(lengthConstraint({ driven: true }), undefined)).toBeUndefined();
+    expect(resolveDimensionLabelValue(lengthConstraint(), 30)).toBeUndefined();
+  });
+});
+
+describe('buildSketchDimensionAnnotations：driven 尺寸标签几何实测', () => {
+  it('length：driven 用线长实测（存储值 20 过期 → 显示 30）；driving 仍用存储值', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 30, y: 0 } },
+    ];
+    const driven = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'length', id: 200, refs: [1], value: 20, driven: true },
+    ]));
+    expect(driven[0]).toMatchObject({ kind: 'linear', id: 'dimension-200', text: '30' });
+    // driven 与 driving 标签形状/字段一致：无括号/无前缀。
+    expect(driven[0]!.text).not.toMatch(/[()[\]]/);
+
+    const driving = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'length', id: 201, refs: [1], value: 20 },
+    ]));
+    expect(driving[0]).toMatchObject({ kind: 'linear', id: 'dimension-201', text: '20' });
+  });
+
+  it('distance：driven 点-点距离实测；无存储值也可显示', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'point', id: 2, x: 6, y: 8 },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'distance', id: 202, refs: [1, 2], driven: true },
+    ]));
+    expect(annotations[0]).toMatchObject({ kind: 'linear', id: 'dimension-202', text: '10' });
+  });
+
+  it('distance：driven 平行线垂距实测（存储值过期 → 用 19.05）', () => {
+    const annotations = buildSketchDimensionAnnotations(sketch(baseLines, [
+      { kind: 'distance', id: 203, refs: [1, 2], value: 5, driven: true },
+    ]));
+    expect(annotations[0]).toMatchObject({ kind: 'linear', id: 'dimension-203', text: '19.05' });
+  });
+
+  it('radius/diameter：driven 用圆/弧实测半径（diameter=2×半径）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'circle', id: 4, center: { x: 10, y: 0 }, radius: 6 },
+      { kind: 'arc', id: 5, center: { x: 0, y: 0 }, radius: 7, startAngle: 0, sweepAngle: Math.PI / 2 },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'radius', id: 204, refs: [4], value: 99, driven: true },
+      { kind: 'diameter', id: 205, refs: [4], value: 99, driven: true },
+      { kind: 'radius', id: 206, refs: [5], value: 99, driven: true },
+    ]));
+    expect(annotations.map((annotation) => annotation.text)).toEqual(['R6', '⌀12', 'R7']);
+    // driven 与 driving 同一前缀/格式（无括号、无「REF」类前缀）。
+    for (const text of annotations.map((annotation) => annotation.text))
+      expect(text).not.toMatch(/[()[\]]|REF|ref/i);
+  });
+
+  it('angle：driven 用两线实测夹角（度，3 位去尾零）；driving 仍用存储弧度', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 4, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 5, y: 5 * Math.sqrt(3) } },
+    ];
+    const driven = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 207, refs: [4, 5], value: Math.PI / 2, driven: true },
+    ]));
+    expect(driven[0]).toMatchObject({ kind: 'angular', id: 'dimension-207', text: '60°' });
+
+    const driving = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 208, refs: [4, 5], value: Math.PI / 2 },
+    ]));
+    expect(driving[0]).toMatchObject({ kind: 'angular', id: 'dimension-208', text: '90°' });
+  });
+
+  it('angle：driven 钝角 120° 不做锐角补角化（标注射线口径）', () => {
+    // 评审复现用例：A=(0,0)->(10,0)，B=(0,0)->(-5,8.660254) = 120° 夹角。
+    // 标注弧取远端点射线（A 右向、B 左上向），文字必须与弧一致。
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 4, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: -5, y: 8.660254 } },
+    ];
+    const driven = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 210, refs: [4, 5], value: 2 * Math.PI / 3, driven: true },
+    ]));
+    expect(driven[0]).toMatchObject({ kind: 'angular', id: 'dimension-210', text: '120°' });
+    if (driven[0]!.kind !== 'angular') throw new Error('应为角度尺寸');
+    // 弧射线：a 指向 A 远端点 (10,0)，b 指向 B 远端点 (-5,8.660254)。
+    expect(driven[0]!.a.x).toBeCloseTo(10, 6);
+    expect(driven[0]!.a.y).toBeCloseTo(0, 6);
+    expect(driven[0]!.b.x).toBeCloseTo(-5, 6);
+    expect(driven[0]!.b.y).toBeCloseTo(8.660254, 6);
+
+    const driving = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 211, refs: [4, 5], value: 2 * Math.PI / 3 },
+    ]));
+    expect(driving[0]).toMatchObject({ kind: 'angular', id: 'dimension-211', text: '120°' });
+  });
+
+  it('driven 不可测（平行线角度无交点）→ 跳过，不猜', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 4, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 5, p1: { x: 0, y: 5 }, p2: { x: 10, y: 5 } },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [
+      { kind: 'angle', id: 209, refs: [4, 5], value: Math.PI / 3, driven: true },
     ]));
     expect(annotations).toEqual([]);
   });

@@ -17,6 +17,10 @@
  *
  * 2026-11-16 W22（live）：两条非平行线拾取 → 角度尺寸——值弹层按度预填
  * （`deg` 后缀）、确认后契约存弧度；画布出现角度标注；✗ 取消不落约束。
+ *
+ * 2026-11-17 W31-A（live）：尺寸菜单首行 = 驱动/从动状态切换。本 spec 的
+ * W20 段相应更新（当前 driving →「更改为从动尺寸」且可点；启用行文字色
+ * 与其它启用行一致）；切换全流程真栈链见 sketch-driven-dimension.spec.ts。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchConstraintDto, SketchDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -290,20 +294,27 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     expect(finalSketch?.constraints.map((constraint) => constraint.kind).sort())
       .toEqual(['horizontal', 'length', 'radius']);
 
-    // ---- 2c) W20 live：右键尺寸标签 → 尺寸菜单（驱动行诚实禁用、删除尺寸），
-    //          删除走宿主既有 updateSketch 约束删除；撤消恢复（可撤销硬约束）。 ----
+    // ---- 2c) W20 live：右键尺寸标签 → 尺寸菜单（删除尺寸走宿主既有
+    //     updateSketch 约束删除；撤消恢复——可撤销硬约束）。
+    //     W31-A（2026-11-17 live）：首行是驱动/从动状态切换，当前为 driving
+    //     →「更改为从动尺寸」且可点（状态切换本身的真栈链见
+    //     sketch-driven-dimension.spec.ts）。 ----
     const lengthAtMenu = await centerOf(LENGTH_ID);
     await page.mouse.click(lengthAtMenu.x, lengthAtMenu.y, { button: 'right' });
     const dimensionMenu = page.getByTestId('sketch-dimension-menu');
     await expect(dimensionMenu).toBeVisible({ timeout: 10_000 });
-    await expect(dimensionMenu.getByTestId('sketch-dimension-menu-driven')).toBeDisabled();
+    const drivenRow = dimensionMenu.getByTestId('sketch-dimension-menu-driven');
+    await expect(drivenRow).toBeEnabled();
+    await expect(drivenRow).toHaveText('更改为从动尺寸');
     await expect(dimensionMenu.getByTestId('sketch-dimension-menu-delete')).toBeEnabled();
 
     // W24 live（2026-11-17）：尺寸菜单皮肤 154px / 22px 行 / 12px·18px /
     // #DEF1FB hover / 7 条 #ddd 分隔线 / 17px 图标 / 选择行 CSS ►。
     const skin = await dimensionMenu.evaluate((el) => {
       const style = getComputedStyle(el);
-      const row = el.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)');
+      // W31-A：首行（更改为从动尺寸）现在也 enabled——皮肤探针固定取「确认
+      // 草图」行，保持行高/内边距断言的代表性不随首行状态漂移。
+      const row = el.querySelector<HTMLElement>('[data-testid="sketch-dimension-menu-confirm"]');
       const rowStyle = row ? getComputedStyle(row) : null;
       const separator = el.querySelector('[role="separator"]');
       const separatorStyle = separator ? getComputedStyle(separator) : null;
@@ -353,8 +364,12 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     await dimensionMenu.getByTestId('sketch-dimension-menu-fit').hover();
     await expect.poll(async () => dimensionMenu.getByTestId('sketch-dimension-menu-fit')
       .evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(222, 241, 251)');
+    // W31-A：首行已启用——启用行文字色与另一启用行（删除尺寸）一致；
+    // 精确色值 live 未采到，不发明硬编码值（保留皮肤断言的意义）。
     expect(await dimensionMenu.getByTestId('sketch-dimension-menu-driven')
-      .evaluate((el) => getComputedStyle(el).color)).toBe('rgb(85, 85, 85)');
+      .evaluate((el) => getComputedStyle(el).color))
+      .toBe(await dimensionMenu.getByTestId('sketch-dimension-menu-delete')
+        .evaluate((el) => getComputedStyle(el).color));
     await dimensionMenu.getByTestId('sketch-dimension-menu-delete').click();
     await expect.poll(async () => {
       const now = await getSketchRpc(ctx, sketchId, token);
