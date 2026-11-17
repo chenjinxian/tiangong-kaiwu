@@ -2,9 +2,10 @@
 
 - 标题：草图尺寸表达式 + Part Studio 变量表（Onshape 对标 v1）
 - 日期：2026-11-17
-- Owner：已批准 S1（2026-11-17，按 ADR-0020）；S2/S3 待 live 证据与切片门
+- Owner：已批准 S1（2026-11-17，按 ADR-0020）；S2/S3 live 证据已采（2026-11-17，
+  ADR-0020 §2.6），按切片实施
 - 关联：ADR `docs/adr/0020-sketch-expressions-and-variables.md`；
-  `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared 1.71.0）；
+  `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared 1.72.0）；
   UI 对标 AIRR `docs/superpowers/specs/2026-11-15-sketch-feature-ui-parity-audit-airr.md`
 - 预计影响仓：`luban-cad/packages/shared`、`luban-cad/apps/web`；私有
   `luban-backend/modeling-server`（schema/求值/op/RPC/测试）
@@ -66,17 +67,18 @@
 
 | 仓/层 | 契约 | schema/迁移 | native/接口 | 测试 | 发布 |
 |---|---|---|---|---|---|
-| shared | `SketchConstraintDto.expression?`；`updateVariables` op/`getVariables` 查询；`expressions/` 纯模块；1.70.0→1.71.0 | 无 | 无 | 求值器/类型/版本钉 | 先发 |
+| shared | `SketchConstraintDto.expression?`；`updateVariables` op/`getVariables` 查询；`expressions/` 纯模块；S3 `VariableDto.type?/description?` + `collectVariableReferences`；1.70.0→**1.72.0** | 无 | 无 | 求值器/类型/版本钉 | 先发 |
 | web | 尺寸对话框/值弹层表达式输入；变量表 UI（证据后）；读取 variables 预校验 | 无 | 无 | 单测 + 真栈 e2e | 同批 |
 | modeling-server | 变量元素类、`updateVariables`/`getVariables`、草图表达式求值、oplog before/after、保守重算 | 新类 + schema 01.00.01（additive） | 无 native | VariablesFlow/表达式求解/旧库 fixture/registry/RPC | 私有无发布产物：随下个 backend 版本 |
 | itwinjs-core | 无改动 | — | — | — | — |
 | imodel-native | 无改动 | — | — | — | — |
 | viewer | 无改动（显示仍从 DTO 投影） | — | — | 回归 | — |
 
-- 版本兼容矩阵：shared 1.71.0 与前端的 `expression` 字段为**可选**；旧后端忽略该字段
-  （仍用 `value`）；新后端遇到无 `expression` 的旧载荷行为不变。
+- 版本兼容矩阵：shared 1.72.0 与前端的 `expression` 字段为**可选**；S3
+  `VariableDto.type/description` 为 additive 可选，旧三字段载荷逐字合法（缺省 type=length）；
+  旧后端忽略新字段（仍用 `value`）；新后端遇到无 `expression`/无 `type` 的旧载荷行为不变。
 - 配对 PR：shared → web；私有后端同批（未发布）。
-- 发布顺序：shared 1.71.0 → 后端产物（私有）→ web；本次未发布。
+- 发布顺序：shared 1.72.0 → 后端产物（私有）→ web；本次未发布。
 
 ## 5. 数据/事务/安全
 
@@ -99,10 +101,13 @@
   后端变量元素 + `updateVariables`/`getVariables` + 草图表达式求值 + 错误零变更 +
   可逆撤销 + 旧库 fixture。门：shared 全量、后端全量、真栈 RPC 级（建变量/带表达式
   建草图/改变量重算）绿。
-- **S2 尺寸表达式 UI**：live 证据补齐后实现对话框/值弹层表达式输入、错误显示、
-  显示表达式/值切换（按 live）；单测 + 真栈 e2e（表达式尺寸 → 体积/体积变化 →
-  push+冷重开）。
-- **S3 变量表 UI**：live 证据后实现面板/行编辑/补全；真栈 e2e（改变量 → 几何重算 →
+- **S2 尺寸表达式 UI**（live 证据已采，见 §10）：对话框/值弹层表达式输入、
+  有效/无效态与 ✓ 禁用、`#` 既有变量补全、`显示表达式` 标签投影、angle 159 宽
+  chrome 变体；有效表达式走 wholesale updateSketch（带 `expression`）；单测 +
+  真栈 e2e（表达式尺寸 → 体积/体积变化 → push+冷重开）。
+- **S3 变量表 UI**（live 证据已采，见 §10）：变量命令对话框（220×188、四类型、
+  已分配实现/其余诚实禁用）、树行 `(fx) #name = 值/表达式`、双击编辑/删除、`#`
+  补全含 `新建变量…` 与尺寸字段内联创建变量面板；真栈 e2e（改变量 → 几何重算 →
   撤销/重做 → 冷重开）。
 - **S4 特征参数表达式**（后续，不在本 AIRR 验收内）：复用求值器扩展到拉伸深度等。
 - 证据门：S2/S3 的 UI 结构、文案、开关态未采前不得实现（P0-03/P0-04）。
@@ -111,7 +116,7 @@
 
 - 回滚：各仓 revert；表达式字段可选，旧代码用数值；变量元素对旧代码惰性；必要时
   按 scope 删除变量元素（事务/审计）。schema 不降级。
-- 发布：shared 1.71.0 → 后端 → web 同批；本次 **不发布**（release/publish 未授权）。
+- 发布：shared 1.72.0 → 后端 → web 同批；本次 **不发布**（release/publish 未授权）。
 
 ## 8. 待 Owner 裁决 / 风险
 
@@ -149,3 +154,48 @@
   提交后失败边界（数据已存、返回可见错误）；首次写入 undo 保留空变量元素；损坏
   变量表修复不可逆；`updateVariables` 全量重解/重建成本；只读旧库不就地升级；
   表达式仅限 5 类尺寸、无单位/函数；oplog 快照体积随草图数增长。
+
+## 10. S2/S3 live 证据与实现口径（2026-11-17 recon）
+
+证据为私有 Onshape parity 证据仓的 `probe-w33-*` 探针采集（UI 结构与行为）；
+公开仓只记录脱敏结论。裁决全文见 ADR-0020 §2.6（D1–D7）。要点：
+
+- **变量（S3）**：Part Studio 变量行 `(fx) #name = 值/表达式`（`#width = 10 mm`、
+  `#height = #width*2`、`#ang = 45 deg`）；`变量` 命令对话框 **220×188**：
+  `已分配/已测量/来自导入`、`长度/角度/数字/任意`、`名称/值/说明`、绿✓/红✗；
+  值字段接受表达式（blur/Tab 求值，树显示表达式原文），`#` 打开自动补全
+  （`(fx) #var 值` 与 `新建变量…`）。
+- **尺寸表达式（S2）**：长度尺寸字段 `#width` 立即有效（✓ 可用）；输入未知
+  `#name` 后 Enter 打开**内联创建变量**面板（类型/名称=token/值=尺寸当前值/说明，
+  绿✓/红✗）；关闭面板后字段无效（`os-invalid-textbox` 等价、✓ 禁用）。无效
+  （含求解器拒收）均保持对话框打开、Escape 恢复原值。
+- **角度尺寸对话框**：容器 179×62、可见 dragbar 159×13 + panel 159×34、输入
+  100×26、按钮组 52×28；**无展开器/参数状态键**（长度编辑器 W17 209×47 不变）。
+- **草图对话框**：四开关 `禁用压印/显示约束/显示表达式/显示错误`（panel 220×219，
+  行 y=160/188/215/242），后三者默认勾选。
+- **未采证据（不得伪造）**：表达式尺寸**标签**的显示形态与 `显示表达式` 的实际
+  标签效果；变量 `已测量/来自导入` 的列表结构。S2 采用 ADR-0020 §2.6 D1 的可逆
+  推断（勾选显示表达式原文、否则数值），并登记为残留；S3 的 `已测量/来自导入`
+  诚实禁用并给出能力原因。
+
+**实现边界**
+
+- S2 web-only（复用 shared 1.71 求值器与 `getVariables`）：`SketchDimensionDialog`
+  有效/无效态与宽度变体、`SketchDimensionEditor`/`SketchValuePopup` 表达式解析与
+  wholesale updateSketch 提交、`#` 补全（既有变量）、`buildSketchDimensionAnnotations`
+  的 `显示表达式` 投影、`SketchDialog` 开关上抛；不新增契约。
+- S3a shared/私有后端：`VariableDto.type/description` additive（shared **1.72.0**）；
+  后端按尺寸量纲校验变量类型（length 类接受 length/number/any，angle 接受
+  angle/number/any），类型不匹配零变更；迁移/旧库类型缺省 length。
+- S3b web：变量命令与对话框、树行、编辑/删除（`updateVariables` 可逆）、补全
+  `新建变量…` + 内联创建面板；不改第二套状态/编辑管道。
+
+**验证门**
+
+- S2：单测（表达式解析/有效无效/✓ 禁用/补全/标签投影/159 变体定位钳位）；真栈
+  e2e：变量 `#width` 驱动尺寸 → 拉伸体积 → 改变量 → 体积变化 → push+冷重开；
+  回归 `sketch-dimension-edit`/`sketch-draw-readout` 等。
+- S3a：shared 全量 + 私有后端 targeted/全量（类型校验矩阵/迁移/旧库缺省）。
+- S3b：单测（对话框/树行/删除/补全/内联创建）；真栈 e2e：建变量 → 尺寸引用 →
+  改值重算 → undo/redo → push+冷重开；`已测量/来自导入` 禁用态诚实。
+- 全部：tsc(src+e2e)/eslint；不发布（release/publish 未授权）。

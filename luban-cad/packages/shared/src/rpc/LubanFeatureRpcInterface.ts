@@ -173,6 +173,7 @@
  * + blind/throughAll；NEW/secondDirection throughAll/非平面面诚实拒收。UI 暂无入口（backend/
  * contract 先行，UI 需 live 面拉伸对话框证据）。
  * v1.71（ADR-0020）：SketchConstraintDto.expression + VariableDto/updateVariables/getVariables。
+ * v1.72（ADR-0020 S3）：`VariableDto.type?/description?`（缺省 type=length；后端按尺寸量纲校验）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -868,10 +869,23 @@ export interface CPlaneParams {
 
 export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | TransformParams | SplitPartParams | MoveFaceParams | FeatureMirrorParams;
 
+/** v1.72（ADR-0020 S3）：变量类型（Onshape 变量对话框四类型）。
+ * 缺省（旧变量/旧载荷无 `type`）= `length`；后端按消费尺寸量纲校验兼容性：
+ * 长度类尺寸（length/distance/radius/diameter）接受 length/number/any；
+ * 角度尺寸接受 angle/number/any。 */
+export type VariableType = "length" | "angle" | "number" | "any";
+
 /** v1.71（ADR-0020）：Part Studio 变量（名称在 scope 内唯一）。
  * `expression` 是设计意图（纯表达式文本，求值器见 `src/expressions/`）；求值结果不落库。
- * 名称规则 `[A-Za-z_][A-Za-z0-9_]*`、大小写敏感；读取面=`getVariables`。 */
-export interface VariableDto { id: string; name: string; expression: string }
+ * 名称规则 `[A-Za-z_][A-Za-z0-9_]*`、大小写敏感；读取面=`getVariables`。
+ * v1.72（S3）：additive `type?`（缺省 length）与 `description?`（变量说明）。 */
+export interface VariableDto {
+  id: string;
+  name: string;
+  expression: string;
+  type?: VariableType;
+  description?: string;
+}
 
 export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
@@ -1081,7 +1095,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.71.0";
+  public static interfaceVersion = "1.72.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

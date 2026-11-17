@@ -11,6 +11,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  collectVariableReferences,
   evaluateExpression,
   evaluateVariableTable,
   type ExpressionResult,
@@ -275,6 +276,43 @@ describe("表达式求值器：名称校验", () => {
     ["a\n", false],
   ])("isValidVariableName(%j) = %s", (name, expected) => {
     expect(isValidVariableName(name)).toBe(expected);
+  });
+});
+
+describe("变量引用收集（ADR-0020 S3 collectVariableReferences）", () => {
+  it("按首次出现顺序去重（重复引用只保留一次）", () => {
+    expect(collectVariableReferences("#b + #a * #b")).toEqual(["b", "a"]);
+    expect(collectVariableReferences("#a + #a + #a")).toEqual(["a"]);
+    expect(collectVariableReferences("#width*2 + #height/2 - #width")).toEqual(["width", "height"]);
+  });
+
+  it("纯算术/空表达式无引用 → []", () => {
+    expect(collectVariableReferences("1+2*3")).toEqual([]);
+    expect(collectVariableReferences("(10 - 2) / 4")).toEqual([]);
+    expect(collectVariableReferences("")).toEqual([]);
+    expect(collectVariableReferences("   ")).toEqual([]);
+  });
+
+  it("词法错误 → []（不把语法错误改写成类型错误；错误详情归 evaluateExpression）", () => {
+    expect(collectVariableReferences("1 +")).toEqual([]); // 语法错误但词法完整 → 无 variable 记号
+    expect(collectVariableReferences("#a @ #b")).toEqual([]); // 非法字符
+    expect(collectVariableReferences("#")).toEqual([]); // # 后无名称
+    expect(collectVariableReferences("#1a")).toEqual([]); // 名称首字符非法
+    expect(collectVariableReferences("#a + #b;")).toEqual([]); // 非法字符出现在已有引用之后
+  });
+
+  it("长度门禁：恰好 1024 字符可收集，>1024 → []（不 tokenize 无界输入）", () => {
+    const exact = `#a${" ".repeat(1022)}`; // 1024 字符
+    expect(collectVariableReferences(exact)).toEqual(["a"]);
+    const over = `#a${" ".repeat(1023)}`; // 1025 字符
+    expect(collectVariableReferences(over)).toEqual([]);
+  });
+
+  it("引用名大小写敏感；不与纯函数性耦合（不修改输入）", () => {
+    expect(collectVariableReferences("#Width + #width")).toEqual(["Width", "width"]);
+    const expression = "#a*2";
+    collectVariableReferences(expression);
+    expect(expression).toBe("#a*2");
   });
 });
 

@@ -22,6 +22,9 @@
  * - 边界：表达式长度上限 1024 字符、解析递归深度上限 64（括号嵌套 + 一元链），
  *   超限一律 `syntax`。
  * - 求值器只处理**数值**：角度表达式由后端从度换算为弧度（S1b 职责），单位系统不在 v1。
+ * - `collectVariableReferences`（S3）只做**词法级**引用收集（按首次出现序去重；词法错误 →
+ *   `[]`）——需要错误详情的调用方走 `evaluateExpression`；类型校验不得把语法错误改写成
+ *   另一种错误，故本 helper 不抛错、不重复做语法分析。
  */
 
 export interface ExpressionVariableRef { name: string; expression: string }
@@ -310,6 +313,33 @@ function evaluateWith(expression: string, lookup: VariableLookup): ExpressionRes
       return makeFailure(error.code, error.message, error.position);
     throw error;
   }
+}
+
+/**
+ * 收集表达式中引用的变量名（ADR-0020 S3）：按首次出现顺序去重。
+ * 词法错误（非法字符/`#` 后无名称等）→ `[]`——调用方若需要该错误应改走
+ * `evaluateExpression`（类型校验不得覆盖语法错误）。纯函数、不修改输入。
+ */
+export function collectVariableReferences(expression: string): string[] {
+  // 与 evaluateExpression 同长度门禁（MAX_EXPRESSION_LENGTH）：超限表达式求值必为
+  // syntax，收集器不得先 tokenize 无界输入（防御性，避免类型门禁预占求值错误）。
+  if (expression.length > MAX_EXPRESSION_LENGTH)
+    return [];
+  let tokens: Token[];
+  try {
+    tokens = tokenize(expression);
+  } catch {
+    return [];
+  }
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const token of tokens) {
+    if (token.kind !== "variable" || seen.has(token.text))
+      continue;
+    seen.add(token.text);
+    names.push(token.text);
+  }
+  return names;
 }
 
 /** 求值单条表达式；`variables` 为已求值的变量名→数值表（可选）。 */

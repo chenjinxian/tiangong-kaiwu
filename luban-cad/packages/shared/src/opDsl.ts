@@ -28,8 +28,10 @@
  * v1.71（ADR-0020）同步：updateVariables（变量表整表覆写）——发射/解析
  * `{variables:[{id,name,expression}]}`；变量名合法/唯一/表达式可求值/无循环属服务端
  * 语义门禁，DSL 层只做结构校验（三键 string）。
+ * v1.72（ADR-0020 S3）同步：变量可选 `type`（四值联合）/`description`（string）随
+ * updateVariables 发射与解析往返；未知键仍剥离。
  */
-import type { FeatureOp, FeatureParams, LubanFeatureType } from "./rpc/LubanFeatureRpcInterface.js";
+import type { FeatureOp, FeatureParams, LubanFeatureType, VariableType } from "./rpc/LubanFeatureRpcInterface.js";
 
 /** 注入校验器（zod 接线位）：逐 op 调用，可抛错拒收或返回规范化 op（如 .default 补全）。 */
 export type OpDslValidator = (op: FeatureOp, index: number) => FeatureOp;
@@ -57,6 +59,8 @@ const OP_KINDS: readonly FeatureOp["kind"][] = [
   "undo", "redo",
 ];
 const OP_KIND_SET = new Set<string>(OP_KINDS);
+/** v1.72（ADR-0020 S3）：变量类型四值（与 shared `VariableType` 同步；DSL 层只做结构校验）。 */
+const VARIABLE_TYPES: readonly VariableType[] = ["length", "angle", "number", "any"];
 
 // =============================================================================
 // 发射（op 链 → DSL 文本）
@@ -294,13 +298,22 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
     case "updateVariables": {
       // v1.71（ADR-0020）：变量表整表覆写——逐项校验 {id,name,expression} 三 string 键，
       // 未知键剥离（对齐 zod 非严格对象语义）；名称合法性/唯一性/循环归服务端求值门禁。
+      // v1.72（S3）：可选 type（四值联合）/description（string）随表往返；同样剥离未声明键。
       noFeatureType();
       const variables = asArr(p.variables, "variables").map((raw, index) => {
         const item = asObj(raw, `variables[${index}]`);
+        const type = item.type === undefined ? undefined : asStr(item.type, `variables[${index}].type`);
+        if (type !== undefined && !VARIABLE_TYPES.includes(type as VariableType))
+          throw err(`variables[${index}].type 非法: ${type}（须为 ${VARIABLE_TYPES.join("/")}）`);
+        const description = item.description === undefined
+          ? undefined
+          : asStr(item.description, `variables[${index}].description`);
         return {
           id: asStr(item.id, `variables[${index}].id`),
           name: asStr(item.name, `variables[${index}].name`),
           expression: asStr(item.expression, `variables[${index}].expression`),
+          ...(type === undefined ? {} : { type: type as VariableType }),
+          ...(description === undefined ? {} : { description }),
         };
       });
       return { kind, variables };

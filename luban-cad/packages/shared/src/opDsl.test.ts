@@ -519,6 +519,45 @@ describe("op DSL × v1.71（updateVariables 变量表整表覆写）", () => {
     expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
   });
 
+  it("v1.72：type/description 随 DSL 往返（未知键选择性剥离）", () => {
+    const typed: FeatureOp = {
+      kind: "updateVariables",
+      variables: [
+        { id: "v1", name: "width", expression: "10", type: "length", description: "板宽" },
+        { id: "v2", name: "ang", expression: "45", type: "angle" },
+        { id: "v3", name: "plain", expression: "3", type: "number", description: "" },
+      ],
+    };
+    const dsl = opsToDsl([typed]);
+    expect(dsl).toContain('"type":"length"');
+    expect(dsl).toContain('"description":"板宽"');
+    expect(dslToOps(dsl)).toEqual([typed]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+
+    // 已声明字段保留、未声明键剥离（对齐 zod 非严格对象语义）
+    expect(dslToOps(
+      `op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","type":"number","description":"x","stale":true}],"extra":1}`,
+    )).toEqual([{
+      kind: "updateVariables",
+      variables: [{ id: "v1", name: "a", expression: "1", type: "number", description: "x" }],
+    }]);
+  });
+
+  it("v1.72 结构校验：type 非四值/非 string、description 非 string 拒收（四值 string 通过）", () => {
+    const badCases = [
+      `op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","type":"mass"}]}`,
+      `op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","type":5}]}`,
+      `op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","type":null}]}`,
+      `op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","description":5}]}`,
+      `op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","description":null}]}`,
+    ];
+    for (const dsl of badCases)
+      expect(() => dslToOps(dsl), dsl).toThrow(OpDslParseError);
+    for (const type of ["length", "angle", "number", "any"] as const)
+      expect(dslToOps(`op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","type":"${type}"}]}`))
+        .toEqual([{ kind: "updateVariables", variables: [{ id: "v1", name: "a", expression: "1", type }] }]);
+  });
+
   it("空变量表可往返（合法：清空整表）", () => {
     const empty: FeatureOp = { kind: "updateVariables", variables: [] };
     expect(dslToOps(opsToDsl([empty]))).toEqual([empty]);

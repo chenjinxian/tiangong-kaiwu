@@ -239,7 +239,9 @@ export type {
   // v1.70（Onshape 树内联重命名）
   RenameResult,
   // v1.71（ADR-0020：草图尺寸表达式 + Part Studio 变量）
+  // v1.72（ADR-0020 S3：变量类型/说明）
   VariableDto,
+  VariableType,
   // B6 M-A4.1 v1.16（body boolean）
   BooleanBodiesParams,
   // B-model P2.2 v1.18（Part Studio 注册表）
@@ -263,6 +265,7 @@ export type {
 // 表达式求值器（ADR-0020 S1：草图尺寸表达式 + Part Studio 变量；前后端同源纯模块）
 // =============================================================================
 export {
+  collectVariableReferences,
   evaluateExpression,
   evaluateVariableTable,
   isValidVariableName,

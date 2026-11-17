@@ -18,6 +18,8 @@ import type {
   RenameResult,
   // v1.71（ADR-0020：表达式 + 变量）
   VariableDto,
+  // v1.72（ADR-0020 S3：变量类型/说明）
+  VariableType,
   FeatureFormField,
   FeatureFormFieldKind,
   FeatureFormModelEntry,
@@ -79,7 +81,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -665,7 +667,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -839,7 +841,7 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
   });
 
   it("版本 1.30.0（revolve 多面域；cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
   });
 });
 
@@ -903,7 +905,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
   });
 });
 
@@ -1108,7 +1110,7 @@ describe("v1.30 契约（revolve 多面域）", () => {
   });
 
   it("版本 1.30.0（revolve regions 多面域；旧 regionIndex 简写保留一版）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
   });
 });
 
@@ -1328,8 +1330,37 @@ describe("v1.64 契约（faceExtrude startOffset + draft；ADR-0016 切片 A1）
     expect(split.splitByLine?.keepSide).toBe("left");
   });
 
-  it("接口版本 1.65.0（ADR-0015 B6.1 多目标 fillet 契约 bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+  it("接口版本 1.72.0（ADR-0020 S3 变量类型/说明 additive 契约 bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
+  });
+});
+
+describe("v1.72 契约（ADR-0020 S3：VariableDto.type?/description?）", () => {
+  it("VariableType 精确四值联合", () => {
+    expectTypeOf<VariableType>().toEqualTypeOf<"length" | "angle" | "number" | "any">();
+    const types: VariableType[] = ["length", "angle", "number", "any"];
+    expect(types).toHaveLength(4);
+  });
+
+  it("旧三字段载荷逐字合法（type 缺省=length 由后端解释）；带类型/说明往返保持", () => {
+    const legacy: VariableDto = { id: "v1", name: "width", expression: "10" };
+    expect(legacy.type).toBeUndefined();
+    expect(legacy.description).toBeUndefined();
+
+    const typed: VariableDto = {
+      id: "v2", name: "ang", expression: "45", type: "angle", description: "俯仰角",
+    };
+    expect(typed.type).toBe("angle");
+    expect(typed.description).toBe("俯仰角");
+    expect(JSON.parse(JSON.stringify(typed))).toEqual(typed);
+
+    // updateVariables 整表载荷随 FeatureOp 往返（additive 字段不丢）
+    const op: FeatureOp = { kind: "updateVariables", variables: [legacy, typed] };
+    expect(JSON.parse(JSON.stringify(op))).toEqual(op);
+  });
+
+  it("接口版本 1.72.0（S3 additive bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
   });
 });
 
@@ -1356,10 +1387,12 @@ describe("v1.71 契约（ADR-0020：SketchConstraintDto.expression + VariableDto
     expect(JSON.parse(JSON.stringify(op))).toEqual(op);
   });
 
-  it("VariableDto 精确形状（id/name/expression 三 string）且 JSON 往返保持", () => {
+  it("VariableDto 精确形状（三 string + v1.72 可选 type/description）且 JSON 往返保持", () => {
     const variable: VariableDto = { id: "v1", name: "width", expression: "25.4 * 2" };
     expect(variable.name).toBe("width");
-    expectTypeOf<VariableDto>().toEqualTypeOf<{ id: string; name: string; expression: string }>();
+    expectTypeOf<VariableDto>().toEqualTypeOf<{
+      id: string; name: string; expression: string; type?: VariableType; description?: string;
+    }>();
     expect(JSON.parse(JSON.stringify(variable))).toEqual(variable);
   });
 
@@ -1401,6 +1434,6 @@ describe("v1.71 契约（ADR-0020：SketchConstraintDto.expression + VariableDto
     type GetVariablesFn = LubanFeatureRpcInterface["getVariables"];
     expectTypeOf<Parameters<GetVariablesFn>[1]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<ReturnType<GetVariablesFn>>().toEqualTypeOf<Promise<VariableDto[]>>();
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.72.0");
   });
 });
