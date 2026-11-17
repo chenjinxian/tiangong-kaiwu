@@ -42,7 +42,7 @@
 | itwinjs-core | BIS 元素/验证、BriefcaseTxns、EDE 脏传播、OpLog | `DefinitionElement`、`ElementDrivesElement`、`BriefcaseTxns`、现有 FeatureService 事务模式 | vendored itwinjs-core | 复用 |
 | luban-cad/packages/editor | 草图工具基类/编辑生命周期 | `Sketch.*` 工具族、editor 基座 | 第一方 | 不新增（表达式在对话框层，工具不改） |
 | luban-cad/packages/viewer | 草图标注/装饰 | `SketchDimensionsDecoration`、`SketchCurvesDecoration` | viewer dist | 复用（显示值仍由 DTO 投影） |
-| luban-cad/packages/shared | 契约/DTO/求值器 | `SketchConstraintDto`、`FeatureOp`、`LubanFeatureRpcInterface` 1.70.0 | shared | 扩展（新字段/新 op/新纯模块） |
+| luban-cad/packages/shared | 契约/DTO/求值器 | `SketchConstraintDto`、`FeatureOp`、`LubanFeatureRpcInterface` 1.70.0 → 1.71.0 | shared | 扩展（新字段/新 op/新纯模块） |
 | luban-backend/modeling-server | 草图求解/特征求值/schema/oplog | `SketchWireNormalizer`、`solveSketchChecked`、`FeatureService`、`LubanCadSchema` | 私有仓 | 扩展（表达式的权威求值/变量表元素/新 op） |
 | luban-backend/webhook-agent | 基线/发布 | baseline generator | 私有仓 | 不适用（无新几何格式） |
 | imodel-native | 几何内核 | `SolidKernel.h`/BRep | 独立 | 不适用（求值在 TS 层，数值进内核） |
@@ -122,3 +122,30 @@
 4. 单位：v1 固定 mm/度；单位系统另立 ADR。
 5. 尺寸表达式撤销：若沿用 wholesale 草图 op，undo 可能不可用（E-5）；是否单独做
    可逆的 `updateSketchDimensionExpression` op？建议 v1 接受 E-5，S2 再评估。
+
+## 9. S1 实施与验证（2026-11-17）
+
+- **shared 1.71.0（已提交 205c60ad07 + 文档 a675d8d2c7）**：纯表达式求值器（禁 eval；
+  变量表依赖序/循环/错误归因/长度与深度上限）、`SketchConstraintDto.expression?`、
+  `VariableDto`、`FeatureOp.updateVariables`、`getVariables`、op DSL 往返；shared
+  build 通过，测试 **271/271（求值器 56）**；两轮审查（含嵌套错误归因修复）PASS。
+- **私有后端 S1b**：schema `LubanCAD.PartStudioVariables` 01.00.01（additive，
+  `containsClass` 感知升级）；草图写入前权威求值（角度度→弧度；非五类尺寸拒收）；
+  `updateVariables`（校验零变更 → 重解含表达式草图 → 单事务变量表+草图 params+可逆
+  oplog → 提交后独立事务 `rebuildAll`）；undo/redo 快照恢复 + 重建；`getVariables`
+  旧库/只读/无类安全 `[]`；迁移复制变量表。后端测试：targeted **53/53**、迁移
+  **13/13**、全量 **110/110 files / 970 passed | 1 expected fail | 8 skipped**；
+  touched-file eslint 0；审查 PASS（P2 修复后复审 PASS）。
+- **真栈（源码模式 MS；shared 1.71 + schema 01.00.01）**：新
+  `e2e/sketch-expressions.spec.ts` **2 passed（45.9 s）**——变量 width=10 →
+  `#width` 方形草图 → 拉伸 5 = **500 mm³** → `updateVariables` width=20 →
+  20×20、**2000 mm³** → undo **500** → redo **2000** → 循环/未知变量显式拒收且
+  变量表不变；回归 `sketch-driven-dimension` + `sketch-dimension-edit` 通过。
+- **web**：全量 **2249/2249**、tsc(src+e2e) 绿（contract additive，无 UI 行为变化）。
+- **运行前提（重要）**：本机 MS 需以源码模式启动（`scripts/start-ms-host.ps1 -Source
+  <luban-backend>\modeling-server`）；`dist-backend` 产物仍是 shared 1.70 的旧后端，
+  与 shared 1.71/web 不匹配。下一次发布必须 shared → backend → web 同批（本次未发布）。
+- **残留**：S2 尺寸表达式 UI 与 S3 变量表 UI 未实现（待 live 证据）；`rebuildAll`
+  提交后失败边界（数据已存、返回可见错误）；首次写入 undo 保留空变量元素；损坏
+  变量表修复不可逆；`updateVariables` 全量重解/重建成本；只读旧库不就地升级；
+  表达式仅限 5 类尺寸、无单位/函数；oplog 快照体积随草图数增长。

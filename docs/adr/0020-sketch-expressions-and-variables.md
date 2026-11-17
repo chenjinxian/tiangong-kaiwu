@@ -160,6 +160,13 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
   真栈 e2e：变量建表 → 尺寸引用变量 → 改变量 → 几何/体积变化 → push+冷重开
   保持一致；undo/redo 变量与表达式；旧 iModel 打开无变化。
 - 发布顺序（P0-07）：shared 1.71.0 → 后端产物 → web 同批；本次不发布。
+- **S1 实测（2026-11-17）**：shared 271/271（求值器 56）；私有后端全量 110/110 files /
+  970 passed | 1 expected fail | 8 skipped（targeted 53/53、迁移 13/13）；
+  真栈（源码模式 MS）`sketch-expressions` **2 passed（45.9 s）**：变量 width=10 →
+  `#width` 方形 → 拉伸 **500 mm³** → width=20 → **2000 mm³** → undo 500 → redo
+  2000 → 循环/未知变量拒收零变更；回归 `sketch-driven-dimension` +
+  `sketch-dimension-edit` **5 passed（2.7 min）**；web **2249/2249**、
+  tsc(src+e2e)/eslint 绿。S2/S3 UI 仍待 live 证据。
 
 ## 5. 回滚
 

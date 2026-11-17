@@ -289,6 +289,22 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   剩余：变量/表达式（ADR+契约）、拉伸自定义方向（契约/
   内核）、驱动尺寸的 live 式过约束错误态（后端门禁差异，不绕）、选择创建
   内容/评论/复制草图（能力缺口）、周边圆密集几何避让分支（未采）。
+- **W32 S1 草图表达式 + Part Studio 变量（2026-11-17，shared+私有后端；ADR-0020）**：
+  shared 1.71.0 纯表达式求值器（禁 eval；变量表依赖序/循环/错误归因；长度/深度上限）、
+  `SketchConstraintDto.expression?`、`VariableDto`、`FeatureOp.updateVariables`、
+  `getVariables`、op DSL；shared 271/271；私有后端 schema `PartStudioVariables`
+  01.00.01（additive，含类升级）、写入前权威求值（角度度→弧度、非五类尺寸拒收）、
+  `updateVariables`（校验零变更→重解含表达式草图→单事务变量表+草图 params+可逆
+  oplog→提交后独立事务 rebuildAll）、undo/redo 快照恢复、`getVariables` 旧库/只读
+  安全 []、迁移复制；后端全量 970 passed/1 expected fail/8 skipped（targeted 53/53、
+  迁移 13/13）；真栈（源码模式 MS）`sketch-expressions` **2 passed（45.9 s）**：
+  width=10 → #width 方形草图 → 拉伸 500 mm³ → width=20 → 2000 → undo 500 →
+  redo 2000；回归 `sketch-driven-dimension`+`sketch-dimension-edit` 通过；web
+  2249/2249、tsc(src+e2e)/eslint 绿。**运行前提**：本机 MS 必须源码模式
+  （`start-ms-host.ps1 -Source <luban-backend>\modeling-server`）；artifact 产物仍
+  shared 1.70，下一次发布需 shared→backend→web 同批（未发布）。残留：S2 尺寸表达式 UI
+  与 S3 变量表 UI（待 live 证据）、rebuildAll 提交后失败边界、首次写入 undo 留空元素、
+  全量重解/重建成本、只读旧库不升级、表达式限 5 类尺寸且无单位/函数。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
