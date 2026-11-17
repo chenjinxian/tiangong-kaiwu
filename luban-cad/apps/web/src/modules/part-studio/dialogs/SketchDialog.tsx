@@ -112,6 +112,13 @@ export interface SketchDialogProps {
    */
   showConstraints?: boolean;
   onShowConstraintsChange?: (visible: boolean) => void;
+  /**
+   * ADR-0020 §2.6 D1：受控「显示表达式」开关（尺寸标签表达式原文投影）。
+   * 缺省为内部态 true；提供该 prop 时以宿主值为准，变更经
+   * onShowExpressionsChange 回传。
+   */
+  showExpressions?: boolean;
+  onShowExpressionsChange?: (visible: boolean) => void;
 }
 
 /** 缺省基准面 id（datun plane 寻址；RPC 接线后由真实平面数据替换）。 */
@@ -138,6 +145,8 @@ export function SketchDialog({
   onCancel,
   showConstraints: showConstraintsProp,
   onShowConstraintsChange,
+  showExpressions: showExpressionsProp,
+  onShowExpressionsChange,
 }: SketchDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const enterSketch = usePartStudioStore((s) => s.enterSketch);
@@ -168,7 +177,9 @@ export function SketchDialog({
   const [showConstraintsInternal, setShowConstraintsInternal] = React.useState(true);
   // ADR-0018 S1g：宿主受控（覆盖层 gate）优先；缺省回落内部态（纯展示/壳期）。
   const showConstraints = showConstraintsProp ?? showConstraintsInternal;
-  const [showExpressions, setShowExpressions] = React.useState(true);
+  // ADR-0020 §2.6 D1：宿主受控（标签表达式投影）优先；缺省内部态 true。
+  const [showExpressionsInternal, setShowExpressionsInternal] = React.useState(true);
+  const showExpressions = showExpressionsProp ?? showExpressionsInternal;
   const [showErrors, setShowErrors] = React.useState(true);
   const [helpOpen, setHelpOpen] = React.useState(false);
   // 提交态（M6-a T4）：提交中禁重入；错误就地 Alert（对话框不关——FeatureDialog 同款）。
@@ -539,7 +550,10 @@ export function SketchDialog({
             <input
               type="checkbox"
               checked={showExpressions}
-              onChange={(event) => setShowExpressions(event.target.checked)}
+              onChange={(event) => {
+                setShowExpressionsInternal(event.target.checked);
+                onShowExpressionsChange?.(event.target.checked);
+              }}
             />
             <span>{t('partStudio.sketchDialog.toggles.showExpressions')}</span>
           </label>

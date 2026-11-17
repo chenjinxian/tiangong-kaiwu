@@ -342,11 +342,42 @@ function sideWorld(frame: ReturnType<typeof sketchPlaneFrameFrom>, side: LocalPo
   return frame.xDir.scale(side.x).plus(frame.yDir.scale(side.y));
 }
 
+/** 标注显示选项（ADR-0020 §2.6 D1：`显示表达式` 开关）。 */
+export interface SketchDimensionAnnotationOptions {
+  /**
+   * true（缺省）= driving 且带 `expression` 的尺寸标签显示**表达式原文**
+   *（不附加 R/⌀/°）；false = 沿用求值后的数值格式。driven（参考）仍用实测值。
+   * 纯显示投影，不改 params；该行为是 live 证据缺口下的可逆推断（见 ADR §2.6 D1）。
+   */
+  showExpressions?: boolean;
+}
+
+/**
+ * 尺寸标签文本：driving + expression + showExpressions → 表达式原文；其余
+ * 沿用既有格式（数值前缀由调用方拼好）。空字符串表达式视为无表达式。
+ */
+export function dimensionLabelText(
+  constraint: SketchConstraintDto,
+  formattedText: string,
+  options?: SketchDimensionAnnotationOptions,
+): string {
+  if (options?.showExpressions !== false
+    && constraint.driven !== true
+    && typeof constraint.expression === 'string'
+    && constraint.expression.trim() !== '') {
+    return constraint.expression.trim();
+  }
+  return formattedText;
+}
+
 /**
  * SketchDto → 视口尺寸标注（世界系）。只消费可解析的尺寸约束；其余（水平/
  * 重合等）与未解析引用静默跳过——显示层不得因数据缺陷崩死。
  */
-export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimensionAnnotation[] {
+export function buildSketchDimensionAnnotations(
+  sketch: SketchDto,
+  options?: SketchDimensionAnnotationOptions,
+): SketchDimensionAnnotation[] {
   const frame = sketchPlaneFrameFrom(sketch.plane);
   const world = (p: LocalPoint) => frame.toWorld({ u: p.x, v: p.y });
   const entities = new Map<number, SketchEntityDto>();
@@ -371,7 +402,7 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
       a: world(a),
       b: world(b),
       side: sideWorld(frame, side),
-      text: formatSketchDimensionValue(value),
+      text: dimensionLabelText(constraint, formatSketchDimensionValue(value), options),
     });
   };
 
@@ -414,7 +445,7 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
           center: world(item.center),
           point: world(point),
           side: sideWorld(frame, radial),
-          text: `R${formatSketchDimensionValue(value)}`,
+          text: dimensionLabelText(constraint, `R${formatSketchDimensionValue(value)}`, options),
         });
         break;
       }
@@ -438,7 +469,7 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
           center: world(item.center),
           point: world(point),
           side: sideWorld(frame, radial),
-          text: `⌀${formatSketchDimensionValue(value)}`,
+          text: dimensionLabelText(constraint, `⌀${formatSketchDimensionValue(value)}`, options),
         });
         break;
       }
@@ -456,15 +487,15 @@ export function buildSketchDimensionAnnotations(sketch: SketchDto): SketchDimens
         // shared 契约 angle.value 为弧度；Onshape 显示度数（最多 3 位小数，W18 live）。
         // W31-A：driven 用当前几何实测夹角（标注射线口径，0–180°），driving
         // 仍用存储弧度值换算。
-        const text = angleLabelText(constraint, measuredAngleDegFromRays(vertex, rayA, rayB));
-        if (text === undefined) break;
+        const formattedText = angleLabelText(constraint, measuredAngleDegFromRays(vertex, rayA, rayB));
+        if (formattedText === undefined) break;
         annotations.push({
           kind: 'angular',
           id: `dimension-${constraint.id}`,
           vertex: world(vertex),
           a: world(rayA),
           b: world(rayB),
-          text,
+          text: dimensionLabelText(constraint, formattedText, options),
         });
         break;
       }

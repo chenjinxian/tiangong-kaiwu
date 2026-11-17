@@ -20,11 +20,13 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest';
 import { Point3d, Vector3d } from '@itwin/core-geometry';
 import type { ScreenViewport } from '@itwin/core-frontend';
-import type { SketchConstraintDto } from '@luban-cad/shared';
+import type { SketchConstraintDto, VariableDto } from '@luban-cad/shared';
 import type { SketchConstraintGlyphAnnotation, SketchLinearDimensionAnnotation } from '@luban-cad/viewer';
 import {
+  DIMENSION_EDITOR_DIALOG_COMPACT_WIDTH,
   DIMENSION_EDITOR_DIALOG_WIDTH,
   DIMENSION_EDITOR_INPUT_HEIGHT,
+  dimensionEditorDialogWidth,
   dimensionEditorUnit,
   SketchDimensionEditor,
 } from '../components/SketchDimensionEditor.js';
@@ -221,6 +223,7 @@ const DIMENSION_LABEL_CENTER = { clientX: 140, clientY: 123 };
 function renderDimensionEditor(
   onCommit: ReturnType<typeof vi.fn> = vi.fn(),
   constraint: SketchConstraintDto = DIMENSION_CONSTRAINT,
+  options?: { variables?: readonly VariableDto[]; annotationText?: string; open?: boolean },
 ): {
   canvas: HTMLCanvasElement;
 } {
@@ -230,15 +233,24 @@ function renderDimensionEditor(
   canvas.dataset.testCanvas = 'dimension-editor';
   document.querySelectorAll('canvas[data-test-canvas="dimension-editor"]').forEach((stale) => stale.remove());
   document.body.appendChild(canvas);
+  const annotation = options?.annotationText === undefined
+    ? DIMENSION_ANNOTATION
+    : { ...DIMENSION_ANNOTATION, text: options.annotationText };
   render(
     <SketchDimensionEditor
       viewport={viewport}
-      annotations={[DIMENSION_ANNOTATION]}
+      annotations={[annotation]}
       constraints={[constraint]}
-      onCommit={onCommit as unknown as (constraintId: number, value: number) => void}
+      variables={options?.variables}
+      onCommit={onCommit as unknown as (
+        constraintId: number,
+        value: number,
+        expression?: string,
+      ) => void}
     />,
   );
-  fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+  if (options?.open !== false)
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
   return { canvas };
 }
 
@@ -651,5 +663,188 @@ describe('SketchDimensionEditor W31-A：driven 尺寸双击门禁（不打开编
     fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
     expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20');
     expect(onSelectConstraint).toHaveBeenCalledWith(DIMENSION_ID);
+  });
+});
+
+// ── ADR-0020 S2（2026-11-17 ADR §2.6 D1–D4）：表达式输入 / 紧凑变体 / 补全 ──
+const EXPRESSION_VARIABLES: VariableDto[] = [
+  { id: 'v1', name: 'width', expression: '10' },
+  { id: 'v2', name: 'wobble', expression: '#width * 3' },
+];
+
+describe('SketchDimensionEditor S2：标签文本观测面（data-text）', () => {
+  it('canvas 标签的 DOM 镜像带 data-text（「显示表达式」e2e 断言用）', () => {
+    renderDimensionEditor(vi.fn(), DIMENSION_CONSTRAINT, { annotationText: '#width', open: false });
+    const marker = screen.getByTestId('sketch-dimension-label');
+    expect(marker.getAttribute('data-text')).toBe('#width');
+  });
+});
+
+describe('SketchDimensionEditor S2：对话框宽度变体（angle 159）', () => {
+  it('angle → 159 紧凑类、无展开器/参数状态切换键；非 angle → 209', () => {
+    expect(dimensionEditorDialogWidth('angle')).toBe(159);
+    expect(dimensionEditorDialogWidth('length')).toBe(209);
+    expect(DIMENSION_EDITOR_DIALOG_COMPACT_WIDTH).toBe(159);
+    expect(DIMENSION_EDITOR_DIALOG_WIDTH).toBe(209);
+
+    renderDimensionEditor(vi.fn(), ANGLE_CONSTRAINT);
+    const dialog = screen.getByTestId('sketch-dimension-dialog');
+    expect(dialog.classList.contains('part-studio-dimension-editor-dialog--compact')).toBe(true);
+    expect(screen.queryByTestId('sketch-dimension-expander')).toBeNull();
+    expect(screen.queryByTestId('sketch-dimension-state-toggle')).toBeNull();
+    // 输入/单位不变（100×26、deg）。
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
+    expect(screen.getByTestId('sketch-dimension-unit').textContent).toBe('deg');
+  });
+
+  it('长度类保持 209 且保留展开器/参数状态切换键', () => {
+    renderDimensionEditor();
+    const dialog = screen.getByTestId('sketch-dimension-dialog');
+    expect(dialog.classList.contains('part-studio-dimension-editor-dialog--compact')).toBe(false);
+    expect(screen.getByTestId('sketch-dimension-expander')).toBeDefined();
+    expect(screen.getByTestId('sketch-dimension-state-toggle')).toBeDefined();
+  });
+});
+
+describe('SketchDimensionEditor S2：表达式预校验与提交', () => {
+  it('既有表达式打开时显示原文（不是求值数）', () => {
+    renderDimensionEditor(
+      vi.fn(),
+      { ...DIMENSION_CONSTRAINT, expression: '#width' },
+      { variables: EXPRESSION_VARIABLES },
+    );
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('#width');
+    expect((screen.getByTestId('sketch-dimension-confirm') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('无效表达式：#nope → 红下划线 + ✓ 禁用 + Enter 不提交', () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#nope' } });
+    expect(input.getAttribute('data-error')).toBe('true');
+    const confirm = screen.getByTestId('sketch-dimension-confirm') as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
+
+    // 改回有效数字 → 错误态解除、✓ 恢复。
+    fireEvent.change(input, { target: { value: '20' } });
+    expect(input.getAttribute('data-error')).toBe('false');
+    expect((screen.getByTestId('sketch-dimension-confirm') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('表达式有效：Enter 提交求值数 + 原文（第三参）', async () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#width*2' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 20, '#width*2');
+    await waitFor(() => expect(screen.queryByTestId('sketch-dimension-input')).toBeNull());
+  });
+
+  it('纯数字仍走既有回调形状（不传 expression）', async () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit);
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '30' } });
+    fireEvent.click(screen.getByTestId('sketch-dimension-confirm'));
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 30);
+    expect(onCommit.mock.calls[0]).toHaveLength(2);
+  });
+
+  it('表达式文本不步进（ArrowUp/Down 只对纯数字生效）', () => {
+    renderDimensionEditor(
+      vi.fn(),
+      { ...DIMENSION_CONSTRAINT, expression: '#width' },
+      { variables: EXPRESSION_VARIABLES },
+    );
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('#width');
+    input.setSelectionRange(input.value.length, input.value.length);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('#width');
+  });
+});
+
+describe('SketchDimensionEditor S2：# 变量补全（键盘）', () => {
+  it('输入 #w → 菜单；ArrowDown 高亮第二行；Enter 选中并插入 #name；不提交', () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#w' } });
+    const listbox = screen.getByTestId('sketch-expression-autocomplete');
+    expect(listbox.getAttribute('role')).toBe('listbox');
+    let options = screen.getAllByTestId('sketch-expression-autocomplete-option');
+    expect(options.map((option) => option.getAttribute('data-variable-name')))
+      .toEqual(['width', 'wobble']);
+    expect(options[0]!.getAttribute('aria-selected')).toBe('true');
+
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    options = screen.getAllByTestId('sketch-expression-autocomplete-option');
+    expect(options[1]!.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('#wobble');
+    expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull();
+    expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
+  });
+
+  it('补全打开时 Escape 只关闭菜单（第一次），第二次 Escape 才取消对话框', () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#' } });
+    expect(screen.getByTestId('sketch-expression-autocomplete')).toBeDefined();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull();
+    expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByTestId('sketch-dimension-input')).toBeNull();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('无匹配/无变量不渲染菜单；`#` 后无匹配时 Enter 仍按提交语义（invalid → 不提交）', () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT);
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#nope' } });
+    expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
+  });
+
+  it('光标离开 `#name` token（select 事件）→ 关闭菜单（评审 P3）', () => {
+    renderDimensionEditor(vi.fn(), DIMENSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#w' } });
+    expect(screen.getByTestId('sketch-expression-autocomplete')).toBeDefined();
+
+    // caret 移到文本开头：caret 前无 `#token` → 菜单收起。
+    input.setSelectionRange(0, 0);
+    fireEvent.select(input);
+    expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull();
+  });
+
+  it('Enter 时插入不可应用（caret 已不在 token 内）→ 不吞键、收起菜单（评审 P3）', () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#w' } });
+    expect(screen.getByTestId('sketch-expression-autocomplete')).toBeDefined();
+
+    // 不派发 select（菜单保持打开），把 caret 移到开头 → 插入无从应用。
+    input.setSelectionRange(0, 0);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull();
+    // `#w` 不是有效变量 → 提交守卫拒绝（不写模型），对话框保持打开。
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
   });
 });

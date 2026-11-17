@@ -43,6 +43,8 @@ const INITIAL_STATE: PartStudioState = {
     activeSketchPlane: null,
     // ADR-0018 S1g：显示约束缺省勾选（Onshape live）。
     showConstraints: true,
+    // ADR-0020 S2：显示表达式缺省勾选（Onshape live）。
+    showExpressions: true,
     pattern: null,
   },
   commandPalette: {
@@ -145,9 +147,9 @@ describe('tool 切片（当前工具）', () => {
 describe('sketch 切片（草图模式）', () => {
   it('enterSketch 进草图模式并记活动草图（平面归零防串场），exitSketch 全复位', () => {
     usePartStudioStore.getState().enterSketch('sketch-9');
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9', activeSketchPlane: null, constructionMode: false, showConstraints: true, pattern: null });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: true, activeSketchId: 'sketch-9', activeSketchPlane: null, constructionMode: false, showConstraints: true, showExpressions: true, pattern: null });
     usePartStudioStore.getState().exitSketch();
-    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, showConstraints: true, pattern: null });
+    expect(usePartStudioStore.getState().sketch).toEqual({ isActive: false, activeSketchId: null, activeSketchPlane: null, constructionMode: false, showConstraints: true, showExpressions: true, pattern: null });
   });
 
   it('v1.23：toggleSketchConstruction 切换构造模式，enterSketch 归零', () => {
@@ -169,6 +171,16 @@ describe('sketch 切片（草图模式）', () => {
     expect(usePartStudioStore.getState().sketch.showConstraints).toBe(false);
     usePartStudioStore.getState().exitSketch();
     expect(usePartStudioStore.getState().sketch.showConstraints).toBe(true);
+  });
+
+  it('ADR-0020 S2：showExpressions 默认 true，setShowExpressions 写入并在 enterSketch 保留，exitSketch 复位', () => {
+    expect(usePartStudioStore.getState().sketch.showExpressions).toBe(true);
+    usePartStudioStore.getState().setShowExpressions(false);
+    expect(usePartStudioStore.getState().sketch.showExpressions).toBe(false);
+    usePartStudioStore.getState().enterSketch('sketch-e');
+    expect(usePartStudioStore.getState().sketch.showExpressions).toBe(false);
+    usePartStudioStore.getState().exitSketch();
+    expect(usePartStudioStore.getState().sketch.showExpressions).toBe(true);
   });
 
   it('M6-a T5：setActiveSketchPlane 下发平面；enterSketch 再进归零（不串上一会话）', () => {

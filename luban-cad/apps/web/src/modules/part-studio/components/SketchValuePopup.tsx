@@ -29,26 +29,34 @@
  */
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SketchConstraintDto } from '@luban-cad/shared';
+import type { SketchConstraintDto, VariableDto } from '@luban-cad/shared';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 import { nextConstraintId } from '../tools/sketch/sketch-constraint-logic.js';
 import {
-  formatDimensionPopupValue,
-  parseConstraintEditorValue,
-} from '../internal/sketch-dimension-value.js';
+  dimensionExpressionErrorI18nKey,
+  evaluateDimensionInput,
+  type DimensionExpressionError,
+} from '../internal/sketch-dimension-expression.js';
+import { formatDimensionPopupValue } from '../internal/sketch-dimension-value.js';
 import {
   sketchToolEvents,
   type SketchDimensionCandidate,
   type SketchOffsetCandidate,
   type SketchToolAnchor,
 } from '../tools/sketch/sketch-tool-events.js';
-import { DIMENSION_EDITOR_DIALOG_WIDTH, SketchDimensionDialog } from './SketchDimensionDialog.js';
+import {
+  DIMENSION_EDITOR_DIALOG_WIDTH,
+  dimensionEditorDialogWidth,
+  SketchDimensionDialog,
+} from './SketchDimensionDialog.js';
 import type { SketchDimensionDialogTestIds } from './SketchDimensionDialog.js';
 import './SketchValuePopup.css';
 
 export interface SketchValuePopupProps {
   sketchSystem: UseSketchSystem;
+  /** 既有 Part Studio 变量（表达式预校验 + `#` 补全；缺省空表）。 */
+  variables?: readonly VariableDto[];
 }
 
 type Pending =
@@ -78,12 +86,16 @@ export const VALUE_POPUP_MIN_TOP = 8;
 
 /**
  * 放置弹层可见对话框位置（纯几何，2026-11-16 W17b live）：水平以放置点击
- * 为中心（−104.5px），垂直 = 点击 −31px；顶部保留旧 ≥8px 安全钳制。
- * 弹层绝对定位于视口容器（与 anchor 同一坐标系），不新增容器尺寸钳制。
+ * 为中心（209 宽 → −104.5px；ADR-0020 §2.6 D2 的 angle 159 宽 → −79.5px），
+ * 垂直 = 点击 −31px；顶部保留旧 ≥8px 安全钳制。弹层绝对定位于视口容器
+ *（与 anchor 同一坐标系），不新增容器尺寸钳制。
  */
-export function centerValuePopupPosition(anchor: SketchToolAnchor): { left: number; top: number } {
+export function centerValuePopupPosition(
+  anchor: SketchToolAnchor,
+  dialogWidth: number = DIMENSION_EDITOR_DIALOG_WIDTH,
+): { left: number; top: number } {
   return {
-    left: anchor.x - VALUE_POPUP_HALF_WIDTH,
+    left: anchor.x - dialogWidth / 2,
     top: Math.max(VALUE_POPUP_MIN_TOP, anchor.y - VALUE_POPUP_TOP_OFFSET),
   };
 }
@@ -106,7 +118,7 @@ const VALUE_POPUP_DIALOG_TEST_IDS: SketchDimensionDialogTestIds = {
   error: 'sketch-value-error',
 };
 
-export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React.JSX.Element | null {
+export function SketchValuePopup({ sketchSystem, variables }: SketchValuePopupProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const [pending, setPending] = React.useState<Pending | undefined>(undefined);
   const [submitting, setSubmitting] = React.useState(false);
@@ -114,6 +126,9 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
   const [dragPosition, setDragPosition] = React.useState<{ left: number; top: number } | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const activeSketchId = sketchSystem.activeSketch?.id;
+  // 候选事件在 useEffect([]) 内监听：活动草图/约束在事件时刻现场读取。
+  const sketchSystemRef = React.useRef(sketchSystem);
+  sketchSystemRef.current = sketchSystem;
 
   // 最新 pending 的镜像：closePending 零依赖读取，供草图切换 effect 判断
   // 「是否有 dimension 候选仍在等值」。
@@ -141,19 +156,31 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
   React.useEffect(() => {
     const offDimension = sketchToolEvents.on('dimensionCandidate', (candidate) => {
       // W21：命中既有尺寸 → 预填约束值（显示单位；既有尺寸优先，实测值不参与）。
-      // 否则 Onshape live：预填实测值；几何不可测时保持空输入。
+      // ADR-0020 S2 评审 P1：既有约束带 expression 时预填**表达式原文**，
+      // 不改直接确认才不会丢设计意图（数值通道会在后端清除 expression）。
+      const existingConstraint = candidate.existingConstraintId !== undefined
+        ? sketchSystemRef.current.activeSketch?.constraints.find(
+            (constraint) => constraint.id === candidate.existingConstraintId,
+          )
+        : undefined;
+      const existingExpression = typeof existingConstraint?.expression === 'string'
+        && existingConstraint.expression.trim() !== ''
+        ? existingConstraint.expression
+        : undefined;
       const existing = candidate.existingConstraintId !== undefined
         && candidate.existingValue !== undefined
         && Number.isFinite(candidate.existingValue)
         ? candidate.existingValue
         : undefined;
-      const measured = existing === undefined
+      const measured = existingExpression === undefined
+        && existing === undefined
         && candidate.measuredValue !== undefined
         && Number.isFinite(candidate.measuredValue)
         ? candidate.measuredValue
         : undefined;
       const prefill = existing ?? measured;
-      const initialValue = prefill === undefined ? '' : formatDimensionPopupValue(candidate.kind, prefill);
+      const initialValue = existingExpression
+        ?? (prefill === undefined ? '' : formatDimensionPopupValue(candidate.kind, prefill));
       setPending({
         kind: 'dimension',
         candidate,
@@ -201,14 +228,54 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
     return () => window.cancelAnimationFrame(id);
   }, [pendingCandidate]);
 
+  /**
+   * 本地预校验错误文案（评审 P2）：本地码 → zh/en i18n key；shared 求值错误
+   * （unknownVariable/syntax/cycle/nonFinite）按 `expression` 码原样透传消息。
+   */
+  const dimensionErrorText = React.useCallback((error: DimensionExpressionError): string => {
+    const key = dimensionExpressionErrorI18nKey(error);
+    if (key !== undefined)
+      return t(key);
+    return error.code === 'expression' ? error.message : '';
+  }, [t]);
+
   const confirm = React.useCallback(async () => {
     const current = pending;
     if (!current || submitting) return;
-    // W22：尺寸分支按**候选种类**解释输入——长度类原样毫米；angle 输入为度，
-    // 由共享助手换算契约弧度（且拒收 ≤0 / ≥180°）。偏移分支保持旧数值口径。
-    const value = current.kind === 'dimension'
-      ? parseConstraintEditorValue(current.candidate.kind, current.value)
-      : (current.value.trim() === '' ? undefined : Number(current.value));
+    // W22 + ADR-0020 §2.6 D3：尺寸分支按**候选种类**解释输入——纯数字沿用
+    // 既有口径（angle 度→弧度）；表达式由 shared 求值器预校验（有效 → value +
+    // expression，invalid → 错误并保持打开）。
+    let value: number | undefined;
+    let expression: string | undefined;
+    if (current.kind === 'dimension') {
+      const evaluation = evaluateDimensionInput({
+        kind: current.candidate.kind,
+        text: current.value,
+        variables,
+      });
+      if (!evaluation.ok) {
+        setPending({ ...current, error: dimensionErrorText(evaluation.error) });
+        return;
+      }
+      value = evaluation.value;
+      expression = evaluation.expression;
+      // 评审 P1 兜底：既有约束带 expression 且文本保持打开时原样（预填应已
+      // 是表达式；此处防御候选/约束读取时序差），仍走 wholesale updateSketch。
+      if (expression === undefined
+        && current.value === current.initialValue
+        && current.candidate.existingConstraintId !== undefined) {
+        const existing = sketchSystem.activeSketch?.constraints.find(
+          (constraint) => constraint.id === current.candidate.existingConstraintId,
+        );
+        const existingExpression = typeof existing?.expression === 'string'
+          ? existing.expression.trim()
+          : '';
+        if (existingExpression !== '')
+          expression = existingExpression;
+      }
+    } else {
+      value = current.value.trim() === '' ? undefined : Number(current.value);
+    }
     if (value === undefined || !Number.isFinite(value) || value <= 0) {
       setPending({ ...current, error: t('partStudio.sketch.panel.errors.invalidDimension') });
       return;
@@ -218,15 +285,39 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
       if (current.kind === 'dimension') {
         // W21（live S1c）：既有尺寸 → 原地改值（与双击内联编辑器同一通道）；
         // 不追加新约束，失败保留对话框并显示错误。
+        // ADR-0020：表达式 → wholesale updateSketch（保留其它字段，仅替换该
+        // 约束的 expression；value 旧值由后端权威覆盖，P0-05/P0-06）。
         const existingConstraintId = current.candidate.existingConstraintId;
         if (existingConstraintId !== undefined) {
-          const result = await sketchSystem.applyConstraintValue(existingConstraintId, value);
-          if (!result.ok) {
-            setPending({
-              ...current,
-              error: result.error ?? t('partStudio.sketch.panel.errors.updateFailed'),
-            });
-            return;
+          const sketch = sketchSystem.activeSketch;
+          if (expression !== undefined) {
+            const constraint = sketch?.constraints.find((candidate) => candidate.id === existingConstraintId);
+            if (!sketch || !constraint) {
+              setPending({ ...current, error: t('partStudio.sketch.panel.errors.updateFailed') });
+              return;
+            }
+            const result = await sketchSystem.applyUpdate(
+              sketch.entities,
+              sketch.constraints.map((candidate) => candidate.id === existingConstraintId
+                ? { ...candidate, expression }
+                : candidate),
+            );
+            if (!result.ok) {
+              setPending({
+                ...current,
+                error: result.error ?? t('partStudio.sketch.panel.errors.updateFailed'),
+              });
+              return;
+            }
+          } else {
+            const result = await sketchSystem.applyConstraintValue(existingConstraintId, value);
+            if (!result.ok) {
+              setPending({
+                ...current,
+                error: result.error ?? t('partStudio.sketch.panel.errors.updateFailed'),
+              });
+              return;
+            }
           }
         } else {
           const sketch = sketchSystem.activeSketch;
@@ -239,6 +330,7 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
             id: nextConstraintId(sketch),
             refs: [...current.candidate.refs],
             value,
+            ...(expression !== undefined ? { expression } : {}),
           };
           const result = await sketchSystem.applyUpdate(sketch.entities, [...sketch.constraints, constraint]);
           if (!result.ok) {
@@ -260,7 +352,7 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
     } finally {
       setSubmitting(false);
     }
-  }, [closePending, pending, sketchSystem, submitting, t]);
+  }, [closePending, dimensionErrorText, pending, sketchSystem, submitting, t, variables]);
 
   const cancel = React.useCallback(() => {
     if (submitting) return;
@@ -349,7 +441,18 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
   }
 
   // ── 尺寸分支：live dimension-dialog（与双击编辑器同一外壳）──────────────
-  const anchorPosition = centerValuePopupPosition(pending.anchor);
+  const dimensionEvaluation = evaluateDimensionInput({
+    kind: pending.candidate.kind,
+    text: pending.value,
+    variables,
+  });
+  // 评审 P3：空输入保留既有错误文案（不再因「打开即空」被抑制）；错误码经
+  // i18n 映射，shared 求值消息透传。
+  const liveErrorMessage = dimensionEvaluation.ok
+    ? undefined
+    : dimensionErrorText(dimensionEvaluation.error);
+  const dialogWidth = dimensionEditorDialogWidth(pending.candidate.kind);
+  const anchorPosition = centerValuePopupPosition(pending.anchor, dialogWidth);
   /** 拖动位移每次渲染都按顶部 8px 安全钳制（不新增容器尺寸探测）。 */
   const visiblePosition = dragPosition
     ? { left: dragPosition.left, top: Math.max(VALUE_POPUP_MIN_TOP, dragPosition.top) }
@@ -362,8 +465,10 @@ export function SketchValuePopup({ sketchSystem }: SketchValuePopupProps): React
       initialValue={pending.initialValue}
       rawValue={pending.rawValue}
       unit={dimensionUnitSuffix(pending.candidate.kind)}
-      error={pending.error !== undefined}
-      errorMessage={pending.error}
+      error={pending.error !== undefined || !dimensionEvaluation.ok}
+      invalid={!dimensionEvaluation.ok}
+      errorMessage={pending.error ?? liveErrorMessage}
+      variables={variables}
       busy={submitting}
       offset={visiblePosition}
       dragOrigin={visiblePosition}

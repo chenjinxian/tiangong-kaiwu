@@ -1070,6 +1070,10 @@
     "analysisToolsUnavailable": "Sketch analysis tools are not implemented yet"
   },
   "sketch": {
+    "expression": {
+      "autocompleteLabel": "Variable suggestions",
+      "invalidAngle": "The angle must be between 0° and 180°"
+    },
     "dragFailed": "Sketch drag commit failed: {{message}}",
     "pasteFailed": "Paste sketch entities failed: {{message}}",
     "deleteBlocked": "The entity is referenced by other geometry and cannot be deleted",

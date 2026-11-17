@@ -50,7 +50,7 @@
  */
 import React from 'react';
 import type { ScreenViewport } from '@itwin/core-frontend';
-import type { SketchConstraintDto } from '@luban-cad/shared';
+import type { SketchConstraintDto, VariableDto } from '@luban-cad/shared';
 import {
   layoutSketchConstraintGlyphs,
   layoutSketchDimensions,
@@ -63,15 +63,18 @@ import {
   hitTestSketchDimensionLabel,
 } from '../internal/sketch-dimension-picker.js';
 import { constraintIdFromGlyphId } from '../internal/sketch-constraint-glyphs.js';
+import { evaluateDimensionInput } from '../internal/sketch-dimension-expression.js';
 import {
   EDITABLE_CONSTRAINT_KINDS,
   formatConstraintEditorValue,
-  parseConstraintEditorValue,
 } from '../internal/sketch-dimension-value.js';
 import {
   DIMENSION_EDITOR_DIALOG_HEIGHT,
+  DIMENSION_EDITOR_DIALOG_INPUT_OFFSET,
   DIMENSION_EDITOR_DIALOG_WIDTH,
   DIMENSION_EDITOR_DRAGBAR_HEIGHT,
+  dimensionEditorDialogInputOffset,
+  dimensionEditorDialogWidth,
   SketchDimensionDialog,
 } from './SketchDimensionDialog.js';
 import type { SketchDimensionDialogTestIds } from './SketchDimensionDialog.js';
@@ -79,10 +82,15 @@ import './SketchDimensionEditor.css';
 
 /** 对话框几何常量与共享外壳同源（此处再导出，保持既有导入面稳定）。 */
 export {
+  DIMENSION_EDITOR_DIALOG_COMPACT_INPUT_OFFSET,
+  DIMENSION_EDITOR_DIALOG_COMPACT_WIDTH,
   DIMENSION_EDITOR_DIALOG_HEIGHT,
+  DIMENSION_EDITOR_DIALOG_INPUT_OFFSET,
   DIMENSION_EDITOR_DIALOG_WIDTH,
   DIMENSION_EDITOR_DRAGBAR_HEIGHT,
   DIMENSION_EDITOR_PANEL_HEIGHT,
+  dimensionEditorDialogInputOffset,
+  dimensionEditorDialogWidth,
 } from './SketchDimensionDialog.js';
 
 export interface SketchDimensionEditorProps {
@@ -92,8 +100,18 @@ export interface SketchDimensionEditorProps {
   glyphs?: readonly SketchConstraintGlyphAnnotation[];
   constraints?: readonly SketchConstraintDto[];
   canEdit?: boolean;
-  /** 提交（宿主走 sketchSystem.applyConstraintValue）；ok:false 时保留输入框。 */
-  onCommit: (constraintId: number, value: number) => void | Promise<{ ok: boolean; error?: string }>;
+  /** 既有 Part Studio 变量（表达式本地预校验 + `#` 补全；缺省空表）。 */
+  variables?: readonly VariableDto[];
+  /**
+   * 提交（ADR-0020 §2.6 D3）：纯数字 = 既有 `applyConstraintValue`；表达式
+   * （`expression` 非缺省）= 宿主 wholesale `updateSketch`（约束带 expression）。
+   * ok:false 时保留输入框与错误。
+   */
+  onCommit: (
+    constraintId: number,
+    value: number,
+    expression?: string,
+  ) => void | Promise<{ ok: boolean; error?: string }>;
   /** 双击不可改值尺寸（直径/角度等）。 */
   onUnsupported?: (constraintKind: string) => void;
   /** 当前选中的尺寸约束 id（唯一选择权威 store.canvas.selection 的镜像）。 */
@@ -139,8 +157,6 @@ export const DIMENSION_EDITOR_WIDTH = 100;
 export const DIMENSION_EDITOR_INPUT_HEIGHT = 26;
 /** 输入框右缘与标签左缘的间距（px，live 口径「紧贴标签左侧」）。 */
 export const DIMENSION_EDITOR_GAP = 4;
-/** 面板左缘到输入框左缘的距离（live：展开器 1px + 20px）。 */
-export const DIMENSION_EDITOR_DIALOG_INPUT_OFFSET = 21;
 /** 视口边缘安全间距（钳制用，px）。 */
 export const DIMENSION_EDITOR_VIEWPORT_MARGIN = 4;
 
@@ -205,8 +221,9 @@ export function clampDimensionEditorPosition(
   position: { left: number; top: number },
   viewport: { width: number; height: number },
   margin: number = DIMENSION_EDITOR_VIEWPORT_MARGIN,
+  dialogWidth: number = DIMENSION_EDITOR_DIALOG_WIDTH,
 ): { left: number; top: number } {
-  const maxLeft = Math.max(margin, viewport.width - DIMENSION_EDITOR_DIALOG_WIDTH - margin);
+  const maxLeft = Math.max(margin, viewport.width - dialogWidth - margin);
   const maxTop = Math.max(margin, viewport.height - DIMENSION_EDITOR_DIALOG_HEIGHT - margin);
   return {
     left: Math.min(Math.max(position.left, margin), maxLeft),
@@ -228,16 +245,23 @@ export function layoutDimensionEditorDialog(input: {
   anchor: ScreenPointLike;
   viewport: { width: number; height: number };
   margin?: number;
+  /** 可见对话框宽度（缺省 209；angle 紧凑变体传 159）。 */
+  width?: number;
+  /** 面板左缘到输入框左缘的偏移（缺省 21；紧凑变体 1）。 */
+  inputOffset?: number;
 }): DimensionEditorDialogPlacement {
   const margin = input.margin ?? DIMENSION_EDITOR_VIEWPORT_MARGIN;
+  const width = input.width ?? DIMENSION_EDITOR_DIALOG_WIDTH;
+  const inputOffset = input.inputOffset ?? DIMENSION_EDITOR_DIALOG_INPUT_OFFSET;
   const wrapLeft = input.anchor.x;
   const wrapTop = input.anchor.y - DIMENSION_EDITOR_INPUT_HEIGHT / 2;
-  const desiredLeft = wrapLeft - DIMENSION_EDITOR_DIALOG_INPUT_OFFSET;
+  const desiredLeft = wrapLeft - inputOffset;
   const desiredTop = wrapTop - DIMENSION_EDITOR_DRAGBAR_HEIGHT;
   const { left, top } = clampDimensionEditorPosition(
     { left: desiredLeft, top: desiredTop },
     input.viewport,
     margin,
+    width,
   );
   return { left, top, offsetLeft: left - wrapLeft, offsetTop: top - wrapTop };
 }
@@ -340,6 +364,7 @@ export function SketchDimensionEditor({
   glyphs,
   constraints,
   canEdit = true,
+  variables,
   onCommit,
   onUnsupported,
   selectedConstraintId = null,
@@ -409,6 +434,8 @@ export function SketchDimensionEditor({
   canEditRef.current = canEdit;
   const onCommitRef = React.useRef(onCommit);
   onCommitRef.current = onCommit;
+  const variablesRef = React.useRef(variables);
+  variablesRef.current = variables;
   const onUnsupportedRef = React.useRef(onUnsupported);
   onUnsupportedRef.current = onUnsupported;
   const editorRef = React.useRef(editor);
@@ -478,7 +505,10 @@ export function SketchDimensionEditor({
       });
       // 每次新开对话框都复位拖拽位移（live：重新打开回到锚点默认位置）。
       setDragPosition(null);
-      const initialValue = formatConstraintEditorValue(constraint);
+      // ADR-0020 §2.6 D3：既有表达式优先显示原文（设计意图）；否则数值格式。
+      const initialValue = typeof constraint.expression === 'string' && constraint.expression.trim() !== ''
+        ? constraint.expression
+        : formatConstraintEditorValue(constraint);
       setEditor({
         constraintId,
         kind: constraint.kind,
@@ -659,15 +689,24 @@ export function SketchDimensionEditor({
     const current = editorRef.current;
     if (!current || committingRef.current)
       return;
-    const value = parseConstraintEditorValue(current.kind, current.value);
-    if (value === undefined) {
+    // ADR-0020 §2.6 D3：纯数字 → 既有数值通道；表达式 → 求值数 + 原文
+    // （宿主走 wholesale updateSketch，value 由后端权威覆盖）。
+    const evaluation = evaluateDimensionInput({
+      kind: current.kind,
+      text: current.value,
+      variables: variablesRef.current,
+    });
+    if (!evaluation.ok) {
       setFailed(true);
       return;
     }
     committingRef.current = true;
     setCommitting(true);
     try {
-      const result = await onCommitRef.current(current.constraintId, value);
+      // 纯数字不传第三参（保持既有回调形状/断言口径）。
+      const result = evaluation.expression === undefined
+        ? await onCommitRef.current(current.constraintId, evaluation.value)
+        : await onCommitRef.current(current.constraintId, evaluation.value, evaluation.expression);
       if (result && !result.ok) {
         setFailed(true);
         return;
@@ -742,10 +781,15 @@ export function SketchDimensionEditor({
     return () => window.removeEventListener('resize', onResize);
   }, [editorOpen]);
 
-  // 可见对话框（209×47）定位：锚点仍是输入框左缘 + 垂直中心，只做视口钳制。
+  // 可见对话框（209×47 或 angle 159×47）定位：锚点仍是输入框左缘 + 垂直中心，
+  // 只做视口钳制。
+  const dialogWidth = editor ? dimensionEditorDialogWidth(editor.kind) : DIMENSION_EDITOR_DIALOG_WIDTH;
+  const dialogInputOffset = editor
+    ? dimensionEditorDialogInputOffset(editor.kind)
+    : DIMENSION_EDITOR_DIALOG_INPUT_OFFSET;
   const viewportSize = {
     width: typeof window === 'undefined'
-      ? DIMENSION_EDITOR_DIALOG_WIDTH + DIMENSION_EDITOR_VIEWPORT_MARGIN * 2
+      ? dialogWidth + DIMENSION_EDITOR_VIEWPORT_MARGIN * 2
       : window.innerWidth,
     height: typeof window === 'undefined'
       ? DIMENSION_EDITOR_DIALOG_HEIGHT + DIMENSION_EDITOR_VIEWPORT_MARGIN * 2
@@ -755,8 +799,15 @@ export function SketchDimensionEditor({
     ? layoutDimensionEditorDialog({
         anchor: { x: editor.left, y: editor.top },
         viewport: viewportSize,
+        width: dialogWidth,
+        inputOffset: dialogInputOffset,
       })
     : null;
+  /** ADR-0020 §2.6 D3：每次输入即时本地求值——invalid → 红下划线 + ✓ 禁用。 */
+  const editorEvaluation = editor
+    ? evaluateDimensionInput({ kind: editor.kind, text: editor.value, variables })
+    : undefined;
+  const editorInvalid = editorEvaluation !== undefined && !editorEvaluation.ok;
   /**
    * 共享外壳按**显示单位**做方向键步进：角度契约值是弧度，先换算为度
    *（与 `formatConstraintEditorValue` 的初值口径一致；W18 live）。
@@ -769,6 +820,8 @@ export function SketchDimensionEditor({
     ? clampDimensionEditorPosition(
         dragPosition ?? { left: dialogPlacement.left, top: dialogPlacement.top },
         viewportSize,
+        DIMENSION_EDITOR_VIEWPORT_MARGIN,
+        dialogWidth,
       )
     : null;
   /** 相对锚点包装元素的 CSS 偏移（包装元素 translateY(-50%)：client top = top − 13）。 */
@@ -824,6 +877,9 @@ export function SketchDimensionEditor({
               data-testid="sketch-dimension-label"
               data-constraint-id={constraintId ?? ''}
               data-center={`${label.center.x},${label.center.y}`}
+              // e2e/单测观测面：标签文本由 canvas 绘制，DOM 镜像原文（ADR-0020
+              // S2「显示表达式」开关断言用；不参与布局/绘制）。
+              data-text={label.text}
               data-selected={selected ? 'true' : 'false'}
               className="part-studio-dimension-marker"
               aria-hidden="true"
@@ -861,6 +917,8 @@ export function SketchDimensionEditor({
             rawValue={editorRawValue}
             unit={dimensionEditorUnit(editor.kind)}
             error={failed}
+            invalid={editorInvalid}
+            variables={variables}
             busy={committing}
             offset={dialogOffset}
             dragOrigin={visibleDialogPosition}

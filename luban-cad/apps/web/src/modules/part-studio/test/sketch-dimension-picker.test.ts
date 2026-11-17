@@ -159,6 +159,46 @@ describe('layoutDimensionEditorDialog（可见对话框 209×47 视口钳制）'
   });
 });
 
+// ── ADR-0020 S2 评审 P2：angle 紧凑变体（159 宽 / inputOffset 1）纯几何 ──────
+describe('layoutDimensionEditorDialog（angle 159×47 紧凑变体）', () => {
+  const viewport = { width: 1024, height: 768 };
+
+  it('未钳制：inputOffset=1 → offsetLeft=-1；输入框左缘/垂直中心仍贴锚点', () => {
+    const anchor = { x: 400, y: 300 };
+    const dialog = layoutDimensionEditorDialog({ anchor, viewport, width: 159, inputOffset: 1 });
+    expect(dialog.offsetLeft).toBe(-1);
+    expect(dialog.offsetTop).toBe(-13);
+    expect(dialog.left).toBe(anchor.x - 1);
+    expect(dialog.left + 1).toBe(anchor.x);
+    expect(dialog.top + 13 + DIMENSION_EDITOR_INPUT_HEIGHT / 2).toBe(anchor.y);
+  });
+
+  it('右边缘：按 159（不是 209）钳制在 [4, 视口−159−4]', () => {
+    const dialog = layoutDimensionEditorDialog({
+      anchor: { x: viewport.width + 100, y: 300 },
+      viewport,
+      width: 159,
+      inputOffset: 1,
+    });
+    expect(dialog.left).toBe(viewport.width - 159 - DIMENSION_EDITOR_VIEWPORT_MARGIN);
+    expect(dialog.left + 159).toBeLessThanOrEqual(viewport.width - DIMENSION_EDITOR_VIEWPORT_MARGIN);
+  });
+});
+
+describe('clampDimensionEditorPosition（拖拽位置 159 宽）', () => {
+  const viewport = { width: 1024, height: 768 };
+
+  it('右/下越界：按 159 宽与 47 高钳制到 4px 边距', () => {
+    expect(clampDimensionEditorPosition({ left: 5000, top: 5000 }, viewport, 4, 159)).toEqual({
+      left: viewport.width - 159 - DIMENSION_EDITOR_VIEWPORT_MARGIN,
+      top: viewport.height - DIMENSION_EDITOR_DIALOG_HEIGHT - DIMENSION_EDITOR_VIEWPORT_MARGIN,
+    });
+    // 视口内原样返回（宽度参数不影响合法位置）。
+    expect(clampDimensionEditorPosition({ left: 300, top: 200 }, viewport, 4, 159))
+      .toEqual({ left: 300, top: 200 });
+  });
+});
+
 describe('clampDimensionEditorPosition（拖拽位置 209×47 视口钳制）', () => {
   const viewport = { width: 1024, height: 768 };
 

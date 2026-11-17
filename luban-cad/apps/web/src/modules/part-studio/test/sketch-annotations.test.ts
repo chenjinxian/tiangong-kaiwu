@@ -223,6 +223,77 @@ describe('buildSketchDimensionAnnotations', () => {
   });
 });
 
+// ── ADR-0020 §2.6 D1（S2）：`显示表达式` 投影（缺省 true = 表达式原文）──────
+describe('buildSketchDimensionAnnotations：显示表达式开关', () => {
+  const lineEntities: SketchEntityDto[] = [
+    { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 20, y: 0 } },
+  ];
+
+  it('length：driving + expression → 原文（无单位/前缀）；关闭 → 既有数值格式', () => {
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'length', id: 300, refs: [1], value: 20, expression: '#width' },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(lineEntities, constraints))[0])
+      .toMatchObject({ text: '#width' });
+    expect(buildSketchDimensionAnnotations(sketch(lineEntities, constraints), { showExpressions: true })[0])
+      .toMatchObject({ text: '#width' });
+    expect(buildSketchDimensionAnnotations(sketch(lineEntities, constraints), { showExpressions: false })[0])
+      .toMatchObject({ text: '20' });
+  });
+
+  it('radius/diameter：表达式原文不附加 R/⌀；关闭显示既有前缀格式', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'circle', id: 4, center: { x: 10, y: 0 }, radius: 6 },
+      { kind: 'arc', id: 5, center: { x: 0, y: 0 }, radius: 7, startAngle: 0, sweepAngle: Math.PI / 2 },
+    ];
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'radius', id: 301, refs: [5], value: 7, expression: '#r' },
+      { kind: 'diameter', id: 302, refs: [4], value: 12, expression: '#d' },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints))
+      .map((annotation) => annotation.text)).toEqual(['#r', '#d']);
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints), { showExpressions: false })
+      .map((annotation) => annotation.text)).toEqual(['R7', '⌀12']);
+  });
+
+  it('angle：表达式原文不附加 °；关闭显示度数格式', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 4, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 0, y: 10 } },
+    ];
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'angle', id: 303, refs: [4, 5], value: Math.PI / 2, expression: '#ang' },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints))[0])
+      .toMatchObject({ text: '#ang' });
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints), { showExpressions: false })[0])
+      .toMatchObject({ text: '90°' });
+  });
+
+  it('driven 不受开关影响：始终显示当前几何实测值（表达式不覆盖）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 30, y: 0 } },
+    ];
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'length', id: 304, refs: [1], value: 20, expression: '#width', driven: true },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints), { showExpressions: true })[0])
+      .toMatchObject({ text: '30' });
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints), { showExpressions: false })[0])
+      .toMatchObject({ text: '30' });
+  });
+
+  it('无 expression：开关不影响（既有数值格式）', () => {
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'length', id: 305, refs: [1], value: 20 },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(lineEntities, constraints))[0])
+      .toMatchObject({ text: '20' });
+    expect(buildSketchDimensionAnnotations(sketch(lineEntities, constraints), { showExpressions: true })[0])
+      .toMatchObject({ text: '20' });
+  });
+});
+
 // ── W31-A（2026-11-17 从动/参考尺寸）：driven 标签显示当前几何测量值 ─────────
 describe('resolveDimensionLabelValue（driven 显示层投影）', () => {
   const lengthConstraint = (extra: Partial<SketchConstraintDto> = {}): SketchConstraintDto => ({

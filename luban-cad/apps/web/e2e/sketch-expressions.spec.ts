@@ -120,8 +120,10 @@ test.describe('ADR-0020 S1 草图表达式与 Part Studio 变量（真栈 RPC）
         variables: [{ id: 'v1', name: 'width', expression: '10' }],
       } as FeatureOp, lease, token);
       assertFeatureOpOk(result, '建变量表');
+      // S3a（2026-11-17）：后端 getVariables 读面恒返回具体 type（缺省 length），
+      // 属契约读面默认值，不是新增写入字段。
       expect(await getVariablesRpc(ctx, token)).toEqual([
-        { id: 'v1', name: 'width', expression: '10' },
+        { id: 'v1', name: 'width', expression: '10', type: 'length' },
       ]);
 
       // 3) 方形草图：宽/高尺寸均为 #width（value 仅求解初值）
@@ -205,7 +207,7 @@ test.describe('ADR-0020 S1 草图表达式与 Part Studio 变量（真栈 RPC）
       if (!result.ok)
         expect(result.error).toMatch(/循环|cycle/i);
       expect(await getVariablesRpc(ctx, token)).toEqual([
-        { id: 'v1', name: 'width', expression: '20' },
+        { id: 'v1', name: 'width', expression: '20', type: 'length' },
       ]);
 
       // 8) 未知变量表达式 → 显式拒收（零新增草图）

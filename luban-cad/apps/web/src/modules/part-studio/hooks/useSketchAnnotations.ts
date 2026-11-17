@@ -16,6 +16,7 @@ import type { SketchDto } from '@luban-cad/shared';
 import { SketchConstraintGlyphsDecoration, SketchDimensionsDecoration } from '@luban-cad/viewer';
 import type { SketchConstraintGlyphAnnotation, SketchDimensionAnnotation } from '@luban-cad/viewer';
 import { buildSketchDimensionAnnotations } from '../internal/sketch-annotations.js';
+import type { SketchDimensionAnnotationOptions } from '../internal/sketch-annotations.js';
 import { buildSketchConstraintGlyphs } from '../internal/sketch-constraint-glyphs.js';
 
 export interface UseSketchAnnotationsResult {
@@ -29,10 +30,13 @@ export function useSketchAnnotations(
   viewport: ScreenViewport | null | undefined,
   sketch: SketchDto | undefined,
   active: boolean,
+  options?: SketchDimensionAnnotationOptions,
 ): UseSketchAnnotationsResult {
+  // ADR-0020 §2.6 D1：showExpressions 是纯显示投影（默认 true）。
+  const showExpressions = options?.showExpressions;
   const annotations = useMemo<readonly SketchDimensionAnnotation[]>(
-    () => (active && sketch ? buildSketchDimensionAnnotations(sketch) : []),
-    [active, sketch],
+    () => (active && sketch ? buildSketchDimensionAnnotations(sketch, { showExpressions }) : []),
+    [active, sketch, showExpressions],
   );
   const glyphs = useMemo<readonly SketchConstraintGlyphAnnotation[]>(
     () => (active && sketch ? buildSketchConstraintGlyphs(sketch) : []),

@@ -104,6 +104,7 @@ import { useOnshapeMouseNavigation } from '../hooks/useOnshapeMouseNavigation.js
 import { clearRightDragMenuSuppression, consumeRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js';
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
+import { usePartStudioVariables } from '../hooks/usePartStudioVariables.js';
 import { resolveSketchStatusLength } from '../internal/sketch-status.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
@@ -231,6 +232,16 @@ export function PartStudioCanvas({
   // ADR-0018 S1g：草图「显示约束」开关 gate 尺寸标注 + 非尺寸 glyph 覆盖层。
   const showConstraintsForSketch = usePartStudioStore((s) => s.sketch.showConstraints ?? true);
   const setShowConstraints = usePartStudioStore((s) => s.setShowConstraints);
+  // ADR-0020 §2.6 D1：草图「显示表达式」开关 gate 尺寸标签的表达式原文投影。
+  const showExpressionsForSketch = usePartStudioStore((s) => s.sketch.showExpressions ?? true);
+  const setShowExpressions = usePartStudioStore((s) => s.setShowExpressions);
+  // ADR-0020 S2：Part Studio 变量表只读面（草图激活时读取；供表达式预校验/
+  // `#` 补全；不新建全局 store）。
+  const { variables: partStudioVariables } = usePartStudioVariables(
+    connection,
+    partStudioId,
+    sketchActiveForDecorations,
+  );
   // ADR-0018 S1c：拖拽预览（显示层覆盖）与释放提交（一次 updateSketch，可 undo）。
   const [sketchPreviewEntities, setSketchPreviewEntities] = React.useState<readonly SketchEntityDto[] | null>(null);
   React.useEffect(() => {
@@ -277,6 +288,7 @@ export function PartStudioCanvas({
     viewport,
     sketchSystem?.activeSketch,
     sketchActiveForDecorations && sketchSystem !== undefined && showConstraintsForSketch,
+    { showExpressions: showExpressionsForSketch },
   );
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
   /** 新建草图对话框的平面选择（三基准面 id / cPlane 特征 id / 模型面选择 id；关闭即清）。 */
@@ -1231,7 +1243,20 @@ export function PartStudioCanvas({
           overlayHitTestRef={sketchOverlayHitRef}
           dimensionLabelHitTestRef={sketchDimensionLabelHitRef}
           constraints={sketchSystem.activeSketch.constraints}
-          onCommit={async (constraintId, value) => {
+          variables={partStudioVariables}
+          onCommit={async (constraintId, value, expression) => {
+            // ADR-0020 §2.6 D3：表达式 → wholesale updateSketch（约束带
+            // expression；value 由后端权威覆盖）；纯数字仍走既有单值通道。
+            if (expression !== undefined) {
+              const sketch = sketchSystem.activeSketch;
+              if (!sketch)
+                return { ok: false, error: t('partStudio.sketch.system.notOpen') };
+              const constraints = sketch.constraints.map((constraint) => constraint.id === constraintId
+                ? { ...constraint, expression }
+                : constraint);
+              const result = await sketchSystem.applyUpdate(sketch.entities, constraints);
+              return result.ok ? { ok: true } : { ok: false, error: result.error };
+            }
             const result = await sketchSystem.applyConstraintValue(constraintId, value);
             return result.ok ? { ok: true } : { ok: false, error: result.error };
           }}
@@ -1330,7 +1355,9 @@ export function PartStudioCanvas({
 
       {/* Onshape：草图模式没有常驻「实体/约束/尺寸清单」面板。尺寸与偏移的
           值确认改为在标注/定侧位置弹出的浮层。 */}
-      {sketchActive && sketchSystem && <SketchValuePopup sketchSystem={sketchSystem} />}
+      {sketchActive && sketchSystem && (
+        <SketchValuePopup sketchSystem={sketchSystem} variables={partStudioVariables} />
+      )}
 
       {/* 2026-11-15 E4/S4b Onshape live：右下角草图状态读数（长度/半径 + 光标
           世界点）。仅在草图模式且活动草图就绪时渲染；无数据自隐。 */}
@@ -1551,6 +1578,8 @@ export function PartStudioCanvas({
           canEdit={canEdit}
           showConstraints={showConstraintsForSketch}
           onShowConstraintsChange={setShowConstraints}
+          showExpressions={showExpressionsForSketch}
+          onShowExpressionsChange={setShowExpressions}
           onConfirm={handleSketchConfirm}
           onCancel={handleSketchDialogCancel}
         />

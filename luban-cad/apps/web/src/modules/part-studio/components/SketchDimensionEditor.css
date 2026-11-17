@@ -39,6 +39,25 @@
   font: 13.3333px "Segoe UI", "Microsoft YaHei", sans-serif;
 }
 
+/* 角度紧凑变体（ADR-0020 §2.6 D2，live 2026-11-17）：可见 dragbar/panel 159px、
+   无展开器/参数状态切换键；高度不变（13 + 34）。 */
+.part-studio-dimension-editor-dialog--compact {
+  width: 159px;
+}
+
+.part-studio-dimension-editor-dialog--compact .part-studio-dimension-editor-dragbar {
+  width: 159px;
+}
+
+.part-studio-dimension-editor-dialog--compact .part-studio-dimension-editor-panel {
+  width: 159px;
+}
+
+/* 紧凑变体无展开器：输入框贴面板左缘 1px（与 AC 的 100×26 输入行一致）。 */
+.part-studio-dimension-editor-dialog--compact .part-studio-dimension-editor-field {
+  margin-left: 1px;
+}
+
 /* 拖拽条 209×13（live）：白底 + 1px #cccccc 边框（height 含边框）；整条可拖。 */
 .part-studio-dimension-editor-dragbar {
   box-sizing: border-box;
@@ -209,6 +228,48 @@
 .part-studio-dimension-editor-cancel:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* `#` 变量补全（ADR-0020 §2.6 D4）：内联渲染在输入框下方（字段 position:relative），
+   点选不夺走输入框焦点；无匹配时组件不渲染。 */
+.part-studio-sketch-expression-autocomplete {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #cccccc;
+  border-radius: 2px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.part-studio-sketch-expression-autocomplete__option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  color: #333333;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.part-studio-sketch-expression-autocomplete__option[data-highlighted='true'] {
+  background: #def1fb;
+}
+
+.part-studio-sketch-expression-autocomplete__fx {
+  color: #777777;
+}
+
+.part-studio-sketch-expression-autocomplete__value {
+  margin-left: auto;
+  color: #555555;
 }
 
 /* e2e/观测标记：不占布局、不拦截指针。 */

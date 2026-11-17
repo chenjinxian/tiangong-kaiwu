@@ -78,10 +78,22 @@ vi.mock('../hooks/useSketchCurveDecorations.js', () => ({
 // 宿主应置 undefined 而非继续下传回调）。
 const dimensionEditorProbe = vi.hoisted(() => ({
   onGlyphHover: null as ((entityIds: readonly number[]) => void) | null | undefined,
+  onCommit: null as
+    | ((constraintId: number, value: number, expression?: string) => void | Promise<{ ok: boolean; error?: string }>)
+    | null
+    | undefined,
+  variables: undefined as readonly unknown[] | undefined,
 }));
 vi.mock('../components/SketchDimensionEditor.js', () => ({
-  SketchDimensionEditor: (props: { onGlyphHover?: (entityIds: readonly number[]) => void }) => {
+  SketchDimensionEditor: (props: {
+    onGlyphHover?: (entityIds: readonly number[]) => void;
+    onCommit?: (constraintId: number, value: number, expression?: string)
+      => void | Promise<{ ok: boolean; error?: string }>;
+    variables?: readonly unknown[];
+  }) => {
     dimensionEditorProbe.onGlyphHover = props.onGlyphHover;
+    dimensionEditorProbe.onCommit = props.onCommit;
+    dimensionEditorProbe.variables = props.variables;
     return null;
   },
 }));
@@ -159,6 +171,7 @@ function renderCanvas(
     canEdit?: boolean;
     featureEntries?: readonly FeatureTreeEntry[];
     featureParams?: unknown;
+    sketchSystem?: UseSketchSystem;
   },
 ): void {
   render(
@@ -169,6 +182,7 @@ function renderCanvas(
       bodies={opts?.bodies}
       featureEntries={opts?.featureEntries}
       featureParams={opts?.featureParams}
+      sketchSystem={opts?.sketchSystem}
       canEdit={opts?.canEdit ?? true}
       connection={
         opts?.connection
@@ -472,6 +486,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
         },
         constructionMode: false,
         showConstraints: true,
+        showExpressions: true,
         pattern: null,
       }),
     );
@@ -503,6 +518,7 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
         },
         constructionMode: false,
         showConstraints: true,
+        showExpressions: true,
         pattern: null,
       }),
     );
@@ -1000,5 +1016,59 @@ describe('B6 M-A5.2：面/边删除宿主动作', () => {
       expect.objectContaining({ briefMessage: expect.stringContaining('内核拒收') }),
     ));
     expect(clearOnshapeSelectionMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── ADR-0020 S2：表达式标注投影 + onCommit 提交路径 ─────────────────────────
+describe('PartStudioCanvas ADR-0020 S2：显示表达式投影与提交', () => {
+  const sketchWithExpression: SketchDto = {
+    id: 'sk-a',
+    entities: [{ kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 20, y: 0 } }],
+    constraints: [{ kind: 'length', id: 2, refs: [1], value: 20, expression: '#width' }],
+    solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+  };
+
+  it('显示表达式开关切换标注 data-labels；表达式 → wholesale updateSketch；数字 → applyConstraintValue', async () => {
+    const system = {
+      activeSketch: sketchWithExpression,
+      loading: false,
+      applyUpdate: vi.fn(async () => ({ ok: true, featureId: 'sk-a' })),
+      applyConstraintValue: vi.fn(async () => ({ ok: true, featureId: 'sk-a' })),
+      refresh: vi.fn(async () => undefined),
+    } as unknown as UseSketchSystem;
+    renderCanvas(undefined, { sketchSystem: system });
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-a');
+    });
+    const annotations = screen.getByTestId('sketch-annotations');
+    await waitFor(() => expect(annotations.getAttribute('data-labels')).toBe('#width'));
+
+    // 关闭「显示表达式」→ 既有数值格式；重新打开 → 表达式原文。
+    act(() => {
+      usePartStudioStore.getState().setShowExpressions(false);
+    });
+    await waitFor(() => expect(annotations.getAttribute('data-labels')).toBe('20'));
+    act(() => {
+      usePartStudioStore.getState().setShowExpressions(true);
+    });
+    await waitFor(() => expect(annotations.getAttribute('data-labels')).toBe('#width'));
+
+    // 编辑器收到变量表（此宿主无连接 → 空表）。
+    expect(dimensionEditorProbe.variables).toEqual([]);
+
+    // 表达式提交：wholesale updateSketch（约束对象带 expression，保留旧 value）。
+    await act(async () => {
+      await dimensionEditorProbe.onCommit!(2, 20, '#width*2');
+    });
+    expect(system.applyUpdate).toHaveBeenCalledWith(sketchWithExpression.entities, [
+      { kind: 'length', id: 2, refs: [1], value: 20, expression: '#width*2' },
+    ]);
+    expect(system.applyConstraintValue).not.toHaveBeenCalled();
+
+    // 纯数字提交：既有单值通道（expression 缺省）。
+    await act(async () => {
+      await dimensionEditorProbe.onCommit!(2, 30);
+    });
+    expect(system.applyConstraintValue).toHaveBeenCalledWith(2, 30);
   });
 });

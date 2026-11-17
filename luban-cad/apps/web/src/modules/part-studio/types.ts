@@ -169,6 +169,12 @@ export interface PartStudioSketchState {
    */
   showConstraints?: boolean;
   /**
+   * ADR-0020 §2.6 D1：草图对话框「显示表达式」开关（live 默认勾选）。
+   * true 时 driving 且带 `expression` 的尺寸标签显示表达式原文；false 显示
+   * 求值后的数值格式。纯显示投影，不改 params；缺省 true。
+   */
+  showExpressions?: boolean;
+  /**
    * AIRR 2026-11-12：草图阵列会话（Onshape canvas gizmo）。null/缺省=未激活。
    * 激活期间画布由 SketchPatternGizmo 接管指针，SketchEntityPicker 只显示选择。
    */

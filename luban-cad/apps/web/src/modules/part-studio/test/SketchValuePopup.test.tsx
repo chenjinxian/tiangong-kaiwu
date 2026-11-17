@@ -439,15 +439,20 @@ describe('SketchValuePopup 角度候选（W22）', () => {
     expect(value).toBeCloseTo(Math.PI / 4, 12);
   });
 
-  it('角度 ≥360° / ≤0 / 非数值：就地错误、不提交（保持既有度校验）', async () => {
+  it('角度 ≥360° / ≤0 / 非数值：错误态 + ✓ 禁用、不提交（ADR-0020 live 无效态）', async () => {
     const system = fakeSystem();
     render(<SketchValuePopup sketchSystem={system} />);
     emitAngle({ measuredValue: 90 });
     const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
     for (const invalid of ['360', '0', '-5', 'abc', '']) {
       fireEvent.change(input, { target: { value: invalid } });
-      fireEvent.click(screen.getByTestId('sketch-value-confirm'));
-      expect(screen.getByTestId('sketch-value-error')).toBeDefined();
+      const confirm = screen.getByTestId('sketch-value-confirm') as HTMLButtonElement;
+      // ADR-0020 §2.6.5 live：无效（含语法/越界）→ ✓ 禁用、对话框保持打开。
+      expect(confirm.disabled, invalid).toBe(true);
+      expect(input.getAttribute('data-error'), invalid).toBe('true');
+      fireEvent.click(confirm);
+      // 评审 P3：空输入保留既有错误文案（invalidDimension），不静默无提示。
+      expect(screen.getByTestId('sketch-value-error'), invalid).toBeDefined();
       expect(system.applyUpdate).not.toHaveBeenCalled();
       expect(system.applyConstraintValue).not.toHaveBeenCalled();
       expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
@@ -612,5 +617,199 @@ describe('SketchValuePopup 事件契约（E1）', () => {
     const switchedAgain = fakeSystem({ activeSketch: { ...system.activeSketch!, id: 'sk-3' } });
     rerender(<SketchValuePopup sketchSystem={switchedAgain} />);
     expect(closed).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── ADR-0020 S2：尺寸值弹层表达式（wholesale updateSketch）──────────────────
+describe('SketchValuePopup 表达式（ADR-0020 S2）', () => {
+  const EXPRESSION_VARIABLES = [
+    { id: 'v1', name: 'width', expression: '10' },
+  ];
+
+  const closed = vi.fn();
+  let offClosed: (() => void) | undefined;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    offClosed = sketchToolEvents.on('dimensionPopupClosed', closed);
+  });
+
+  afterEach(() => {
+    offClosed?.();
+    offClosed = undefined;
+  });
+
+  it('新尺寸 + 表达式：约束带 expression（value = 求值数），走 applyUpdate', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} variables={EXPRESSION_VARIABLES} />);
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'length',
+        refs: [{ entity: 7, part: 'start' }],
+        entityIds: [7],
+        anchor: { x: 140, y: 120 },
+      });
+    });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#width*2' } });
+    expect((screen.getByTestId('sketch-value-confirm') as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(system.applyUpdate).toHaveBeenCalledTimes(1));
+    const constraints = (system.applyUpdate as ReturnType<typeof vi.fn>).mock.calls[0]![1] as SketchConstraintDto[];
+    expect(constraints).toHaveLength(1);
+    expect(constraints[0]).toMatchObject({
+      kind: 'length',
+      refs: [{ entity: 7, part: 'start' }],
+      value: 20,
+      expression: '#width*2',
+    });
+    expect(system.applyConstraintValue).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('既有尺寸 + 表达式：wholesale updateSketch 替换 expression（保留其它字段/值），不走 applyConstraintValue', async () => {
+    const system = fakeSystem({
+      activeSketch: {
+        id: 'sk-1',
+        entities: [{ kind: 'line', id: 7, p1: { x: 0, y: 0 }, p2: { x: 25, y: 0 } }],
+        constraints: [
+          { kind: 'length', id: 42, refs: [7], value: 25 },
+          { kind: 'horizontal', id: 43, refs: [7] },
+        ],
+        solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      },
+    });
+    render(<SketchValuePopup sketchSystem={system} variables={EXPRESSION_VARIABLES} />);
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'length',
+        refs: [7],
+        entityIds: [7],
+        anchor: { x: 140, y: 120 },
+        existingConstraintId: 42,
+        existingValue: 25,
+      });
+    });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#width*2' } });
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(system.applyUpdate).toHaveBeenCalledTimes(1));
+    const [entities, constraints] = (system.applyUpdate as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      SketchDto['entities'],
+      SketchConstraintDto[],
+    ];
+    expect(entities).toHaveLength(1);
+    expect(constraints).toHaveLength(2);
+    // value 保留旧值（后端权威求值覆盖），expression 设计意图落库。
+    expect(constraints[0]).toEqual({ kind: 'length', id: 42, refs: [7], value: 25, expression: '#width*2' });
+    expect(constraints[1]).toEqual({ kind: 'horizontal', id: 43, refs: [7] });
+    expect(system.applyConstraintValue).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+  });
+
+  it('无效表达式：错误消息 + ✓ 禁用、不提交、取消不落库', async () => {
+    const system = fakeSystem();
+    render(<SketchValuePopup sketchSystem={system} variables={EXPRESSION_VARIABLES} />);
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'length',
+        refs: [7],
+        entityIds: [7],
+        anchor: { x: 140, y: 120 },
+      });
+    });
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#nope' } });
+    const confirm = screen.getByTestId('sketch-value-confirm') as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    expect(input.getAttribute('data-error')).toBe('true');
+    const error = screen.getByTestId('sketch-value-error');
+    expect(error.textContent).toContain('未知变量');
+    fireEvent.click(confirm);
+    expect(system.applyUpdate).not.toHaveBeenCalled();
+    expect(system.applyConstraintValue).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sketch-value-popup')).toBeDefined();
+    fireEvent.click(screen.getByTestId('sketch-value-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('角度紧凑宽度：159 → 半宽 79.5（放置中心规则保持），无展开器/状态键', () => {
+    expect(centerValuePopupPosition({ x: 735, y: 281 }, 159)).toEqual({ left: 655.5, top: 250 });
+    render(<SketchValuePopup sketchSystem={fakeSystem()} />);
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'angle',
+        refs: [1, 2],
+        entityIds: [1, 2],
+        anchor: { x: 140, y: 120 },
+        measuredValue: 90,
+      });
+    });
+    const popup = screen.getByTestId('sketch-value-popup') as HTMLElement;
+    expect(popup.style.left).toBe('60.5px');
+    expect(popup.classList.contains('part-studio-dimension-editor-dialog--compact')).toBe(true);
+    expect(screen.queryByTestId('sketch-value-expander')).toBeNull();
+    expect(screen.queryByTestId('sketch-value-state-toggle')).toBeNull();
+    expect(screen.getByTestId('sketch-value-unit').textContent).toBe('deg');
+  });
+});
+
+// ── 2026-11-17 评审 P1：既有表达式尺寸的打开/确认不丢 expression ──────────────
+describe('SketchValuePopup 既有表达式（评审 P1）', () => {
+  const VARIABLES = [{ id: 'v1', name: 'width', expression: '10' }];
+  const expressionSketch: SketchDto = {
+    id: 'sk-1',
+    entities: [{ kind: 'line', id: 7, p1: { x: 0, y: 0 }, p2: { x: 25, y: 0 } }],
+    constraints: [
+      { kind: 'length', id: 42, refs: [7], value: 25, expression: '#width*2' },
+      { kind: 'horizontal', id: 43, refs: [7] },
+    ],
+    solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+  };
+
+  function renderExisting(): { system: UseSketchSystem } {
+    const system = fakeSystem({ activeSketch: expressionSketch });
+    render(<SketchValuePopup sketchSystem={system} variables={VARIABLES} />);
+    act(() => {
+      sketchToolEvents.emit('dimensionCandidate', {
+        kind: 'length',
+        refs: [7],
+        entityIds: [7],
+        anchor: { x: 140, y: 120 },
+        existingConstraintId: 42,
+        existingValue: 25,
+      });
+    });
+    return { system };
+  }
+
+  it('预填表达式原文；不改直接确认 → wholesale updateSketch 保留 expression（不调 applyConstraintValue）', async () => {
+    const { system } = renderExisting();
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('#width*2');
+
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(system.applyUpdate).toHaveBeenCalledTimes(1));
+    const [entities, constraints] = (system.applyUpdate as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      SketchDto['entities'],
+      SketchConstraintDto[],
+    ];
+    expect(entities).toHaveLength(1);
+    expect(constraints).toEqual(expressionSketch.constraints);
+    expect(system.applyConstraintValue).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId('sketch-value-popup')).toBeNull());
+  });
+
+  it('既有表达式尺寸改成纯数字 → 走 applyConstraintValue（数值编辑覆盖表达式意图）', async () => {
+    const { system } = renderExisting();
+    const input = screen.getByTestId('sketch-value-input') as HTMLInputElement;
+    expect(input.value).toBe('#width*2');
+    fireEvent.change(input, { target: { value: '30' } });
+    fireEvent.click(screen.getByTestId('sketch-value-confirm'));
+    await waitFor(() => expect(system.applyConstraintValue).toHaveBeenCalledTimes(1));
+    expect((system.applyConstraintValue as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([42, 30]);
+    expect(system.applyUpdate).not.toHaveBeenCalled();
   });
 });
