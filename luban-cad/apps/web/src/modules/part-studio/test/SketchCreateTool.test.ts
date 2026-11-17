@@ -73,6 +73,8 @@ import type {
   SketchToolPointLabel,
 } from '../tools/sketch/sketch-tool-feedback.js';
 import type { SketchPoint2 } from '../tools/sketch/sketch-plane.js';
+import { sketchPointLabelCenter } from '../tools/sketch/sketch-edge-labels.js';
+import { formatSketchLiveNumber } from '../tools/sketch/sketch-live-measures.js';
 import {
   SketchArc3PointTool,
   SketchCenterArcTool,
@@ -813,6 +815,133 @@ describe('W25：圆心圆弧 R 半径点标签（drawLabels 发布）', () => {
     expect(feedback.drawLabels).toBeUndefined();
     expect(feedback.measures[0]?.labelKey).toBe('partStudio.sketch.live.radius');
     expect(feedback.measures[0]?.value).toBe('5');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-11-17 W31-B Onshape live：3 点圆（周边圆）Ø 直径点标签（工具发布面）
+// 前两点已锚、光标为第三点候选：直径=2×预览圆半径，锚点=预览圆圆心与第一个
+// 已点点的投屏中点（live：与光标角度无关、跟随预览圆而非光标）。假视口恒等
+// 投影：1 局部单位 = 1 CSS px。
+// ---------------------------------------------------------------------------
+describe('W31-B：3 点圆 Ø 直径点标签（drawLabels 发布）', () => {
+  afterEach(() => {
+    clearSketchToolFeedback();
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = undefined;
+  });
+
+  const installViewport = (): void => {
+    (IModelApp.viewManager as unknown as { selectedView: unknown }).selectedView = fakeViewport;
+  };
+
+  it('第一点(0,0)/第二点(10,0)/光标(5,5) → Ø 标签落在圆心(5,0)与第一点投屏中点，直径=2×半径', async () => {
+    installViewport();
+    const feedback = await driveThreePointTool(
+      new SketchPerimeterCircleTool(),
+      { u: 0, v: 0 },
+      { u: 10, v: 0 },
+      { u: 5, v: 5 },
+    );
+
+    // 半径 measure 原样保留（其它消费方/白卡片回退不变）。
+    expect(feedback.measures).toEqual([
+      { labelKey: 'partStudio.sketch.live.radius', value: '5' },
+    ]);
+    const label = feedback.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(label?.kind).toBe('point');
+    expect(label?.labelKey).toBe('partStudio.sketch.live.diameter');
+    expect(label?.prefix).toBe('Ø');
+    expect(label?.value).toBe('10'); // 2×5
+    expect(label?.value).toBe(formatSketchLiveNumber(2 * 5));
+    // 白卡片配对：直径点标签替代阶段 2 的半径读数。
+    expect(label?.suppressesLabelKeys).toEqual(['partStudio.sketch.live.radius']);
+    // 预览圆圆心 (5,0)、第一个已点点 (0,0)；标签中心 = 两点投屏中点。
+    expect(label?.point).toEqual({ x: 2.5, y: 0 });
+    expect(label?.point).toEqual(sketchPointLabelCenter({ x: 5, y: 0 }, { x: 0, y: 0 }));
+  });
+
+  it('光标换到同一预览圆另一侧 (5,-5)：读数/锚点不变（跟随预览圆，不跟随光标）', async () => {
+    installViewport();
+    const tool = new SketchPerimeterCircleTool();
+    await tool.onPostInstall();
+    await tool.onDataButtonDown(makeEvent(0, 0));
+    await tool.onDataButtonDown(makeEvent(10, 0));
+    await tool.onMouseMotion(makeEvent(5, 5));
+    const first = getSketchToolFeedback();
+    if (!first) throw new Error('工具未发布反馈');
+
+    // (0,0)/(10,0)/(5,−5) 同样过圆心 (5,0)、半径 5 的圆——光标角度不同，
+    // live 8 个光标角实测标签锚点/读数不变。
+    await tool.onMouseMotion(makeEvent(5, -5));
+    const second = getSketchToolFeedback();
+    if (!second) throw new Error('工具未发布反馈');
+
+    expect(second.measures).toEqual(first.measures);
+    const firstLabel = first.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    const secondLabel = second.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(secondLabel?.kind).toBe('point');
+    expect(secondLabel?.value).toBe('10');
+    expect(secondLabel?.value).toBe(firstLabel?.value);
+    expect(secondLabel?.point).toEqual({ x: 2.5, y: 0 });
+    expect(secondLabel?.point).toEqual(firstLabel?.point);
+  });
+
+  it('光标 (0,10) → 圆心 (5,5)、直径 14.14（√50×2），锚点=圆心与第一点投屏中点', async () => {
+    installViewport();
+    const feedback = await driveThreePointTool(
+      new SketchPerimeterCircleTool(),
+      { u: 0, v: 0 },
+      { u: 10, v: 0 },
+      { u: 0, v: 10 },
+    );
+
+    const label = feedback.drawLabels?.[0] as SketchToolPointLabel | undefined;
+    expect(label?.kind).toBe('point');
+    expect(label?.labelKey).toBe('partStudio.sketch.live.diameter');
+    expect(label?.prefix).toBe('Ø');
+    expect(label?.value).toBe('14.14'); // 2×√50=14.142…，两位去尾零
+    expect(label?.suppressesLabelKeys).toEqual(['partStudio.sketch.live.radius']);
+    // 预览圆圆心 (5,5)、第一个已点点 (0,0)。
+    expect(label?.point).toEqual({ x: 2.5, y: 2.5 });
+  });
+
+  it('阶段 1（仅第一点）：不发点标签，保持既有长度白卡片（live 未采，产品现状不变）', async () => {
+    installViewport();
+    const feedback = await driveCreateTool(
+      new SketchPerimeterCircleTool(),
+      { u: 10, v: 10 },
+      { u: 13, v: 14 },
+    );
+
+    expect(feedback.measures).toEqual([
+      { labelKey: 'partStudio.sketch.live.length', value: '5' },
+    ]);
+    expect(feedback.drawLabels).toBeUndefined();
+  });
+
+  it('共线第三点候选：无半径 measure → 不发标签，保持既有回退', async () => {
+    installViewport();
+    const feedback = await driveThreePointTool(
+      new SketchPerimeterCircleTool(),
+      { u: 0, v: 0 },
+      { u: 10, v: 0 },
+      { u: 20, v: 0 },
+    );
+
+    expect(feedback.measures).toEqual([]);
+    expect(feedback.drawLabels).toBeUndefined();
+  });
+
+  it('无视口：不发点标签（交给白卡片），不抛错', async () => {
+    const feedback = await driveThreePointTool(
+      new SketchPerimeterCircleTool(),
+      { u: 0, v: 0 },
+      { u: 10, v: 0 },
+      { u: 5, v: 5 },
+    );
+
+    expect(feedback.drawLabels).toBeUndefined();
+    expect(feedback.measures[0]).toEqual({ labelKey: 'partStudio.sketch.live.radius', value: '5' });
   });
 });
 

@@ -26,7 +26,9 @@
  *   三点圆弧半径（`R` 点标签，落在弧角向中点外侧）；2026-11-16 W16 多边形
  *   （内切/外切）复用圆心半径段的同一 `Ø` 点标签（边数输入不改变读数）；
  *   2026-11-17 W25 圆心圆弧半径（`R` 点标签，阶段 1 落在圆心→光标段中点、
- *   阶段 2 固定落在圆心→起点段中点，扫角光标不移动标签）。
+ *   阶段 2 固定落在圆心→起点段中点，扫角光标不移动标签）；2026-11-17 W31-B
+ *   3 点圆（周边圆）直径（`Ø` 点标签，前两点已锚、光标为第三点候选时落在
+ *   预览圆圆心与第一个已点点的投屏中点，与光标角度无关）。
  *   提交后的常驻尺寸标注由 SketchDimensionsDecoration 绘制。
  * - 橡皮筋/构造线：**Dynamics 通道**（PrimitiveTool 标准预览生命周期，
  *   Tool.ts:673-680）——onDynamicFrame 同时绘制工作预览与 editor SketchTools
@@ -478,7 +480,10 @@ export abstract class SketchCreateTool extends PrimitiveTool {
    *   中点（fraction 0.5）沿「圆心→中点」方向外移（水平、无白卡片）；
    * - 圆心圆弧（live 2026-11-17）：`R` 半径点标签落在圆心→半径段的投影
    *   中点——阶段 1 半径点=光标（随光标），阶段 2 半径点=起点（固定，扫角
-   *   光标不移动标签/不改读数；live 无角度卡）。
+   *   光标不移动标签/不改读数；live 无角度卡）；
+   * - 3 点圆/周边圆（live 2026-11-17 W31-B）：前两点已锚、光标为第三点候选
+   *   时 `Ø` 直径点标签落在预览圆圆心与第一个已点点的投屏中点（屏幕空间
+   *   线性中点，与光标角度无关；读数跟随预览圆而非光标）。
    * 边段/点在草图局部坐标给出，经 `_plane.toWorld` + 视口 `worldToView`
    * 投影——与 `_cursorView` 同一坐标空间，不新增第二条投影路径。
    * 非上述工具（含对齐矩形/中点线）/无锚点/无光标/无尺寸/无视口 → undefined
@@ -596,6 +601,33 @@ export abstract class SketchCreateTool extends PrimitiveTool {
         value: radiusMeasure.value,
         point: sketchPointLabelCenter(project(anchor), project(radiusPoint)),
         prefix: 'R',
+      }];
+    }
+
+    if (this.sketchKind === 'perimeterCircle') {
+      // 2026-11-17 W31-B Onshape live（3 点圆/周边圆）：前两点已锚、光标为第三点
+      // 候选时，画布显示水平蓝色 `Ø<直径>`（最多两位去尾零），**锚点=预览圆圆
+      // 心与第一个已点点的投屏中点**（屏幕空间线性中点，与光标角度无关；读数
+      // 跟随预览圆圆心/半径变化，不跟随光标）。阶段 1（仅第一点）live 读数未
+      // 采，保持产品现状（此处不发标签，白卡片回退）。共线/任两点重合
+      // （tryWorldArc3Point undefined）同样不发标签。live 在既有几何密集区
+      // 偶见的读数外移是未解明的避让分支，未实现（残留登记）。
+      const second = this._anchors[1];
+      const radiusMeasure = measures[0];
+      if (!second || radiusMeasure?.labelKey !== 'partStudio.sketch.live.radius') return undefined;
+      // 与预览 `_circleFrom3Points(第一点, 第二点, 光标)` 同一几何（不另写构造）。
+      const worldArc = this.tryWorldArc3Point(anchor, second, cursor);
+      if (!worldArc) return undefined;
+      const radius = worldArc.vector0.magnitude();
+      if (!(radius > 1e-12)) return undefined;
+      return [{
+        kind: 'point',
+        labelKey: 'partStudio.sketch.live.diameter',
+        // 白卡片抑制配对：直径点标签替代阶段 2 的半径读数（live 同帧无白卡）。
+        suppressesLabelKeys: [radiusMeasure.labelKey],
+        value: formatSketchLiveNumber(2 * radius),
+        point: sketchPointLabelCenter(project(anchor), projectWorld(worldArc.center)),
+        prefix: 'Ø',
       }];
     }
 

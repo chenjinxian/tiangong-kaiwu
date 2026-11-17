@@ -12,7 +12,9 @@
  * - 圆心圆弧（W25）：阶段 1 `R` 半径点标签落在圆心→光标段中点；阶段 2
  *   （起点已锚）固定在圆心→起点中点、扫角光标不移动/不改值，无角度白卡。
  * - 相切圆弧（W28）：切点选定后移动光标，`R` 半径点标签水平落在
- *   「切点→弧终点（光标）」弦的投影中点，随光标移动并更新读数。
+ *   「切点→弧终点（光标）」弦的投影中点，随光标移动并更新读数；
+ * - 3 点圆（W31-B）：前两点已点、移动光标定第三点时 `Ø` 直径点标签水平落在
+ *   **预览圆圆心与第一个已点点的投屏中点**（与光标角度无关，跟随预览圆）。
  * 除 W28 先提交一条直线作切点基线外，其余工具 Esc 退出、取消草图 = 不提交几何。
  */
 import { expect, test } from '@playwright/test';
@@ -280,6 +282,80 @@ test.describe('草图绘制画布读数（E6/S5 + W12 + W15 + W16 + W25 + W28）
     await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
     await page.keyboard.press('Escape');
     await expectToolExited(page, 'Sketch.TangentArc');
+
+    // ── W31-B 3 点圆（周边圆）：Ø 直径点标签落在预览圆圆心与第一点投屏中点 ──
+    // live 2026-11-17：前两点已点、移动光标定第三点时显示水平 `Ø<直径>`（无
+    // 白卡），锚点=预览圆圆心与第一个已点点的屏幕空间线性中点，与光标角度
+    // 无关；读数跟随预览圆（圆心/半径）而非光标。先落 P(0,0)/P(10,0)，光标
+    // P(5,5) → 过三点圆圆心 P(5,0)、r=5 → 直径 10 mm（数值容差见下）。
+    const [circleCenter1, circleP1] = await projectWorld(page, hub, [P(5, 0), P(0, 0)]);
+    const circleAnchor1 = midpointOf(circleCenter1!, circleP1!);
+
+    await activate(page, '3 点圆');
+    await clickWorld(page, hub, P(0, 0));
+    await clickWorld(page, hub, P(10, 0));
+    await hoverWorld(page, hub, P(5, 5));
+    const perimeterDiameter = page.getByTestId('sketch-draw-point-label-diameter');
+    await expect(perimeterDiameter, '3 点圆第三点候选应有 Ø 直径读数')
+      .toBeVisible({ timeout: 10_000 });
+    /** Ø 读数 → 数值（容错解析：非 Ø/空文本返回 NaN；轮询回调内不断言）。 */
+    const parseDiameterMm = async (label: Locator): Promise<number> => {
+      const text = (await label.textContent())?.trim() ?? '';
+      return text.startsWith('Ø') ? Number(text.slice('Ø'.length)) : Number.NaN;
+    };
+    // Ø 前缀只断言一次（放在轮询之外——回调内断言会中断重试而非等待）。
+    const perimeterPrefixText = (await perimeterDiameter.textContent())?.trim() ?? '';
+    expect(perimeterPrefixText.startsWith('Ø'), `直径读数应以 Ø 开头：${perimeterPrefixText}`)
+      .toBe(true);
+    /**
+     * 轮询解析后的 Ø 数值进入期望区间（与相邻 W12/W25/W28 同口径：真实栈
+     * 鼠标落点有亚毫米差，用容差；三个期望值互不相交）。失败时 Playwright
+     * 报告观测到的数值，而非笼统的布尔 false。
+     */
+    const expectDiameterAround = async (expected: number, tolerance: number): Promise<void> => {
+      await expect.poll(() => parseDiameterMm(perimeterDiameter), { timeout: 10_000 })
+        .toBeGreaterThan(expected - tolerance);
+      await expect.poll(() => parseDiameterMm(perimeterDiameter), { timeout: 10_000 })
+        .toBeLessThan(expected + tolerance);
+    };
+    await expectDiameterAround(10, 0.5);
+    // 点标签水平不旋转（只有居中平移）。
+    expect(await perimeterDiameter.getAttribute('style')).not.toContain('rotate');
+    // 标签中心 = 预览圆圆心/第一点投影中点（±2 px，吸收画布/文字包围盒取整）。
+    await expect.poll(async () => {
+      const center = await labelCenter(perimeterDiameter);
+      return Math.max(Math.abs(center.x - circleAnchor1.x), Math.abs(center.y - circleAnchor1.y));
+    }, { timeout: 10_000 }).toBeLessThanOrEqual(2);
+    // 直径读数已由 Ø 点标签替代 → 无白卡片；阶段提示 pill 保留。
+    await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
+    await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
+
+    // 光标 P(0,10)：过三点圆圆心 P(5,5)、r=√50 → 直径 14.14；
+    // 锚点 = 圆心与第一个点的投屏中点（标签跟随预览圆，不跟随光标）。
+    const [circleCenter2] = await projectWorld(page, hub, [P(5, 5)]);
+    const circleAnchor2 = midpointOf(circleCenter2!, circleP1!);
+    await hoverWorld(page, hub, P(0, 10));
+    await expectDiameterAround(14.14, 0.7);
+    await expect.poll(async () => {
+      const center = await labelCenter(perimeterDiameter);
+      return Math.max(Math.abs(center.x - circleAnchor2.x), Math.abs(center.y - circleAnchor2.y));
+    }, { timeout: 10_000 }).toBeLessThanOrEqual(2);
+
+    // 再换光标 P(5,10)：预览圆变心 P(5,3.75)、r=6.25 → 直径 12.5，
+    // 读数/锚点继续跟随预览圆。
+    const [circleCenter3] = await projectWorld(page, hub, [P(5, 3.75)]);
+    const circleAnchor3 = midpointOf(circleCenter3!, circleP1!);
+    await hoverWorld(page, hub, P(5, 10));
+    await expectDiameterAround(12.5, 0.6);
+    await expect.poll(async () => {
+      const center = await labelCenter(perimeterDiameter);
+      return Math.max(Math.abs(center.x - circleAnchor3.x), Math.abs(center.y - circleAnchor3.y));
+    }, { timeout: 10_000 }).toBeLessThanOrEqual(2);
+    await expect(page.getByTestId('sketch-tool-feedback')).toHaveCount(0);
+    await expect(page.getByTestId('sketch-tool-hint')).toBeVisible();
+    // 读数段只 hover 不提交；Esc 退出工具（草图不退出——后续段落继续使用对话框）。
+    await page.keyboard.press('Escape');
+    await expectToolExited(page, 'Sketch.PerimeterCircle');
 
     // ── W16 内切多边形：与中心点圆同一圆心→光标半径状态的 Ø 直径点标签 ──
     // 圆心 P(0,0)、光标 P(10,0) → 半径 10 mm；live 2026-11-16（内切多边形）
