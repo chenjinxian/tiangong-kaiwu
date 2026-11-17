@@ -23,6 +23,7 @@ import type {
   FeatureTreeEntry,
   PartStudioInfo,
   SketchDto,
+  VariableDto,
 } from '@luban-cad/shared';
 import {
   B_SEED_IMODEL_NAME,
@@ -964,6 +965,21 @@ export async function getSketchRpc(
     [ctx.dbKey, sketchId, scopeId],
     accessToken,
   )) as SketchDto | undefined;
+}
+
+/** 带 scope 的 Part Studio 变量表读面（ADR-0020 S1；旧库/无元素返回 []）。 */
+export async function getVariablesRpc(
+  ctx: BSeedEditorContext,
+  accessToken: string,
+  scopeId: string = ctx.scopeId,
+): Promise<VariableDto[]> {
+  return (await msRpc(
+    ctx.itwinId,
+    ctx.imodelId,
+    'getVariables',
+    [ctx.dbKey, scopeId],
+    accessToken,
+  )) as VariableDto[];
 }
 
 // ============================================================================
