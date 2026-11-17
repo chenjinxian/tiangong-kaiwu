@@ -245,3 +245,21 @@ preview）用变量表 + shared 求值器物化，错误零变更；`updateVaria
   提交载荷/编辑保留/非 blind 清除、无效态禁用、本地预览；真栈 e2e（变量驱动拉伸体积、
   改变量重算、原生单次 undo/redo、push+冷重开）+ 回归 `tutorial2`/extrude specs。
 - **不发布**（release/publish 未授权）。
+
+### §11.1 S4a/S4b 实施与验证结果（2026-11-18）
+
+- **S4a（shared 1.73 + 私有后端）**：`ExtrudeParams.distanceExpression?`（blind
+  only；`distance` 物化快照）、`MAX_EXPRESSION_LENGTH` 单一来源；后端写/预览物化、
+  类型门、updateVariables `featureChanges` + 同事务写回 + 可选 oplog 字段 + 原生
+  undo 分组、旧 payload 兼容、抑制特征传播、冷重开只消费物化值（FeatureEngine 不改）。
+  测试：shared **286/286**；backend targeted **106/106**、全量 **1024 passed/1
+  expected fail/8 skipped**；tsc 绿。
+- **S4b（web）**：FeatureDialog 深度表达式（聚焦表达式/失焦值、# 补全 + 内联创建、
+  本地类型门、无效态/预览、payload/编辑保留/非 blind 清除、遗留布尔距离行 gating）；
+  testids/data-depth-expression 等可观测面。测试：web **2412/2412**、lint/tsc(src+e2e)
+  绿；真栈 `feature-expression-ui` **2 passed（54.8 s）**——1000/500/1000 mm³、原生
+  Undo/Redo、聚焦/失焦、无效无预览、非 blind、symmetric、push+冷重开；回归
+  feature-flow-parity/extrude-second-direction/extrude-thin-wall/tutorial2 **8 passed**。
+- **残**：内联创建面板真栈未单独覆盖（单测覆盖）；evaluator/类型错误中文直出；
+  布尔旧距离行不开放表达式（gating）；自动补全无视口夹紧；S4a 只支持拉伸盲孔深度。
+- **发布**：shared 1.73 → backend → web 同批；**未发布**（release/publish 未授权）。

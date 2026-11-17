@@ -325,6 +325,23 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   live 未采（可逆推断/诚实禁用）、组内 Undo 拒绝时 UI 静默 no-op（重建完成后重试）、
   push 后 undo 不可用（既有策略）、变量值字段尚无 `#` 补全、Ribbon 变量命令未进
   command palette、变量行与特征行选中未统一、变量菜单无视口夹紧。
+- **W34 S4a/S4b 拉伸深度表达式（2026-11-18，shared 1.73 / 私有后端 / web；ADR-0020）**：
+  `ExtrudeParams.distanceExpression?`（仅 blind；`distance` 保持必填物化快照）；
+  后端写/预览边界用变量表 + shared 求值器物化（类型 length/number/any、错误零变更、
+  无表达式不读变量表），`updateVariables` 扫含表达式特征、同事务写回 params +
+  可选 oplog `featureChanges` + 原生 undo 分组/旧 payload 兼容，抑制特征同样传播，
+  冷重开只消费物化值（FeatureEngine 不改）；web 深度字段聚焦显示表达式/失焦显示
+  值+mm、`#` 补全 + 内联创建复用 S2/S3b、本地类型门与后端一致、无效禁用提交与
+  预览、payload `{distance,distanceExpression}`、未触碰保留/数值或非 blind 清除、
+  遗留布尔距离行 gating。验证：shared **286/286**；backend targeted **106/106**、
+  全量 **1024 passed/1 expected fail/8 skipped**；web **2412/2412**、lint/tsc
+  (src+e2e) 绿；真栈 `feature-expression-ui` **2 passed**（`#depth*2` → **1000 mm³**
+  → `#depth` **500** → 变量 5→10 **1000** → 原生 Undo/Redo、聚焦/失焦、无效无预览、
+  非 blind、symmetric、push+冷重开）；回归 feature-flow-parity/extrude-second-
+  direction/extrude-thin-wall/tutorial2 **8 passed（357.730 cm³ 不变）**。**未发布**
+  （shared→backend→web 同批待下一次）。残：仅拉伸盲孔深度；内联创建面板真栈未单独
+  覆盖（单测覆盖）；evaluator/类型错误中文直出；布尔旧距离行不开放表达式；自动
+  补全无视口夹紧；live 有序变量可见性未匹配（本产品全变量可见，登记为超集）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

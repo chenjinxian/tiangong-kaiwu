@@ -312,6 +312,21 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
   history 路径）、重建失败仍提交变量并报错、IPC 分组计数修复 init 安全、组内
   撤销拒绝。残：组内 Undo 为拒绝（Tool 吞状态，UI 静默 no-op，重建完成后可重试）；
   push 后 undo 不可用（既有 push 策略）。**D1 标签形态仍为 live 未采的可逆推断**。
+- **S4a 后端实测（2026-11-18）**：shared **286/286**；backend targeted **106/106**、
+  全量 **1024 passed/1 expected fail/8 skipped**；tsc 绿。覆盖：schema blind-only、
+  字面量/`#var`/类型门（length/number/any，angle 拒收）、错误优先级与零变更、
+  insert/update/preview 物化、numeric↔expression、updateVariables 传播（多特征、
+  抑制特征、陈旧快照自愈）、原生与 FeatureOp undo/redo、旧 oplog 无
+  `featureChanges` 兼容、scoped 隔离、冷重开、表单字段一致性。
+- **S4b 前端实测（2026-11-18）**：web **2412/2412**、lint/tsc(src+e2e) 绿；真栈
+  `feature-expression-ui` **2 passed（54.8 s）**：`#depth*2` → **1000 mm³** →
+  编辑 `#depth` → **500** → 变量 5→10 → **1000** → 原生 Ribbon Undo/Redo 一次
+  500/1000；聚焦显示表达式、失焦显示求值值；无效表达式无预览且禁用提交；非 blind
+  终止条件清除表达式；symmetric + 表达式质心/撤销；push+冷重开保持。回归
+  `feature-flow-parity` 2、`extrude-second-direction` 2、`extrude-thin-wall` 2、
+  `tutorial2` 2（357.730 cm³）。残：内联创建面板真栈未单独覆盖（单测覆盖）、
+  类型门/evaluator 错误中文直出、布尔旧距离行不开放表达式（gating）、自动补全
+  未做视口夹紧。
 
 ## 5. 回滚
 
