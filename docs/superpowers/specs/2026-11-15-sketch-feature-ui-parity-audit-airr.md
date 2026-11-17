@@ -973,3 +973,67 @@ DOM 行序与 live 一致（圆角：字段→切向延伸→测量→控制→�
   gated 特征族（拔模/加厚/筋/框架/钣金等，随 AIRR/ADR 排队）。
 - 结论：证据可支撑的草图/特征 UI 细节已对齐并通过组合真栈回归；其余为
   契约/内核/能力缺口，不得以 UI 假实现。
+
+### 2026-11-17 W31-A 驱动/从动（参考）尺寸前端接线
+
+- 目的：把 shared/backend 已建模的 `SketchConstraintDto.driven` 接到草图 UI——
+  尺寸标签右键菜单首行切换、driven 只读、driven 标签显示当前几何实测值。
+- live（2026-11-17，私有 `ui-evidence/probe-20261117/w31-driven-*`、`w31-clean-*`）：
+  - 菜单首行是状态切换且 enabled：当前 driven →「更改为驱动尺寸」，否则
+    「更改为从动尺寸」；点击立即切换、再次右键文案翻转；
+  - 双击 driving 尺寸 → 既有 209×47 编辑器（输入初值 25.98062 mm）；双击
+    driven → 无任何反应；尺寸工具点 driven 尺寸无改值框；
+  - driven 标签外观与普通尺寸一致（#424242、无括号/前缀）；切到 driving 后
+    的红色是过约束错误态（`has-regen-error`），不是驱动/从动配色；
+  - live Ctrl+Z 可回退切换。
+- 实现：
+  - `SketchEntityPicker` 首行动态文案/可点条件（canEdit + 宿主回调 + 约束
+    存在），点击回调宿主 `(constraintId, nextDriven)`；
+  - `withConstraintDriven` 纯函数生成载荷：保序/保 id/refs/value，driven=true
+    写键、false 删键（与 shared/ScenarioReplay「仅 true 携带」一致）；宿主走
+    既有 wholesale `updateSketch`，失败不改本地状态，错误经既有表面透出；
+  - `sketch-annotations` 对 driven 标签用当前几何实测值（length/distance/
+    radius/diameter/angle），不可测回退存储值；angle 用标注自身弧射线
+    （vertex→fartherEndpoint）的 0–180° 口径，钝角不被锐角补角化；
+  - `SketchDimensionEditor` 双击命中 driven 直接返回（不打开编辑器、不额外
+    改选中）；尺寸工具匹配器继续排除 driven（单测加固）；
+  - i18n 新增 `dimensionMenuChangeToDriven`；en 旧键改为「Change to driving
+    dimension」（原 en 文案有语义错，两个状态会显示同一句）。
+- 验证：全量 web 单测 **2249/2249（150 files）**；tsc(src+e2e)/eslint 绿；
+  真栈新 `sketch-driven-dimension` **2 passed（1.1 min，修复后复跑 2 passed
+  /49.5 s）**、`sketch-dimension-edit` + `sketch-draw-readout` **5 passed
+  （2.9 min）**；`sketch-perimeter-circle` + `tutorial2` 严格 **3 passed
+  （5.3 min，含 4.3 min 全链，体积不变）**。
+- 残留/差异（如实登记）：
+  - 切换撤销：产品 wholesale updateSketch 为 E-5 非 invertible（undo 报
+    「无可撤销」），未新增第二套撤销；
+  - 过约束：后端求解门禁拒收过约束草图，live 允许并显示错误态——不绕门禁，
+    失败保持切换前状态；
+  - driven 标签「随几何变化」为显示层投影（live 拖拽值跟踪未采到证据）；
+  - driven 角度按标注射线口径（0–180°）；driving 标签仍用存储值；
+  - 尺寸工具对 driven 的排除由单测覆盖，e2e 不再保留无法区分的假步骤。
+
+### 2026-11-17 W31-B 3 点圆（Sketch.PerimeterCircle）Ø 直径读数
+
+- 目的：补 live 3 点圆预览第三点阶段的直径读数（此前只有阶段 2 半径白卡）。
+- live（2026-11-17，私有 `w31-c3c-*`、`w31-c3v-*`、`w31-c3chord-*`）：
+  - 圆飞菜单当前为 中心点圆 / 3 点圆 / 椭圆（产品变体文案已是 3 点圆）；
+  - 前两点已点、移动光标定第三点时，显示水平蓝色 `Ø<直径>`（2 位去尾零），
+    无白卡；**锚点=预览圆圆心与第一个已点点的投屏中点**，与光标角度无关；
+    读数跟随预览圆（圆心/半径），不跟随光标；
+  - 8 个光标角（同一 Thales 圆）、垂直直径与非直径弦三种受控实验定案；
+    非直径弦实测 ≈(583.5,600)，排除 away-from-P2（585.35,640）与弦中点方向
+    （620,600），命中 toward-P1（585.35,600）。
+- 实现：`SketchCreateTool._drawLabels` 新增 `perimeterCircle` 分支，复用
+  `tryWorldArc3Point(anchor, second, cursor)`（与预览同几何），
+  `value=formatSketchLiveNumber(2*radius)`、`labelKey=diameter`、`prefix=Ø`、
+  `point=sketchPointLabelCenter(投影(anchor), 投影(圆center))`、
+  `suppressesLabelKeys=[radius]` 抑制半径白卡；阶段 1/共线/无视口不发标签；
+  不改 `computeSketchLiveMeasures`、预览/提交几何、i18n/ribbon/shared。
+- 验证：`SketchCreateTool.test.ts` **43/43**（+6 W31-B），全量 web
+  **2249/2249**、tsc(src+e2e)/eslint 绿；真栈 `sketch-draw-readout`
+  **5 passed（2.9 min，含新 3 点圆段）**、`sketch-perimeter-circle`
+  **1 passed**、`tutorial2` 严格全链绿。
+- 残留：既有几何密集区 live 偶见的读数外移（疑似避让）未实现；阶段 1 live
+  读数未采（保持产品现状）；e2e 直径数值用互不相交容差（真实栈取点亚毫米
+  差），锚点仍 ±2 px 钉死，单测用精确值钉住实现。

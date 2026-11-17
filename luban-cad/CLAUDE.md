@@ -272,9 +272,23 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   open→pressed / Escape→unpressed）**。**W30**：组合回归收官（无代码变更）——
   全量 web **2217/2217**、tsc(src+e2e)/eslint 绿；真栈批次 A/B 各 **9 passed
   （4.0/3.7 min）**、`tutorial2` 严格 **2 passed（4.5 min，体积/去材不变；
-  首跑 MS 429 retryAfter 164 s，窗口后干净复跑）**。剩余：驱动尺寸/变量
-  （ADR+契约）、拉伸自定义方向（契约/内核）、周边圆 Ø 锚点（规则未定）、
-  选择创建内容/评论/复制草图（能力缺口）。
+  首跑 MS 429 retryAfter 164 s，窗口后干净复跑）**。**W31-A**：驱动/从动
+  （参考）尺寸前端接线——尺寸菜单首行动态文案/可点（driven→更改为驱动尺寸、
+  否则→更改为从动尺寸）、切换走既有 wholesale updateSketch（保序/保
+  id/refs/value、driving 删键；E-5 undo 限制如实登记）、driven 标签显示当前
+  几何实测值（length/distance/radius/diameter/angle 标注射线 0–180°，
+  不可测回退存储值）、driven 双击不打开编辑器（尺寸工具仍排除 driven）、
+  en 文案纠正；全量 web **2249/2249**、tsc(src+e2e)/eslint 绿；真栈新
+  `sketch-driven-dimension` **2 passed（1.1 min；修复后复跑 49.5 s）**、
+  `sketch-dimension-edit`+`sketch-draw-readout` **5 passed（2.9 min）**。
+  **W31-B**：3 点圆（`Sketch.PerimeterCircle`）第三点预览 `Ø<直径>` 点标签
+  ——锚点=预览圆圆心与第一已点点投屏中点（live 8 光标角/垂直直径/非直径弦
+  受控定案，与光标角度无关；半径白卡抑制）；`SketchCreateTool.test` 43/43、
+  全量 web 2249/2249；真栈最终批 **6 passed（3.5 min，含读数段）**、
+  `sketch-perimeter-circle`+`tutorial2` 严格 **3 passed（5.3 min）**。
+  剩余：变量/表达式（ADR+契约）、拉伸自定义方向（契约/
+  内核）、驱动尺寸的 live 式过约束错误态（后端门禁差异，不绕）、选择创建
+  内容/评论/复制草图（能力缺口）、周边圆密集几何避让分支（未采）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
