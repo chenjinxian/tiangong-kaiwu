@@ -305,6 +305,26 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   shared 1.70，下一次发布需 shared→backend→web 同批（未发布）。残留：S2 尺寸表达式 UI
   与 S3 变量表 UI（待 live 证据）、rebuildAll 提交后失败边界、首次写入 undo 留空元素、
   全量重解/重建成本、只读旧库不升级、表达式限 5 类尺寸且无单位/函数。
+- **W33 S2/S3 草图表达式 UI + 变量表（2026-11-17，shared 1.72 / 私有后端 / web；ADR-0020）**：
+  S3a shared 1.72 `VariableDto.type?/description?` + `collectVariableReferences` + op DSL；
+  后端类型/说明持久化/校验与尺寸量纲门（长度类 length/number/any、角度
+  angle/number/any，缺省 length；不兼容零变更）；S3d 原生 undo 分组
+  （`updateVariables` 与 post-commit rebuildAll 用 TxnManager
+  begin/endMultiTxnOperation 包成一个原生操作，一次 Ctrl+Z 恢复变量/草图/几何；
+  IPC init-safe 守卫按操作计数）；S2 尺寸表达式输入/本地校验/wholesale
+  updateSketch(expression)、既有表达式不改确认保留、`#` 既有变量补全、显示表达式
+  标签投影（D1 可逆推断）、angle 159 紧凑 chrome；S3b 变量对话框
+  （220×188、四类型、已分配实现/其余诚实禁用）、树行 `(fx) #name = 值/表达式`、
+  删除（推断交互）、内联创建、`新建变量…`、只读/读失败写门、单写门。
+  验证：shared **281/281**；backend **993 passed/1 expected fail/8 skipped**；web
+  **2383/2383**；tsc(src+e2e)/eslint 绿；真栈 `sketch-expression-ui` **2 passed**
+  （`#width*2` → 20 mm/**1000 mm³**、显示表达式 on/off、`#nope` ✓ 禁用、angle 159）、
+  `variables-ui` **2 passed**（变量 width=10 → 尺寸 → **400 mm³** → 改 20 → **800**
+  → **原生 UI Undo 一次点击**回 400 → Redo 800、无效态、内联 `#bar`、push+冷重开）、
+  `sketch-expressions` **2 passed**。**未发布**。残：D1 标签形态/变量源模式/删除菜单
+  live 未采（可逆推断/诚实禁用）、组内 Undo 拒绝时 UI 静默 no-op（重建完成后重试）、
+  push 后 undo 不可用（既有策略）、变量值字段尚无 `#` 补全、Ribbon 变量命令未进
+  command palette、变量行与特征行选中未统一、变量菜单无视口夹紧。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

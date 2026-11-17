@@ -28,12 +28,11 @@
   - 尺寸对话框结构（拖拽条/输入/禁用展开器/禁用参数态键/✓✗；W17/W17b/W18/W21 live）；
   - 纯数值尺寸下展开器与参数态切换键为禁用态装饰（S1a 私有审计结论）；
   - 数值行/输入格式、角度度数与弧度契约（W18/W20/W21/W22）。
-- 待补 live 证据（**blocked-evidence，未采前不实现对应 UI**）：
-  - 表达式输入的行为：输入/求值时机、显示为表达式还是值、重新打开后的回显；
-  - 参数态切换键/展开器在有表达式时是否启用、切换后的显示；
-  - 变量表入口/表格结构/行编辑/删除/重命名联动/错误提示；
-  - 变量引用补全（`#` 提示）与未知变量错误文案；
-  - 文档单位对表达式/变量显示的影响（v1 不做单位系统，但需确认 live 口径）。
+- live 证据（2026-11-17 已采，见 §10；未采部分不得伪造）：
+  - 已采：尺寸字段表达式有效/无效态、`#` 补全、Enter 内联创建、变量对话框
+    结构/类型/源模式、树行展示、角度尺寸 159 紧凑 chrome、草图四开关默认态；
+  - 未采（保留缺口）：表达式尺寸**标签**的显示形态与 `显示表达式` 的标签效果
+    （D1 为可逆推断）、变量 `已测量/来自导入` 的列表结构、变量删除 live 菜单。
 - 非目标：完整单位系统/换算、函数库、Configurations、特征参数表达式、跨 scope 变量。
 
 ## 2. 关联项目能力清单
@@ -43,7 +42,7 @@
 | itwinjs-core | BIS 元素/验证、BriefcaseTxns、EDE 脏传播、OpLog | `DefinitionElement`、`ElementDrivesElement`、`BriefcaseTxns`、现有 FeatureService 事务模式 | vendored itwinjs-core | 复用 |
 | luban-cad/packages/editor | 草图工具基类/编辑生命周期 | `Sketch.*` 工具族、editor 基座 | 第一方 | 不新增（表达式在对话框层，工具不改） |
 | luban-cad/packages/viewer | 草图标注/装饰 | `SketchDimensionsDecoration`、`SketchCurvesDecoration` | viewer dist | 复用（显示值仍由 DTO 投影） |
-| luban-cad/packages/shared | 契约/DTO/求值器 | `SketchConstraintDto`、`FeatureOp`、`LubanFeatureRpcInterface` 1.70.0 → 1.71.0 | shared | 扩展（新字段/新 op/新纯模块） |
+| luban-cad/packages/shared | 契约/DTO/求值器 | `SketchConstraintDto`、`FeatureOp`、`LubanFeatureRpcInterface` 1.70.0 → **1.72.0**（S1 1.71 + S3 类型/说明） | shared | 扩展（新字段/新 op/新纯模块） |
 | luban-backend/modeling-server | 草图求解/特征求值/schema/oplog | `SketchWireNormalizer`、`solveSketchChecked`、`FeatureService`、`LubanCadSchema` | 私有仓 | 扩展（表达式的权威求值/变量表元素/新 op） |
 | luban-backend/webhook-agent | 基线/发布 | baseline generator | 私有仓 | 不适用（无新几何格式） |
 | imodel-native | 几何内核 | `SolidKernel.h`/BRep | 独立 | 不适用（求值在 TS 层，数值进内核） |
@@ -59,7 +58,7 @@
 | 变量存储 | BIS `DefinitionElement` + params JSON | 高 | **扩展**（新类） | 与 Feature/Sketch 同层、单一事实源；不引入外部存储 | — |
 | 尺寸表达式字段 | `SketchConstraintDto` 扩展 | 高 | **扩展** | 既有 op 载荷保持数值语义，expression 为设计意图 | — |
 | 变量表编辑事务/撤销 | 既有 BriefcaseTxns + OpLog | 高 | **复用** + 新 `updateVariables`（可逆） | 不新造事务/撤销机制 | — |
-| 尺寸表达式输入 UI | `SketchDimensionDialog`/`SketchDimensionEditor`/`SketchValuePopup` | 高 | **扩展** | 复用同一 209×47 对话框与值弹层；不建第二套输入 | — |
+| 尺寸表达式输入 UI | `SketchDimensionDialog`/`SketchDimensionEditor`/`SketchValuePopup` | 高 | **扩展** | 复用共享对话框与值弹层（长度 209×47、angle 159 紧凑变体）；不建第二套输入 | — |
 | 变量表 UI | 无现成组件；live 结构待采 | 0 | **新建（live 证据后）** | 先探针后实现；未采前不造假面板 | — |
 | 变量变更重算 | 后端 rebuild/EDE 闭包 | 中 | **保守全量**（v1） | 正确性优先；精确依赖图标脏作为后续优化 | — |
 
@@ -68,7 +67,7 @@
 | 仓/层 | 契约 | schema/迁移 | native/接口 | 测试 | 发布 |
 |---|---|---|---|---|---|
 | shared | `SketchConstraintDto.expression?`；`updateVariables` op/`getVariables` 查询；`expressions/` 纯模块；S3 `VariableDto.type?/description?` + `collectVariableReferences`；1.70.0→**1.72.0** | 无 | 无 | 求值器/类型/版本钉 | 先发 |
-| web | 尺寸对话框/值弹层表达式输入；变量表 UI（证据后）；读取 variables 预校验 | 无 | 无 | 单测 + 真栈 e2e | 同批 |
+| web | 尺寸对话框/值弹层表达式输入（S2）；变量表 UI/内联创建（S3b）；读取 variables 预校验 | 无 | 无 | 单测 + 真栈 e2e | 同批 |
 | modeling-server | 变量元素类、`updateVariables`/`getVariables`、草图表达式求值、oplog before/after、保守重算 | 新类 + schema 01.00.01（additive） | 无 native | VariablesFlow/表达式求解/旧库 fixture/registry/RPC | 私有无发布产物：随下个 backend 版本 |
 | itwinjs-core | 无改动 | — | — | — | — |
 | imodel-native | 无改动 | — | — | — | — |
@@ -110,7 +109,8 @@
   补全含 `新建变量…` 与尺寸字段内联创建变量面板；真栈 e2e（改变量 → 几何重算 →
   撤销/重做 → 冷重开）。
 - **S4 特征参数表达式**（后续，不在本 AIRR 验收内）：复用求值器扩展到拉伸深度等。
-- 证据门：S2/S3 的 UI 结构、文案、开关态未采前不得实现（P0-03/P0-04）。
+- 证据门：S2/S3 的 UI 结构与文案已采（见 §10）；未采的标签形态/源模式列表按
+  D1/诚实禁用处理，不得伪造（P0-03/P0-04）。
 
 ## 7. 回滚与发布
 
@@ -150,10 +150,10 @@
 - **运行前提（重要）**：本机 MS 需以源码模式启动（`scripts/start-ms-host.ps1 -Source
   <luban-backend>\modeling-server`）；`dist-backend` 产物仍是 shared 1.70 的旧后端，
   与 shared 1.71/web 不匹配。下一次发布必须 shared → backend → web 同批（本次未发布）。
-- **残留**：S2 尺寸表达式 UI 与 S3 变量表 UI 未实现（待 live 证据）；`rebuildAll`
-  提交后失败边界（数据已存、返回可见错误）；首次写入 undo 保留空变量元素；损坏
-  变量表修复不可逆；`updateVariables` 全量重解/重建成本；只读旧库不就地升级；
-  表达式仅限 5 类尺寸、无单位/函数；oplog 快照体积随草图数增长。
+- **残留**（S2–S3d 已实现并验证，见 §10.1）：`rebuildAll` 提交后失败边界（数据已存、
+  返回可见错误）；首次写入 undo 保留空变量元素；损坏变量表修复不可逆；
+  `updateVariables` 全量重解/重建成本；只读旧库不就地升级；表达式仅限 5 类尺寸、
+  无单位/函数；oplog 快照体积随草图数增长；D1 标签形态/变量源模式删除菜单未采。
 
 ## 10. S2/S3 live 证据与实现口径（2026-11-17 recon）
 
@@ -199,3 +199,24 @@
 - S3b：单测（对话框/树行/删除/补全/内联创建）；真栈 e2e：建变量 → 尺寸引用 →
   改值重算 → undo/redo → push+冷重开；`已测量/来自导入` 禁用态诚实。
 - 全部：tsc(src+e2e)/eslint；不发布（release/publish 未授权）。
+
+### §10.1 实施与验证结果（2026-11-17）
+
+- **S2 尺寸表达式 UI**：web **2307/2307**、lint/tsc(src+e2e) 绿；真栈
+  `sketch-expression-ui` **2 passed（55.5 s）**——`#width*2` → 20 mm/1000 mm³、
+  既有表达式不改确认保留、显示表达式 on/off 标签、`#nope` ✓ 禁用、angle 159 紧凑；
+  回归 `sketch-dimension-edit`+`sketch-expressions` **5 passed**。
+- **S3a 变量类型/说明**：shared **281/281**；backend **987 passed/1 expected
+  fail/8 skipped**（类型矩阵/零变更/迁移/undo/op DSL）；S1 真栈 expression spec 绿。
+- **S3b 变量表 UI/内联创建**：web **2383/2383**、lint/tsc(src+e2e) 绿；真栈
+  `variables-ui` **2 passed（1.3 m）**——创建/树行/尺寸引用 400 mm³ → 编辑 800 →
+  **原生 UI Undo/Redo 一次操作**（S3d 分组）→ 无效态 → 内联创建 → push+冷重开；
+  `已测量/来自导入` 诚实禁用；变量删除为推断交互（live 菜单未采）。
+- **S3d 原生撤销分组**：backend **993 passed/1 expected fail/8 skipped**；原生
+  reverseSingleTxn/reinstateTxn 一次恢复变量/草图/几何（apply 与 history），重建
+  失败仍提交变量并报错；IPC 分组计数修复 init 安全；组内撤销拒绝（残：UI 静默
+  no-op，重建完成后可重试）。
+- **证据缺口（保留）**：D1 表达式标签形态与 `显示表达式` 的 live 效果未采到，
+  实现为可逆推断；变量 `已测量/来自导入` 结构未采到，诚实禁用。
+- **发布**：未发布（release/publish 未授权）；shared 1.72.0 / 私有后端 / web 同批
+  待下一次发布。

@@ -131,6 +131,15 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
    用内联旧 schema 构造，断言升级后类存在、旧数据可读、变量读 `[]`。
 7. **preview**：`updateVariables` 不产生几何预览；`previewOp` 诚实返回“不可预览”或
    `affected: []`（不写库），不做假预览。
+8. **变量变更的原生原子撤销（S3d，2026-11-17）**：`updateVariables` 与其提交后重建
+   （`rebuildAll`）用 `TxnManager.beginMultiTxnOperation()/endMultiTxnOperation()`
+   包成一个原生 undo 操作——一次 Ctrl+Z 同时恢复变量表、草图 params 与依赖几何；
+   `maybePush` 在组外（push 开启新会话会清空 undo，属既有 push 策略）；组内持有
+   文档初始化锁；`rebuildAll` 增加可选 `operationDescription`，使 undo 字符串为
+   `update variables`/`undo`/`redo`。IPC 初始化安全回退守卫改为按**操作**计数
+   （`TxnProps.grouped === false` 才算一个），修复分组事务导致 `reverseAll` 越过
+   init 事务的风险。组打开期间（变量已提交、重建未结束）的原生 undo 必须被拒绝/
+   排队，避免半程撤销撕裂状态；push 后 undo 不可用属既有 push 策略。
 
 ### 2.6 S2/S3 live 证据与裁决（2026-11-17 recon）
 
@@ -140,7 +149,9 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
 1. **变量入口/树行（S3）**：变量是 Part Studio 级行，特征树显示
    `(fx) #name = <值/表达式>`（实测 `#width = 10 mm`、`#height = #width*2`、
    `#ang = 45 deg`）。`变量` tool-search 命令打开 220×188 feature-dialog：标题
-   `#<name> = <值>`（新建时为 `#? = 0 deg`）、源模式 `已分配 / 已测量 / 来自导入`、
+   `#<name> = <值>`（新建时标题随类型显示 `#? = 0 <单位>`；实测 `#? = 0 deg` 是在
+   选择「角度」类型之后，初始默认类型未单独采到，S3b 按 D5 缺省 `length` 显示
+   `0 mm`）、源模式 `已分配 / 已测量 / 来自导入`、
    类型行 `长度 / 角度 / 数字 / 任意`、字段 `名称 / 值 / 说明`、绿✓/红✗。
 2. **变量表达式**：值字段接受 `#width*2`；blur/Tab 求值（显示 `20 mm`），提交后
    树行显示**表达式原文**；无效表达式保留输入、禁止提交。值字段输入 `#` 打开
@@ -234,7 +245,26 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
   `#width` 方形 → 拉伸 **500 mm³** → width=20 → **2000 mm³** → undo 500 → redo
   2000 → 循环/未知变量拒收零变更；回归 `sketch-driven-dimension` +
   `sketch-dimension-edit` **5 passed（2.7 min）**；web **2249/2249**、
-  tsc(src+e2e)/eslint 绿。S2/S3 UI 仍待 live 证据。
+  tsc(src+e2e)/eslint 绿。
+- **S2 实测（2026-11-17）**：web **2307/2307**、lint/tsc(src+e2e) 绿；真栈
+  `sketch-expression-ui` **2 passed（55.5 s）**：`#width*2` → 20 mm/**1000 mm³**、
+  既有表达式不改确认保留、显示表达式 on/off 标签 data-text、`#nope` ✓ 禁用 +
+  红下划线 + 取消不变、angle **159** 紧凑且无展开器/状态键；回归
+  `sketch-dimension-edit` + `sketch-expressions` **5 passed（2.1 m）**。
+- **S3a 实测**：shared **281/281**；backend targeted **51/51**、全量 **987
+  passed/1 expected fail/8 skipped**；类型矩阵（length↔angle 拒收、number/any
+  接受、缺省 length）、零变更、读/撤销说明一致性、迁移/undo、op DSL 往返。
+- **S3b 实测（2026-11-17）**：web **2383/2383**、lint/tsc(src+e2e) 绿；真栈
+  `variables-ui` **2 passed（1.3 m）**：变量 width=10 → 树行、尺寸 `#width` →
+  **400 mm³**、改 width=20 → **800 mm³**、**原生 UI Undo 一次点击**回 10/400
+  （S3d 分组）、Redo 回 20/800、无效表达式 ✓ 禁用、内联 `#bar` 创建、push+冷重开；
+  S2/S1 spec 各 **2 passed**。`已测量/来自导入` 诚实禁用；变量删除为推断交互
+  （tree Delete/右键，live 菜单未采）。
+- **S3d 实测**：backend **993 passed/1 expected fail/8 skipped**；原生
+  reverseSingleTxn/reinstateTxn 一次恢复 variables+sketch+geometry（apply 与
+  history 路径）、重建失败仍提交变量并报错、IPC 分组计数修复 init 安全、组内
+  撤销拒绝。残：组内 Undo 为拒绝（Tool 吞状态，UI 静默 no-op，重建完成后可重试）；
+  push 后 undo 不可用（既有 push 策略）。**D1 标签形态仍为 live 未采的可逆推断**。
 
 ## 5. 回滚
 
