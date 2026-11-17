@@ -16,6 +16,8 @@ import type {
   FeatureTreeEntry,
   // v1.70（Onshape 树内联重命名）
   RenameResult,
+  // v1.71（ADR-0020：表达式 + 变量）
+  VariableDto,
   FeatureFormField,
   FeatureFormFieldKind,
   FeatureFormModelEntry,
@@ -77,7 +79,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.70.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -663,7 +665,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.70.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -837,7 +839,7 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
   });
 
   it("版本 1.30.0（revolve 多面域；cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.70.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
   });
 });
 
@@ -901,7 +903,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.70.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
   });
 });
 
@@ -1106,7 +1108,7 @@ describe("v1.30 契约（revolve 多面域）", () => {
   });
 
   it("版本 1.30.0（revolve regions 多面域；旧 regionIndex 简写保留一版）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.70.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
   });
 });
 
@@ -1327,6 +1329,78 @@ describe("v1.64 契约（faceExtrude startOffset + draft；ADR-0016 切片 A1）
   });
 
   it("接口版本 1.65.0（ADR-0015 B6.1 多目标 fillet 契约 bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.70.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
+  });
+});
+
+describe("v1.71 契约（ADR-0020：SketchConstraintDto.expression + VariableDto/updateVariables/getVariables）", () => {
+  it("SketchConstraintDto.expression：可选设计意图字符串；旧载荷无该键逐字合法", () => {
+    const legacy: SketchConstraintDto = { kind: "length", id: 12, refs: [2], value: 82.55 };
+    expect(legacy.expression).toBeUndefined();
+    expect(Object.keys(JSON.parse(JSON.stringify(legacy)))).toEqual(["kind", "id", "refs", "value"]);
+
+    const withExpression: SketchConstraintDto = {
+      kind: "distance", id: 13, refs: [2, 3], value: 50.8, expression: "#width * 2",
+    };
+    expect(withExpression.expression).toBe("#width * 2");
+    expect(JSON.parse(JSON.stringify(withExpression))).toEqual(withExpression);
+    expectTypeOf<SketchConstraintDto["expression"]>().toEqualTypeOf<string | undefined>();
+
+    // 表达式随草图 op 载荷往返（insertSketch/updateSketch 同一 DTO）
+    const op: FeatureOp = {
+      kind: "updateSketch", sketchId: "sk-1",
+      entities: [{ kind: "line", id: 2, p1: 1, p2: 3 }],
+      constraints: [withExpression],
+    };
+    expect(op.kind === "updateSketch" ? op.constraints[0]?.expression : undefined).toBe("#width * 2");
+    expect(JSON.parse(JSON.stringify(op))).toEqual(op);
+  });
+
+  it("VariableDto 精确形状（id/name/expression 三 string）且 JSON 往返保持", () => {
+    const variable: VariableDto = { id: "v1", name: "width", expression: "25.4 * 2" };
+    expect(variable.name).toBe("width");
+    expectTypeOf<VariableDto>().toEqualTypeOf<{ id: string; name: string; expression: string }>();
+    expect(JSON.parse(JSON.stringify(variable))).toEqual(variable);
+  });
+
+  it("FeatureOp.updateVariables 变体可构造（整表覆写；既有分支回归锁）", () => {
+    const variables: VariableDto[] = [
+      { id: "v1", name: "width", expression: "25.4 * 2" },
+      { id: "v2", name: "height", expression: "#width / 2" },
+    ];
+    const op: FeatureOp = { kind: "updateVariables", variables };
+    expect(op.kind).toBe("updateVariables");
+    expect(op.variables).toHaveLength(2);
+    expectTypeOf<Extract<FeatureOp, { kind: "updateVariables" }>>().toEqualTypeOf<{
+      kind: "updateVariables";
+      variables: VariableDto[];
+    }>();
+    expect(JSON.parse(JSON.stringify(op))).toEqual(op);
+
+    // 既有分支仍可赋值（回归锁：新增变体不改变旧形态）
+    const legacy: FeatureOp[] = [
+      { kind: "insertFeature", featureType: "extrude", params: { profile: [], distance: 1 } },
+      { kind: "updateParams", featureId: "f1", params: { profile: [], distance: 1 } },
+      { kind: "deleteFeature", featureId: "f1" },
+      { kind: "setFeatureSuppressed", featureId: "f1", suppressed: false },
+      { kind: "reorderFeature", featureId: "f1", to: 1 },
+      { kind: "updateSketchConstraint", sketchId: "sk-1", constraintId: 10, value: 5 },
+      { kind: "insertSketch", entities: [], constraints: [] },
+      { kind: "updateSketch", sketchId: "sk-1", entities: [], constraints: [] },
+      { kind: "deleteSketch", sketchId: "sk-1" },
+      { kind: "undo" },
+      { kind: "redo" },
+    ];
+    expect(legacy).toHaveLength(11);
+  });
+
+  it("getVariables RPC：方法挂类原型 + scope 可选签名 + 返回 Promise<VariableDto[]>", () => {
+    expect(typeof LubanFeatureRpcInterface.prototype.getVariables).toBe("function");
+    expectTypeOf<LubanFeatureRpcInterface["getVariables"]>().toBeCallableWith("conn-1");
+    expectTypeOf<LubanFeatureRpcInterface["getVariables"]>().toBeCallableWith("conn-1", "ps-1");
+    type GetVariablesFn = LubanFeatureRpcInterface["getVariables"];
+    expectTypeOf<Parameters<GetVariablesFn>[1]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ReturnType<GetVariablesFn>>().toEqualTypeOf<Promise<VariableDto[]>>();
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.71.0");
   });
 });

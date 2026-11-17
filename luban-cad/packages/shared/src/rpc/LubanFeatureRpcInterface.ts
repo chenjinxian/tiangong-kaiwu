@@ -172,6 +172,7 @@
  * 以既有 body 的持久面引用为轮廓，沿面法向拉伸并参与特征内布尔。首版 add/remove/intersect
  * + blind/throughAll；NEW/secondDirection throughAll/非平面面诚实拒收。UI 暂无入口（backend/
  * contract 先行，UI 需 live 面拉伸对话框证据）。
+ * v1.71（ADR-0020）：SketchConstraintDto.expression + VariableDto/updateVariables/getVariables。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -867,6 +868,11 @@ export interface CPlaneParams {
 
 export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | TransformParams | SplitPartParams | MoveFaceParams | FeatureMirrorParams;
 
+/** v1.71（ADR-0020）：Part Studio 变量（名称在 scope 内唯一）。
+ * `expression` 是设计意图（纯表达式文本，求值器见 `src/expressions/`）；求值结果不落库。
+ * 名称规则 `[A-Za-z_][A-Za-z0-9_]*`、大小写敏感；读取面=`getVariables`。 */
+export interface VariableDto { id: string; name: string; expression: string }
+
 export type FeatureOp =
   /** `targetBodyId`（B6 M-A3.1 v1.15）：N>1 模型 regular insert 的显式目标 body
    * （authored/active；缺省在 N≤1 走 legacy 默认体）。`params.newBody===true` 时它是**锚定链**
@@ -900,6 +906,8 @@ export type FeatureOp =
   | { kind: "updateSketch"; sketchId: string; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
   /** RW2-T3 v1.3：删草图（守卫：被任一特征引用即拒收——服务端按 sketch→feature 边检查） */
   | { kind: "deleteSketch"; sketchId: string }
+  /** v1.71（ADR-0020）：整表覆写 Part Studio 变量（可逆 op；后端权威求值/重算）。 */
+  | { kind: "updateVariables"; variables: VariableDto[] }
   | { kind: "undo" } | { kind: "redo" };
 
 export interface FeatureTreeEntry {
@@ -1022,6 +1030,9 @@ export interface SketchConstraintDto {
    * driven=参考尺寸（不送求解器）。 */
   kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "angle" | "length" | "midpoint" | "tangent" | "offset" | "fixed" | "mirror";
   id: number; refs: SketchRef[]; value?: number; driven?: boolean;
+  /** v1.71（ADR-0020）：表达式（设计意图）；存在时后端求值并覆盖 value（求解输入）。
+   * 仅可编辑尺寸种类 length/distance/radius/diameter/angle 允许；旧载荷无此键。 */
+  expression?: string;
 }
 export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";
 export interface SketchSolveStateDto { status: SketchSolveStatusDto; dof: number; failedConstraintIds: number[]; conflictingRank: number[]; redundant?: boolean }
@@ -1070,7 +1081,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.70.0";
+  public static interfaceVersion = "1.71.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
@@ -1123,6 +1134,10 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
   public async getSketch(_iModelKey: string, _sketchId: string, _partStudioId?: string): Promise<SketchDto | undefined> { return this.forward(arguments); }
   /** M3-b v1.2：列 iModel 内全部草图（摘要读面）；B-model v1.17 可选 `partStudioId`（缺省=legacy 全库读面） */
   public async listSketches(_iModelKey: string, _partStudioId?: string): Promise<SketchSummaryDto[]> { return this.forward(arguments); }
+
+  /** v1.71（ADR-0020）：读当前 Part Studio 变量表（缺省=legacy scope 读面）。纯读，无租约门禁；
+   * 变量表元素按需创建，旧库无该元素时返回空数组。 */
+  public async getVariables(_iModelKey: string, _partStudioId?: string): Promise<VariableDto[]> { return this.forward(arguments); }
 
   /** B6 M-A3.1 v1.15：body 读面（只读，无租约门禁）——authored body（含 consumed 的 active=false），
    * 按 bodyKey 升序；直改副本/orphan 不在读面。M3.2 的树/参数面板消费。 */

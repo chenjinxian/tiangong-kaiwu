@@ -238,6 +238,8 @@ export type {
   BodyRef, BodyInfo,
   // v1.70（Onshape 树内联重命名）
   RenameResult,
+  // v1.71（ADR-0020：草图尺寸表达式 + Part Studio 变量）
+  VariableDto,
   // B6 M-A4.1 v1.16（body boolean）
   BooleanBodiesParams,
   // B-model P2.2 v1.18（Part Studio 注册表）
@@ -256,6 +258,22 @@ export type {
   MoveFaceParams,
   FeatureMirrorParams,
 } from './rpc/LubanFeatureRpcInterface.js';
+
+// =============================================================================
+// 表达式求值器（ADR-0020 S1：草图尺寸表达式 + Part Studio 变量；前后端同源纯模块）
+// =============================================================================
+export {
+  evaluateExpression,
+  evaluateVariableTable,
+  isValidVariableName,
+} from './expressions/expression-evaluator.js';
+export type {
+  ExpressionVariableRef,
+  ExpressionErrorCode,
+  ExpressionFailure,
+  ExpressionResult,
+  VariableTableResult,
+} from './expressions/expression-evaluator.js';
 
 // =============================================================================
 // 草图 imprint 面域选择（纯几何工具，backend 离线回放 + web 真栈回放共用）

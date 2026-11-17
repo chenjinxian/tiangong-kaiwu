@@ -7,7 +7,7 @@
  *
  * DSL 形态（v1）：
  *   op <kind> [featureType] {json payload} [// 注释]
- * - kind：FeatureOp 判别联合的 10 分支判别键；
+ * - kind：FeatureOp 判别联合的 12 分支判别键；
  * - featureType：仅 insertFeature 接受（必填）；updateParams 的参数 schema 双键定位
  *   （kind+featureType）由服务端按 featureId 解析，DSL 层不重复承载（往返恒等不丢信息）；
  * - payload：insertFeature 缺省直接为 params 对象；携带 targetBodyId（B6 M-A3.2a）时
@@ -25,6 +25,9 @@
  *
  * M6-a v1.6 同步：insertSketch 增可选 plane（SketchPlaneDto：origin/normal/xDir 三向量，世界系米制）——
  * 发射端恒写已携带的 plane，解析端按形态校验后透传（缺省不带，保持旧 DSL 文本逐字稳定）。
+ * v1.71（ADR-0020）同步：updateVariables（变量表整表覆写）——发射/解析
+ * `{variables:[{id,name,expression}]}`；变量名合法/唯一/表达式可求值/无循环属服务端
+ * 语义门禁，DSL 层只做结构校验（三键 string）。
  */
 import type { FeatureOp, FeatureParams, LubanFeatureType } from "./rpc/LubanFeatureRpcInterface.js";
 
@@ -50,7 +53,8 @@ const FEATURE_TYPES: readonly LubanFeatureType[] = [
 ];
 const OP_KINDS: readonly FeatureOp["kind"][] = [
   "insertFeature", "updateParams", "deleteFeature", "setFeatureSuppressed", "reorderFeature",
-  "updateSketchConstraint", "insertSketch", "updateSketch", "deleteSketch", "undo", "redo",
+  "updateSketchConstraint", "insertSketch", "updateSketch", "deleteSketch", "updateVariables",
+  "undo", "redo",
 ];
 const OP_KIND_SET = new Set<string>(OP_KINDS);
 
@@ -99,6 +103,9 @@ function opToLine(op: FeatureOp): string {
       return `op updateSketch ${JSON.stringify({ sketchId: op.sketchId, entities: op.entities, constraints: op.constraints })}`;
     case "deleteSketch":
       return `op deleteSketch ${JSON.stringify({ sketchId: op.sketchId })}`;
+    case "updateVariables":
+      // v1.71（ADR-0020）：整表覆写——逐字发射 {variables:[{id,name,expression}]}。
+      return `op updateVariables ${JSON.stringify({ variables: op.variables })}`;
     case "undo":
       return "op undo {}";
     case "redo":
@@ -284,6 +291,20 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
     case "deleteSketch":
       noFeatureType();
       return { kind, sketchId: asStr(p.sketchId, "sketchId") };
+    case "updateVariables": {
+      // v1.71（ADR-0020）：变量表整表覆写——逐项校验 {id,name,expression} 三 string 键，
+      // 未知键剥离（对齐 zod 非严格对象语义）；名称合法性/唯一性/循环归服务端求值门禁。
+      noFeatureType();
+      const variables = asArr(p.variables, "variables").map((raw, index) => {
+        const item = asObj(raw, `variables[${index}]`);
+        return {
+          id: asStr(item.id, `variables[${index}].id`),
+          name: asStr(item.name, `variables[${index}].name`),
+          expression: asStr(item.expression, `variables[${index}].expression`),
+        };
+      });
+      return { kind, variables };
+    }
     case "undo":
     case "redo":
       noFeatureType();

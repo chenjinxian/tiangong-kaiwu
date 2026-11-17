@@ -4,7 +4,8 @@
  *
  * op DSL v1（RW2-T5）测试：FeatureOp 链 ↔ 可读 DSL 双向序列化。
  * 核心契约：
- *  - 往返恒等：opsToDsl → dslToOps 深等（全 10 分支覆盖），且文本级再发射稳定；
+ *  - 往返恒等：opsToDsl → dslToOps 深等（全分支覆盖，含 v1.71 updateVariables），
+ *    且文本级再发射稳定；
  *  - 默认值坑：fillet 的 propagateSmooth（Registry filletSchema .default(true)）发射恒写全键，
  *    parse 不得剥离显式给出的默认值（否则 序列化→parse→序列化 不恒等）；
  *  - 注释位：// 后内容解析即丢弃、发射不产注释（往返只对 op 语义恒等——选型见 RW2-T5 报告）；
@@ -58,7 +59,7 @@ describe("op DSL 白名单 × LubanFeatureType 全集", () => {
   });
 });
 
-/** 全 10 分支样本链（每分支恰一 op，含典型字段全集） */
+/** 全分支样本链（每 kind 恰一 op，含典型字段全集；insertFeature 两个样本） */
 const allKindsOps: FeatureOp[] = [
   { kind: "insertFeature", featureType: "extrude", params: { profile: tri, distance: 5 } },
   {
@@ -89,12 +90,14 @@ const allKindsOps: FeatureOp[] = [
     constraints: [],
   },
   { kind: "deleteSketch", sketchId: "sk-2" },
+  // v1.71（ADR-0020）：整表覆写变量
+  { kind: "updateVariables", variables: [{ id: "v1", name: "width", expression: "25.4 * 2" }] },
   { kind: "undo" },
   { kind: "redo" },
 ];
 
 describe("op DSL v1 往返恒等", () => {
-  it("全 10 分支：opsToDsl → dslToOps 深等", () => {
+  it("全分支（含 updateVariables）：opsToDsl → dslToOps 深等", () => {
     expect(dslToOps(opsToDsl(allKindsOps))).toEqual(allKindsOps);
   });
 
@@ -496,5 +499,61 @@ describe("op DSL × M6-a v1.6（insertSketch plane 同步）", () => {
       projections: [{ sourceSketchId: "0x2000000000a", sourceEntityId: 11, entityId: 101 }],
     };
     expect(dslToOps(opsToDsl([op]))).toEqual([op]);
+  });
+});
+
+describe("op DSL × v1.71（updateVariables 变量表整表覆写）", () => {
+  const op: FeatureOp = {
+    kind: "updateVariables",
+    variables: [
+      { id: "v1", name: "width", expression: "25.4 * 2" },
+      { id: "v2", name: "height", expression: "#width / 2" },
+    ],
+  };
+
+  it("往返恒等 + 文本级稳定（op updateVariables {variables:[...]}）", () => {
+    const dsl = opsToDsl([op]);
+    expect(dsl.startsWith("op updateVariables {")).toBe(true);
+    expect(dsl).toContain('"variables"');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("空变量表可往返（合法：清空整表）", () => {
+    const empty: FeatureOp = { kind: "updateVariables", variables: [] };
+    expect(dslToOps(opsToDsl([empty]))).toEqual([empty]);
+    expect(opsToDsl([empty])).toBe("op updateVariables {\"variables\":[]}");
+  });
+
+  it("未知键剥离（对齐 zod 非严格对象语义）", () => {
+    expect(dslToOps(`op updateVariables {"variables":[{"id":"v1","name":"a","expression":"1","stale":true}],"extra":1}`))
+      .toEqual([{ kind: "updateVariables", variables: [{ id: "v1", name: "a", expression: "1" }] }]);
+  });
+
+  it("语义校验不在 DSL 层：非法名/重复名/不可求值表达式仍可结构解析（归后端门禁）", () => {
+    const dsl = `op updateVariables {"variables":[{"id":"v1","name":"1bad","expression":"1 +"},{"id":"v2","name":"1bad","expression":"#nope"}]}`;
+    expect(dslToOps(dsl)).toEqual([{
+      kind: "updateVariables",
+      variables: [
+        { id: "v1", name: "1bad", expression: "1 +" },
+        { id: "v2", name: "1bad", expression: "#nope" },
+      ],
+    }]);
+  });
+
+  it("结构校验：variables 非数组/项非对象/三键缺失或非 string 一律拒收；featureType 令牌拒收", () => {
+    const badCases = [
+      `op updateVariables {"variables":{}}`,
+      `op updateVariables {"variables":[1]}`,
+      `op updateVariables {"variables":[{"name":"a","expression":"1"}]}`,
+      `op updateVariables {"variables":[{"id":"v1","expression":"1"}]}`,
+      `op updateVariables {"variables":[{"id":"v1","name":"a"}]}`,
+      `op updateVariables {"variables":[{"id":1,"name":"a","expression":"1"}]}`,
+      `op updateVariables {"variables":[{"id":"v1","name":2,"expression":"1"}]}`,
+      `op updateVariables {"variables":[{"id":"v1","name":"a","expression":3}]}`,
+      `op updateVariables extrude {"variables":[]}`,
+    ];
+    for (const dsl of badCases)
+      expect(() => dslToOps(dsl), dsl).toThrow(OpDslParseError);
   });
 });
