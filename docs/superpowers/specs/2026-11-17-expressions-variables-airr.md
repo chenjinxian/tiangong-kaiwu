@@ -208,7 +208,7 @@
   回归 `sketch-dimension-edit`+`sketch-expressions` **5 passed**。
 - **S3a 变量类型/说明**：shared **281/281**；backend **987 passed/1 expected
   fail/8 skipped**（类型矩阵/零变更/迁移/undo/op DSL）；S1 真栈 expression spec 绿。
-- **S3b 变量表 UI/内联创建**：web **2383/2383**、lint/tsc(src+e2e) 绿；真栈
+- **S3b 变量表 UI/内联创建**：web **2390/2390**、lint/tsc(src+e2e) 绿；真栈
   `variables-ui` **2 passed（1.3 m）**——创建/树行/尺寸引用 400 mm³ → 编辑 800 →
   **原生 UI Undo/Redo 一次操作**（S3d 分组）→ 无效态 → 内联创建 → push+冷重开；
   `已测量/来自导入` 诚实禁用；变量删除为推断交互（live 菜单未采）。

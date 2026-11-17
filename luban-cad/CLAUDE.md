@@ -317,7 +317,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （220×188、四类型、已分配实现/其余诚实禁用）、树行 `(fx) #name = 值/表达式`、
   删除（推断交互）、内联创建、`新建变量…`、只读/读失败写门、单写门。
   验证：shared **281/281**；backend **993 passed/1 expected fail/8 skipped**；web
-  **2383/2383**；tsc(src+e2e)/eslint 绿；真栈 `sketch-expression-ui` **2 passed**
+  **2390/2390**；tsc(src+e2e)/eslint 绿；真栈 `sketch-expression-ui` **2 passed**
   （`#width*2` → 20 mm/**1000 mm³**、显示表达式 on/off、`#nope` ✓ 禁用、angle 159）、
   `variables-ui` **2 passed**（变量 width=10 → 尺寸 → **400 mm³** → 改 20 → **800**
   → **原生 UI Undo 一次点击**回 400 → Redo 800、无效态、内联 `#bar`、push+冷重开）、

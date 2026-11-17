@@ -254,8 +254,8 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
 - **S3a 实测**：shared **281/281**；backend targeted **51/51**、全量 **987
   passed/1 expected fail/8 skipped**；类型矩阵（length↔angle 拒收、number/any
   接受、缺省 length）、零变更、读/撤销说明一致性、迁移/undo、op DSL 往返。
-- **S3b 实测（2026-11-17）**：web **2383/2383**、lint/tsc(src+e2e) 绿；真栈
-  `variables-ui` **2 passed（1.3 m）**：变量 width=10 → 树行、尺寸 `#width` →
+- **S3b 实测（2026-11-17）**：web **2390/2390**、lint/tsc(src+e2e) 绿；真栈
+  `variables-ui` **2 passed（1.1 m，孤立干净窗口）**：变量 width=10 → 树行、尺寸 `#width` →
   **400 mm³**、改 width=20 → **800 mm³**、**原生 UI Undo 一次点击**回 10/400
   （S3d 分组）、Redo 回 20/800、无效表达式 ✓ 禁用、内联 `#bar` 创建、push+冷重开；
   S2/S1 spec 各 **2 passed**。`已测量/来自导入` 诚实禁用；变量删除为推断交互
