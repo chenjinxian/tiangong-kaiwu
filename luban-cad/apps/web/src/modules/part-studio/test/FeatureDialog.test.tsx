@@ -48,7 +48,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { JSX } from 'react';
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -158,7 +158,7 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
-import type { BodyInfo, FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, SketchRegionDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, SketchRegionDto, VariableDto } from '@luban-cad/shared';
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
@@ -678,7 +678,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
   function renderSubmitDialog(applyOp: ReturnType<typeof makeApplyOp>, props: Partial<Parameters<typeof FeatureDialog>[0]> = {}) {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
-    render(
+    const rendered = render(
       <FeatureDialog
         featureName="拉伸"
         mode="new"
@@ -689,7 +689,7 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
         {...props}
       />,
     );
-    return { onConfirm, onCancel, applyOp };
+    return { onConfirm, onCancel, applyOp, rerender: rendered.rerender };
   }
 
   /** SketchDto 替身（对话框只消费 regions——面积降序语义由 T3 后端保证）。 */
@@ -725,6 +725,26 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     return { user, ...rendered };
   }
 
+  /** rerender 用同一元素形状（sketch 通道就绪；props 覆盖 mode/variables 等）。 */
+  function submitDialogElement(
+    applyOp: ReturnType<typeof makeApplyOp>,
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ): JSX.Element {
+    return (
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        {...props}
+      />
+    );
+  }
+
   beforeEach(() => {
     mocks.outputMessage.mockClear();
     featureRpc.getSketch.mockReset();
@@ -756,6 +776,470 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
       featureType: 'extrude',
       params: { profile: [], distance: 42.5, sketchId: 'sk-1', regions: [0], operation: 'new' },
     });
+  });
+
+  // ── ADR-0020 S4b：拉伸深度表达式 ──────────────────────────────────────────
+  const DEPTH_VARIABLE: VariableDto = { id: 'v1', name: 'depth', expression: '5', type: 'length' };
+  const EDIT_WITH_EXPRESSION = {
+    profile: [],
+    distance: 10,
+    sketchId: 'sk-1',
+    regions: [0],
+    operation: 'add' as const,
+    distanceExpression: '#depth*2',
+  };
+
+  it('S4b 深度表达式：聚焦原文/失焦求值 → 载荷 {distance: 求值, distanceExpression: 原文}', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, { variables: [DEPTH_VARIABLE] });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    // 新建设计值（无表达式）：聚焦仍是数值文本。
+    expect(input.value).toBe('10');
+    await user.click(input);
+    expect(input.value).toBe('10');
+    await user.clear(input);
+    await user.type(input, '#depth*2');
+    expect(input.value).toBe('#depth*2');
+    await user.tab(); // 失焦 → 求值结果（深度变量 5 → 10）
+    expect(input.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        profile: [],
+        distance: 10,
+        sketchId: 'sk-1',
+        regions: [0],
+        operation: 'new',
+        distanceExpression: '#depth*2',
+      },
+    });
+  });
+
+  it('S4b 编辑：失焦显示物化值、聚焦显示表达式；数值替换 → updateParams 删除旧表达式', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-1',
+      featureName: '拉伸 1',
+      variables: [DEPTH_VARIABLE],
+      initialParams: EDIT_WITH_EXPRESSION,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    expect(input.value).toBe('10'); // 失焦=后端物化快照，不是表达式原文
+    await user.click(input);
+    expect(input.value).toBe('#depth*2'); // 聚焦=存储表达式
+    await user.clear(input);
+    await user.type(input, '20');
+    await user.tab();
+    expect(input.value).toBe('20');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0];
+    expect(op).toMatchObject({ kind: 'updateParams', featureId: 'f-1', params: { distance: 20 } });
+    if (op.kind !== 'updateParams') throw new Error('expected updateParams');
+    expect((op.params as Record<string, unknown>).distanceExpression).toBeUndefined();
+  });
+
+  it('S4b 编辑其他字段：未触碰的表达式原样保留（发布门 P0-07）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-1',
+      featureName: '拉伸 1',
+      variables: [DEPTH_VARIABLE],
+      initialParams: EDIT_WITH_EXPRESSION,
+    });
+    await user.click(screen.getByRole('button', { name: '反向' }));
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0];
+    expect(op).toMatchObject({ kind: 'updateParams' });
+    if (op.kind !== 'updateParams') throw new Error('expected updateParams');
+    expect((op.params as Record<string, unknown>).distanceExpression).toBe('#depth*2');
+    expect((op.params as Record<string, unknown>).distance).toBe(10);
+  });
+
+  it('S4b 无效表达式 → 提交拒绝（不发 op、就地错误 + aria-invalid）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, { variables: [DEPTH_VARIABLE] });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, '#nope');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain('未知变量');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('S4b 非 blind 终止条件：清除表达式（不携带 distanceExpression）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-1',
+      featureName: '拉伸 1',
+      variables: [DEPTH_VARIABLE],
+      initialParams: EDIT_WITH_EXPRESSION,
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '终止条件' }), 'throughAll');
+    expect((screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0];
+    if (op.kind !== 'updateParams') throw new Error('expected updateParams');
+    const params = op.params as Record<string, unknown>;
+    expect(params.endBound).toBe('throughAll');
+    expect(params.distanceExpression).toBeUndefined();
+  });
+
+  it('S4b `#` 补全：显示既有变量并回填 #name', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, { variables: [DEPTH_VARIABLE] });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#d');
+    const menu = await screen.findByTestId('sketch-expression-autocomplete');
+    await user.click(within(menu).getByText('#depth'));
+    expect(input.value).toBe('#depth');
+    await user.tab();
+    expect(input.value).toBe('5');
+  });
+
+  it('S4b 未知 #name + Enter → 内联创建（name=token、值=当前深度）；变量刷新后回填并提交', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user, rerender } = await renderReadyDialog(applyOp, {
+      variables: [],
+      onCreateVariable,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#bar');
+    await user.keyboard('{Enter}');
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'bar',
+      valueText: '10',
+      unit: 'mm',
+    }));
+    // 宿主变量 hook 刷新（onCommitted）→ 同一对话框收到新变量表。
+    rerender(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        variables={[{ id: 'v1', name: 'bar', expression: '10', type: 'length' }]}
+        onCreateVariable={onCreateVariable}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(input.value).toBe('#bar'));
+    await screen.findByText('草图 1 的面');
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      params: { distance: 10, distanceExpression: '#bar' },
+    });
+  });
+
+  it('S4b「新建变量…」（空 query）→ 变量刷新后自动插入 #name', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user, rerender } = await renderReadyDialog(applyOp, {
+      variables: [],
+      onCreateVariable,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#');
+    await user.click(screen.getByTestId('sketch-expression-autocomplete-create'));
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({ name: '' }));
+    rerender(
+      <FeatureDialog
+        featureName="拉伸"
+        mode="new"
+        featureType="extrude"
+        applyOp={applyOp}
+        sketches={[{ id: 'sk-1', label: '草图 1' }]}
+        connectionKey="model-key"
+        variables={[{ id: 'v1', name: 'foo', expression: '5', type: 'length' }]}
+        onCreateVariable={onCreateVariable}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(input.value).toBe('#foo'));
+  });
+
+  it('S4b 复核 P1：补全鼠标选中后菜单关闭，下一次 Enter 直接提交', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, { variables: [DEPTH_VARIABLE] });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#d');
+    const menu = await screen.findByTestId('sketch-expression-autocomplete');
+    await user.click(within(menu).getByText('#depth'));
+    expect(input.value).toBe('#depth');
+    await waitFor(() => expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull());
+    await user.keyboard('{Enter}');
+    expect(applyOp).toHaveBeenCalledTimes(1);
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      params: { distance: 5, distanceExpression: '#depth' },
+    });
+  });
+
+  it('S4b 复核 P1：补全 Enter 选中后菜单关闭，下一次 Enter 提交', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, { variables: [DEPTH_VARIABLE] });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#d');
+    expect(await screen.findByTestId('sketch-expression-autocomplete')).toBeDefined();
+    await user.keyboard('{Enter}'); // 选中补全项（不提交）
+    expect(input.value).toBe('#depth');
+    await waitFor(() => expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull());
+    expect(applyOp).not.toHaveBeenCalled();
+    await user.keyboard('{Enter}'); // 菜单已关 → 提交
+    expect(applyOp).toHaveBeenCalledTimes(1);
+  });
+
+  it('S4b 复核 P2a：无效提交 → 内联创建成功后清除错误、失焦显示求值结果', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user, rerender } = await renderReadyDialog(applyOp, {
+      variables: [DEPTH_VARIABLE],
+      onCreateVariable,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    // 无效提交：错误 + 红态。
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#nope');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(screen.getByRole('alert').textContent).toContain('未知变量');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    // 未知 token + Enter → 内联创建（值沿用最近数值）。
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#bar');
+    await user.keyboard('{Enter}');
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({ name: 'bar' }));
+    // 变量表刷新时字段已失焦（创建面板关闭）→ 显示求值结果而非 `#bar`。
+    fireEvent.blur(input);
+    rerender(submitDialogElement(applyOp, {
+      variables: [{ id: 'v2', name: 'bar', expression: '10', type: 'length' }],
+      onCreateVariable,
+    }));
+    await waitFor(() => expect(input.value).toBe('10'));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(input.getAttribute('aria-invalid')).not.toBe('true');
+  });
+
+  it('S4b 复核 P2b：内联创建面板取消 → pending 丢弃（迟到变量刷新不再回填）', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user, rerender } = await renderReadyDialog(applyOp, {
+      variables: [],
+      onCreateVariable,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#');
+    await user.click(screen.getByTestId('sketch-expression-autocomplete-create'));
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({ name: '' }));
+    // 宿主打开并取消内联创建面板（active 变化是取消信号）。
+    act(() => {
+      usePartStudioStore.getState().openVariablesDialog({
+        active: 'inline-create', name: '', valueText: '10', type: 'length',
+      });
+    });
+    act(() => {
+      usePartStudioStore.getState().closeVariablesDialog();
+    });
+    // 迟到的变量刷新不得再插入 `#foo`。
+    rerender(submitDialogElement(applyOp, {
+      variables: [{ id: 'v1', name: 'foo', expression: '5', type: 'length' }],
+      onCreateVariable,
+    }));
+    await waitFor(() => expect(input.value).toBe('#'));
+  });
+
+  it('S4b 复核 P2b：改名创建只替换完整 token（#bar→#baz），不拼接/不双井号', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user, rerender } = await renderReadyDialog(applyOp, {
+      variables: [],
+      onCreateVariable,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#bar');
+    await user.keyboard('{Enter}');
+    rerender(submitDialogElement(applyOp, {
+      variables: [{ id: 'v1', name: 'baz', expression: '5', type: 'length' }],
+      onCreateVariable,
+    }));
+    await waitFor(() => expect(input.value).toBe('#baz'));
+  });
+
+  it('S4b 复核 P2b：token 身份不再匹配（#barbazar）→ 不改写文本', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user, rerender } = await renderReadyDialog(applyOp, {
+      variables: [],
+      onCreateVariable,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#bar');
+    await user.keyboard('{Enter}');
+    await user.clear(input);
+    await user.type(input, '#barbazar');
+    rerender(submitDialogElement(applyOp, {
+      variables: [{ id: 'v1', name: 'baz', expression: '5', type: 'length' }],
+      onCreateVariable,
+    }));
+    await waitFor(() =>
+      expect((screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement).value).toBe('#barbazar'),
+    );
+  });
+
+  it('S4b 复核 P2：引用 angle 变量本地即拒（与后端同句，不做 45 mm 预览）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [{ id: 'v2', name: 'ang', expression: '45', type: 'angle' }],
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, '#ang');
+    expect(screen.getByTestId('part-studio-feature-dialog-depth-row')
+      .getAttribute('data-depth-value')).toBe('');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert').textContent).toContain(
+      '变量 #ang 的类型 angle 与深度字段不兼容（需要 length/number/any）',
+    );
+  });
+
+  it('S4b 复核 P2：变量表加载中 + 未触碰落库表达式 → 按物化 distance 提交', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-1',
+      featureName: '拉伸 1',
+      variables: [],
+      variablesLoading: true,
+      initialParams: EDIT_WITH_EXPRESSION,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    expect(input.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0];
+    expect(op).toMatchObject({
+      kind: 'updateParams',
+      params: { distance: 10, distanceExpression: '#depth*2' },
+    });
+  });
+
+  it('S4b 复核 P2：变量表读取失败 + 用户改过表达式 → 独立「不可用」错误（不误报未知变量）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-1',
+      featureName: '拉伸 1',
+      variables: [],
+      variablesError: '读取失败',
+      variablesReady: false,
+      initialParams: EDIT_WITH_EXPRESSION,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#depth*2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    const alertText = screen.getByRole('alert').textContent ?? '';
+    expect(alertText).toContain('变量表不可用');
+    expect(alertText).not.toContain('未知变量');
+  });
+
+  it('S4b 复核 P3e：内联创建值用原始数值文本（非 5 位格式化），非法表达式不回填', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [],
+      onCreateVariable,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, '12.3456789');
+    await user.clear(input);
+    await user.type(input, '#bar');
+    await user.keyboard('{Enter}');
+    expect(onCreateVariable).toHaveBeenLastCalledWith(expect.objectContaining({
+      name: 'bar',
+      valueText: '12.3456789',
+    }));
+  });
+
+  it('S4b 复核 P3e：无最近数值且表达式非法 → 值回退缺省数值，不回填非法表达式', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [DEPTH_VARIABLE],
+      onCreateVariable,
+      initialParams: undefined,
+    });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, '#nope');
+    await user.keyboard('{Enter}');
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'nope',
+      valueText: '10',
+    }));
+  });
+
+  it('S4b 复核 P3b：聚焦保留原始草稿空白（trim 只在求值/载荷）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, { variables: [DEPTH_VARIABLE] });
+    const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, ' #depth + 1 ');
+    expect(input.value).toBe(' #depth + 1 ');
+    await user.tab();
+    expect(input.value).toBe('6');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      params: { distance: 6, distanceExpression: '#depth + 1' },
+    });
+  });
+
+  it('S4b 复核 P3d：布尔旧距离行不消费表达式键盘语义（Enter 不建变量/不提交）', async () => {
+    const applyOp = makeApplyOp();
+    const onCreateVariable = vi.fn();
+    const { user } = await renderReadyDialog(applyOp, {
+      featureType: 'booleanAdd',
+      variables: [DEPTH_VARIABLE],
+      onCreateVariable,
+    });
+    const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    await user.clear(distance);
+    await user.type(distance, '#bar{Enter}');
+    expect(onCreateVariable).not.toHaveBeenCalled();
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('sketch-expression-autocomplete')).toBeNull();
   });
 
   it('终止条件：new 禁用完全贯穿；移除可选，载荷携带 endBound=throughAll 且距离框禁用', async () => {

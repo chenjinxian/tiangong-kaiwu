@@ -942,6 +942,8 @@
     "helpUnavailable": "Help content is not available yet.",
     "secondEndUnsupported": "Second end position is not supported yet",
     "depthLabel": "Depth",
+    "depthVariablesLoading": "Variables are still loading; the depth expression cannot be validated yet",
+    "depthVariablesUnavailable": "Variables are unavailable ({{message}}); the depth expression cannot be validated yet",
     "startOffsetTerminationLabel": "Start offset termination",
     "startOffsetTerminationUnsupported": "Other start offset termination modes are not implemented",
     "startOffsetExpand": "Expand or collapse the start offset",

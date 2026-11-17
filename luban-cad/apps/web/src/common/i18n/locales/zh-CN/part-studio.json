@@ -942,6 +942,8 @@
     "helpUnavailable": "帮助内容尚未接入。",
     "secondEndUnsupported": "第二个终止位置尚未支持",
     "depthLabel": "深度",
+    "depthVariablesLoading": "变量表加载中，暂时无法校验深度表达式",
+    "depthVariablesUnavailable": "变量表不可用（{{message}}），暂时无法校验深度表达式",
     "startOffsetTerminationLabel": "起始偏移终止条件",
     "startOffsetTerminationUnsupported": "其它起始偏移终止条件尚未实现",
     "startOffsetExpand": "展开或收起起始偏移",

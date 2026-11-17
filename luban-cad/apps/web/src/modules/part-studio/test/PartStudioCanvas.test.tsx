@@ -387,6 +387,46 @@ describe('FeatureDialog 宿主寻址（T6-① key 必办 + 提交链）', () => 
     await waitFor(() => expect(usePartStudioStore.getState().dialog.active).toBeNull());
   });
 
+  it('S4b：页面变量表直通 FeatureDialog —— 深度 #depth*2 提交 {distance: 求值, distanceExpression: 原文}', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true, featureId: 'f1' }));
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      entities: [],
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      regions: [{ area: 0.25, outerEntityIds: [1, 2, 3, 4] }],
+    });
+    renderCanvas(applyOp, {
+      sketches: [{ id: 'sk-1', label: '草图 1' }],
+      connectionKey: 'canvas-key',
+      variables: [{ id: 'v1', name: 'depth', expression: '5', type: 'length' }],
+    });
+    act(() => {
+      usePartStudioStore.getState().openFeatureDialog({ mode: 'new', featureType: 'extrude' });
+    });
+    await withinDialog().findByText('草图 1 的面');
+    const depth = withinDialog().getByRole('textbox', { name: '深度' });
+    await user.clear(depth);
+    await user.type(depth, '#depth*2');
+    await user.tab();
+    await user.click(withinDialog().getByRole('button', { name: '确认' }));
+    await waitFor(() =>
+      expect(applyOp).toHaveBeenCalledWith({
+        kind: 'insertFeature',
+        featureType: 'extrude',
+        params: {
+          profile: [],
+          distance: 10,
+          sketchId: 'sk-1',
+          regions: [0],
+          operation: 'new',
+          distanceExpression: '#depth*2',
+        },
+      }),
+    );
+  });
+
   it('✗ 取消 → closeDialog（对话框不自销，受控口径）', async () => {
     const user = userEvent.setup();
     renderCanvas();

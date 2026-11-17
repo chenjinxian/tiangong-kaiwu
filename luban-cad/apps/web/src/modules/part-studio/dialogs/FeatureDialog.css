@@ -1570,6 +1570,16 @@
   text-align: end;
 }
 
+/* ADR-0020 S4b：深度字段 `#` 补全锚点（菜单绝对定位在本行下方）。 */
+.part-studio-feature-dialog__depth-row {
+  position: relative;
+}
+
+/* 深度表达式本地校验失败：沿用既有红下划线错误口径（提交时拒绝，不静默）。 */
+.part-studio-feature-dialog__depth-row > .part-studio-feature-dialog__input[data-invalid='true'] {
+  border-block-end-color: #aa252d;
+}
+
 .part-studio-feature-dialog__input {
   block-size: 22px;
   padding: 0 2px;

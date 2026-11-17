@@ -1680,6 +1680,13 @@ export function PartStudioCanvas({
           initialFaces={dialog.mode === 'new' ? dialog.inputFaces : undefined}
           bodiesError={bodiesError}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          // ADR-0020 S4b：深度表达式复用页面持有的变量表与 S3b 内联创建宿主
+          //（不新建读取实例/RPC；回调本身含写门/刷新/竞态守卫）。
+          variables={partStudioVariables}
+          variablesLoading={variablesLoading}
+          variablesError={variablesError}
+          variablesReady={variablesReady}
+          onCreateVariable={openInlineCreateVariable}
           viewport={viewport}
           onConfirm={closeDialog}
           onCancel={closeDialog}

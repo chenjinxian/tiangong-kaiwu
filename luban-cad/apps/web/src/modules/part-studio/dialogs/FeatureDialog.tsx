@@ -245,9 +245,11 @@ import type {
   SketchEntityDto,
   SketchPlaneDto,
   SketchRegionDto,
+  VariableDto,
 } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import type { CanvasSelection } from '../types.js';
 import { filletEdgeRefKey } from '../tools/modeling/fillet-edge-ref.js';
@@ -259,6 +261,23 @@ import {
   buildExtrudePreview,
   buildRevolvePreview,
 } from '../internal/feature-preview.js';
+// ADR-0020 S4b：拉伸深度表达式复用 S2/S3 设施（无第二套求值/补全/内联创建）。
+import { isNumericDimensionText } from '../internal/sketch-dimension-expression.js';
+import {
+  evaluateFeatureDepthExpression,
+  type FeatureDepthExpressionError,
+} from '../internal/feature-depth-expression.js';
+import { formatDimensionPopupValue } from '../internal/sketch-dimension-value.js';
+import type { VariableCreateRequest } from '../internal/variables.js';
+import {
+  applyExpressionAutocomplete,
+  expressionAutocompleteQuery,
+} from '../components/SketchDimensionDialog.js';
+import {
+  autocompleteOptionCount,
+  matchesVariableSuggestions,
+  SketchExpressionAutocomplete,
+} from '../components/SketchExpressionAutocomplete.js';
 import './FeatureDialog.css';
 
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */
@@ -422,6 +441,25 @@ export interface FeatureDialogProps {
    */
   initialParams?: unknown;
   /**
+   * ADR-0020 S4b：Part Studio 变量表（Session `usePartStudioVariables` 单点持有，
+   * 经 PartStudioCanvas 直通）——拉伸深度字段的 `#` 补全与本地求值预校验。
+   * 缺省空集（壳期/单测）：纯数字行为逐字不变。
+   */
+  variables?: readonly VariableDto[];
+  /** 变量表读取中（S4b 复核 P2：未触碰的落库表达式按物化 distance 放行；新输入
+   *  表达式则给「变量表加载中」的独立错误，绝不误报未知变量）。 */
+  variablesLoading?: boolean;
+  /** 变量表读取失败消息（同上；独立「不可用」文案）。 */
+  variablesError?: string;
+  /** 当前 scope 变量表已成功落位且无错误（缺省 true=测试/壳期）。 */
+  variablesReady?: boolean;
+  /**
+   * ADR-0020 S4b：内联创建变量请求（PartStudioCanvas `openInlineCreateVariable`
+   * 直通，S3b 同一面板）。缺省不接线——补全菜单不渲染「新建变量…」，Enter
+   * 不打开创建面板（不造假控件）。
+   */
+  onCreateVariable?: (request: VariableCreateRequest) => void;
+  /**
    * 实时预览视口（2026-11-02）：宿主 PartStudioCanvas 的 ScreenViewport。
    * 在场且 extrude/revolve 草图通道就绪时，对话框把参数 → 世界几何 → 画布
    * Onshape 同款预览（灰体 + 橙色选中面域，WorldDecoration 深度测试）。缺省不预览
@@ -432,6 +470,37 @@ export interface FeatureDialogProps {
   onConfirm?: (result: FeatureDialogResult) => void;
   /** ✗ 取消出口。 */
   onCancel?: () => void;
+}
+
+/**
+ * 深度文本中 `#name` token 的唯一区间（P2b 内联创建回填的身份验证）。
+ * 前后须为非标识符边界；0/多处命中返回 undefined（不猜、不改写）。
+ */
+function findDepthVariableTokenRange(
+  text: string,
+  name: string,
+): { start: number; end: number } | undefined {
+  if (name === '') return undefined;
+  const matches: Array<{ start: number; end: number }> = [];
+  const pattern = new RegExp(`#${name}(?![A-Za-z0-9_])`, 'g');
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const start = match.index;
+    if (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1]!)) continue;
+    matches.push({ start, end: start + match[0].length });
+  }
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** 空 query 创建（点「新建变量…」时的裸 `#`）：仅当原位置仍是 `#token` 时返回整段。 */
+function findDepthEmptyTokenRange(
+  text: string,
+  start: number,
+): { start: number; end: number } | undefined {
+  if (start < 0 || start >= text.length || text[start] !== '#') return undefined;
+  const match = /^#([A-Za-z_][A-Za-z0-9_]*)?/.exec(text.slice(start));
+  if (!match) return undefined;
+  return { start, end: start + match[0].length };
 }
 
 /** 结果类型页签序（os-31）。 */
@@ -631,12 +700,19 @@ export function FeatureDialog({
   bodiesError,
   initialFaces,
   initialParams,
+  variables,
+  variablesLoading = false,
+  variablesError,
+  variablesReady = true,
+  onCreateVariable,
   viewport,
   onConfirm,
   onCancel,
 }: FeatureDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const { selection } = useCanvasSelection();
+  // S4b 复核 P2(b)：内联创建面板关闭（提交或取消）→ 取消未完成的深度回填请求。
+  const variablesDialogActive = usePartStudioStore((s) => s.variablesDialog.active);
   // B-model v1.17：活动 Part Studio id（文档路由 `?model=`）——面域读面 getSketch 的可选 scope。
   // 缺省（legacy 路由/壳期）不传参数（旧 arity 与后端 legacy 读面逐字不变）。
   const partStudioId = useWorkspaceRef()?.modelId;
@@ -680,9 +756,63 @@ export function FeatureDialog({
     return editParams?.newBody === true ? 'new' : featureType === 'revolve' || featureType === 'booleanAdd' ? 'add' : 'new';
   });
   const [chips, setChips] = React.useState<FeatureDialogEntity[]>([...(entities ?? [])]);
+  // ADR-0020 S4b：落库深度表达式（编辑既有；shared 1.73 `distanceExpression`）。
+  const storedDistanceExpression = React.useMemo<string | undefined>(() => {
+    const raw = (editParams as { distanceExpression?: unknown } | undefined)?.distanceExpression;
+    return typeof raw === 'string' && raw.trim() !== '' ? raw : undefined;
+  }, [editParams]);
   // 审计 B1 裁决（2026-11-16）：新建拉伸深度缺省 10 mm 是面向 mm 文档的
   // 产品单位决策（不随 live 副本的 1 in / 旧证据 25 mm 改动）——刻意保留。
-  const [distance, setDistance] = React.useState(() => storedNumberString(editParams?.distance) ?? '10');
+  // S4a 物化快照（变量表读取失败/加载中时，未触碰的落库表达式用它放行提交）。
+  const storedMaterializedDistance = React.useMemo<number | undefined>(() => {
+    const raw = editParams?.distance;
+    return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+  }, [editParams]);
+  // S4b：有表达式时失焦显示后端物化的求值快照（`distance` 数值），不是表达式原文。
+  const [distance, setDistance] = React.useState(() => {
+    if (storedDistanceExpression !== undefined) {
+      const materialized = storedNumberString(editParams?.distance);
+      return materialized !== undefined
+        ? formatDimensionPopupValue('length', Number(materialized))
+        : storedDistanceExpression;
+    }
+    return storedNumberString(editParams?.distance) ?? '10';
+  });
+  // 当前表达式原文（非纯数字文本；聚焦回显/提交设计意图）。**保留用户草稿**
+  // （不做 trim，避免输入空格时光标跳动）；求值/载荷侧才 trim（P3b）。
+  const [depthExpression, setDepthExpression] = React.useState<string | undefined>(
+    () => storedDistanceExpression,
+  );
+  const [depthFocused, setDepthFocused] = React.useState(false);
+  const [depthInvalid, setDepthInvalid] = React.useState(false);
+  // 用户是否改过深度字段（未改的落库表达式在变量表不可用时允许按物化值提交）。
+  const [depthDirty, setDepthDirty] = React.useState(false);
+  const depthInputRef = React.useRef<HTMLInputElement | null>(null);
+  const distanceRef = React.useRef(distance);
+  distanceRef.current = distance;
+  const onCreateVariableRef = React.useRef(onCreateVariable);
+  onCreateVariableRef.current = onCreateVariable;
+  /** 本对话框设置的深度错误原文（只清除自己设置的错误，不吞后端/其它错误）。 */
+  const depthSubmitErrorRef = React.useRef<string | undefined>(undefined);
+  // 最近一次**原始数值文本**（内联创建「值」预填：不取 5 位格式化值/非法表达式）。
+  const lastNumericDepthTextRef = React.useRef(
+    storedNumberString(editParams?.distance) ?? '10',
+  );
+  /** `#` 补全会话（query = `#` 后前缀；index = 键盘高亮行）。null = 关闭。 */
+  const [depthAutocomplete, setDepthAutocomplete] =
+    React.useState<{ query: string; index: number } | null>(null);
+  /**
+   * 内联创建成功后回填：记录发起时的既有变量名集/请求名/空 query 的 `#` 位置；
+   * 变量表刷新出现新变量时按**当前文本**重新定位 token 再替换（P2b：避免
+   * `#barbazar`/`##baz`；面板取消/关闭即丢弃 pending）。
+   */
+  const pendingDepthCreateRef = React.useRef<{
+    existingNames: Set<string>;
+    requestedName: string;
+    start: number;
+    /** 已观察到宿主真正打开创建面板（避免“宿主还没打开就按 null 判取消”）。 */
+    sawPanelOpen: boolean;
+  } | null>(null);
   // v1.52（ADR-0005 Phase 5）：upToSurface 目标面快照（路由时选中面；对话框打开即清选择）
   // / 落库 faceRef（edit 只读回显）。与 mirror 面快照同源但独立命名，避免两通道耦合。
   // 打开对话框后画布拾取被 useOnshapeSelection 的 paused 策略禁用并清选择——
@@ -863,6 +993,228 @@ export function FeatureDialog({
     && applyOp !== undefined;
   const revolveChannel = sketchChannel && effectiveFeatureType === 'revolve';
   const extrudeChannel = sketchChannel && effectiveFeatureType === 'extrude';
+  // ── ADR-0020 S4b：拉伸深度表达式（仅 extrude 深度字段；无通用 expressions 映射）──
+  // 有效文本 = 表达式原文（失焦后仍由 depthExpression 保留设计意图）或数值文本。
+  const depthExpressionActive = effectiveFeatureType === 'extrude';
+  const effectiveDepthText = depthExpression ?? distance;
+  const depthVariableList = React.useMemo(() => variables ?? [], [variables]);
+  // 变量表加载/读取失败：未触碰的落库表达式按物化快照提交（P2），新输入表达式
+  // 给独立错误；绝不把“表未就绪”误报成“未知变量”。
+  const depthVariablesUnavailable = variablesLoading
+    || variablesError !== undefined
+    || variablesReady === false;
+  const storedExpressionUntouched = storedDistanceExpression !== undefined
+    && depthExpression === storedDistanceExpression
+    && !depthDirty;
+  /** P3a：表达式存在时预览只用求值数；无效表达式不得回落到 Number(draft)。 */
+  const depthEvaluation = React.useMemo(() => {
+    if (!depthExpressionActive) return undefined;
+    if (depthVariablesUnavailable) {
+      if (depthExpression !== undefined) {
+        if (storedExpressionUntouched && storedMaterializedDistance !== undefined)
+          return { ok: true as const, value: storedMaterializedDistance, expression: depthExpression };
+        return {
+          ok: false as const,
+          error: variablesLoading
+            ? { code: 'variablesLoading' as const }
+            : { code: 'variablesUnavailable' as const, message: variablesError },
+        };
+      }
+      // 纯数字不依赖变量表。
+      return evaluateFeatureDepthExpression({ text: effectiveDepthText, variables: [] });
+    }
+    return evaluateFeatureDepthExpression({ text: effectiveDepthText, variables: depthVariableList });
+  }, [
+    depthExpressionActive, depthExpression, depthVariablesUnavailable, variablesLoading,
+    variablesError, storedExpressionUntouched, storedMaterializedDistance, effectiveDepthText,
+    depthVariableList,
+  ]);
+  // 最近一次原始数值草稿（内联创建值预填；不做 5 位格式化/不从非法表达式回填）。
+  React.useEffect(() => {
+    if (depthExpressionActive && depthEvaluation?.ok && isNumericDimensionText(effectiveDepthText))
+      lastNumericDepthTextRef.current = effectiveDepthText.trim();
+  }, [depthExpressionActive, depthEvaluation, effectiveDepthText]);
+  // P2a：本地求值由无效转有效（如变量表刷新/内联创建成功）→ 清除自身错误与红态。
+  // 只清除本对话框设置的深度错误（不吞后端/其它提交错误）。
+  React.useEffect(() => {
+    if (!depthEvaluation?.ok) return;
+    const message = depthSubmitErrorRef.current;
+    if (message === undefined) return;
+    depthSubmitErrorRef.current = undefined;
+    setDepthInvalid(false);
+    setError((current) => (current === message ? undefined : current));
+  }, [depthEvaluation]);
+  const depthAutocompleteMatches = React.useMemo(
+    () => (depthAutocomplete
+      ? matchesVariableSuggestions(depthVariableList, depthAutocomplete.query)
+      : []),
+    [depthAutocomplete, depthVariableList],
+  );
+  const depthAutocompleteCount = depthAutocomplete === null
+    ? 0
+    : autocompleteOptionCount(
+      depthVariableList,
+      depthAutocomplete.query,
+      onCreateVariable !== undefined,
+    );
+  const depthAutocompleteOpen = depthExpressionActive
+    && depthAutocomplete !== null
+    && depthAutocompleteCount > 0;
+  /**
+   * 输入变化：同步表达式状态 + `#` 补全查询（与草图尺寸字段同一组件/规则）。
+   * `syncAutocomplete=false` 用于**程序化写回**（补全选中/内联创建回填）：不得再
+   * 从旧 DOM caret 重推 query 重新打开菜单（P1）。
+   */
+  const handleDepthChange = React.useCallback((next: string, options?: {
+    caret?: number | null;
+    syncAutocomplete?: boolean;
+  }): void => {
+    setDepthDirty(true);
+    setDistance(next);
+    if (depthExpressionActive && !isNumericDimensionText(next))
+      setDepthExpression(next);
+    else
+      setDepthExpression(undefined);
+    setDepthInvalid(false);
+    if (depthExpressionActive) {
+      const evaluation = evaluateFeatureDepthExpression({ text: next, variables: depthVariableList });
+      // P2a：失焦状态下程序化写回（内联创建成功）显示求值结果，而非原始 token。
+      if (!depthFocused && evaluation.ok && evaluation.expression !== undefined)
+        setDistance(formatDimensionPopupValue('length', evaluation.value));
+    }
+    if (!depthExpressionActive || options?.syncAutocomplete === false) {
+      setDepthAutocomplete(null);
+      return;
+    }
+    const caret = options?.caret ?? depthInputRef.current?.selectionStart ?? next.length;
+    const query = expressionAutocompleteQuery(next, caret);
+    const hasCreate = onCreateVariableRef.current !== undefined;
+    if (query === null
+      || autocompleteOptionCount(depthVariableList, query, hasCreate) === 0) {
+      setDepthAutocomplete(null);
+      return;
+    }
+    setDepthAutocomplete((current) =>
+      current && current.query === query ? current : { query, index: 0 });
+  }, [depthExpressionActive, depthFocused, depthVariableList]);
+  /**
+   * P3c：caret/选区变化（点击/方向键）只收窄/关闭菜单（不重新打开），避免
+   * 菜单对错误 token 生效。与 S2 `syncAutocompleteFromCaret` 同口径。
+   */
+  const syncDepthAutocompleteFromCaret = React.useCallback((text: string, caret: number | null): void => {
+    if (!depthExpressionActive) {
+      setDepthAutocomplete(null);
+      return;
+    }
+    const query = expressionAutocompleteQuery(text, caret);
+    const hasCreate = onCreateVariableRef.current !== undefined;
+    setDepthAutocomplete((current) => {
+      if (!current) return current;
+      if (query === null || autocompleteOptionCount(depthVariableList, query, hasCreate) === 0)
+        return null;
+      return current.query === query ? current : { query, index: 0 };
+    });
+  }, [depthExpressionActive, depthVariableList]);
+  /** 选中补全项：替换 caret 前 `#query` → `#name`，并**关闭**菜单（P1）。 */
+  const selectDepthAutocomplete = React.useCallback((name: string): boolean => {
+    const input = depthInputRef.current;
+    const applied = applyExpressionAutocomplete(
+      distanceRef.current,
+      input?.selectionStart ?? null,
+      name,
+    );
+    if (!applied) {
+      setDepthAutocomplete(null);
+      return false;
+    }
+    handleDepthChange(applied.text, { caret: applied.caret, syncAutocomplete: false });
+    window.requestAnimationFrame(() => {
+      const element = depthInputRef.current;
+      element?.focus();
+      element?.setSelectionRange(applied.caret, applied.caret);
+    });
+    return true;
+  }, [handleDepthChange]);
+  /** 内联创建「值」预填：原始数值文本 → 求值数全精度字符串；否则最近原始数值（绝不回填非法表达式）。 */
+  const depthInlineCreateValueText = React.useCallback((): string => {
+    if (depthExpressionActive && isNumericDimensionText(effectiveDepthText) && depthEvaluation?.ok)
+      return effectiveDepthText.trim();
+    if (depthEvaluation?.ok)
+      return String(depthEvaluation.value);
+    return lastNumericDepthTextRef.current;
+  }, [depthExpressionActive, effectiveDepthText, depthEvaluation]);
+  /** 请求宿主打开 S3b 内联创建面板（name=token、值=字段当前值、锚定输入框右侧）。 */
+  const requestDepthInlineCreate = React.useCallback((name: string): boolean => {
+    const handler = onCreateVariableRef.current;
+    if (!handler) return false;
+    setDepthAutocomplete(null);
+    const input = depthInputRef.current;
+    const caret = input?.selectionStart ?? distanceRef.current.length;
+    const query = depthAutocomplete?.query ?? name.trim();
+    pendingDepthCreateRef.current = {
+      existingNames: new Set(depthVariableList.map((variable) => variable.name)),
+      requestedName: name.trim(),
+      // 仅供空 query（裸 `#`）定位；完成时仍按当前文本重新验证 token 身份。
+      start: Math.max(0, caret - query.length - 1),
+      sawPanelOpen: false,
+    };
+    const rect = input?.getBoundingClientRect();
+    handler({
+      name: name.trim(),
+      valueText: depthInlineCreateValueText(),
+      unit: 'mm',
+      ...(rect ? { anchor: { x: rect.right + 8, y: rect.top } } : {}),
+    });
+    return true;
+  }, [depthAutocomplete, depthInlineCreateValueText, depthVariableList]);
+  /** 未知整 token `#name` + Enter → 打开内联创建（不提交）；仅深度表达式字段。 */
+  const tryCreateUnknownDepthVariable = React.useCallback((): boolean => {
+    if (!depthExpressionActive || onCreateVariableRef.current === undefined) return false;
+    const match = /^\s*#([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(distanceRef.current);
+    if (!match) return false;
+    const name = match[1]!;
+    if (depthVariableList.some((variable) => variable.name === name)) return false;
+    return requestDepthInlineCreate(name);
+  }, [depthExpressionActive, depthVariableList, requestDepthInlineCreate]);
+  // 内联创建完成：变量表刷新出现新变量 → 按**当前文本**重定位 token 再替换；
+  // 面板取消/关闭且无新变量 → 丢弃 pending（P2b，不残留跨次创建的状态）。
+  React.useEffect(() => {
+    const pending = pendingDepthCreateRef.current;
+    if (!pending) return;
+    if (variablesDialogActive !== null) pending.sawPanelOpen = true;
+    const added = depthVariableList.filter((variable) => !pending.existingNames.has(variable.name));
+    if (added.length === 0) {
+      // 只在“确实打开过面板后关闭”时判取消；宿主尚未打开（同一次事件内）不清。
+      if (pending.sawPanelOpen && variablesDialogActive === null)
+        pendingDepthCreateRef.current = null;
+      return;
+    }
+    // 用户可能在创建面板改名：精确名缺失时接受唯一新变量，并把 token 换成新名。
+    const created = (pending.requestedName !== ''
+      ? depthVariableList.find((variable) => variable.name === pending.requestedName)
+      : undefined)
+      ?? (added.length === 1 ? added[0] : undefined);
+    if (!created) return;
+    pendingDepthCreateRef.current = null;
+    const text = distanceRef.current;
+    // token 身份验证：只在当前文本仍唯一包含该 token（或空 query 的 `#` 原位）
+    // 时替换；找不到/歧义 → 不改文本（重新校验当前草稿即可）。
+    const range = pending.requestedName !== ''
+      ? findDepthVariableTokenRange(text, pending.requestedName)
+      : findDepthEmptyTokenRange(text, pending.start);
+    let nextText = text;
+    if (range) {
+      const inserted = `#${created.name}`;
+      const before = text.slice(0, range.start);
+      const after = text.slice(range.end);
+      // 绝不产生 `##name`；token 身份不匹配/歧义时保持当前文本。
+      if (!before.endsWith('#'))
+        nextText = `${before}${inserted}${after}`;
+    }
+    // 即使 token 已是目标名（仅重新校验路径），也要走同一写回：字段失焦时
+    // 显示求值结果并清除旧的无效态（P2a）；不抢焦点。
+    handleDepthChange(nextText, { syncAutocomplete: false });
+  }, [depthVariableList, variablesDialogActive, handleDepthChange]);
   // 布尔上游门禁（B1 复审 Important）：布尔特征 requiresUpstream=true，无上游时后端
   // 只会把失败吞成 status=1 死节点（op 仍 ok:true）——UI 侧先挡：无实体时禁用
   // 加入/移除页签与提交（诚实提示），后端 op 边界另有同口径拒收（双层防御）。
@@ -1604,8 +1956,13 @@ export function FeatureDialog({
       return undefined;
     if (extrudeChannel) {
       if (draftEnabled && !draftReady) return undefined;
-      const magnitude = Number(distance);
-      if (distance.trim() === '' || !Number.isFinite(magnitude) || magnitude <= 0) return undefined;
+      // ADR-0020 S4b：预览使用表达式求值深度（与后端 preview 归一化后一致）。
+      // P3a：表达式在场时**只**用求值数——无效表达式不得回落到 Number(draft)
+      // 更新幽灵几何（例如 `#depth*2` 是 NaN，但 `10+` 之类的旧草稿可能凑出数）。
+      const magnitude = depthExpression !== undefined
+        ? (depthEvaluation?.ok ? depthEvaluation.value : Number.NaN)
+        : Number(distance);
+      if (!Number.isFinite(magnitude) || magnitude <= 0) return undefined;
       const selected = regions.filter((_, index) => selectedRegions.includes(index));
       const mainSigned = direction === 'backward' ? -magnitude : magnitude;
       const secondDepth = Number(secondDirectionDepth);
@@ -1651,6 +2008,8 @@ export function FeatureDialog({
     selectedRegions,
     selectedAxisId,
     distance,
+    depthExpression,
+    depthEvaluation,
     direction,
     startOffset,
     startOffsetEnabled,
@@ -2082,18 +2441,61 @@ export function FeatureDialog({
     }
     // 距离校验（extrude/通用路径；revolve/fillet/loft/sweep/mirror/pattern 无距离量——旋转角即参数/
     // 半径即参数/放样无扫掠距离/扫掠无扫掠距离/镜像无距离/阵列无距离，输入已隐藏）。
+    // ADR-0020 S4b：拉伸深度支持表达式（仅 blind）——表达式错误就地呈现 + 不提交
+    // （产品一体化提交：一次 ✓ 校验并提交，不引入 live 的两击归一化中间态）。
     let parsedDistance = 0;
+    let parsedDistanceExpression: string | undefined;
     if (!revolveChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
       && !patternChannel && !booleanBodiesChannel) {
-      parsedDistance = Number(distance);
-      if (effectiveEndBound === 'throughAll' || effectiveEndBound === 'upToSurface'
-        || effectiveEndBound === 'upToNext') {
-        // ExtrudeParams.distance 契约仍要求正数（throughAll/upToSurface/upToNext 服务端忽略该值）；
-        // 输入框已禁用，保留当前有效值，缺省回落到 1（仅满足形态校验）。
-        if (!Number.isFinite(parsedDistance) || parsedDistance <= 0) parsedDistance = 1;
-      } else if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
-        setError(t('partStudio.featureDialog.distanceInvalid'));
-        return;
+      if (depthExpressionActive) {
+        if (effectiveEndBound !== 'blind') {
+          // 非 blind 终止条件：清除/拒收表达式（shared 1.73 后端同样显式拒收）；
+          // 深度框已禁用，数值仅满足形态校验（服务端忽略）。
+          parsedDistance = Number(distance);
+          if (!Number.isFinite(parsedDistance) || parsedDistance <= 0) parsedDistance = 1;
+        } else if (depthEvaluation === undefined || !depthEvaluation.ok) {
+          setDepthInvalid(true);
+          const error:
+            | FeatureDepthExpressionError
+            | { code: 'variablesLoading' }
+            | { code: 'variablesUnavailable'; message?: string }
+            | undefined = depthEvaluation?.error;
+          let message: string;
+          switch (error?.code) {
+            case 'expression':
+            case 'variableType':
+              message = error.message;
+              break;
+            case 'variablesLoading':
+              message = t('partStudio.featureDialog.depthVariablesLoading');
+              break;
+            case 'variablesUnavailable':
+              message = t('partStudio.featureDialog.depthVariablesUnavailable', {
+                message: error.message ?? t('partStudio.variables.errors.unavailable'),
+              });
+              break;
+            default:
+              message = t('partStudio.featureDialog.distanceInvalid');
+          }
+          depthSubmitErrorRef.current = message;
+          setError(message);
+          return;
+        } else {
+          parsedDistance = depthEvaluation.value;
+          // 表达式原文（设计意图）随载荷提交；纯数字不携带本键。
+          parsedDistanceExpression = depthEvaluation.expression;
+        }
+      } else {
+        parsedDistance = Number(distance);
+        if (effectiveEndBound === 'throughAll' || effectiveEndBound === 'upToSurface'
+          || effectiveEndBound === 'upToNext') {
+          // ExtrudeParams.distance 契约仍要求正数（throughAll/upToSurface/upToNext 服务端忽略该值）；
+          // 输入框已禁用，保留当前有效值，缺省回落到 1（仅满足形态校验）。
+          if (!Number.isFinite(parsedDistance) || parsedDistance <= 0) parsedDistance = 1;
+        } else if (distance.trim() === '' || !Number.isFinite(parsedDistance) || parsedDistance <= 0) {
+          setError(t('partStudio.featureDialog.distanceInvalid'));
+          return;
+        }
       }
     }
     // 半径校验（M6-b T6 fillet 通道）：内部米制直传（单位换算在显示层——
@@ -2318,6 +2720,11 @@ export function FeatureDialog({
                   // T4-minor 接线收口：对称复选勾选才带键（缺省省略=载荷向后
                   // 兼容，既有钉形测试不破）。
                   ...(symmetric ? { symmetric: true } : {}),
+                  // ADR-0020 S4b：表达式 → {distance: 求值, distanceExpression: 原文}
+                  // （后端在写边界权威求值并物化 distance；纯数字不携带本键）。
+                  ...(parsedDistanceExpression !== undefined
+                    ? { distanceExpression: parsedDistanceExpression }
+                    : {}),
                   // v1.51（ADR-0005 Phase 4）：拔模角/反向。仅 sketchId 模式（本通道），
                   // 与服务端盲孔+非对称互斥规则一致。
                   ...(draftEnabled
@@ -2438,6 +2845,12 @@ export function FeatureDialog({
               delete (params as unknown as Record<string, unknown>).draftAngleDeg;
               delete (params as unknown as Record<string, unknown>).draftPullDirection;
             }
+            // ADR-0020 S4b：表达式设计意图可编辑——未触碰的表达式必须保留
+            //（显式写回归并值；纯数值/非 blind 终止条件删除旧键，不得静默残留）。
+            if (parsedDistanceExpression !== undefined)
+              editable.distanceExpression = parsedDistanceExpression;
+            else
+              delete editable.distanceExpression;
             // 第二方向与 symmetric 互斥：关闭/对称时删除落库键，避免旧值残留。
             if (!secondDirectionEnabled || symmetric)
               delete (params as unknown as Record<string, unknown>).secondDirection;
@@ -2563,6 +2976,9 @@ export function FeatureDialog({
     fullRevolve,
     angleDegrees,
     distance,
+    // ADR-0020 S4b：深度表达式求值/原文（提交载荷与错误面）。
+    depthExpressionActive,
+    depthEvaluation,
     // 2026-11-05：终止条件（throughAll 载荷 + 距离校验分支）。
     endBound,
     endBoundAllowed,
@@ -3384,24 +3800,126 @@ export function FeatureDialog({
         {!revolveChannel && !edgePickChannel && !loftChannel && !sweepChannel && !mirrorChannel
           && !patternChannel && !booleanBodiesChannel && (
           <section
-            className="part-studio-feature-dialog__distance"
+            className="part-studio-feature-dialog__distance part-studio-feature-dialog__depth-row"
             data-testid="part-studio-feature-dialog-depth-row"
+            data-depth-expression={depthExpressionActive ? (depthExpression ?? '') : ''}
+            data-depth-value={depthExpressionActive && depthEvaluation?.ok ? String(depthEvaluation.value) : ''}
+            data-depth-focused={depthExpressionActive && depthFocused ? 'true' : 'false'}
           >
             <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance">
               {t(featureType === 'extrude' ? 'partStudio.featureDialog.depthLabel' : 'partStudio.featureDialog.distanceLabel')}
             </label>
             <input
+              ref={depthInputRef}
               id="part-studio-feature-dialog-distance"
               type="text"
-              inputMode="decimal"
+              inputMode={featureType === 'extrude' ? 'text' : 'decimal'}
               aria-label={t(featureType === 'extrude' ? 'partStudio.featureDialog.depthLabel' : 'partStudio.featureDialog.distanceLabel')}
+              aria-invalid={depthInvalid ? 'true' : undefined}
+              data-invalid={depthInvalid ? 'true' : 'false'}
               className="part-studio-feature-dialog__input"
-              value={distance}
+              // ADR-0020 S4b（live）：聚焦显示表达式原文；失焦显示求值结果 + mm。
+              // 聚焦不做 setState 写回（受控值派生）——外部 fill/选择后立即输入
+              // 不会与 focus 回写竞态（真栈实测会把新值拼到旧表达式后）。
+              value={depthExpressionActive && depthFocused && depthExpression !== undefined
+                ? depthExpression
+                : distance}
               disabled={submitting || effectiveEndBound !== 'blind'}
-              onChange={(event) => setDistance(event.target.value)}
+              onFocus={() => {
+                if (depthExpressionActive) setDepthFocused(true);
+              }}
+              onBlur={() => {
+                setDepthFocused(false);
+                setDepthAutocomplete(null);
+                if (depthExpressionActive && depthExpression !== undefined) {
+                  setDistance(depthEvaluation?.ok
+                    ? formatDimensionPopupValue('length', depthEvaluation.value)
+                    : depthExpression);
+                }
+              }}
+              onChange={(event) => {
+                // P3d：只有深度表达式字段消费表达式/补全键盘语义；布尔等旧距离
+                // 行保持原有数值输入，Enter 不打开内联创建/不提交。
+                if (!depthExpressionActive) {
+                  setDistance(event.target.value);
+                  setDepthAutocomplete(null);
+                  return;
+                }
+                handleDepthChange(event.target.value, { caret: event.target.selectionStart });
+              }}
+              onSelect={(event) => {
+                if (!depthExpressionActive) return;
+                syncDepthAutocompleteFromCaret(
+                  event.currentTarget.value,
+                  event.currentTarget.selectionStart,
+                );
+              }}
+              onKeyDown={(event) => {
+                if (!depthExpressionActive) return;
+                // `#` 补全打开时先消费（↑/↓ 导航、Enter 选中/新建、Escape 关闭——
+                // 与草图尺寸字段同一键盘口径，不把 Enter 偷换成提交）。
+                if (depthAutocompleteOpen) {
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    const delta = event.key === 'ArrowDown' ? 1 : -1;
+                    setDepthAutocomplete((current) => {
+                      if (!current) return current;
+                      const count = autocompleteOptionCount(
+                        depthVariableList,
+                        current.query,
+                        onCreateVariableRef.current !== undefined,
+                      );
+                      if (count === 0) return null;
+                      return { ...current, index: (current.index + delta + count) % count };
+                    });
+                    return;
+                  }
+                  if (event.key === 'Enter') {
+                    const index = depthAutocomplete?.index ?? 0;
+                    if (index >= depthAutocompleteMatches.length
+                      && requestDepthInlineCreate(depthAutocomplete?.query ?? '')) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      return;
+                    }
+                    const match = depthAutocompleteMatches[index];
+                    if (match && selectDepthAutocomplete(match.name)) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      return;
+                    }
+                    setDepthAutocomplete(null);
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDepthAutocomplete(null);
+                    return;
+                  }
+                }
+                if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  // 未知整 token `#name` + Enter → 内联创建面板（不提交）。
+                  if (tryCreateUnknownDepthVariable()) return;
+                  handleConfirm();
+                }
+              }}
             />
             {featureType === 'extrude' && (
               <span className="part-studio-feature-dialog__value-unit">mm</span>
+            )}
+            {depthAutocompleteOpen && (
+              <SketchExpressionAutocomplete
+                variables={depthVariableList}
+                query={depthAutocomplete?.query ?? ''}
+                highlightedIndex={depthAutocomplete?.index ?? 0}
+                onHighlight={(index) => {
+                  setDepthAutocomplete((current) => (current ? { ...current, index } : current));
+                }}
+                onSelect={selectDepthAutocomplete}
+                onCreate={onCreateVariable ? (name) => { requestDepthInlineCreate(name); } : undefined}
+              />
             )}
             {featureType === 'extrude' && (
               // Onshape live（2026-11-15）：数值行右侧计算器图标；本产品尚未
