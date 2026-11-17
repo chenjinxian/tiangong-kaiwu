@@ -34,6 +34,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { IModelApp } from '@itwin/core-frontend';
 import { CAPABILITY_GUIDANCE, isGated } from '../internal/capabilities.js';
+import { variableWriteBlockI18nKey, variableWriteBlockReason } from '../internal/variables.js';
 import { activeToolIdForDialog } from '../internal/dialog-active-tool.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
@@ -480,6 +481,17 @@ export interface RibbonProps {
   onUndo?: () => void;
   /** 重做回调。 */
   onRedo?: () => void;
+  /**
+   * ADR-0020 S3b：变量表读取中/当前 scope 未落位 → 变量命令禁用（禁止用空/
+   * 旧表打开新建面板后被整表覆写；P1-1/P2-3）。
+   */
+  variablesLoading?: boolean;
+  /** 当前 scope 变量表已成功落位且无错误（P2-1；缺省 true=单测/壳期）。 */
+  variablesReady?: boolean;
+  /** 是否有可读的 scope（false=未连接/PS 未就绪）。 */
+  variablesScopeActive?: boolean;
+  /** 变量表读取失败消息（写门原因区分）。 */
+  variablesError?: string;
 }
 
 /** 已注册快捷键 → 命令 id（Onshape 工具快捷键）。 */
@@ -516,6 +528,10 @@ export function Ribbon({
   canRedo = false,
   onUndo,
   onRedo,
+  variablesLoading = false,
+  variablesReady = true,
+  variablesScopeActive = true,
+  variablesError,
 }: RibbonProps = {}): React.JSX.Element {
   const { t } = useTranslation();
   const { activate, gatedCapability, closeGatedDialog } = useToolActivation(canEdit);
@@ -579,6 +595,16 @@ export function Ribbon({
   }, []);
   const palette = usePartStudioStore((s) => s.commandPalette);
   const toggleCommandPalette = usePartStudioStore((s) => s.toggleCommandPalette);
+  // ADR-0020 S3b：「变量」命令入口。live 中变量是 tool-search 命令（不在主
+  // 工具栏），本产品在特征工具栏尾部提供真实入口（不宣称与 live 同位置）；
+  // 只读态仍可打开查看（对话框 ✓ 禁用），不伪造写能力。
+  const openVariablesDialog = usePartStudioStore((s) => s.openVariablesDialog);
+  const variablesWriteBlock = variableWriteBlockReason({
+    loading: variablesLoading,
+    ready: variablesReady,
+    scopeActive: variablesScopeActive,
+    error: variablesError,
+  });
   const sketchActive = usePartStudioStore((s) => s.sketch.isActive);
   // ADR-0017 追补：Onshape 点击「草图」即切换为草图工具栏（平面未选/草图未创建
   // 时工具禁用）；草图创建后（sketch.isActive）启用。对话框期间不再停留在特征工具栏。
@@ -777,6 +803,35 @@ export function Ribbon({
               </div>
             );
           })}
+          {/* ADR-0020 S3b：变量命令（特征工具栏尾部；打开 VariablesDialog 新建态）。
+              live 中变量是 tool-search 命令（不在主工具栏）——本入口是产品既有
+              工具栏位置，不宣称与 live 同位置。 */}
+          <div
+            className="part-studio-ribbon__group"
+            role="group"
+            aria-label={t('partStudio.ribbon.groups.variables')}
+          >
+            <button
+              type="button"
+              className="part-studio-ribbon__tool"
+              aria-label={t('partStudio.ribbon.tools.variables.label')}
+              title={!canEdit
+                ? t('partStudio.variables.errors.readonly')
+                : variablesWriteBlock !== undefined
+                  ? t(variableWriteBlockI18nKey(variablesWriteBlock))
+                  : t('partStudio.ribbon.tools.variables.tooltip')}
+              data-testid="part-studio-ribbon-variables"
+              disabled={!canEdit || variablesWriteBlock !== undefined}
+              onClick={(event) => {
+                if (!canEdit || variablesWriteBlock !== undefined)
+                  return;
+                event.currentTarget.blur();
+                openVariablesDialog({ active: 'variables' });
+              }}
+            >
+              <OnshapeIcon name="variable-table-button" size={20} />
+            </button>
+          </div>
         </div>
       )}
       {/* 命令搜索触发钮（os-11 最右：搜索工具… alt+/）；os-30：草图模式禁用。 */}

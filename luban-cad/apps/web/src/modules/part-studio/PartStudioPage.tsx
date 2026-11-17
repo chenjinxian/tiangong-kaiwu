@@ -177,6 +177,7 @@ import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 import { mapFeatureEntries } from './hooks/useFeatureTree.js';
 import { useEditorSession, type EditorSession } from './hooks/useEditorSession.js';
 import { useFeatureSystem } from './hooks/useFeatureSystem.js';
+import { usePartStudioVariables } from './hooks/usePartStudioVariables.js';
 import { useBrepTopology } from './hooks/useBrepTopology.js';
 import { useNamedVersionActions } from './hooks/useNamedVersionActions.js';
 import { usePartStudios } from './hooks/usePartStudios.js';
@@ -489,6 +490,20 @@ function PartStudioSession({
     readEnabled: scopeReady,
     scopeMode: mode,
   });
+  // ADR-0020 S2/S3b：Part Studio 变量表**唯一**读取实例（树/尺寸编辑器/
+  // 变量对话框共用）。S2 时由 Canvas 内部持有时仅在草图激活时读取；S3b 变量
+  // 是 Part Studio 级树行/命令，必须常驻读取 → 提升到 Session 单点持有，
+  // 避免第二实例双读/双刷新（P0-06 单一事实源）。readEnabled=scopeReady
+  //（B 文档 scope 解析前零 RPC，与 featureSystem 同门）。
+  const partStudioVariables = usePartStudioVariables(
+    connection ?? undefined,
+    activeModelId,
+    scopeReady,
+  );
+  const openVariablesDialog = usePartStudioStore((s) => s.openVariablesDialog);
+  const handleEditVariable = React.useCallback((variableId: string) => {
+    openVariablesDialog({ active: 'variables', variableId });
+  }, [openVariablesDialog]);
   // ADR-0017 追补：UI 唯一显示 body 集——滤除后端 init 占位 BodySolid（无源、
   // 无几何），空 Part Studio 与 Onshape 一样显示 0 零件、默认基准面可见。
   const displayBodies = React.useMemo(
@@ -1206,6 +1221,10 @@ function PartStudioSession({
             canRedo={undoRedo.canRedo}
             onUndo={handleUndo}
             onRedo={handleRedo}
+            variablesLoading={partStudioVariables.loading}
+            variablesReady={partStudioVariables.ready}
+            variablesScopeActive={partStudioVariables.scopeActive}
+            variablesError={partStudioVariables.error}
           />
           <div className="part-studio-body">
             <PartStudioSidebar
@@ -1233,6 +1252,13 @@ function PartStudioSession({
               bodyTransparency={bodyTransparency}
               onBodyTransparencyChange={handleBodyTransparencyChange}
               onIsolatePart={handleIsolatePart}
+              variables={partStudioVariables.variables}
+              variablesLoading={partStudioVariables.loading}
+              variablesError={partStudioVariables.error}
+              onEditVariable={handleEditVariable}
+              onRefreshVariables={partStudioVariables.refresh}
+              variablesReady={partStudioVariables.ready}
+              variablesScopeActive={partStudioVariables.scopeActive}
             />
             {isolatedPart && (
               <div className="part-studio-isolate-banner" role="status" data-testid="part-isolate-banner">
@@ -1266,6 +1292,12 @@ function PartStudioSession({
                 sketchSystem={sketchSystem}
                 displaySettings={displaySettings}
                 featureEntries={featureSystem.tree}
+                variables={partStudioVariables.variables}
+                variablesLoading={partStudioVariables.loading}
+                variablesReady={partStudioVariables.ready}
+                variablesScopeActive={partStudioVariables.scopeActive}
+                variablesError={partStudioVariables.error}
+                onRefreshVariables={partStudioVariables.refresh}
               />
               <PartStudioDock
                 iModelId={iModelId}

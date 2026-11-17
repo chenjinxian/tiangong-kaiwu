@@ -180,6 +180,8 @@ const featureRpc = vi.hoisted(() => ({
   acquireWriteLease: vi.fn(async (_key: string, _sessionId: string) => ({ ok: true, holder: 'tester' })),
   releaseWriteLease: vi.fn(async (_key: string, _sessionId: string) => undefined),
   getSketch: vi.fn(async (_key: string, _sketchId: string): Promise<unknown> => undefined),
+  // ADR-0020 S3b：Session 常驻变量读面（树/尺寸/对话框共用）；缺省空表。
+  getVariables: vi.fn(async (_key: string, _partStudioId?: string): Promise<unknown[]> => []),
   // B-model P2.4：注册表（usePartStudios——scope 解析/页签/写方法）。
   listPartStudios: vi.fn(async (_key: string): Promise<unknown[]> => []),
   createPartStudio: vi.fn(async (_key: string, _name: string, _sessionId: string): Promise<unknown> => undefined),

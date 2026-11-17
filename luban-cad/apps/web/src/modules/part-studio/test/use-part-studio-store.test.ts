@@ -59,6 +59,13 @@ const INITIAL_STATE: PartStudioState = {
   dialog: {
     active: null,
   },
+  // ADR-0020 S3b：变量对话框缺省关闭；变量写互斥缺省空闲。
+  variablesDialog: {
+    active: null,
+  },
+  variablesWrite: {
+    inFlight: false,
+  },
   viewOnly: {
     isActive: false,
   },
@@ -76,7 +83,7 @@ beforeEach(() => {
 });
 
 describe('usePartStudioStore 初始态', () => {
-  it('九切片全部落在缺省会话态（含 datum 默认几何图元）', () => {
+  it('十一切片全部落在缺省会话态（含 datum 默认几何图元、变量对话框与写互斥）', () => {
     const state = usePartStudioStore.getState();
     expect({
       tree: state.tree,
@@ -86,6 +93,8 @@ describe('usePartStudioStore 初始态', () => {
       commandPalette: state.commandPalette,
       canvas: state.canvas,
       dialog: state.dialog,
+      variablesDialog: state.variablesDialog,
+      variablesWrite: state.variablesWrite,
       viewOnly: state.viewOnly,
       datum: state.datum,
     }).toEqual(INITIAL_STATE);
@@ -360,5 +369,42 @@ describe('usePartStudioStore() React 订阅面', () => {
       usePartStudioStore.getState().setActiveTool('Fillet');
     });
     expect(result.current).toBe('Fillet');
+  });
+});
+
+// ── ADR-0020 S3b：变量对话框切片 ────────────────────────────────────────────
+describe('variablesDialog 切片（ADR-0020 S3b）', () => {
+  it('begin/end 共享写门：并发第二个 begin 返回 false；end 后恢复', () => {
+    const store = usePartStudioStore.getState();
+    expect(store.beginVariablesWrite()).toBe(true);
+    expect(usePartStudioStore.getState().variablesWrite.inFlight).toBe(true);
+    expect(store.beginVariablesWrite()).toBe(false);
+    store.endVariablesWrite();
+    expect(usePartStudioStore.getState().variablesWrite).toEqual({ inFlight: false });
+    expect(usePartStudioStore.getState().beginVariablesWrite()).toBe(true);
+    usePartStudioStore.getState().endVariablesWrite();
+  });
+
+  it('open 记寻址（编辑/内联创建）；close 复位', () => {
+    usePartStudioStore.getState().openVariablesDialog({ active: 'variables', variableId: 'v1' });
+    expect(usePartStudioStore.getState().variablesDialog).toEqual({
+      active: 'variables', variableId: 'v1',
+    });
+    usePartStudioStore.getState().openVariablesDialog({
+      active: 'inline-create',
+      name: 'foo',
+      valueText: '8',
+      type: 'length',
+      anchor: { x: 10, y: 20 },
+    });
+    expect(usePartStudioStore.getState().variablesDialog).toEqual({
+      active: 'inline-create',
+      name: 'foo',
+      valueText: '8',
+      type: 'length',
+      anchor: { x: 10, y: 20 },
+    });
+    usePartStudioStore.getState().closeVariablesDialog();
+    expect(usePartStudioStore.getState().variablesDialog).toEqual({ active: null });
   });
 });

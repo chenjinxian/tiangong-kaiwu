@@ -147,3 +147,51 @@ describe('SketchExpressionAutocomplete', () => {
     }
   });
 });
+
+// ── ADR-0020 S3b：内联创建行（仅宿主接线时渲染）────────────────────────────
+describe('SketchExpressionAutocomplete S3b：新建变量… 行', () => {
+  it('传入 onCreate 时追加「新建变量…」行；点击回传 query（可为空串）', () => {
+    const onCreate = vi.fn();
+    render(
+      <SketchExpressionAutocomplete
+        variables={VARIABLES}
+        query="wid"
+        onSelect={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
+    const options = screen.getAllByTestId('sketch-expression-autocomplete-option');
+    expect(options).toHaveLength(1); // 既有变量行（width）
+    const create = screen.getByTestId('sketch-expression-autocomplete-create');
+    expect(create.getAttribute('role')).toBe('option');
+    expect(create.getAttribute('aria-selected')).toBe('false');
+    expect(create.textContent).toContain('新建变量…');
+    fireEvent.mouseDown(create);
+    expect(onCreate).toHaveBeenCalledWith('wid');
+  });
+
+  it('无既有匹配但有 onCreate → 仍渲染新建行（高亮索引 = matches.length）', () => {
+    const onCreate = vi.fn();
+    render(
+      <SketchExpressionAutocomplete
+        variables={VARIABLES}
+        query="nope"
+        highlightedIndex={0}
+        onSelect={vi.fn()}
+        onCreate={onCreate}
+      />,
+    );
+    expect(screen.queryAllByTestId('sketch-expression-autocomplete-option')).toHaveLength(0);
+    const create = screen.getByTestId('sketch-expression-autocomplete-create');
+    expect(create.getAttribute('aria-selected')).toBe('true');
+    fireEvent.mouseDown(create);
+    expect(onCreate).toHaveBeenCalledWith('nope');
+  });
+
+  it('未传 onCreate → 不渲染新建行（S2 口径不造假控件）', () => {
+    render(
+      <SketchExpressionAutocomplete variables={VARIABLES} query="" onSelect={vi.fn()} />,
+    );
+    expect(screen.queryByTestId('sketch-expression-autocomplete-create')).toBeNull();
+  });
+});

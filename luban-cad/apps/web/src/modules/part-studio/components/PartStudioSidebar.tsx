@@ -30,10 +30,13 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult, VariableDto } from '@luban-cad/shared';
 import { FeatureTree } from '../tree/FeatureTree.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { isFeatureNode, isSketchNode, type TreeNode } from '../tree/TreeRow.js';
+import {
+  removeVariable, variableWriteBlockI18nKey, variableWriteBlockReason,
+} from '../internal/variables.js';
 import type { FeatureNode } from '../types.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
@@ -88,6 +91,17 @@ export interface PartStudioSidebarProps {
   onBodyTransparencyChange?: (bodyKey: string, transparency: number) => void;
   /** 2026-11-13：零件「隔离…」会话动作（宿主维护退出态与恢复）。 */
   onIsolatePart?: (node: TreeNode) => void;
+  /** ADR-0020 S3b：变量表（usePartStudioVariables 直通）+ 树内编辑入口。 */
+  variables?: readonly VariableDto[];
+  variablesLoading?: boolean;
+  variablesError?: string;
+  onEditVariable?: (variableId: string) => void;
+  /** 变量写提交后 await 刷新（读取新表后再允许下一次删写，P2-5）。 */
+  onRefreshVariables?: () => Promise<void>;
+  /** 当前 scope 变量表已成功落位且无错误（S3b P2-1 写门）。 */
+  variablesReady?: boolean;
+  /** 是否有可读的 scope（false=未连接/PS 未就绪）。 */
+  variablesScopeActive?: boolean;
 }
 
 export function PartStudioSidebar({
@@ -110,9 +124,19 @@ export function PartStudioSidebar({
   bodyTransparency,
   onBodyTransparencyChange,
   onIsolatePart,
+  variables,
+  variablesLoading,
+  variablesError,
+  onEditVariable,
+  onRefreshVariables,
+  variablesReady = true,
+  variablesScopeActive = true,
 }: PartStudioSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
   const openFeatureDialog = usePartStudioStore((s) => s.openFeatureDialog);
+  // S3b P2-2：变量整表写的共享互斥（树删除 × 对话框提交共用同一个门）。
+  const beginVariablesWrite = usePartStudioStore((s) => s.beginVariablesWrite);
+  const endVariablesWrite = usePartStudioStore((s) => s.endVariablesWrite);
 
   // T6：树上「编辑…」→ FeatureDialog（store.dialog 寻址，画布内联渲染；
   // M4-T6 起 edit 模式——featureId 即宿主重挂 key，featureName/featureType
@@ -277,6 +301,76 @@ export function PartStudioSidebar({
     [applyOp, canEdit, notify, t],
   );
 
+  /**
+   * ADR-0020 S3b（D6）：变量删除——整表覆写 `updateVariables`（后端权威求值/
+   * 重解引用草图；被引用变量删除失败 = 零变更 + 明确错误，不做静默级联）。
+   * 可撤销（标准 FeatureOp 事务）；无确认框（与特征树删除一致）。
+   */
+  const handleDeleteVariable = React.useCallback(
+    async (variableId: string): Promise<void> => {
+      if (!canEdit) return;
+      // P2-1：读面未成功落位（含读取失败）→ 整表写禁止（否则覆盖不可读表）。
+      // loading 优先（正常刷新不报读取失败）；未连接/PS 未就绪与读失败分开。
+      const writeBlock = variableWriteBlockReason({
+        loading: variablesLoading,
+        ready: variablesReady,
+        scopeActive: variablesScopeActive,
+        error: variablesError,
+      });
+      if (writeBlock !== undefined) {
+        notify(OutputMessagePriority.Error, t(variableWriteBlockI18nKey(writeBlock)));
+        return;
+      }
+      const variable = variables?.find((candidate) => candidate.id === variableId);
+      if (!variable) return;
+      if (!applyOp) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.tree.deleteFailed', { message: t('partStudio.tree.unsupported') }),
+        );
+        return;
+      }
+      // P2-2：与对话框提交共享的写入互斥；失败即说明另一表面正在写。
+      if (!beginVariablesWrite()) {
+        notify(OutputMessagePriority.Warning, t('partStudio.variables.errors.busy'));
+        return;
+      }
+      try {
+        const result = await applyOp({
+          kind: 'updateVariables',
+          variables: removeVariable(variables ?? [], variableId),
+        });
+        if (result.ok) {
+          // 先等变量表刷新落位，再清写门/给成功提示（P2-5 / P3-3）。
+          await onRefreshVariables?.();
+          notify(
+            OutputMessagePriority.Success,
+            t('partStudio.variables.tree.deleteSuccess', { name: variable.name }),
+          );
+        } else {
+          notify(
+            OutputMessagePriority.Error,
+            t('partStudio.variables.tree.deleteFailed', { message: result.error }),
+          );
+        }
+      } catch (err) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.variables.tree.deleteFailed', {
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      } finally {
+        endVariablesWrite();
+      }
+    },
+    [
+      applyOp, beginVariablesWrite, canEdit, endVariablesWrite, notify,
+      onRefreshVariables, t, variables, variablesError, variablesLoading,
+      variablesReady, variablesScopeActive,
+    ],
+  );
+
   return (
     <aside className="part-studio-sidebar" data-testid="part-studio-sidebar">
       {/* 200px 树面板（Onshape 40px 面板选择条由 PartStudioPanelRail 独立承载）。 */}
@@ -302,6 +396,11 @@ export function PartStudioSidebar({
         canEdit={canEdit}
         bodyTransparency={bodyTransparency}
         onBodyTransparencyChange={onBodyTransparencyChange}
+        variables={variables}
+        variablesLoading={variablesLoading}
+        variablesError={variablesError}
+        onEditVariable={onEditVariable}
+        onDeleteVariable={(variableId) => { void handleDeleteVariable(variableId); }}
       />
       {/* Onshape 树右缘收起钮（live：33×34，悬于画布左缘中部；本阶段 UI 占位）。 */}
       <button

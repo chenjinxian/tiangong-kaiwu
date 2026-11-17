@@ -53,7 +53,7 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult, SketchConstraintDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, LubanFeatureType, PreviewResult, SketchConstraintDto, SketchEntityDto, SketchPlaneDto, VariableDto } from '@luban-cad/shared';
 import { CanvasContextMenu } from '../canvas/CanvasContextMenu.js';
 import { deleteSelectedSubEntity } from '../canvas/subentity-delete.js';
 import type { CanvasSelection } from '../types.js';
@@ -104,8 +104,10 @@ import { useOnshapeMouseNavigation } from '../hooks/useOnshapeMouseNavigation.js
 import { clearRightDragMenuSuppression, consumeRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 import { useSketchCurveDecorations } from '../hooks/useSketchCurveDecorations.js';
 import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
-import { usePartStudioVariables } from '../hooks/usePartStudioVariables.js';
 import { resolveSketchStatusLength } from '../internal/sketch-status.js';
+import { VariablesDialog } from './VariablesDialog.js';
+import type { VariableCreateRequest } from '../internal/variables.js';
+import { variableWriteBlockI18nKey, variableWriteBlockReason } from '../internal/variables.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
 import { SKETCH_RIBBON_TOOLS } from '../ribbon/sketch-tools.js';
@@ -185,6 +187,22 @@ export interface PartStudioCanvasProps {
   displaySettings?: UseDisplaySettingsResult;
   /** 特征树条目（2026-11-02：sketch params 自带 entities+plane，供非编辑态虚线叠加）。 */
   featureEntries?: readonly FeatureTreeEntry[];
+  /**
+   * ADR-0020 S2/S3b：Part Studio 变量表（Session `usePartStudioVariables` 单点
+   * 持有直通——本组件不再自建第二个读取实例）。供尺寸表达式预校验/`#` 补全、
+   * 变量对话框与内联创建。
+   */
+  variables?: readonly VariableDto[];
+  /** 变量表读取中/当前 scope 尚未落位（写操作门禁 + ✓ 等待刷新）。 */
+  variablesLoading?: boolean;
+  /** 当前 scope 变量表已成功落位且无错误（P2-1 写门；缺省 true=测试/壳期）。 */
+  variablesReady?: boolean;
+  /** 是否有可读的 scope（false=未连接/PS 未就绪）。 */
+  variablesScopeActive?: boolean;
+  /** 变量表读取失败消息（写门原因区分）。 */
+  variablesError?: string;
+  /** 变量写提交成功后 await 刷新（保证对话框关闭前读到新表，P2-5）。 */
+  onRefreshVariables?: () => Promise<void>;
 }
 
 interface MenuAnchor {
@@ -212,6 +230,12 @@ export function PartStudioCanvas({
   sketchSystem,
   displaySettings,
   featureEntries = [],
+  variables,
+  variablesLoading = false,
+  variablesReady = true,
+  variablesScopeActive = true,
+  variablesError,
+  onRefreshVariables,
 }: PartStudioCanvasProps): React.JSX.Element {
   const { t } = useTranslation();
   // 2026-11-05：ViewCube 模式由 URL/sessionStorage 决定（挂载时读取一次；改
@@ -235,13 +259,10 @@ export function PartStudioCanvas({
   // ADR-0020 §2.6 D1：草图「显示表达式」开关 gate 尺寸标签的表达式原文投影。
   const showExpressionsForSketch = usePartStudioStore((s) => s.sketch.showExpressions ?? true);
   const setShowExpressions = usePartStudioStore((s) => s.setShowExpressions);
-  // ADR-0020 S2：Part Studio 变量表只读面（草图激活时读取；供表达式预校验/
-  // `#` 补全；不新建全局 store）。
-  const { variables: partStudioVariables } = usePartStudioVariables(
-    connection,
-    partStudioId,
-    sketchActiveForDecorations,
-  );
+  // ADR-0020 S2/S3b：变量表由 Session 单点持有（S3b 起常驻读取——变量是
+  // Part Studio 级树行/命令，不再只在草图激活时读）。本组件只消费，避免
+  // 第二读取实例/双刷新（P0-06 单一事实源）。
+  const partStudioVariables = React.useMemo(() => variables ?? [], [variables]);
   // ADR-0018 S1c：拖拽预览（显示层覆盖）与释放提交（一次 updateSketch，可 undo）。
   const [sketchPreviewEntities, setSketchPreviewEntities] = React.useState<readonly SketchEntityDto[] | null>(null);
   React.useEffect(() => {
@@ -301,6 +322,12 @@ export function PartStudioCanvas({
   // T6：内联非模态对话框宿主（dialog 切片寻址）。
   const dialog = usePartStudioStore((s) => s.dialog);
   const closeDialog = usePartStudioStore((s) => s.closeDialog);
+  // ADR-0020 S3b：变量对话框（命令/树编辑/尺寸内联创建）宿主寻址。
+  const variablesDialog = usePartStudioStore((s) => s.variablesDialog);
+  const closeVariablesDialog = usePartStudioStore((s) => s.closeVariablesDialog);
+  // S3b P2-2：变量整表写的共享互斥（与 Sidebar 树删除同一门）。
+  const beginVariablesWrite = usePartStudioStore((s) => s.beginVariablesWrite);
+  const endVariablesWrite = usePartStudioStore((s) => s.endVariablesWrite);
   const selectedDatumId = usePartStudioStore((s) => s.datum.selectedId);
   const selectDatum = usePartStudioStore((s) => s.selectDatum);
   const canvasSelectionForSketchPlane = usePartStudioStore((s) => s.canvas.selection);
@@ -697,6 +724,13 @@ export function PartStudioCanvas({
   React.useEffect(() => {
     if (viewOnly && dialog.active) closeDialog();
   }, [viewOnly, dialog.active, closeDialog]);
+  // ADR-0020 S3b：仅查看/连接/scope 变化 → 变量面板整体收口（不跨模型残留）。
+  React.useEffect(() => {
+    if (viewOnly && variablesDialog.active) closeVariablesDialog();
+  }, [viewOnly, variablesDialog.active, closeVariablesDialog]);
+  React.useEffect(() => {
+    closeVariablesDialog();
+  }, [connection?.key, partStudioId, closeVariablesDialog]);
 
   const handleContextMenu = React.useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -1058,6 +1092,68 @@ export function PartStudioCanvas({
     [canEdit, connection, t],
   );
 
+  /**
+   * ADR-0020 S3b：变量写面——唯一通道 `FeatureOp.updateVariables`（整表覆写，
+   * 可逆）。成功后变量表由 Session 的 usePartStudioVariables 经 txns.onCommitted
+   * 刷新（不落第二份前端事实源）；失败原样回给对话框（保留面板 + 就地错误）。
+   */
+  const commitVariables = React.useCallback(
+    async (_dto: VariableDto, allVariables: readonly VariableDto[]) => {
+      if (!canEdit)
+        return { ok: false, error: t('partStudio.variables.errors.readonly') };
+      if (!applyOp)
+        return { ok: false, error: t('partStudio.variables.errors.notWired') };
+      // P2-1/P1-1：当前 scope 表未成功落位（读取失败/切换中/刷新中）→ 禁止
+      // 整表覆写。loading 优先（正常刷新不报读取失败）；未连接与读失败分开。
+      const writeBlock = variableWriteBlockReason({
+        loading: variablesLoading,
+        ready: variablesReady,
+        scopeActive: variablesScopeActive,
+        error: variablesError,
+      });
+      if (writeBlock !== undefined)
+        return { ok: false, error: t(variableWriteBlockI18nKey(writeBlock)) };
+      // P2-2：树删除 / 另一次对话框提交在飞行中 → 拒绝并发整表写。
+      if (!beginVariablesWrite())
+        return { ok: false, error: t('partStudio.variables.errors.busy') };
+      try {
+        const result = await applyOp({ kind: 'updateVariables', variables: [...allVariables] });
+        if (!result.ok)
+          return { ok: false, error: result.error };
+        // 提交后先 await 刷新再让对话框关闭：快速二次编辑/删除不会拿提交前的
+        // 旧表重组（P2-5；onCommitted 也会刷新，这里只是把关闭手势排在后面）。
+        await onRefreshVariables?.();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      } finally {
+        endVariablesWrite();
+      }
+    },
+    [
+      applyOp, beginVariablesWrite, canEdit, endVariablesWrite, onRefreshVariables,
+      t, variablesError, variablesLoading, variablesReady, variablesScopeActive,
+    ],
+  );
+
+  /**
+   * ADR-0020 S3b（D7）：尺寸字段未知 `#name` + Enter / 补全「新建变量…」→
+   * 打开内联创建面板（预填 token/尺寸当前值）。默认类型固定 length（live
+   * `#? = 0 deg` 是选择「角度」后的标题，初始默认未采到；P2-4 保持 length，
+   * 量纲兼容由用户显式切类型 + S3a 后端门禁兜底）。创建成功后不关尺寸
+   * 对话框：变量表刷新使 `#name` 转为有效态。
+   */
+  const openInlineCreateVariable = React.useCallback((request: VariableCreateRequest): void => {
+    // P3-4：unit 不再入对话框状态（值字段单位由 type 派生；调用已不再使用）。
+    usePartStudioStore.getState().openVariablesDialog({
+      active: 'inline-create',
+      name: request.name,
+      valueText: request.valueText,
+      type: 'length',
+      ...(request.anchor ? { anchor: request.anchor } : {}),
+    });
+  }, []);
+
   // 2026-11-13 Onshape live f4/f5：草图平面框——创建已选平面 / 编辑草图时显示。
   // 平面来源：活动草图落库平面 → 待建草稿平面（模型面/cPlane/三基准面）。
   const sketchPlaneFrame = React.useMemo<SketchPlaneDto | null>(() => {
@@ -1244,6 +1340,7 @@ export function PartStudioCanvas({
           dimensionLabelHitTestRef={sketchDimensionLabelHitRef}
           constraints={sketchSystem.activeSketch.constraints}
           variables={partStudioVariables}
+          onCreateVariable={openInlineCreateVariable}
           onCommit={async (constraintId, value, expression) => {
             // ADR-0020 §2.6 D3：表达式 → wholesale updateSketch（约束带
             // expression；value 由后端权威覆盖）；纯数字仍走既有单值通道。
@@ -1356,7 +1453,35 @@ export function PartStudioCanvas({
       {/* Onshape：草图模式没有常驻「实体/约束/尺寸清单」面板。尺寸与偏移的
           值确认改为在标注/定侧位置弹出的浮层。 */}
       {sketchActive && sketchSystem && (
-        <SketchValuePopup sketchSystem={sketchSystem} variables={partStudioVariables} />
+        <SketchValuePopup
+          sketchSystem={sketchSystem}
+          variables={partStudioVariables}
+          onCreateVariable={openInlineCreateVariable}
+        />
+      )}
+
+      {/* ADR-0020 S3b：变量对话框（命令新建/树行编辑/尺寸内联创建共用同一
+          非模态面板；key 按寻址重挂，本地草稿不跨变量残留）。 */}
+      {variablesDialog.active !== null && (
+        <VariablesDialog
+          key={variablesDialog.active === 'variables'
+            ? `variables:${variablesDialog.variableId ?? 'new'}`
+            : `inline:${variablesDialog.name}`}
+          variant={variablesDialog.active}
+          variables={partStudioVariables}
+          variableId={variablesDialog.active === 'variables' ? variablesDialog.variableId : undefined}
+          initialName={variablesDialog.active === 'inline-create' ? variablesDialog.name : undefined}
+          initialValueText={variablesDialog.active === 'inline-create' ? variablesDialog.valueText : undefined}
+          initialType={variablesDialog.active === 'inline-create' ? variablesDialog.type : undefined}
+          anchor={variablesDialog.active === 'inline-create' ? variablesDialog.anchor : undefined}
+          variablesLoading={variablesLoading}
+          variablesReady={variablesReady}
+          variablesScopeActive={variablesScopeActive}
+          variablesError={variablesError}
+          canEdit={canEdit}
+          onCommit={commitVariables}
+          onClose={closeVariablesDialog}
+        />
       )}
 
       {/* 2026-11-15 E4/S4b Onshape live：右下角草图状态读数（长度/半径 + 光标

@@ -21,7 +21,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, SketchDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, SketchDto, VariableDto } from '@luban-cad/shared';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
 
 // M6-a T6：面域读面 RPC 替身（FeatureDialog 拉伸草图通道 getSketch 直调）。
@@ -83,6 +83,7 @@ const dimensionEditorProbe = vi.hoisted(() => ({
     | null
     | undefined,
   variables: undefined as readonly unknown[] | undefined,
+  onCreateVariable: null as ((request: unknown) => void) | null | undefined,
 }));
 vi.mock('../components/SketchDimensionEditor.js', () => ({
   SketchDimensionEditor: (props: {
@@ -90,10 +91,12 @@ vi.mock('../components/SketchDimensionEditor.js', () => ({
     onCommit?: (constraintId: number, value: number, expression?: string)
       => void | Promise<{ ok: boolean; error?: string }>;
     variables?: readonly unknown[];
+    onCreateVariable?: (request: unknown) => void;
   }) => {
     dimensionEditorProbe.onGlyphHover = props.onGlyphHover;
     dimensionEditorProbe.onCommit = props.onCommit;
     dimensionEditorProbe.variables = props.variables;
+    dimensionEditorProbe.onCreateVariable = props.onCreateVariable;
     return null;
   },
 }));
@@ -172,6 +175,12 @@ function renderCanvas(
     featureEntries?: readonly FeatureTreeEntry[];
     featureParams?: unknown;
     sketchSystem?: UseSketchSystem;
+    variables?: readonly unknown[];
+    variablesLoading?: boolean;
+    variablesReady?: boolean;
+    variablesScopeActive?: boolean;
+    variablesError?: string;
+    onRefreshVariables?: () => Promise<void>;
   },
 ): void {
   render(
@@ -183,6 +192,12 @@ function renderCanvas(
       featureEntries={opts?.featureEntries}
       featureParams={opts?.featureParams}
       sketchSystem={opts?.sketchSystem}
+      variables={opts?.variables as never}
+      variablesLoading={opts?.variablesLoading}
+      variablesReady={opts?.variablesReady}
+      variablesScopeActive={opts?.variablesScopeActive}
+      variablesError={opts?.variablesError}
+      onRefreshVariables={opts?.onRefreshVariables}
       canEdit={opts?.canEdit ?? true}
       connection={
         opts?.connection
@@ -198,6 +213,8 @@ function resetStore(): void {
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     tool: { activeToolId: null },
     dialog: { active: null },
+    variablesWrite: { inFlight: false },
+    variablesDialog: { active: null },
     viewOnly: { isActive: false },
   });
 }
@@ -1070,5 +1087,246 @@ describe('PartStudioCanvas ADR-0020 S2：显示表达式投影与提交', () => 
       await dimensionEditorProbe.onCommit!(2, 30);
     });
     expect(system.applyConstraintValue).toHaveBeenCalledWith(2, 30);
+  });
+});
+
+// ── ADR-0020 S3b：变量对话框宿主 / updateVariables 唯一写通道 / 内联创建 ────
+describe('PartStudioCanvas ADR-0020 S3b：变量对话框与内联创建', () => {
+  const VARIABLE_SKETCH: SketchDto = {
+    id: 'sk-a',
+    entities: [],
+    constraints: [],
+    solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+  };
+
+  function sketchSystemStub(): UseSketchSystem {
+    return {
+      activeSketch: VARIABLE_SKETCH,
+      loading: false,
+      applyUpdate: vi.fn(async () => ({ ok: true, featureId: 'sk-a' })),
+      applyConstraintValue: vi.fn(async () => ({ ok: true, featureId: 'sk-a' })),
+      refresh: vi.fn(async () => undefined),
+    } as unknown as UseSketchSystem;
+  }
+
+  it('变量命令 ✓ → applyOp(updateVariables 整表) + 关闭；失败保留面板 + 就地错误', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    renderCanvas(applyOp as never, { variables: [] });
+    act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+    expect(screen.getByTestId('variables-dialog')).toBeDefined();
+    fireEvent.change(screen.getByTestId('variables-name-input'), { target: { value: 'width' } });
+    const value = screen.getByTestId('variables-value-input');
+    fireEvent.focus(value);
+    fireEvent.change(value, { target: { value: '10' } });
+    fireEvent.blur(value);
+    fireEvent.click(screen.getByTestId('variables-confirm'));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateVariables',
+      variables: [{ id: 'v1', name: 'width', expression: '10', type: 'length' }],
+    });
+    await waitFor(() => expect(usePartStudioStore.getState().variablesDialog.active).toBeNull());
+  });
+
+  it('后端拒收：变量面板保持 + 就地错误（不静默关）', async () => {
+    const failing = vi.fn(async () => ({ ok: false, error: '后端拒收' }));
+    renderCanvas(failing as never, {
+      variables: [{ id: 'v1', name: 'width', expression: '10', type: 'length' }],
+    });
+    act(() => usePartStudioStore.getState().openVariablesDialog({
+      active: 'variables',
+      variableId: 'v1',
+    }));
+    const value = screen.getByTestId('variables-value-input');
+    fireEvent.focus(value);
+    fireEvent.change(value, { target: { value: '20' } });
+    fireEvent.blur(value);
+    fireEvent.click(screen.getByTestId('variables-confirm'));
+    await waitFor(() => expect(failing).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('variables-error').textContent).toBe('后端拒收');
+    expect(usePartStudioStore.getState().variablesDialog.active).toBe('variables');
+  });
+
+  it('内联创建宿主：预填 token/尺寸当前值并追加变量（type 默认 length）', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    renderCanvas(applyOp as never, { variables: [] });
+    act(() => usePartStudioStore.getState().openVariablesDialog({
+      active: 'inline-create',
+      name: 'foo',
+      valueText: '8',
+      type: 'length',
+      anchor: { x: 300, y: 200 },
+    }));
+    const dialog = screen.getByTestId('variables-dialog');
+    expect(dialog.getAttribute('data-variant')).toBe('inline-create');
+    expect(screen.getByTestId('variables-dialog-title').textContent).toBe('创建变量');
+    expect((screen.getByTestId('variables-name-input') as HTMLInputElement).value).toBe('foo');
+    fireEvent.click(screen.getByTestId('variables-confirm'));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateVariables',
+      variables: [{ id: 'v1', name: 'foo', expression: '8', type: 'length' }],
+    }));
+    await waitFor(() => expect(usePartStudioStore.getState().variablesDialog.active).toBeNull());
+  });
+
+  it('尺寸编辑器未知 #name → 宿主打开内联面板（anchor 透传；默认类型 length）', () => {
+    renderCanvas(undefined, { variables: [], sketchSystem: sketchSystemStub() });
+    act(() => usePartStudioStore.getState().enterSketch('sk-a'));
+    expect(dimensionEditorProbe.onCreateVariable).toBeTypeOf('function');
+    dimensionEditorProbe.onCreateVariable!({
+      name: 'foo',
+      valueText: '8',
+      unit: 'deg',
+      anchor: { x: 120, y: 80 },
+    });
+    expect(usePartStudioStore.getState().variablesDialog).toEqual({
+      active: 'inline-create',
+      name: 'foo',
+      valueText: '8',
+      type: 'length',
+      anchor: { x: 120, y: 80 },
+    });
+  });
+
+  it('viewOnly 置位 → 打开中的变量面板收口', () => {
+    renderCanvas(undefined, { variables: [] });
+    act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+    expect(screen.getByTestId('variables-dialog')).toBeDefined();
+    act(() => usePartStudioStore.getState().setViewOnly(true));
+    expect(usePartStudioStore.getState().variablesDialog.active).toBeNull();
+  });
+
+  it('变量表直通尺寸编辑器（Session 单点读取）', () => {
+    const variables: VariableDto[] = [{ id: 'v1', name: 'width', expression: '10', type: 'length' }];
+    renderCanvas(undefined, { variables, sketchSystem: sketchSystemStub() });
+    act(() => usePartStudioStore.getState().enterSketch('sk-a'));
+    expect(dimensionEditorProbe.variables).toEqual(variables);
+  });
+});
+
+// ── ADR-0020 S3b review P2-5 / P1-1：刷新后再关 / 读面未落位禁写 ────────────
+describe('PartStudioCanvas S3b：变量写读后写门（P2-5/P1-1）', () => {
+  it('✓ 后 await 变量表刷新，刷新落位前对话框保持打开', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    let resolveRefresh!: () => void;
+    const refreshPromise = new Promise<void>((resolve) => { resolveRefresh = resolve; });
+    const onRefreshVariables = vi.fn(() => refreshPromise);
+    renderCanvas(applyOp as never, { variables: [], onRefreshVariables });
+    act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+    fireEvent.change(screen.getByTestId('variables-name-input'), { target: { value: 'width' } });
+    const value = screen.getByTestId('variables-value-input');
+    fireEvent.focus(value);
+    fireEvent.change(value, { target: { value: '10' } });
+    fireEvent.blur(value);
+    fireEvent.click(screen.getByTestId('variables-confirm'));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onRefreshVariables).toHaveBeenCalledTimes(1));
+    // 刷新未落位：面板仍在（不会让下一次编辑从提交前旧表重组）。
+    expect(usePartStudioStore.getState().variablesDialog.active).toBe('variables');
+    expect(screen.getByTestId('variables-dialog')).toBeDefined();
+    await act(async () => { resolveRefresh(); await refreshPromise; });
+    await waitFor(() => expect(usePartStudioStore.getState().variablesDialog.active).toBeNull());
+  });
+
+  it('variablesLoading=true（ready 必为 false）→ 显示 loading 而非读取失败；零 applyOp', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    renderCanvas(applyOp as never, {
+      variables: [], variablesLoading: true, variablesReady: false,
+    });
+    act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+    fireEvent.change(screen.getByTestId('variables-name-input'), { target: { value: 'width' } });
+    const value = screen.getByTestId('variables-value-input');
+    fireEvent.focus(value);
+    fireEvent.change(value, { target: { value: '10' } });
+    fireEvent.blur(value);
+    fireEvent.click(screen.getByTestId('variables-confirm'));
+    await waitFor(() => expect(screen.getByTestId('variables-error').textContent?.length).toBeGreaterThan(0));
+    expect(screen.getByTestId('variables-error').textContent).toContain('加载');
+    expect(screen.getByTestId('variables-error').textContent).not.toContain('读取失败');
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().variablesDialog.active).toBe('variables');
+  });
+
+  it('variablesScopeActive=false（未连接/PS 未就绪）→ 显示未就绪原因；零 applyOp', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    renderCanvas(applyOp as never, {
+      variables: [], variablesReady: false, variablesScopeActive: false,
+    });
+    act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+    fireEvent.change(screen.getByTestId('variables-name-input'), { target: { value: 'width' } });
+    const value = screen.getByTestId('variables-value-input');
+    fireEvent.focus(value);
+    fireEvent.change(value, { target: { value: '10' } });
+    fireEvent.blur(value);
+    fireEvent.click(screen.getByTestId('variables-confirm'));
+    await waitFor(() => expect(screen.getByTestId('variables-error').textContent).toContain('尚未就绪'));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+});
+
+// ── S3b re-review P2-1 / P2-2 / P3-2 / P3-3 ────────────────────────────────
+describe('PartStudioCanvas S3b re-review：读失败门 / 共享写门 / 单次提交', () => {
+  function fillNewVariable(name: string, value: string): void {
+    fireEvent.change(screen.getByTestId('variables-name-input'), { target: { value: name } });
+    const input = screen.getByTestId('variables-value-input');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value } });
+    fireEvent.blur(input);
+  }
+
+  it('P2-1：variablesReady=false（读取失败）→ ✓ 被拒、零 applyOp、显示不可用原因', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    renderCanvas(applyOp as never, { variables: [], variablesReady: false });
+    act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+    fillNewVariable('width', '10');
+    fireEvent.click(screen.getByTestId('variables-confirm'));
+    await waitFor(() => expect(screen.getByTestId('variables-error').textContent?.length).toBeGreaterThan(0));
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(usePartStudioStore.getState().variablesDialog.active).toBe('variables');
+  });
+
+  it('P2-2：树删除在飞行中（共享写门占用）→ 对话框提交被拒、零 applyOp', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    renderCanvas(applyOp as never, { variables: [] });
+    act(() => { usePartStudioStore.getState().beginVariablesWrite(); });
+    try {
+      act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+      fillNewVariable('width', '10');
+      fireEvent.click(screen.getByTestId('variables-confirm'));
+      await waitFor(() => expect(screen.getByTestId('variables-error').textContent?.length).toBeGreaterThan(0));
+      expect(applyOp).not.toHaveBeenCalled();
+    } finally {
+      act(() => usePartStudioStore.getState().endVariablesWrite());
+    }
+  });
+
+  it('P3-3：双击 ✓ 只发一次 updateVariables', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    const onRefreshVariables = vi.fn(async () => undefined);
+    renderCanvas(applyOp as never, { variables: [], onRefreshVariables });
+    act(() => usePartStudioStore.getState().openVariablesDialog({ active: 'variables' }));
+    fillNewVariable('width', '10');
+    const confirm = screen.getByTestId('variables-confirm');
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(usePartStudioStore.getState().variablesDialog.active).toBeNull());
+    expect(applyOp).toHaveBeenCalledTimes(1);
+  });
+
+  it('P3-2：内联创建 ✗ 取消 → 面板关闭、零写（字段无效态由编辑器单测覆盖）', async () => {
+    const applyOp = vi.fn(async () => ({ ok: true }));
+    renderCanvas(applyOp as never, { variables: [] });
+    act(() => usePartStudioStore.getState().openVariablesDialog({
+      active: 'inline-create',
+      name: 'foo',
+      valueText: '8',
+      type: 'length',
+      anchor: { x: 300, y: 200 },
+    }));
+    expect(screen.getByTestId('variables-dialog').getAttribute('data-variant')).toBe('inline-create');
+    fireEvent.click(screen.getByTestId('variables-cancel'));
+    expect(usePartStudioStore.getState().variablesDialog.active).toBeNull();
+    expect(applyOp).not.toHaveBeenCalled();
   });
 });

@@ -223,7 +223,12 @@ const DIMENSION_LABEL_CENTER = { clientX: 140, clientY: 123 };
 function renderDimensionEditor(
   onCommit: ReturnType<typeof vi.fn> = vi.fn(),
   constraint: SketchConstraintDto = DIMENSION_CONSTRAINT,
-  options?: { variables?: readonly VariableDto[]; annotationText?: string; open?: boolean },
+  options?: {
+    variables?: readonly VariableDto[];
+    annotationText?: string;
+    open?: boolean;
+    onCreateVariable?: ReturnType<typeof vi.fn>;
+  },
 ): {
   canvas: HTMLCanvasElement;
 } {
@@ -242,6 +247,7 @@ function renderDimensionEditor(
       annotations={[annotation]}
       constraints={[constraint]}
       variables={options?.variables}
+      onCreateVariable={options?.onCreateVariable as never}
       onCommit={onCommit as unknown as (
         constraintId: number,
         value: number,
@@ -846,5 +852,102 @@ describe('SketchDimensionEditor S2：# 变量补全（键盘）', () => {
     // `#w` 不是有效变量 → 提交守卫拒绝（不写模型），对话框保持打开。
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
+  });
+});
+
+// ── ADR-0020 S3b（D7）：未知 #name + Enter → 内联创建（不提交）──────────────
+describe('SketchDimensionEditor S3b：内联创建变量入口', () => {
+  it('未知 #foo + Enter → onCreateVariable(name/value/unit/anchor)，不提交且对话框保持', () => {
+    const onCommit = vi.fn();
+    const onCreateVariable = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, { onCreateVariable });
+    const input = screen.getByTestId('sketch-dimension-input');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '#foo' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCreateVariable).toHaveBeenCalledTimes(1);
+    const request = onCreateVariable.mock.calls[0]![0] as {
+      name: string; valueText: string; unit: string; anchor?: { x: number; y: number };
+    };
+    expect(request).toMatchObject({ name: 'foo', valueText: '20', unit: 'mm' });
+    expect(request.anchor).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
+  });
+
+  it('既有变量 #foo + Enter：不创建；先收补全菜单再 Enter 走表达式提交', async () => {
+    const onCommit = vi.fn();
+    const onCreateVariable = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, {
+      variables: [{ id: 'v1', name: 'foo', expression: '20', type: 'length' }],
+      onCreateVariable,
+    });
+    const input = screen.getByTestId('sketch-dimension-input');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '#foo' } });
+    // 补全菜单先消费 Enter（选中既有变量，不提交/不创建）。
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onCreateVariable).not.toHaveBeenCalled();
+    // 菜单已收起，再 Enter → 表达式提交。
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 20, '#foo'));
+  });
+
+  it('未接线 onCreateVariable：未知 #foo + Enter 保持既有无效提交语义', () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit);
+    const input = screen.getByTestId('sketch-dimension-input');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '#foo' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sketch-dimension-input')).toBeDefined();
+  });
+});
+
+// ── ADR-0020 S3b review P1-2：树/侧栏 Delete 不触发草图尺寸删除 ──────────────
+describe('SketchDimensionEditor P1-2：树事件让位', () => {
+  it('Delete 事件目标位于特征树 → 不调用 onDeleteConstraint；body 目标仍删除', () => {
+    const { viewport } = makeViewport();
+    const onDeleteConstraint = vi.fn();
+    render(
+      <SketchDimensionEditor
+        viewport={viewport}
+        annotations={[DIMENSION_ANNOTATION]}
+        constraints={[DIMENSION_CONSTRAINT]}
+        selectedConstraintId={DIMENSION_ID}
+        onDeleteConstraint={onDeleteConstraint}
+        onCommit={() => undefined}
+      />,
+    );
+    const tree = document.createElement('div');
+    tree.setAttribute('data-testid', 'part-studio-tree');
+    const row = document.createElement('button');
+    tree.appendChild(row);
+    document.body.appendChild(tree);
+    try {
+      fireEvent.keyDown(row, { key: 'Delete' });
+      expect(onDeleteConstraint).not.toHaveBeenCalled();
+      fireEvent.keyDown(document.body, { key: 'Delete' });
+      expect(onDeleteConstraint).toHaveBeenCalledWith(DIMENSION_ID);
+    } finally {
+      tree.remove();
+    }
+  });
+
+  it('inline-create 请求后尺寸字段保持无效（✗ 关闭面板即无效态）', () => {
+    const onCommit = vi.fn();
+    const onCreateVariable = vi.fn();
+    renderDimensionEditor(onCommit, DIMENSION_CONSTRAINT, { onCreateVariable });
+    const input = screen.getByTestId('sketch-dimension-input');
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '#foo' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCreateVariable).toHaveBeenCalledTimes(1);
+    // 面板取消/未创建时字段仍是未知变量 → ✓ 保持禁用（live 口径）。
+    expect((screen.getByTestId('sketch-dimension-confirm') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('sketch-dimension-input').getAttribute('data-error')).toBe('true');
+    expect(onCommit).not.toHaveBeenCalled();
   });
 });

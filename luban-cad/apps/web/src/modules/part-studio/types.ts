@@ -10,6 +10,7 @@ import type {
   LubanTopologyId,
   PatternParams,
   SketchPlaneDto,
+  VariableType,
 } from '@luban-cad/shared';
 
 /**
@@ -207,6 +208,34 @@ export interface PartStudioCanvasState {
  *   供标题与后续 updateParams 路由）。
  * sketch=新建草图（ribbon newSketch 激活路由）。
  */
+/**
+ * 变量对话框切片（ADR-0020 S3b）：一次性非模态面板寻址。
+ * - `variables`：变量命令（新建）/树行双击（variableId 编辑）；
+ * - `inline-create`：尺寸字段未知 `#name` + Enter / 补全「新建变量…」——
+ *   预填名称 token、尺寸当前值文本与单位，anchor 为尺寸对话框右侧 client 坐标。
+ * 与 `dialog`（特征/草图）互不替代；同一时刻只有这一个变量面板（宿主去重）。
+ */
+export type PartStudioVariablesDialogState =
+  | { active: null }
+  | { active: 'variables'; variableId?: string }
+  | {
+    active: 'inline-create';
+    name: string;
+    valueText: string;
+    /** 内联创建默认类型（固定 length；live 初始默认未采到，S3b P2-4）。 */
+    type?: VariableType;
+    anchor?: { x: number; y: number };
+  };
+
+/**
+ * 变量整表写共享互斥（S3b re-review P2-2）：树删除与对话框提交共用同一
+ * in-flight 门，避免两表面各持 busy 时用同一份旧表并发重组（后写覆盖先写）。
+ * 纯会话态，不是数据源；提交前同步置位，刷新完成后清位（失败也清）。
+ */
+export interface PartStudioVariablesWriteState {
+  inFlight: boolean;
+}
+
 export type PartStudioDialogState =
   | { active: null }
   /** B5：patternKind 为 ribbon 入口的初始阵列类型（LinearPattern→linear、CircularPattern→circular）；
@@ -260,6 +289,10 @@ export interface PartStudioState {
   commandPalette: PartStudioCommandPaletteState;
   canvas: PartStudioCanvasState;
   dialog: PartStudioDialogState;
+  /** ADR-0020 S3b：变量对话框（命令/树编辑/内联创建）一次性寻址。 */
+  variablesDialog: PartStudioVariablesDialogState;
+  /** ADR-0020 S3b：变量整表写共享互斥（树删除 × 对话框提交）。 */
+  variablesWrite: PartStudioVariablesWriteState;
   viewOnly: PartStudioViewOnlyState;
   datum: PartStudioDatumState;
 }

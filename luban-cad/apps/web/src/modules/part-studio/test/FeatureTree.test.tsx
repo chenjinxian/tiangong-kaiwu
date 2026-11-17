@@ -21,7 +21,7 @@ import type { JSX } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BodyInfo, FeatureTreeEntry } from '@luban-cad/shared';
+import type { BodyInfo, FeatureTreeEntry, VariableDto } from '@luban-cad/shared';
 
 const mocks = vi.hoisted(() => ({
   emphasizeElements: vi.fn(),
@@ -136,6 +136,7 @@ function resetStore(): void {
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },
+    variablesWrite: { inFlight: false },
     datum: {
       visibility: { origin: true, top: true, front: true, right: true },
       visibilityOverrides: {},
@@ -1181,5 +1182,136 @@ describe('S2 Onshape tree parity：过滤计数与零件菜单动作', () => {
     fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
     await user.click(screen.getByRole('menuitem', { name: '清除选定内容' }));
     expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+  });
+});
+
+// ── ADR-0020 S3b：变量段（特征段之后、零件段之前）──────────────────────────
+describe('ADR-0020 S3b：Part Studio 变量段', () => {
+  const VARIABLES: VariableDto[] = [
+    { id: 'v1', name: 'width', expression: '10', type: 'length' },
+    { id: 'v2', name: 'height', expression: '#width*2', type: 'length' },
+  ];
+
+  it('变量段位于特征段之后、零件段之前；行显示 #name = 值/表达式', () => {
+    render(<FeatureTree entries={ENTRIES} bodies={BODIES} variables={VARIABLES} />);
+    const featureSection = screen.getByTestId('part-studio-feature-list').closest('section')!;
+    const variableSection = screen.getByTestId('part-studio-variable-list').closest('section')!;
+    const partSection = screen.getByTestId('part-studio-part-list').closest('section')!;
+    expect(featureSection.compareDocumentPosition(variableSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+    expect(variableSection.compareDocumentPosition(partSection) & Node.DOCUMENT_POSITION_FOLLOWING)
+      .toBeTruthy();
+    expect(screen.getByTestId('part-studio-variable-count').textContent).toBe('(2)');
+    expect(screen.getByTestId('tree-variable-v1').textContent).toContain('#width = 10 mm');
+    expect(screen.getByTestId('tree-variable-v2').textContent).toContain('#height = #width*2');
+    // 图标为 Onshape fx sprite（不是无关图标）。
+    expect(screen.getByTestId('tree-variable-v1').querySelector('svg')).not.toBeNull();
+  });
+
+  it('空变量表不显示段头；读失败显示一条诚实错误行且特征段照常', () => {
+    const { rerender } = render(<FeatureTree entries={ENTRIES} bodies={BODIES} variables={[]} />);
+    expect(screen.queryByTestId('part-studio-variable-section-header')).toBeNull();
+    rerender(
+      <FeatureTree
+        entries={ENTRIES}
+        bodies={BODIES}
+        variables={[]}
+        variablesError="变量表损坏"
+      />,
+    );
+    expect(screen.getByTestId('part-studio-variable-error').textContent).toContain('变量表损坏');
+    expect(screen.getByTestId('part-studio-feature-list')).toBeDefined();
+  });
+
+  it('双击变量行 / Enter → onEditVariable(id)', () => {
+    const onEditVariable = vi.fn();
+    render(
+      <FeatureTree entries={ENTRIES} variables={VARIABLES} onEditVariable={onEditVariable} />,
+    );
+    const row = screen.getByTestId('tree-variable-v2');
+    fireEvent.doubleClick(row);
+    expect(onEditVariable).toHaveBeenCalledWith('v2');
+    fireEvent.keyDown(row, { key: 'Enter' });
+    expect(onEditVariable).toHaveBeenCalledTimes(2);
+  });
+
+  it('右键菜单「删除变量」→ onDeleteVariable(id)（无确认框）', async () => {
+    const user = userEvent.setup();
+    const onDeleteVariable = vi.fn();
+    render(
+      <FeatureTree entries={ENTRIES} variables={VARIABLES} onDeleteVariable={onDeleteVariable} />,
+    );
+    fireEventContextMenu(screen.getByTestId('tree-variable-v1'));
+    await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+    expect(onDeleteVariable).toHaveBeenCalledWith('v1');
+  });
+
+  it('canEdit=false：删除变量菜单项禁用（title）；Delete 键不回调', async () => {
+    const user = userEvent.setup();
+    const onDeleteVariable = vi.fn();
+    render(
+      <FeatureTree
+        entries={ENTRIES}
+        variables={VARIABLES}
+        canEdit={false}
+        onDeleteVariable={onDeleteVariable}
+      />,
+    );
+    fireEventContextMenu(screen.getByTestId('tree-variable-v1'));
+    const item = screen.getByRole('menuitem', { name: '删除变量' }) as HTMLButtonElement;
+    expect(item.disabled).toBe(true);
+    expect((item.getAttribute('title') ?? '').length).toBeGreaterThan(0);
+    fireEvent.click(item);
+    expect(onDeleteVariable).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByTestId('tree-variable-v1'), { key: 'Delete' });
+    expect(onDeleteVariable).not.toHaveBeenCalled();
+    await user.keyboard('{Escape}');
+  });
+
+  it('variablesError（读取失败）：删除菜单禁用；Delete 键不回调', () => {
+    const onDeleteVariable = vi.fn();
+    render(
+      <FeatureTree
+        entries={ENTRIES}
+        variables={VARIABLES}
+        variablesError="变量表损坏"
+        onDeleteVariable={onDeleteVariable}
+      />,
+    );
+    fireEventContextMenu(screen.getByTestId('tree-variable-v1'));
+    const item = screen.getByRole('menuitem', { name: '删除变量' }) as HTMLButtonElement;
+    expect(item.disabled).toBe(true);
+    expect((item.getAttribute('title') ?? '').length).toBeGreaterThan(0);
+    fireEvent.keyDown(screen.getByTestId('tree-variable-v1'), { key: 'Delete' });
+    expect(onDeleteVariable).not.toHaveBeenCalled();
+  });
+
+  it('variablesLoading：删除菜单禁用（加载提示）；Delete 键不回调', () => {
+    const onDeleteVariable = vi.fn();
+    render(
+      <FeatureTree
+        entries={ENTRIES}
+        variables={VARIABLES}
+        variablesLoading
+        onDeleteVariable={onDeleteVariable}
+      />,
+    );
+    fireEventContextMenu(screen.getByTestId('tree-variable-v1'));
+    const item = screen.getByRole('menuitem', { name: '删除变量' }) as HTMLButtonElement;
+    expect(item.disabled).toBe(true);
+    fireEvent.keyDown(screen.getByTestId('tree-variable-v1'), { key: 'Delete' });
+    expect(onDeleteVariable).not.toHaveBeenCalled();
+  });
+
+  it('变量行聚焦 Delete/Backspace → onDeleteVariable(id)', () => {
+    const onDeleteVariable = vi.fn();
+    render(
+      <FeatureTree entries={ENTRIES} variables={VARIABLES} onDeleteVariable={onDeleteVariable} />,
+    );
+    const row = screen.getByTestId('tree-variable-v1');
+    fireEvent.keyDown(row, { key: 'Delete' });
+    expect(onDeleteVariable).toHaveBeenLastCalledWith('v1');
+    fireEvent.keyDown(row, { key: 'Backspace' });
+    expect(onDeleteVariable).toHaveBeenCalledTimes(2);
   });
 });

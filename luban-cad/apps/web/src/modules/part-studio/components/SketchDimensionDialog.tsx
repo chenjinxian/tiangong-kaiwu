@@ -28,8 +28,12 @@ import { useTranslation } from 'react-i18next';
 import type { SketchConstraintDto, VariableDto } from '@luban-cad/shared';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { isNumericDimensionText } from '../internal/sketch-dimension-expression.js';
-import { stepConstraintEditorValue } from '../internal/sketch-dimension-value.js';
-import { matchesVariableSuggestions, SketchExpressionAutocomplete } from './SketchExpressionAutocomplete.js';
+import { formatDimensionPopupValue, stepConstraintEditorValue } from '../internal/sketch-dimension-value.js';
+import {
+  autocompleteOptionCount,
+  matchesVariableSuggestions,
+  SketchExpressionAutocomplete,
+} from './SketchExpressionAutocomplete.js';
 import './SketchDimensionEditor.css';
 
 /** 可见尺寸对话框宽度（live：拖拽条/面板 209px）。 */
@@ -133,6 +137,16 @@ export interface SketchDimensionDialogProps {
   busy?: boolean;
   /** 既有 Part Studio 变量（`#` 补全；缺省无补全）。 */
   variables?: readonly VariableDto[];
+  /**
+   * ADR-0020 §2.6 D7（S3b）：未知 `#name` + Enter（或补全「新建变量…」行）→
+   * 请求宿主打开内联创建面板。缺省不接线（Enter 仍走提交语义，不造假面板）。
+   * `valueText` = 尺寸当前值（显示单位数值文本），供面板「值」字段预填。
+   */
+  onCreateVariable?: (request: {
+    name: string;
+    valueText: string;
+    unit: string;
+  }) => void;
   /** 可见对话框 CSS 偏移（宿主容器坐标系）。 */
   offset: { left: number; top: number };
   /** 拖动会话的起点（同一坐标系；仅拖拽条可拖）。 */
@@ -167,6 +181,7 @@ export function SketchDimensionDialog({
   errorMessage,
   busy = false,
   variables,
+  onCreateVariable,
   offset,
   dragOrigin,
   onDragPosition,
@@ -191,6 +206,14 @@ export function SketchDimensionDialog({
   onDragPositionRef.current = onDragPosition;
   const onValueChangeRef = React.useRef(onValueChange);
   onValueChangeRef.current = onValueChange;
+  const onCreateVariableRef = React.useRef(onCreateVariable);
+  onCreateVariableRef.current = onCreateVariable;
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+  const rawValueRef = React.useRef(rawValue);
+  rawValueRef.current = rawValue;
+  const unitRef = React.useRef(unit);
+  unitRef.current = unit;
   const variableList = React.useMemo(() => variables ?? [], [variables]);
   /** `#` 补全会话（query = `#` 后前缀；index = 键盘高亮行）。null = 关闭。 */
   const [autocomplete, setAutocomplete] = React.useState<{ query: string; index: number } | null>(null);
@@ -198,16 +221,21 @@ export function SketchDimensionDialog({
     () => (autocomplete ? matchesVariableSuggestions(variableList, autocomplete.query) : []),
     [autocomplete, variableList],
   );
-  const autocompleteOpen = autocomplete !== null && autocompleteMatches.length > 0;
+  // S3b：有 onCreateVariable 时补全菜单末尾追加「新建变量…」行（行数 +1）。
+  const autocompleteCount = autocomplete === null
+    ? 0
+    : autocompleteOptionCount(variableList, autocomplete.query, onCreateVariable !== undefined);
+  const autocompleteOpen = autocomplete !== null && autocompleteCount > 0;
 
   const closeAutocomplete = React.useCallback((): void => {
     setAutocomplete(null);
   }, []);
 
-  /** 文本变化（输入）→ 重新判定 `#` 补全查询（有匹配才打开菜单）。 */
+  /** 文本变化（输入）→ 重新判定 `#` 补全查询（有可选项才打开菜单）。 */
   const syncAutocomplete = React.useCallback((text: string, caret: number | null): void => {
     const query = expressionAutocompleteQuery(text, caret);
-    if (query === null || matchesVariableSuggestions(variableList, query).length === 0) {
+    const hasCreate = onCreateVariableRef.current !== undefined;
+    if (query === null || autocompleteOptionCount(variableList, query, hasCreate) === 0) {
       setAutocomplete(null);
       return;
     }
@@ -223,10 +251,11 @@ export function SketchDimensionDialog({
    */
   const syncAutocompleteFromCaret = React.useCallback((text: string, caret: number | null): void => {
     const query = expressionAutocompleteQuery(text, caret);
+    const hasCreate = onCreateVariableRef.current !== undefined;
     setAutocomplete((current) => {
       if (!current)
         return current;
-      if (query === null || matchesVariableSuggestions(variableList, query).length === 0)
+      if (query === null || autocompleteOptionCount(variableList, query, hasCreate) === 0)
         return null;
       return current.query === query ? current : { query, index: 0 };
     });
@@ -252,6 +281,45 @@ export function SketchDimensionDialog({
     });
     return true;
   }, [value]);
+
+  /** 内联创建预填值：尺寸当前值（显示单位数值文本；无原始值时用纯数字输入）。 */
+  const inlineCreateValueText = React.useCallback((): string => {
+    const raw = rawValueRef.current;
+    if (raw !== undefined && Number.isFinite(raw))
+      return formatDimensionPopupValue(kind, raw);
+    const text = valueRef.current.trim();
+    return isNumericDimensionText(text) ? text : '';
+  }, [kind]);
+
+  /**
+   * S3b：请求宿主打开内联「创建变量」面板（name=token、值=尺寸当前值/单位）。
+   * 返回 false = 未接线（调用方回退既有 Enter 提交语义）。
+   */
+  const requestInlineCreate = React.useCallback((name: string): boolean => {
+    const handler = onCreateVariableRef.current;
+    if (!handler)
+      return false;
+    setAutocomplete(null);
+    handler({ name: name.trim(), valueText: inlineCreateValueText(), unit: unitRef.current });
+    return true;
+  }, [inlineCreateValueText]);
+
+  /**
+   * 输入框 Enter：未知 `#name`（整段 token）且宿主接线内联创建 → 不提交，
+   * 打开创建面板（ADR-0020 §2.6 D7 / live：关闭面板后字段保持无效；✓ 提交
+   * 才进入表达式通道）。返回 true = 已消费按键。
+   */
+  const tryCreateUnknownVariable = React.useCallback((): boolean => {
+    if (!onCreateVariableRef.current)
+      return false;
+    const match = /^\s*#([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(valueRef.current);
+    if (!match)
+      return false;
+    const name = match[1]!;
+    if (variableList.some((variable) => variable.name === name))
+      return false;
+    return requestInlineCreate(name);
+  }, [requestInlineCreate, variableList]);
 
   // 拖拽条（仅 13px 条可拖；面板不拖）：pointerdown 记录起点，随后的
   // move/up 由 window 捕获段监听处理（以「起点 + 总位移」计算，非增量——
@@ -399,14 +467,25 @@ export function SketchDimensionDialog({
                   const delta = event.key === 'ArrowDown' ? 1 : -1;
                   setAutocomplete((current) => {
                     if (!current) return current;
-                    const count = matchesVariableSuggestions(variableList, current.query).length;
+                    const count = autocompleteOptionCount(
+                      variableList,
+                      current.query,
+                      onCreateVariableRef.current !== undefined,
+                    );
                     if (count === 0) return null;
                     return { ...current, index: (current.index + delta + count) % count };
                   });
                   return;
                 }
                 if (event.key === 'Enter') {
-                  const match = autocompleteMatches[autocomplete?.index ?? 0];
+                  const index = autocomplete?.index ?? 0;
+                  // S3b：补全菜单末尾「新建变量…」行 → 打开内联创建面板。
+                  if (index >= autocompleteMatches.length && requestInlineCreate(autocomplete?.query ?? '')) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                  }
+                  const match = autocompleteMatches[index];
                   // 无插入可应用 → 收起菜单并放行到下方提交语义（评审 P3）。
                   if (match && selectAutocomplete(match.name)) {
                     event.preventDefault();
@@ -451,6 +530,9 @@ export function SketchDimensionDialog({
               if (event.key === 'Enter') {
                 event.preventDefault();
                 event.stopPropagation();
+                // S3b（D7）：整段未知 `#name` → 先开内联创建面板（不提交）。
+                if (tryCreateUnknownVariable())
+                  return;
                 onConfirm();
                 return;
               }
@@ -477,6 +559,7 @@ export function SketchDimensionDialog({
                 setAutocomplete((current) => (current ? { ...current, index } : current));
               }}
               onSelect={selectAutocomplete}
+              onCreate={onCreateVariable ? (name) => { requestInlineCreate(name); } : undefined}
             />
           )}
         </span>

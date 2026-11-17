@@ -47,6 +47,7 @@ function resetStore(): void {
   usePartStudioStore.setState({
     tool: { activeToolId: null },
     dialog: { active: null },
+    variablesDialog: { active: null },
     canvas: { selection: [], hiddenIds: [] },
     sketch: { ...usePartStudioStore.getState().sketch, isActive: false, pattern: null },
   });
@@ -669,5 +670,64 @@ describe('工具快捷键（Onshape 口径，主钮 shortcut 元数据可执行�
       fireEvent.keyDown(window, { key: 's', shiftKey: true });
     });
     expect(usePartStudioStore.getState().dialog.active).not.toBe('sketch');
+  });
+});
+
+// ── ADR-0020 S3b：变量命令入口 ──────────────────────────────────────────────
+describe('ADR-0020 S3b：特征工具栏「变量」入口', () => {
+  it('渲染真实按钮（fx sprite/文案）→ 打开变量对话框新建态；不投 tools.run', async () => {
+    const user = userEvent.setup();
+    render(<Ribbon />);
+    const button = screen.getByTestId('part-studio-ribbon-variables');
+    expect(button.getAttribute('aria-label')).toBe('变量');
+    expect(button.querySelector('svg')).not.toBeNull();
+    await user.click(button);
+    expect(usePartStudioStore.getState().variablesDialog).toEqual({ active: 'variables' });
+    expect(mocks.toolsRun).not.toHaveBeenCalled();
+  });
+});
+
+// ── ADR-0020 S3b review P2-3：只读/加载中变量入口禁用 ───────────────────────
+describe('ADR-0020 S3b：变量入口的只读/加载门', () => {
+  it('canEdit=false → 变量按钮禁用 + readonlyHint title（不可打开对话框）', () => {
+    render(<Ribbon canEdit={false} />);
+    const button = screen.getByTestId('part-studio-ribbon-variables') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect((button.getAttribute('title') ?? '').length).toBeGreaterThan(0);
+    fireEvent.click(button);
+    expect(usePartStudioStore.getState().variablesDialog.active).toBeNull();
+  });
+
+  it('variablesReady=false（读取失败）→ 变量按钮禁用（P2-1 写门）', () => {
+    render(<Ribbon variablesReady={false} />);
+    const button = screen.getByTestId('part-studio-ribbon-variables') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect((button.getAttribute('title') ?? '').length).toBeGreaterThan(0);
+    fireEvent.click(button);
+    expect(usePartStudioStore.getState().variablesDialog.active).toBeNull();
+  });
+
+  it('variablesLoading=true（ready 必为 false）→ 禁用且提示加载中（不是读取失败）', () => {
+    render(<Ribbon variablesLoading variablesReady={false} />);
+    const button = screen.getByTestId('part-studio-ribbon-variables') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('title') ?? '').toContain('加载');
+    expect(button.getAttribute('title') ?? '').not.toContain('读取失败');
+    fireEvent.click(button);
+    expect(usePartStudioStore.getState().variablesDialog.active).toBeNull();
+  });
+
+  it('variablesScopeActive=false（未连接/PS 未就绪）→ 禁用且提示未就绪', () => {
+    render(<Ribbon variablesReady={false} variablesScopeActive={false} />);
+    const button = screen.getByTestId('part-studio-ribbon-variables') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('title') ?? '').toContain('尚未就绪');
+  });
+
+  it('variablesError（读取失败）→ 禁用且提示读取失败', () => {
+    render(<Ribbon variablesReady={false} variablesError="boom" />);
+    const button = screen.getByTestId('part-studio-ribbon-variables') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('title') ?? '').toContain('读取失败');
   });
 });

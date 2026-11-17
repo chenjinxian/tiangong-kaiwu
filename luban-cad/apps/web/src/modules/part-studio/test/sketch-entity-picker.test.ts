@@ -8,7 +8,7 @@ import { Point3d } from '@itwin/core-geometry';
 import type { SketchDto } from '@luban-cad/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SketchEntityPicker } from '../components/SketchEntityPicker.js';
-import type { SketchPickerGeometry } from '../internal/sketch-entity-picker.js';
+import type { SketchEntitySelection, SketchPickerGeometry } from '../internal/sketch-entity-picker.js';
 import { curveDistance, distToSegment, hitTestSketchEntity } from '../internal/sketch-entity-picker.js';
 import { markRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 
@@ -108,6 +108,8 @@ function renderPicker(opts: {
   dimensionLabelHitTestRef?: React.MutableRefObject<((point: { x: number; y: number }) => number | null) | null>;
   onDeleteDimension?: (constraintId: number) => void | Promise<void>;
   onToggleDimensionDriven?: (constraintId: number, nextDriven: boolean) => void | Promise<void>;
+  selected?: readonly SketchEntitySelection[];
+  onDelete?: (selection: readonly SketchEntitySelection[]) => void;
 } = {}): {
   onFinishSketch: ReturnType<typeof vi.fn>;
   onTransform: ReturnType<typeof vi.fn>;
@@ -119,7 +121,7 @@ function renderPicker(opts: {
   render(React.createElement(SketchEntityPicker, {
     viewport: makeSketchViewport(),
     sketch: opts.sketch ?? SKETCH,
-    selected: [],
+    selected: opts.selected ?? [],
     onSelectionChange,
     sketchName: '草图 1',
     onFinishSketch,
@@ -129,6 +131,7 @@ function renderPicker(opts: {
     ...(opts.dimensionLabelHitTestRef ? { dimensionLabelHitTestRef: opts.dimensionLabelHitTestRef } : {}),
     ...(opts.onDeleteDimension ? { onDeleteDimension: opts.onDeleteDimension } : {}),
     ...(opts.onToggleDimensionDriven ? { onToggleDimensionDriven: opts.onToggleDimensionDriven } : {}),
+    ...(opts.onDelete ? { onDelete: opts.onDelete } : {}),
     // FIX-2：缺省接线；withTransform=false 模拟只读/不可变换宿主（不下传）。
     ...(opts.withTransform === false ? {} : { onTransform }),
   }));
@@ -598,5 +601,29 @@ describe('草图尺寸菜单驱动/从动切换（W31-A live）', () => {
       '视图垂直于草图平面',
       '删除尺寸',
     ]);
+  });
+});
+
+// ── ADR-0020 S3b review P1-2：树/侧栏 Delete 不触发草图实体删除 ─────────────
+describe('SketchEntityPicker P1-2：树事件让位', () => {
+  it('Delete 事件目标位于侧栏/特征树 → 不调用 onDelete；body 目标仍删除', () => {
+    const onDelete = vi.fn();
+    renderPicker({
+      selected: [{ sketchId: 'sk', entityId: 1, part: 'curve' }],
+      onDelete,
+    });
+    const tree = document.createElement('div');
+    tree.setAttribute('data-testid', 'part-studio-tree');
+    const row = document.createElement('button');
+    tree.appendChild(row);
+    document.body.appendChild(tree);
+    try {
+      fireEvent.keyDown(row, { key: 'Delete' });
+      expect(onDelete).not.toHaveBeenCalled();
+      fireEvent.keyDown(document.body, { key: 'Delete' });
+      expect(onDelete).toHaveBeenCalledWith([{ sketchId: 'sk', entityId: 1, part: 'curve' }]);
+    } finally {
+      tree.remove();
+    }
   });
 });

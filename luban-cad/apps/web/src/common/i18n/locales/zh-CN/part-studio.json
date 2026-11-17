@@ -49,7 +49,8 @@
       "features": "特征",
       "parts": "零件数",
       "emptyFeatures": "暂无特征",
-      "emptyParts": "暂无零件"
+      "emptyParts": "暂无零件",
+      "variables": "变量"
     },
     "toggleTree": "显示/隐藏特征树"
   },
@@ -250,7 +251,8 @@
       "sheetMetal": "钣金",
       "custom": "自定义特征",
       "surfaceCurve": "曲面/曲线",
-      "history": "撤消/重做"
+      "history": "撤消/重做",
+      "variables": "变量"
     },
     "sketchGroups": {
       "sketchDraw": "绘制",
@@ -360,6 +362,10 @@
       },
       "rib": {
         "label": "筋"
+      },
+      "variables": {
+        "label": "变量",
+        "tooltip": "变量（新建/编辑）"
       }
     },
     "items": {
@@ -2245,5 +2251,58 @@
   },
   "autosave": {
     "failed": "自动保存失败：{{message}}"
+  },
+  "variables": {
+    "autocomplete": {
+      "create": "新建变量…"
+    },
+    "sources": {
+      "label": "变量来源",
+      "assigned": "已分配",
+      "measured": "已测量",
+      "imported": "来自导入",
+      "measuredUnavailable": "未实现：测量驱动变量（已测量）尚无数据来源。",
+      "importedUnavailable": "未实现：从 CSV/导入生成变量（来自导入）尚无数据来源。"
+    },
+    "types": {
+      "label": "变量类型",
+      "length": "长度",
+      "angle": "角度",
+      "number": "数字",
+      "any": "任意"
+    },
+    "fields": {
+      "name": "名称",
+      "value": "值",
+      "description": "说明"
+    },
+    "errors": {
+      "invalidName": "变量名只能包含字母、数字和下划线，且不能以数字开头。",
+      "duplicateName": "变量名已存在。",
+      "invalidType": "无效的变量类型。",
+      "descriptionTooLong": "说明不能超过 1024 个字符。",
+      "emptyValue": "值不能为空。",
+      "commitFailed": "变量保存失败。",
+      "notWired": "变量写通道未接线，无法保存。",
+      "loading": "变量表仍在加载或当前 Part Studio 尚未就绪，请稍后再试。",
+      "readonly": "只读模式下无法编辑变量。",
+      "unavailable": "变量表读取失败，暂时无法编辑变量。",
+      "busy": "另一个变量写操作正在进行，请稍后再试。",
+      "notReady": "建模服务或 Part Studio 尚未就绪，暂时无法编辑变量。"
+    },
+    "inline": {
+      "title": "创建变量",
+      "tabsLabel": "创建变量范围",
+      "tabFeature": "特征",
+      "tabConfiguration": "配置",
+      "configurationUnavailable": "未实现：配置变量（Configurations）尚未支持。"
+    },
+    "tree": {
+      "readFailed": "变量表读取失败：{{message}}",
+      "contextMenuLabel": "变量菜单",
+      "delete": "删除变量",
+      "deleteSuccess": "已删除变量 #{{name}}",
+      "deleteFailed": "删除变量失败：{{message}}"
+    }
   }
 }

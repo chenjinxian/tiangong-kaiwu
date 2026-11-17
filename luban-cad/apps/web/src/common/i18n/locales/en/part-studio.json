@@ -49,7 +49,8 @@
       "features": "Features",
       "parts": "Parts",
       "emptyFeatures": "No features yet",
-      "emptyParts": "No parts yet"
+      "emptyParts": "No parts yet",
+      "variables": "Variables"
     },
     "toggleTree": "Show/hide feature tree"
   },
@@ -250,7 +251,8 @@
       "sheetMetal": "Sheet metal",
       "custom": "Custom features",
       "surfaceCurve": "Surface/curve",
-      "history": "Undo/redo"
+      "history": "Undo/redo",
+      "variables": "Variables"
     },
     "sketchGroups": {
       "sketchDraw": "Draw",
@@ -360,6 +362,10 @@
       },
       "rib": {
         "label": "Rib"
+      },
+      "variables": {
+        "label": "Variables",
+        "tooltip": "Variables (create/edit)"
       }
     },
     "items": {
@@ -2245,5 +2251,58 @@
   },
   "autosave": {
     "failed": "Auto-save failed: {{message}}"
+  },
+  "variables": {
+    "autocomplete": {
+      "create": "Create variable…"
+    },
+    "sources": {
+      "label": "Variable source",
+      "assigned": "Assigned",
+      "measured": "Measured",
+      "imported": "Imported",
+      "measuredUnavailable": "Not implemented: measured variables have no data source yet.",
+      "importedUnavailable": "Not implemented: imported variables (CSV/import) have no data source yet."
+    },
+    "types": {
+      "label": "Variable type",
+      "length": "Length",
+      "angle": "Angle",
+      "number": "Number",
+      "any": "Any"
+    },
+    "fields": {
+      "name": "Name",
+      "value": "Value",
+      "description": "Description"
+    },
+    "errors": {
+      "invalidName": "Variable names may contain letters, digits and underscores, and cannot start with a digit.",
+      "duplicateName": "A variable with this name already exists.",
+      "invalidType": "Invalid variable type.",
+      "descriptionTooLong": "Description cannot exceed 1024 characters.",
+      "emptyValue": "Value cannot be empty.",
+      "commitFailed": "Failed to save the variable.",
+      "notWired": "The variable write channel is not wired; cannot save.",
+      "loading": "The variable table is still loading or the current Part Studio is not ready yet. Try again.",
+      "readonly": "Variables cannot be edited in read-only mode.",
+      "unavailable": "The variable table could not be read; variables cannot be edited right now.",
+      "busy": "Another variable write is in progress. Try again.",
+      "notReady": "The modeling service or Part Studio is not ready yet; variables cannot be edited."
+    },
+    "inline": {
+      "title": "Create variable",
+      "tabsLabel": "Create variable scope",
+      "tabFeature": "Feature",
+      "tabConfiguration": "Configuration",
+      "configurationUnavailable": "Not implemented: configuration variables are not supported yet."
+    },
+    "tree": {
+      "readFailed": "Failed to read the variable table: {{message}}",
+      "contextMenuLabel": "Variable menu",
+      "delete": "Delete variable",
+      "deleteSuccess": "Deleted variable #{{name}}",
+      "deleteFailed": "Failed to delete variable: {{message}}"
+    }
   }
 }

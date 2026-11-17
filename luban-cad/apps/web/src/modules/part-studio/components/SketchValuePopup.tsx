@@ -39,6 +39,7 @@ import {
   type DimensionExpressionError,
 } from '../internal/sketch-dimension-expression.js';
 import { formatDimensionPopupValue } from '../internal/sketch-dimension-value.js';
+import type { VariableCreateRequest } from '../internal/variables.js';
 import {
   sketchToolEvents,
   type SketchDimensionCandidate,
@@ -57,6 +58,11 @@ export interface SketchValuePopupProps {
   sketchSystem: UseSketchSystem;
   /** 既有 Part Studio 变量（表达式预校验 + `#` 补全；缺省空表）。 */
   variables?: readonly VariableDto[];
+  /**
+   * ADR-0020 §2.6 D7（S3b）：未知 `#name` + Enter / 补全「新建变量…」→ 宿主
+   * 打开内联创建面板；anchor 由本组件按可见值弹层右侧给出。
+   */
+  onCreateVariable?: (request: VariableCreateRequest) => void;
 }
 
 type Pending =
@@ -118,7 +124,7 @@ const VALUE_POPUP_DIALOG_TEST_IDS: SketchDimensionDialogTestIds = {
   error: 'sketch-value-error',
 };
 
-export function SketchValuePopup({ sketchSystem, variables }: SketchValuePopupProps): React.JSX.Element | null {
+export function SketchValuePopup({ sketchSystem, variables, onCreateVariable }: SketchValuePopupProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const [pending, setPending] = React.useState<Pending | undefined>(undefined);
   const [submitting, setSubmitting] = React.useState(false);
@@ -469,6 +475,12 @@ export function SketchValuePopup({ sketchSystem, variables }: SketchValuePopupPr
       invalid={!dimensionEvaluation.ok}
       errorMessage={pending.error ?? liveErrorMessage}
       variables={variables}
+      onCreateVariable={onCreateVariable
+        ? (request) => onCreateVariable({
+            ...request,
+            anchor: { x: visiblePosition.left + dialogWidth + 8, y: visiblePosition.top },
+          })
+        : undefined}
       busy={submitting}
       offset={visiblePosition}
       dragOrigin={visiblePosition}

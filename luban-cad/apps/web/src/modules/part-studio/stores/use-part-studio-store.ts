@@ -33,6 +33,8 @@ import type {
   PartStudioState,
   PartStudioToolState,
   PartStudioTreeState,
+  PartStudioVariablesDialogState,
+  PartStudioVariablesWriteState,
   PartStudioViewOnlyState,
   TreeTab,
 } from '../types.js';
@@ -88,6 +90,13 @@ export interface PartStudioActions {
   ) => void;
   openSketchDialog: (sketchId?: string) => void;
   closeDialog: () => void;
+  // variablesDialog 切片（ADR-0020 S3b：变量命令/树编辑/尺寸内联创建）
+  openVariablesDialog: (dialog: Exclude<PartStudioVariablesDialogState, { active: null }>) => void;
+  closeVariablesDialog: () => void;
+  // variablesWrite 切片（S3b re-review P2-2：树删除 × 对话框提交共享互斥）
+  /** 原子取写门；false = 已有变量写在进行（调用方显示 busy，不发 applyOp）。 */
+  beginVariablesWrite: () => boolean;
+  endVariablesWrite: () => void;
   // viewOnly 切片（T7：仅查看模式切换）
   setViewOnly: (active: boolean) => void;
   toggleViewOnly: () => void;
@@ -152,6 +161,12 @@ const initialCanvas: PartStudioCanvasState = {
 };
 
 const initialDialog: PartStudioDialogState = { active: null };
+
+/** ADR-0020 S3b：变量对话框缺省关闭。 */
+const initialVariablesDialog: PartStudioVariablesDialogState = { active: null };
+
+/** S3b P2-2：变量整表写互斥缺省空闲。 */
+const initialVariablesWrite: PartStudioVariablesWriteState = { inFlight: false };
 
 const initialViewOnly: PartStudioViewOnlyState = { isActive: false };
 
@@ -271,6 +286,8 @@ export const usePartStudioStore = create<PartStudioStore>()((...args) => ({
   ...createCommandPaletteSlice(args),
   ...createCanvasSlice(args),
   ...createDialogSlice(args),
+  ...createVariablesDialogSlice(args),
+  ...createVariablesWriteSlice(args),
   ...createViewOnlySlice(args),
   ...createDatumSlice(args),
 }));
@@ -318,6 +335,44 @@ function createDialogSlice([set]: SliceCreator): { dialog: PartStudioDialogState
     openFeatureDialog: (feature) => set({ dialog: { active: 'feature', ...feature } }),
     openSketchDialog: (sketchId) => set({ dialog: { active: 'sketch', sketchId: sketchId ?? null } }),
     closeDialog: () => set({ dialog: { active: null } }),
+  };
+}
+
+/**
+ * variablesDialog 切片（ADR-0020 S3b）：变量命令/树行编辑/尺寸字段内联创建
+ * 共用一个非模态面板寻址；与 `dialog`（特征/草图）互不替代。宿主
+ * PartStudioCanvas 按 active 渲染 VariablesDialog。
+ */
+function createVariablesDialogSlice([set]: SliceCreator): { variablesDialog: PartStudioVariablesDialogState } & Pick<PartStudioActions,
+  'openVariablesDialog' | 'closeVariablesDialog'> {
+  return {
+    variablesDialog: initialVariablesDialog,
+    openVariablesDialog: (dialog) => set({ variablesDialog: dialog }),
+    closeVariablesDialog: () => set({ variablesDialog: initialVariablesDialog }),
+  };
+}
+
+/**
+ * variablesWrite 切片（S3b re-review P2-2）：变量整表写的共享 in-flight 门。
+ * 树删除与对话框提交是两条 UI 路径，但写的是同一张表；各自 busy 无法阻止
+ * 另一方用提交前的旧表重组（后写覆盖先写）。begin 为同步原子判定（zustand
+ * set 在单线程中立即生效），end 在 refresh 完成后/失败路径清位。
+ */
+function createVariablesWriteSlice([set, get]: SliceCreator): { variablesWrite: PartStudioVariablesWriteState } & Pick<PartStudioActions,
+  'beginVariablesWrite' | 'endVariablesWrite'> {
+  return {
+    variablesWrite: initialVariablesWrite,
+    beginVariablesWrite: () => {
+      if (get().variablesWrite.inFlight)
+        return false;
+      set({ variablesWrite: { inFlight: true } });
+      return true;
+    },
+    endVariablesWrite: () => {
+      if (!get().variablesWrite.inFlight)
+        return;
+      set({ variablesWrite: initialVariablesWrite });
+    },
   };
 }
 

@@ -64,6 +64,8 @@ import {
 } from '../internal/sketch-dimension-picker.js';
 import { constraintIdFromGlyphId } from '../internal/sketch-constraint-glyphs.js';
 import { evaluateDimensionInput } from '../internal/sketch-dimension-expression.js';
+import { isTreeOrSidebarTarget } from '../internal/tree-event-guard.js';
+import type { VariableCreateRequest } from '../internal/variables.js';
 import {
   EDITABLE_CONSTRAINT_KINDS,
   formatConstraintEditorValue,
@@ -102,6 +104,12 @@ export interface SketchDimensionEditorProps {
   canEdit?: boolean;
   /** 既有 Part Studio 变量（表达式本地预校验 + `#` 补全；缺省空表）。 */
   variables?: readonly VariableDto[];
+  /**
+   * ADR-0020 §2.6 D7（S3b）：未知 `#name` + Enter / 补全「新建变量…」→ 宿主
+   * 打开内联创建面板。anchor 由本组件按可见尺寸对话框右侧给出；缺省不接线
+   * （Enter 保持提交语义）。
+   */
+  onCreateVariable?: (request: VariableCreateRequest) => void;
   /**
    * 提交（ADR-0020 §2.6 D3）：纯数字 = 既有 `applyConstraintValue`；表达式
    * （`expression` 非缺省）= 宿主 wholesale `updateSketch`（约束带 expression）。
@@ -365,6 +373,7 @@ export function SketchDimensionEditor({
   constraints,
   canEdit = true,
   variables,
+  onCreateVariable,
   onCommit,
   onUnsupported,
   selectedConstraintId = null,
@@ -436,6 +445,8 @@ export function SketchDimensionEditor({
   onCommitRef.current = onCommit;
   const variablesRef = React.useRef(variables);
   variablesRef.current = variables;
+  const onCreateVariableRef = React.useRef(onCreateVariable);
+  onCreateVariableRef.current = onCreateVariable;
   const onUnsupportedRef = React.useRef(onUnsupported);
   onUnsupportedRef.current = onUnsupported;
   const editorRef = React.useRef(editor);
@@ -650,7 +661,9 @@ export function SketchDimensionEditor({
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Delete' && event.key !== 'Backspace')
         return;
-      if (editorRef.current || selectedRef.current === null || isEditableTarget(event.target))
+      // P1-2：事件来自特征树/侧栏（变量行 Delete）时让位，不删草图尺寸。
+      if (editorRef.current || selectedRef.current === null
+        || isEditableTarget(event.target) || isTreeOrSidebarTarget(event.target))
         return;
       const constraintId = selectedRef.current;
       event.preventDefault();
@@ -832,6 +845,24 @@ export function SketchDimensionEditor({
       }
     : null;
 
+  /**
+   * ADR-0020 S3b：内联创建面板锚定在可见尺寸对话框右侧（live 未采精确偏移；
+   * 采用既有内联面板 +8px 间距习惯）。对话框尚未定位时不接线（避免飞到原点）。
+   */
+  const requestInlineCreate = React.useCallback((request: {
+    name: string;
+    valueText: string;
+    unit: string;
+  }): void => {
+    const handler = onCreateVariableRef.current;
+    if (!handler || !visibleDialogPosition)
+      return;
+    handler({
+      ...request,
+      anchor: { x: visibleDialogPosition.left + dialogWidth + 8, y: visibleDialogPosition.top },
+    });
+  }, [visibleDialogPosition, dialogWidth]);
+
   if (labels.length === 0 && glyphLayouts.length === 0 && !editor)
     return null;
 
@@ -919,6 +950,7 @@ export function SketchDimensionEditor({
             error={failed}
             invalid={editorInvalid}
             variables={variables}
+            onCreateVariable={onCreateVariable ? requestInlineCreate : undefined}
             busy={committing}
             offset={dialogOffset}
             dragOrigin={visibleDialogPosition}

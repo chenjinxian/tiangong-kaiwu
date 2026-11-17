@@ -12,10 +12,10 @@
 // 定位：组件行为验收层；@itwin/core-frontend 模块级 mock（零真实查看器，
 // notifications 可观测），真实 store/i18n 参与（setup.ts 全局词库 zh-CN 基线）。
 
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult, VariableDto } from '@luban-cad/shared';
 
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
@@ -77,6 +77,7 @@ function resetStore(): void {
     tree: { activeTab: 'features', selectedNodeIds: [], expandedNodeIds: [] },
     sketch: { isActive: false, activeSketchId: null, activeSketchPlane: null },
     dialog: { active: null },
+    variablesWrite: { inFlight: false },
   });
 }
 
@@ -323,5 +324,140 @@ describe('v1.70 树内联重命名（Sidebar 接线）', () => {
     await user.type(input, 'Nope{Enter}');
     await waitFor(() => expect(lastToast().priority).toBe(10));
     expect(lastToast().briefMessage).toContain('零件不存在');
+  });
+});
+
+// ── ADR-0020 S3b：变量删除（updateVariables 整表覆写）──────────────────────
+describe('ADR-0020 S3b：树内变量删除接线', () => {
+  const VARIABLES: VariableDto[] = [
+    { id: 'v1', name: 'width', expression: '10', type: 'length' },
+    { id: 'v2', name: 'height', expression: '#width*2', type: 'length' },
+  ];
+
+  it('删除变量 → applyOp updateVariables（移除该 id，其余保序）+ Success toast', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp) => ({ ok: true }));
+    render(
+      <PartStudioSidebar
+        entries={ENTRIES}
+        variables={VARIABLES}
+        onEditVariable={vi.fn()}
+        applyOp={applyOp as never}
+      />,
+    );
+    expect(screen.getByTestId('tree-variable-v1').textContent).toContain('#width = 10 mm');
+    fireEvent.contextMenu(screen.getByTestId('tree-variable-v1'));
+    await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateVariables',
+      variables: [VARIABLES[1]],
+    });
+    expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('后端拒收（变量被引用）→ Error toast 含原因；不发第二 op', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp) => ({ ok: false, error: '变量被草图引用' }));
+    render(
+      <PartStudioSidebar
+        entries={ENTRIES}
+        variables={VARIABLES}
+        applyOp={applyOp as never}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByTestId('tree-variable-v2'));
+    await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const toast = mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string; priority: number };
+    expect(toast.briefMessage).toContain('变量被草图引用');
+    expect(toast.priority).toBe(10);
+  });
+});
+
+// ── S3b re-review P2-2 / P3-3：共享写门 + 删除等待刷新 ──────────────────────
+describe('ADR-0020 S3b re-review：变量删除共享写门', () => {
+  const VARIABLES: VariableDto[] = [
+    { id: 'v1', name: 'width', expression: '10', type: 'length' },
+    { id: 'v2', name: 'height', expression: '#width*2', type: 'length' },
+  ];
+
+  function priorityOf(call: unknown): number {
+    return (call as { priority: number }).priority;
+  }
+
+  it('P2-2：共享写门被对话框提交占用时，树删除不发 op 且给 busy 提示', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp) => ({ ok: true }));
+    act(() => { usePartStudioStore.getState().beginVariablesWrite(); });
+    try {
+      render(
+        <PartStudioSidebar entries={ENTRIES} variables={VARIABLES} applyOp={applyOp as never} />,
+      );
+      fireEvent.contextMenu(screen.getByTestId('tree-variable-v1'));
+      await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+      expect(applyOp).not.toHaveBeenCalled();
+      expect(mocks.outputMessage).toHaveBeenCalledTimes(1);
+      // Warning（11）而非成功/错误：明确是「另一写操作在进行」。
+      expect(priorityOf(mocks.outputMessage.mock.calls[0]![0])).toBe(11);
+    } finally {
+      act(() => usePartStudioStore.getState().endVariablesWrite());
+    }
+  });
+
+  it('P2-1：未连接/PS 未就绪（scopeActive=false）→ 删除不发 op 且给未就绪原因', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp) => ({ ok: true }));
+    render(
+      <PartStudioSidebar
+        entries={ENTRIES}
+        variables={VARIABLES}
+        variablesReady={false}
+        variablesScopeActive={false}
+        applyOp={applyOp as never}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByTestId('tree-variable-v1'));
+    await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+    expect(applyOp).not.toHaveBeenCalled();
+    const toast = mocks.outputMessage.mock.calls[0]![0] as { briefMessage: string };
+    expect(toast.briefMessage).toContain('尚未就绪');
+  });
+
+  it('P3-3：删除 await refresh 后才成功 toast；期间第二次删除不发 op', async () => {
+    const user = userEvent.setup();
+    const applyOp = vi.fn(async (_op: FeatureOp) => ({ ok: true }));
+    let resolveRefresh!: () => void;
+    const refreshPromise = new Promise<void>((resolve) => { resolveRefresh = resolve; });
+    const onRefreshVariables = vi.fn(() => refreshPromise);
+    render(
+      <PartStudioSidebar
+        entries={ENTRIES}
+        variables={VARIABLES}
+        applyOp={applyOp as never}
+        onRefreshVariables={onRefreshVariables}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByTestId('tree-variable-v1'));
+    await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onRefreshVariables).toHaveBeenCalledTimes(1));
+    // refresh 未落位：不得出现成功 toast（Success=1）。
+    expect(mocks.outputMessage.mock.calls.filter(([details]) => priorityOf(details) === 1)).toHaveLength(0);
+
+    // 共享门仍持有 → 第二次删除只给 busy 提示，不发第二 op。
+    fireEvent.contextMenu(screen.getByTestId('tree-variable-v2'));
+    await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+    expect(applyOp).toHaveBeenCalledTimes(1);
+
+    await act(async () => { resolveRefresh(); await refreshPromise; });
+    await waitFor(() => expect(
+      mocks.outputMessage.mock.calls.filter(([details]) => priorityOf(details) === 1),
+    ).toHaveLength(1));
+
+    // 门已清：再次删除可以正常发 op。
+    fireEvent.contextMenu(screen.getByTestId('tree-variable-v2'));
+    await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(2));
   });
 });

@@ -1,0 +1,168 @@
+/* VariablesDialog.css — Part Studio 变量对话框（ADR-0020 §2.6 D5–D7，S3b）。
+ * live 220×188 非模态面板：与 FeatureDialog 同一内联语言（画布左上角；内联
+ * 创建变体由宿主按尺寸对话框右侧锚定 → position:fixed）。白色面板 + 0 5px
+ * 10px rgba(0,0,0,.2) 阴影（live dimension-dialog 同款）；行高/字号取树/面板
+ * 的 11px 紧凑口径。 */
+
+.part-studio-variables-dialog {
+  position: absolute;
+  inset-block-start: var(--iui-size-xs);
+  inset-inline-start: var(--iui-size-xs);
+  z-index: 35;
+  inline-size: 220px;
+  min-block-size: 188px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--iui-color-border, #d7d7d7);
+  border-radius: 2px;
+  background: var(--iui-color-background, #ffffff);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  color: var(--iui-color-text, #333333);
+  font: 11px "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+/* 内联创建：锚点 = 尺寸对话框右侧（client 坐标）。 */
+.part-studio-variables-dialog--anchored {
+  position: fixed;
+  inset-block-start: auto;
+  inset-inline-start: auto;
+}
+
+.part-studio-variables-dialog__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 24px;
+}
+
+.part-studio-variables-dialog__fx {
+  display: inline-flex;
+  align-items: center;
+  color: var(--iui-color-text, #333333);
+}
+
+.part-studio-variables-dialog__title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ✓/✗ 沿用 FeatureDialog 皮肤（28×28；本面板更紧凑 → 22×22）。 */
+.part-studio-variables-dialog .part-studio-feature-dialog__confirm,
+.part-studio-variables-dialog .part-studio-feature-dialog__cancel {
+  inline-size: 22px;
+  block-size: 22px;
+}
+
+.part-studio-variables-dialog__row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+.part-studio-variables-dialog__choice {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--iui-color-text, #333333);
+  font: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.part-studio-variables-dialog__choice[aria-pressed="true"],
+.part-studio-variables-dialog__choice[aria-selected="true"] {
+  background: #def1fb;
+  border-color: #b9dff2;
+}
+
+.part-studio-variables-dialog__choice:disabled {
+  color: #999999;
+  cursor: default;
+}
+
+.part-studio-variables-dialog__choice:not(:disabled):hover {
+  background: #f0f7fb;
+}
+
+.part-studio-variables-dialog__field {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: center;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.part-studio-variables-dialog__label {
+  color: #666666;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.part-studio-variables-dialog__value {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.part-studio-variables-dialog__input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 20px;
+  box-sizing: border-box;
+  padding: 0 3px;
+  border: 1px solid #cccccc;
+  border-radius: 2px;
+  background: #ffffff;
+  color: #333333;
+  font: inherit;
+}
+
+.part-studio-variables-dialog__input:focus {
+  outline: none;
+  border-color: #1651b0;
+  box-shadow: inset 1px 1px 0 #1651b0;
+}
+
+.part-studio-variables-dialog__input[data-error="true"] {
+  border-color: #c0392b;
+  box-shadow: inset 1px 1px 0 #c0392b;
+}
+
+.part-studio-variables-dialog__input[readonly] {
+  background: #f4f4f4;
+  color: #666666;
+}
+
+.part-studio-variables-dialog__unit {
+  flex: 0 0 auto;
+  min-inline-size: 16px;
+  color: #666666;
+  font-size: 11px;
+}
+
+.part-studio-variables-dialog__error {
+  margin-block-start: auto;
+  color: #c0392b;
+  font-size: 10px;
+  line-height: 13px;
+  max-block-size: 26px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

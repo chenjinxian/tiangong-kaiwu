@@ -56,6 +56,7 @@ import {
 } from '../internal/sketch-box-select.js';
 import { consumeRightDragMenuSuppression } from '../internal/right-drag-menu.js';
 import { hasSketchClipboard } from '../internal/sketch-clipboard.js';
+import { isTreeOrSidebarTarget } from '../internal/tree-event-guard.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import './SketchPlanePicker.css';
 
@@ -539,10 +540,12 @@ export function SketchEntityPicker({
       }
       // ADR-0018 S1d：选中草图实体时 Delete/Backspace = 删除（Onshape live：
       // 选中弧按 Delete 后弧消失、草图保持编辑态）。输入框聚焦时不吃键。
+      // P1-2：事件来自特征树/侧栏（变量行 Delete）时让位，不删草图实体。
       if ((event.key === 'Delete' || event.key === 'Backspace')
         && !drag?.dragging
         && selectedRef.current.length > 0
         && !isEditableTarget(event.target)
+        && !isTreeOrSidebarTarget(event.target)
         && onDeleteRef.current) {
         event.preventDefault();
         event.stopPropagation();

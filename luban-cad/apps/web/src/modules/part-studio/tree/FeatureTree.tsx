@@ -59,7 +59,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto, VariableDto } from '@luban-cad/shared';
 import {
   SvgDelete,
   SvgDraw,
@@ -76,6 +76,7 @@ import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import { useFeatureTree } from '../hooks/useFeatureTree.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { useBodyMassProperties } from '../hooks/useBodyMassProperties.js';
+import { variableTreeRowText } from '../internal/variables.js';
 import type { FeatureNode, PartNode, TreeTab } from '../types.js';
 import { TreeFilter, parseTreeFilter } from './TreeFilter.js';
 import type { TreeNode } from './TreeRow.js';
@@ -165,6 +166,19 @@ export interface FeatureTreeProps {
   onDeletePart?: (node: PartNode, featureId: string, bodyKey: string) => void;
   /** 2026-11-13：零件「隔离…」——会话级隐藏其它零件（简化切片，宿主维护退出态）。 */
   onIsolatePart?: (node: PartNode) => void;
+  /**
+   * ADR-0020 S3b：Part Studio 变量表（usePartStudioVariables 直通）。在特征段
+   * 之后、零件段之前渲染 `(fx) #name = <值/表达式>` 行；空表不显示段头。
+   */
+  variables?: readonly VariableDto[];
+  /** 变量表读面加载中（不阻塞特征树；空表时不显示段）。 */
+  variablesLoading?: boolean;
+  /** 变量表读取失败（段内一条诚实错误行；不影响特征/零件段）。 */
+  variablesError?: string;
+  /** 变量行双击 → 宿主打开变量对话框（编辑）。 */
+  onEditVariable?: (variableId: string) => void;
+  /** 变量行右键/Delete → 宿主 updateVariables 整表覆写（可撤销）。 */
+  onDeleteVariable?: (variableId: string) => void;
 }
 
 interface MenuState {
@@ -374,6 +388,11 @@ export function FeatureTree({
   onBodyTransparencyChange,
   onDeletePart,
   onIsolatePart,
+  variables,
+  variablesLoading,
+  variablesError,
+  onEditVariable,
+  onDeleteVariable,
 }: FeatureTreeProps): React.JSX.Element {
   const { t } = useTranslation();
   const [filterInput, setFilterInput] = React.useState('');
@@ -555,6 +574,15 @@ export function FeatureTree({
     features: false,
     parts: false,
   });
+  // ADR-0020 S3b：变量段（独立段头/收起；不写 store tree.activeTab——变量不是
+  // 特征/零件双段语义的一部分，但按 live 位于特征段与零件段之间）。
+  const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
+  const [selectedVariableId, setSelectedVariableId] = React.useState<string | null>(null);
+  const [variableMenu, setVariableMenu] = React.useState<{
+    x: number;
+    y: number;
+    variableId: string;
+  } | null>(null);
   const [menu, setMenu] = React.useState<MenuState | null>(null);
   // 菜单视口夹紧（Onshape：靠底部时上翻，靠右时左移）——长菜单（零件行 14 项）
   // 在行位于屏幕下半区时不得溢出视口（真栈实测 click 不可达）。
@@ -569,9 +597,13 @@ export function FeatureTree({
   // ref 取用，不随每次右键（menu 对象重建）重挂一对监听。
   const menuRef = React.useRef<MenuState | null>(null);
   menuRef.current = menu;
+  const variableMenuRef = React.useRef<typeof variableMenu>(null);
+  // P3：树行不再每渲染对整表求值（显示口径只需表达式原文/纯数字格式化）。
+  variableMenuRef.current = variableMenu;
   React.useEffect(() => {
     const close = () => {
       if (menuRef.current) setMenu(null);
+      if (variableMenuRef.current) setVariableMenu(null);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
@@ -735,6 +767,101 @@ export function FeatureTree({
     return <>{rows.map(renderRow)}</>;
   };
 
+  /**
+   * ADR-0020 S3b：变量段——空表且无错误不渲染段头（brief 口径）；读失败只在
+   * 本段显示一条诚实错误行，不阻塞特征/零件段。行双击=编辑，右键/Delete=删除
+   * （整表覆写 `updateVariables`，可撤销；live 删除菜单未采 → 采用产品既有树
+   * 删除交互，见 ADR D6）。
+   */
+  const variableList = variables ?? [];
+  // P2-1：读取失败/仍在加载时不提供删除入口（整表覆写只允许基于成功落位的表）。
+  const variablesDeleteDisabled = !canEdit || variablesLoading === true || variablesError !== undefined;
+  const variablesSection = variableList.length === 0
+    && variablesError === undefined
+    && variablesLoading !== true
+    ? null
+    : (
+      <section className="part-studio-tree__section part-studio-tree__section--variables">
+        <div className="part-studio-tree__section-header-row">
+          <button
+            type="button"
+            aria-expanded={!variablesCollapsed}
+            className="part-studio-tree__section-header"
+            data-testid="part-studio-variable-section-header"
+            onClick={() => setVariablesCollapsed((previous) => !previous)}
+          >
+            <span>{t('partStudio.sidebar.tree.variables')}</span>
+            <span
+              className="part-studio-tree__count"
+              data-testid="part-studio-variable-count"
+            >
+              {`(${variableList.length})`}
+            </span>
+          </button>
+        </div>
+        {!variablesCollapsed && (
+          <ul className="part-studio-tree__list" data-testid="part-studio-variable-list">
+            {variablesError !== undefined && (
+              <li
+                className="part-studio-tree__error"
+                role="alert"
+                data-testid="part-studio-variable-error"
+              >
+                <span className="part-studio-tree__error-text">
+                  {t('partStudio.variables.tree.readFailed', { message: variablesError })}
+                </span>
+              </li>
+            )}
+            {variableList.map((variable) => (
+              <li key={variable.id}>
+                <button
+                  type="button"
+                  className={[
+                    'part-studio-tree-row',
+                    'part-studio-tree-row--variable',
+                    selectedVariableId === variable.id ? 'part-studio-tree-row--selected' : '',
+                  ].filter(Boolean).join(' ')}
+                  data-testid={`tree-variable-${variable.id}`}
+                  data-variable-name={variable.name}
+                  aria-current={selectedVariableId === variable.id ? 'true' : undefined}
+                  onClick={() => setSelectedVariableId(variable.id)}
+                  onDoubleClick={() => onEditVariable?.(variable.id)}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setSelectedVariableId(variable.id);
+                    setVariableMenu({ x: event.clientX, y: event.clientY, variableId: variable.id });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Delete' || event.key === 'Backspace') {
+                      // P2-3/P2-1：只读/读面未落位/读取失败时删除键不生效。
+                      if (variablesDeleteDisabled)
+                        return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onDeleteVariable?.(variable.id);
+                    } else if (event.key === 'Enter') {
+                      event.preventDefault();
+                      onEditVariable?.(variable.id);
+                    }
+                  }}
+                >
+                  <span className="part-studio-tree-row__icon" aria-hidden="true">
+                    <OnshapeIcon name="variable-table-button" size={16} />
+                  </span>
+                  <span className="part-studio-tree-row__name">
+                    {variableTreeRowText(variable)}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {variablesLoading === true && variableList.length === 0 && (
+              <SkeletonRows />
+            )}
+          </ul>
+        )}
+      </section>
+    );
+
   // 右键菜单当前行（窄化载体：分支内/闭包内一律用它，避免 menu.node 的
   // 联合型在回调中失去窄化——part 行守卫与特征项分别收敛到 PartNode/FeatureNode）。
   const menuNode = menu?.node;
@@ -758,10 +885,12 @@ export function FeatureTree({
           : parts.length;
         const countText = filterInput === '' ? `(${matchedCount})` : `(${matchedCount}/${totalCount})`;
         return (
-          <section
-            key={section.id}
-            className={`part-studio-tree__section part-studio-tree__section--${section.id}`}
-          >
+          <React.Fragment key={section.id}>
+            {/* ADR-0020 S3b：变量段位于特征段之后、零件段之前（live 树序）。 */}
+            {section.id === 'parts' && variablesSection}
+            <section
+              className={`part-studio-tree__section part-studio-tree__section--${section.id}`}
+            >
             <div className="part-studio-tree__section-header-row">
               <button
                 type="button"
@@ -882,9 +1011,47 @@ export function FeatureTree({
                   )}
               </ul>
             )}
-          </section>
+            </section>
+          </React.Fragment>
         );
       })}
+
+      {/* ADR-0020 S3b：变量行右键菜单（删除走 updateVariables 整表覆写；无确认框，
+          与特征树删除一致，可 Ctrl+Z 撤销）。 */}
+      {variableMenu && (
+        <div
+          className="part-studio-tree-menu"
+          role="menu"
+          aria-label={t('partStudio.variables.tree.contextMenuLabel')}
+          style={{ left: variableMenu.x, top: variableMenu.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
+            data-testid="tree-menu-delete-variable"
+            disabled={variablesDeleteDisabled}
+            title={!canEdit
+              ? t('partStudio.tree.readonlyHint')
+              : variablesLoading === true
+                ? t('partStudio.variables.errors.loading')
+                : variablesError !== undefined
+                  ? t('partStudio.variables.errors.unavailable')
+                  : undefined}
+            onClick={() => {
+              if (variablesDeleteDisabled)
+                return;
+              const target = variableMenu.variableId;
+              setVariableMenu(null);
+              onDeleteVariable?.(target);
+            }}
+          >
+            <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDelete /></span>
+            {t('partStudio.variables.tree.delete')}
+          </button>
+        </div>
+      )}
 
       {/* 行右键菜单（Onshape live 2026-11-12：条目/分组顺序逐项对齐；未支持项
           禁用并 title 说明——不提供假动作、不静默 no-op）。 */}
