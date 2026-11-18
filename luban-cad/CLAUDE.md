@@ -481,6 +481,30 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `feature-contracts` 首跑因 `阵列 1` 子串命中「环形阵列 1」失败，
   定位器 `exact: true` 后绿。**未发布**；
   残：count 表达式不支持（live 明确失焦标红），FEATURE 阵列角度仅单测覆盖。
+- **W44 S13 树级「粘贴到草图中」（2026-11-19，纯前端；live probe w46b）**：
+  live 受控实验（新建草图 3 矩形 + 草图 4 空 → 树复制 3 → 树「粘贴到草图中」于
+  4）：图元**直接写入目标草图、不打开草图**（无草图对话框；重开草图 4 可见复制
+  矩形，未完全定义）；树菜单「复制草图/粘贴到草图中」**均无图标**（对照
+  w43-copy-menu）。实现：FeatureTree 草图行新增「粘贴到草图中」
+  （`tree-menu-paste-sketch`，紧随复制草图，`disabled = !canEdit ||
+  !hasSketchClipboard()`，title 区分只读/空剪贴板；复制项去图标）；Sidebar
+  handler **新鲜读面**（`readSketch` 注入或 `LubanFeatureRpcInterface.getClient()
+  .getSketch(connection.key, sketchId, ...sketchReadScopeArgs(scopeMode,
+  partStudioId))`——不得用树 `entries.params` 旧快照 wholesale 覆盖；复核 P2
+  修复；A 文档恒省略手工 `?model=`，与 useSketchSystem 读面同口径），
+  `pasteSketchClipboard` 实例化后一次 `applyOp({kind:'updateSketch'})` 提交
+  （可撤销；不打开草图）；读取失败/目标不存在/剪贴板空/无效/后端拒收均可见
+  Error toast（专用 `readSketchFailed`/`sketchNotFound`/`noConnection` 文案），
+  canEdit=false 防御性拒收。验证：web **2618/2618**（160 files，+12）、
+  tsc(src+e2e)/eslint 绿；真栈
+  `sketch-tree-copy-paste` **3 passed（1.4 m）**（S10 草图内粘贴回归 + S13：树粘贴
+  写入空草图 B 4 线/8 约束/包围盒 40×20、未打开草图、**Ribbon Undo→B 空/Redo→
+  恢复**、reload 持久）；回归 `context-menu-states` + `mouse-interaction`
+  **6 passed（最终复核后复跑 2.4 m）**。复核 APPROVE WITH FIXES → P2 新鲜读面 +
+  P3 全修（含 A 模式 scope 门 `sketchReadScopeArgs`、默认 RPC 分支单测）→ scoped
+  re-review。**未发布**；残：草图打开态树菜单 live 为另一变体（无复制/粘贴项，
+  本产品未做 sketchActive 门）、跨平面粘贴世界坐标变换未采、live 空剪贴板启用态
+  未采（本产品禁用）、`invalid-clipboard` 分支经复制 API 不可达（防御性保留）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
