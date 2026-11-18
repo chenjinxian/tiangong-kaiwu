@@ -200,6 +200,12 @@
  * 非适用样式携带对应表达式显式拒收（零变更）；变量类型门 length/number/any（直径/深度）
  * 与 angle/number/any（锥口角度）；物化后 registry schema 复验覆盖「锥口/沉头直径 > 主孔径」
  * 与角度域。`tipAngleDeg` 不接表达式（UI 为下拉）。
+ * v1.79（ADR-0020 S9）：阵列**第二方向**间距表达式——`PatternSecondDirection.spacingExpression?`
+ * 与 `FeaturePatternSecondDirection.spacingExpression?`（嵌套键；与 S6 顶层
+ * `spacingExpression`（第一方向）同名但**不同对象层级**）。目标 `secondDirection.spacing`
+ * （保持必填物化快照）；写/预览载荷须在 `secondDirection` 内携带数值 `spacing` 占位；
+ * 物化保留 `count`/`centered`/`axis` 并复验两方向总实例数 ≤1000；`secondDirection`
+ * 不存在不合成（无表达式即无该键）。变量变更时两层分别物化、互不覆盖。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -640,7 +646,8 @@ export interface PatternParams {
    * - kind=`length`、结果须为有限正数（沿用 `spacing` 的 >0 schema）；变量类型门
    *   length/number/any（angle 变量拒收）；表达式长度上限 `MAX_EXPRESSION_LENGTH`。
    * - 求值/类型/上限错误 → 整 op 拒收零变更；无本键时后端不读变量表（既有行为不变）。
-   * - 本切片不接第二方向间距（`PatternSecondDirection.spacing`）与 circular angle 表达式。
+   * - circular angle/count 表达式不在本切片（第二方向见 `PatternSecondDirection.spacingExpression`，
+   *   S9 起为嵌套键而非本顶层键）。
    * - web 提交形态：`{ spacing: 求值, spacingExpression: 原文 }`；纯数值提交删除本键。 */
   spacingExpression?: string;
 }
@@ -651,6 +658,22 @@ export interface PatternSecondDirection {
   spacing?: number;
   centered?: boolean;
   axis: "X" | "Y" | "Z";
+  /** v1.79（ADR-0020 S9）：第二方向间距表达式（设计意图；如 `"#width"`）。
+   *
+   * - **嵌套键**：与 `PatternParams.spacingExpression`（第一方向）同名但位于不同对象层级；
+   *   后端按路径分别扫描/物化，两层可同时存在、互不覆盖。
+   * - 目标 `secondDirection.spacing`（number，>0）；仅当 `secondDirection` 存在且 `spacing`
+   *   为数值占位时适用——写入/预览载荷**必须在 `secondDirection` 内携带数值 `spacing`**
+   *   （缺省时服务端 registry zod 直接拒收，不会进入表达式求值）；**stored-row 修复路径
+   *   亦不合成 `secondDirection` 或 `spacing`**（`secondDirection` 不存在即无本键）。
+   * - `spacing` 保持必填物化快照：无表达式时即设计值，有表达式时是后端在写入/变量变更时
+   *   权威求值物化的值；冷重建/求值只消费它。物化保留 `count`/`centered`/`axis` 并走
+   *   registry schema 复验（两方向总实例数 ≤1000 等）。
+   * - kind=`length`、有限正数；变量类型门 length/number/any；表达式长度上限
+   *   `MAX_EXPRESSION_LENGTH`；错误零变更；无表达式不读变量表。
+   * - web 提交形态：`{ count, axis, spacing: 求值, spacingExpression: 原文, ... }`；
+   *   关闭第二方向时整个 `secondDirection` 键（含本键）一并移除。 */
+  spacingExpression?: string;
 }
 
 /** v1.34：featurePattern 的轴线段（世界坐标；方向须非零，服务端归一化）。 */
@@ -685,6 +708,16 @@ export interface FeaturePatternSecondDirection {
   axis: PatternAxisLine;
   /** 第二方向居中（偏移 (k-(count-1)/2)·spacing；count 须奇数）。 */
   centered?: boolean;
+  /** v1.79（ADR-0020 S9）：第二方向间距表达式（物化 `secondDirection.spacing`）。
+   *
+   * 与 `PatternSecondDirection.spacingExpression` 同口径：嵌套键（与
+   * `FeaturePatternParams.spacingExpression`（第一方向）不同层级，后端按路径分别物化）；
+   * 目标 `secondDirection.spacing`（number，>0）；写入/预览载荷须在 `secondDirection`
+   * 内携带数值 `spacing` 占位（缺省 registry zod 拒收），stored-row 不合成
+   * `secondDirection`/`spacing`；物化保留 `count`/`centered`/`axis` 并复验两方向总实例数
+   * ≤1000；kind=`length`、有限正数；变量类型门 length/number/any；长度上限
+   * `MAX_EXPRESSION_LENGTH`；错误零变更；无表达式不读变量表。 */
+  spacingExpression?: string;
 }
 
 export interface FeaturePatternParams {
@@ -712,7 +745,9 @@ export interface FeaturePatternParams {
    * **仅 `updateVariables` 的 stored-row 修复路径**允许表达式补全缺失的 `spacing`）；
    * 物化 `spacing` 必填快照；kind=`length`、>0；变量类型门 length/number/any；长度上限
    * `MAX_EXPRESSION_LENGTH`；circular 携带显式拒收、错误零变更；无表达式不读变量表。
-   * 本切片不接第二方向间距、circular angle、count 表达式。 */
+   * 本切片（S6）不含第二方向间距——S9 起第二方向表达式为嵌套键
+   * `FeaturePatternSecondDirection.spacingExpression`（与顶层同名但不同层级）；
+   * circular angle/count 表达式仍未接。 */
   spacingExpression?: string;
 }
 
@@ -1247,7 +1282,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.78.0";
+  public static interfaceVersion = "1.79.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

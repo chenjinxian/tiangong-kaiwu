@@ -81,7 +81,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -568,6 +568,14 @@ describe("B5 v1.14 契约（pattern PART 级阵列——PatternParams）", () =>
     expect(centered.centered).toBe(true);
     expect(JSON.parse(JSON.stringify({ ...grid, secondDirection: centered })))
       .toEqual({ ...grid, secondDirection: centered });
+    // v1.79（ADR-0020 S9）：第二方向对象形状（嵌套表达式键 additive）。
+    expectTypeOf<PatternSecondDirection>().toEqualTypeOf<{
+      count: number;
+      spacing?: number;
+      centered?: boolean;
+      axis: "X" | "Y" | "Z";
+      spacingExpression?: string;
+    }>();
     const reversed: PatternParams = {
       kind: "linear", count: 3, spacing: 10, axis: "X", oppositeDirection: true,
     };
@@ -586,7 +594,7 @@ describe("B5 v1.14 契约（pattern PART 级阵列——PatternParams）", () =>
     // 旧载荷无新键：序列化不出现（旧 backend 逐字兼容）
     const legacy: PatternParams = { kind: "linear", count: 2, spacing: 5, axis: "Y" };
     expect("spacingExpression" in JSON.parse(JSON.stringify(legacy))).toBe(false);
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 
   it("insertFeature/updateParams op 携带 pattern params 可构造（FeatureParams 联合扩展回归锁）", () => {
@@ -688,7 +696,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -862,7 +870,7 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
   });
 
   it("版本 1.30.0（revolve 多面域；cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 });
 
@@ -926,7 +934,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 });
 
@@ -1134,7 +1142,7 @@ describe("v1.30 契约（revolve 多面域）", () => {
   });
 
   it("版本 1.30.0（revolve regions 多面域；旧 regionIndex 简写保留一版）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 });
 
@@ -1263,6 +1271,14 @@ describe("v1.34 契约（featurePattern FEATURE 阵列）", () => {
       axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 1, z: 0 } },
       centered: false,
     };
+    // v1.79（ADR-0020 S9）：第二方向对象形状（嵌套表达式键 additive）。
+    expectTypeOf<FeaturePatternSecondDirection>().toEqualTypeOf<{
+      count: number;
+      spacing?: number;
+      axis: PatternAxisLine;
+      centered?: boolean;
+      spacingExpression?: string;
+    }>();
     const grid: FeaturePatternParams = {
       sourceFeatureId: "0x2000000000a",
       kind: "linear",
@@ -1374,8 +1390,8 @@ describe("v1.64 契约（faceExtrude startOffset + draft；ADR-0016 切片 A1）
     expect(split.splitByLine?.keepSide).toBe("left");
   });
 
-  it("接口版本 1.78.0（ADR-0020 S8：孔沉头/锥口字段表达式 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+  it("接口版本 1.79.0（ADR-0020 S9：第二方向间距表达式 additive bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 });
 
@@ -1403,8 +1419,8 @@ describe("v1.72 契约（ADR-0020 S3：VariableDto.type?/description?）", () =>
     expect(JSON.parse(JSON.stringify(op))).toEqual(op);
   });
 
-  it("接口版本 1.78.0（S8 孔沉头/锥口字段表达式 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+  it("接口版本 1.79.0（S9 第二方向间距表达式 additive bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 });
 
@@ -1513,7 +1529,7 @@ describe("v1.71 契约（ADR-0020：SketchConstraintDto.expression + VariableDto
     type GetVariablesFn = LubanFeatureRpcInterface["getVariables"];
     expectTypeOf<Parameters<GetVariablesFn>[1]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<ReturnType<GetVariablesFn>>().toEqualTypeOf<Promise<VariableDto[]>>();
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 });
 
@@ -1630,8 +1646,8 @@ describe("v1.74 契约（ADR-0020 S4c：其他特征数值字段表达式）", (
       expect(JSON.parse(JSON.stringify(op))).toEqual(op);
   });
 
-  it("接口版本 1.78.0（S8 孔沉头/锥口字段表达式 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+  it("接口版本 1.79.0（S9 第二方向间距表达式 additive bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
   });
 });
 
@@ -1764,7 +1780,87 @@ describe("v1.78 契约（ADR-0020 S8：HoleParams 沉头/锥口字段表达式�
     expect(JSON.parse(JSON.stringify(update))).toEqual(update);
   });
 
-  it("接口版本 1.78.0（ADR-0020 S8 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.78.0");
+  it("接口版本 1.79.0（ADR-0020 S9 additive bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
+  });
+});
+
+describe("v1.79 契约（ADR-0020 S9：阵列第二方向间距表达式）", () => {
+  it("PatternSecondDirection.spacingExpression 为可选嵌套设计意图；secondDirection.spacing 保持物化快照", () => {
+    expectTypeOf<PatternSecondDirection["spacingExpression"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<PatternSecondDirection["spacing"]>().toEqualTypeOf<number | undefined>();
+
+    const nested: PatternSecondDirection = {
+      count: 2, spacing: 10, axis: "Y", spacingExpression: "#width",
+    };
+    expect(nested.spacing).toBe(10); // 后端写入/变量变更时物化覆盖
+    expect(nested.spacingExpression).toBe("#width");
+    expect(JSON.parse(JSON.stringify(nested))).toEqual(nested);
+
+    // 旧载荷（v1.62 第二方向无表达式键）：序列化不出现新键。
+    const legacy: PatternSecondDirection = { count: 2, spacing: 10, axis: "Y" };
+    expect(Object.keys(JSON.parse(JSON.stringify(legacy)))).toEqual(["count", "spacing", "axis"]);
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.79.0");
+  });
+
+  it("两层同名键区分：顶层 spacingExpression（第一方向）与 secondDirection.spacingExpression（第二方向）可共存", () => {
+    const pattern: PatternParams = {
+      kind: "linear", count: 3, spacing: 1, axis: "X", spacingExpression: "#width",
+      secondDirection: { count: 2, spacing: 1, axis: "Y", spacingExpression: "#width / 2" },
+    };
+    // 第一方向键在顶层、第二方向键在嵌套对象内——不同对象层级，互不覆盖。
+    expect(pattern.spacingExpression).toBe("#width");
+    expect(pattern.secondDirection?.spacingExpression).toBe("#width / 2");
+    expect(pattern.secondDirection?.spacing).toBe(1);
+    expect(JSON.parse(JSON.stringify(pattern))).toEqual(pattern);
+    // 只有第一方向：secondDirection 内不出现表达式键。
+    const firstOnly: PatternParams = {
+      kind: "linear", count: 3, spacing: 1, axis: "X", spacingExpression: "#width",
+      secondDirection: { count: 2, spacing: 5, axis: "Y" },
+    };
+    expect("spacingExpression" in firstOnly.secondDirection!).toBe(false);
+    // 只有第二方向：顶层不出现表达式键。
+    const secondOnly: PatternParams = {
+      kind: "linear", count: 3, spacing: 5, axis: "X",
+      secondDirection: { count: 2, spacing: 1, axis: "Y", spacingExpression: "#width" },
+    };
+    expect("spacingExpression" in secondOnly).toBe(false);
+    expect(secondOnly.secondDirection?.spacingExpression).toBe("#width");
+    expect(JSON.parse(JSON.stringify(secondOnly))).toEqual(secondOnly);
+  });
+
+  it("FeaturePatternSecondDirection.spacingExpression 同口径；表达式随 insertFeature/updateParams op 往返", () => {
+    expectTypeOf<FeaturePatternSecondDirection["spacingExpression"]>().toEqualTypeOf<string | undefined>();
+    const secondDirection: FeaturePatternSecondDirection = {
+      count: 2,
+      spacing: 1,
+      axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 1, z: 0 } },
+      spacingExpression: "#width * 0.5",
+    };
+    expect(secondDirection.spacing).toBe(1);
+    expect(secondDirection.spacingExpression).toBe("#width * 0.5");
+
+    const params: FeaturePatternParams = {
+      sourceFeatureId: "0x2000000000a",
+      kind: "linear", count: 3, spacing: 1,
+      axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 1, y: 0, z: 0 } },
+      spacingExpression: "#width",
+      secondDirection,
+    };
+    expect(params.spacingExpression).toBe("#width");
+    expect(params.secondDirection?.spacingExpression).toBe("#width * 0.5");
+
+    const insert: FeatureOp = { kind: "insertFeature", featureType: "featurePattern", params };
+    expect(JSON.parse(JSON.stringify(insert))).toEqual(insert);
+    const update: FeatureOp = { kind: "updateParams", featureId: "f-1", params };
+    expect(JSON.parse(JSON.stringify(update))).toEqual(update);
+
+    // 旧 FEATURE pattern 第二方向载荷（无表达式键）逐字兼容。
+    const legacy: FeaturePatternSecondDirection = {
+      count: 2, spacing: 5,
+      axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 1, z: 0 } },
+      centered: true,
+    };
+    expect(Object.keys(JSON.parse(JSON.stringify(legacy)))).toEqual(["count", "spacing", "axis", "centered"]);
   });
 });
