@@ -4,7 +4,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import { useAutoPush } from '../hooks/useAutoPush.js';
+import { resolveAutoPushEnabled, useAutoPush } from '../hooks/useAutoPush.js';
 
 interface FakeConnection {
   txns: { hasPendingTxns: ReturnType<typeof vi.fn> };
@@ -34,6 +34,38 @@ describe('useAutoPush', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
+  describe('resolveAutoPushEnabled（环境开关 ∧ 权限门）', () => {
+    it("'0'/'false' 显式关闭，任意权限组合都不推送", () => {
+      for (const raw of ['0', 'false']) {
+        expect(resolveAutoPushEnabled(true, false, raw)).toBe(false);
+        expect(resolveAutoPushEnabled(false, false, raw)).toBe(false);
+        expect(resolveAutoPushEnabled(true, true, raw)).toBe(false);
+      }
+    });
+
+    it('缺省/1/true → 由权限门决定（canEdit 且非 readonly）', () => {
+      // `raw === undefined` 走 import.meta.env 缺省；先钉住 env 为空（开启）。
+      vi.stubEnv('VITE_EDITOR_AUTOSAVE', '');
+      for (const raw of [undefined, '1', 'true', '']) {
+        expect(resolveAutoPushEnabled(true, false, raw)).toBe(true);
+        expect(resolveAutoPushEnabled(false, false, raw)).toBe(false);
+        expect(resolveAutoPushEnabled(true, true, raw)).toBe(false);
+      }
+    });
+
+    it('raw 缺省读 import.meta.env：VITE_EDITOR_AUTOSAVE=0 关闭、=1 开启', () => {
+      vi.stubEnv('VITE_EDITOR_AUTOSAVE', '0');
+      expect(resolveAutoPushEnabled(true, false)).toBe(false);
+      vi.stubEnv('VITE_EDITOR_AUTOSAVE', 'false');
+      expect(resolveAutoPushEnabled(true, false)).toBe(false);
+      vi.stubEnv('VITE_EDITOR_AUTOSAVE', '1');
+      expect(resolveAutoPushEnabled(true, false)).toBe(true);
+      vi.unstubAllEnvs();
+      expect(resolveAutoPushEnabled(true, false)).toBe(true);
+    });
   });
 
   it('enabled=false → 永不推送（回滚开关）', async () => {

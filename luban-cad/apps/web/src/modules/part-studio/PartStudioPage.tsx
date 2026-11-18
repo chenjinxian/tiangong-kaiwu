@@ -169,7 +169,7 @@ import {
 } from './internal/selection-authority.js';
 import { useOnshapeSelection } from './hooks/useOnshapeSelection.js';
 import { useEditingScope } from './hooks/useEditingScope.js';
-import { useAutoPush } from './hooks/useAutoPush.js';
+import { resolveAutoPushEnabled, useAutoPush } from './hooks/useAutoPush.js';
 import { flushAutoPush, registerAutoPushFlush } from './internal/autosave-bridge.js';
 import { useFeatureDisplaySync } from './hooks/useFeatureDisplaySync.js';
 // mapFeatureEntries（M6-a T6）：拉伸对话框草图下拉与特征树同源命名（复用
@@ -788,8 +788,10 @@ function PartStudioSession({
   // ADR-0017 Stage F：Onshape 式自动保存——每次提交后防抖静默 pushChanges
   // （合并上传），失败可见并重试；只读/降级 scope 不推送。常规 UI 不再暴露
   // 保存/推送入口；「创建版本…」确认前先 flush（见下方对话框 onConfirm）。
+  // 环境开关必须参与总门（`VITE_EDITOR_AUTOSAVE=0` 可关闭自动保存；
+  // 见 resolveAutoPushEnabled 注记——裸 canEdit 会覆盖 hook 的环境缺省）。
   const autoPush = useAutoPush(connection ?? undefined, undoRedo.hasUnsavedChanges, {
-    enabled: canEdit && !readonlyBlocked,
+    enabled: resolveAutoPushEnabled(canEdit, readonlyBlocked),
     onPushed: () => {
       void queryClient.invalidateQueries({ queryKey: ['part-studio', 'changesets', iModelId] });
     },

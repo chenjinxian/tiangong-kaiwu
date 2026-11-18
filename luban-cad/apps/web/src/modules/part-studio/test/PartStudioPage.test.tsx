@@ -1179,6 +1179,29 @@ describe('M4-T7 版本历史真面板接线（dock 数据源 + 推送对话框�
     expect(within(rows[1]!).queryByText('当前版本')).toBeNull();
   });
 
+  it('自动保存总门：VITE_EDITOR_AUTOSAVE=0 → 有 pending 也不排程/不 push（原生 undo 栈不被清）', async () => {
+    vi.stubEnv('VITE_EDITOR_AUTOSAVE', '0');
+    vi.useFakeTimers();
+    try {
+      FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(true);
+      FAKE_CONNECTION.pushChanges.mockClear();
+      renderPage();
+      // 让 useUndoRedo 的 pending 查询与页面 effect 落位。
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByTestId('part-studio-autosave-state').getAttribute('data-state')).toBe('idle');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(FAKE_CONNECTION.pushChanges).not.toHaveBeenCalled();
+      expect(screen.getByTestId('part-studio-autosave-state').getAttribute('data-state')).toBe('idle');
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('ADR-0017 Stage F：dock 无保存/推送钮；自动保存状态节点在场（Onshape 语义）', async () => {
     const user = userEvent.setup();
     FAKE_CONNECTION.txns.hasPendingTxns.mockResolvedValue(false);

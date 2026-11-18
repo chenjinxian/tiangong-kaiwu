@@ -55,6 +55,20 @@ export function isAutoPushEnabled(raw: string | undefined = import.meta.env.VITE
   return raw !== '0' && raw !== 'false';
 }
 
+/**
+ * 自动保存总门（S4c 真栈暴露的缺陷修复）：**环境开关 ∧ 权限门**。
+ * 页面必须经本 helper 计算 `enabled`——直接传 `canEdit && !readonlyBlocked`
+ * 会覆盖 hook 的环境缺省，使 `VITE_EDITOR_AUTOSAVE=0` 失效（20s 防抖静默
+ * pushChanges 会清空原生 undo/redo 栈）。`raw` 缺省读 `import.meta.env`。
+ */
+export function resolveAutoPushEnabled(
+  canEdit: boolean,
+  readonlyBlocked: boolean,
+  raw: string | undefined = import.meta.env.VITE_EDITOR_AUTOSAVE,
+): boolean {
+  return isAutoPushEnabled(raw) && canEdit && !readonlyBlocked;
+}
+
 function resolveDebounce(raw: string | undefined = import.meta.env.VITE_EDITOR_AUTOSAVE_DEBOUNCE_MS): number {
   const value = Number(raw);
   return Number.isFinite(value) && value >= 0 ? value : DEFAULT_DEBOUNCE_MS;
