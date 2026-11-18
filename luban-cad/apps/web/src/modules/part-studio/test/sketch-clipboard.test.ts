@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import {
   clearSketchClipboard,
+  copySketchById,
   copySketchEntities,
   hasSketchClipboard,
   pasteSketchClipboard,
@@ -118,5 +119,66 @@ describe('copySketchEntities / pasteSketchClipboard', () => {
     expect(copySketchEntities(RECT, RECT_CONSTRAINTS, [])).toBe(0);
     expect(hasSketchClipboard()).toBe(false);
     expect(pasteSketchClipboard(RECT, RECT_CONSTRAINTS)).toEqual({ ok: false, reason: 'empty' });
+  });
+});
+
+// ── W41 S10：树级「复制草图」= 整张草图曲线一次性入剪贴板 ──────────────────
+describe('copySketchById（树级复制草图）', () => {
+  it('矩形全部曲线入剪贴板：跨草图粘贴得到 4 线 + 内部约束重映射', () => {
+    expect(copySketchById(SKETCH_ID, RECT, RECT_CONSTRAINTS)).toBe(4);
+    expect(hasSketchClipboard()).toBe(true);
+
+    const pasted = pasteSketchClipboard([], []);
+    expect(pasted.ok).toBe(true);
+    if (!pasted.ok) return;
+    expect(pasted.entities).toHaveLength(4);
+    expect(pasted.entities.every((entity) => entity.kind === 'line')).toBe(true);
+    expect(pasted.constraints).toHaveLength(8);
+    // 副本约束只引用新 id（不锁到源草图）。
+    const oldIds = new Set(RECT.map((entity) => entity.id));
+    for (const constraint of pasted.constraints) {
+      for (const ref of constraint.refs)
+        expect(typeof ref === 'number' ? oldIds.has(ref) : 'entity' in ref ? oldIds.has(ref.entity) : false).toBe(false);
+    }
+  });
+
+  it('显式 point/圆心随曲线并入；跨外部引用的约束不复制', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'point', id: 3, x: 5, y: 5 },
+      { kind: 'point', id: 5, x: 50, y: 50 },
+      { kind: 'line', id: 2, p1: 1, p2: { x: 10, y: 0 } },
+      { kind: 'circle', id: 4, center: 3, radius: 4 },
+    ];
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'coincident', id: 10, refs: [1, 3] },
+      { kind: 'horizontal', id: 11, refs: [2] },
+      // 引用未被任何曲线引用的游离 point 5 → 不在复制集，跳过。
+      { kind: 'coincident', id: 12, refs: [1, 5] },
+    ];
+    expect(copySketchById(SKETCH_ID, entities, constraints)).toBe(2);
+    const pasted = pasteSketchClipboard([], []);
+    expect(pasted.ok).toBe(true);
+    if (!pasted.ok) return;
+    // line+circle + 被曲线引用的两个 point；coincident(1,3)/horizontal 保留，
+    // 引用游离 point 5 的 coincident 跳过。
+    expect(pasted.entities).toHaveLength(4);
+    expect(pasted.entities.filter((entity) => entity.kind === 'point')).toHaveLength(2);
+    expect(pasted.constraints).toHaveLength(2);
+  });
+
+  it('空草图：复制 0 项、不报错、不覆盖既有剪贴板', () => {
+    copySketchById(SKETCH_ID, RECT, RECT_CONSTRAINTS);
+    expect(hasSketchClipboard()).toBe(true);
+
+    expect(copySketchById('sketch-empty', [], [])).toBe(0);
+    // 既有剪贴板保持（空复制不得清空上一张草图）。
+    const pasted = pasteSketchClipboard([], []);
+    expect(pasted.ok).toBe(true);
+    if (!pasted.ok) return;
+    expect(pasted.entities).toHaveLength(4);
+
+    // 仅 point 的草图同样无曲线可复制。
+    expect(copySketchById('sketch-points', [{ kind: 'point', id: 1, x: 0, y: 0 }], [])).toBe(0);
   });
 });

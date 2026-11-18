@@ -2,7 +2,8 @@
  * 画布右键菜单的状态差异（Onshape live `ui-evidence/context-menus-20261113`）：
  * - 特征模式空白：全部显示 / 选择 / 创建选定内容… / 缩放到合适大小 / 等轴测；
  * - 特征对话框打开：首两项 确认 <特征> / 取消（确认/取消经对话框命令槽与 ✓/✗ 同源）；
- * - 草图模式：确认 <草图> 前置 + 复制草图/曲线分析/选择组/缩放/视图垂直于草图平面；
+ * - 草图模式：确认 <草图> 前置 + 粘贴草图图元/曲线分析/选择组/缩放/视图垂直于
+ *   草图平面（W41 S10 live：空白菜单**没有**「复制草图」——树行复制为唯一入口）；
  * - 草图工具激活：首项 退出 <工具>；右键**不**直接退出工具（菜单承担退出）。
  */
 import { expect, test } from '@playwright/test';
@@ -103,7 +104,7 @@ test.describe('画布右键菜单状态差异（Onshape 2026-11-13）', () => {
     ), { timeout: 15_000 }).toBeNull();
   });
 
-  test('草图模式空白菜单：确认 草图 / 复制草图 / 全部显示 / 视图垂直于草图平面；菜单确认退出草图', async ({ page, request }) => {
+  test('草图模式空白菜单：确认 草图 / 粘贴草图图元（无复制草图）/ 全部显示；菜单确认退出草图', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 240_000);
     await enterEmptyFrontSketch(page, request);
     const box = await canvasBox(page);
@@ -111,9 +112,14 @@ test.describe('画布右键菜单状态差异（Onshape 2026-11-13）', () => {
     await rightClick(page, { x: box.x + box.w * 0.75, y: box.y + box.h * 0.78 }, '草图空白菜单');
     const menu = page.getByRole('menu', { name: '草图空白菜单' });
     await expect(menu.getByRole('menuitem', { name: /^确认 草图/ })).toBeVisible();
-    for (const name of ['复制草图', '全部显示', '曲线/曲面分析…', '选择创建选定内容…', '创建选定内容…', '选择其他…', '缩放到合适大小', '视图垂直于草图平面']) {
+    for (const name of ['全部显示', '曲线/曲面分析…', '选择创建选定内容…', '创建选定内容…', '选择其他…', '缩放到合适大小', '视图垂直于草图平面']) {
       await expect(menu.getByRole('menuitem', { name, exact: true })).toBeVisible();
     }
+    // W41 S10 live：空白菜单无「复制草图」；「粘贴草图图元」在剪贴板为空时禁用。
+    await expect(menu.getByRole('menuitem', { name: '复制草图', exact: true })).toHaveCount(0);
+    const paste = menu.getByTestId('sketch-blank-menu-paste');
+    await expect(paste).toBeVisible();
+    await expect(paste).toBeDisabled();
     await menu.getByRole('menuitem', { name: /^确认 草图/ }).click();
     await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => page.evaluate(() =>

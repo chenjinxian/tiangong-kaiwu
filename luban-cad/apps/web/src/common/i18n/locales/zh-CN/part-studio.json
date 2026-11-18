@@ -1110,6 +1110,7 @@
     },
     "dragFailed": "草图拖拽提交失败：{{message}}",
     "pasteFailed": "粘贴草图图元失败：{{message}}",
+    "copySketchFailed": "复制草图失败：{{message}}",
     "deleteBlocked": "图元被其它图元引用，无法删除",
     "dimensionUnsupported": "该尺寸（{{kind}}）暂不支持直接改值",
     "entityMenuLabel": "草图图元菜单",

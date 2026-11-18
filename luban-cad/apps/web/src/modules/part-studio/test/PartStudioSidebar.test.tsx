@@ -15,7 +15,16 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult, VariableDto } from '@luban-cad/shared';
+import type {
+  BodyInfo,
+  FeatureOp,
+  FeatureOpResult,
+  FeatureTreeEntry,
+  RenameResult,
+  SketchConstraintDto,
+  SketchEntityDto,
+  VariableDto,
+} from '@luban-cad/shared';
 
 const mocks = vi.hoisted(() => ({
   outputMessage: vi.fn(),
@@ -56,6 +65,12 @@ vi.mock('@itwin/core-frontend', () => ({
 
 import { usePartStudioStore } from '../index.js';
 import { PartStudioSidebar } from '../components/PartStudioSidebar.js';
+import {
+  clearSketchClipboard,
+  copySketchById,
+  hasSketchClipboard,
+  pasteSketchClipboard,
+} from '../internal/sketch-clipboard.js';
 
 /** 特征段条目（与 FeatureTree.test 同形；拉伸 1/拉伸 2/倒角 1/拉伸 3）。 */
 const ENTRIES: FeatureTreeEntry[] = [
@@ -117,6 +132,7 @@ function lastToast(): { priority: number; briefMessage: string } {
 beforeEach(() => {
   vi.clearAllMocks();
   resetStore();
+  clearSketchClipboard();
 });
 
 describe('B6 M-A5 T2：树变异 applyOp 接线（Sidebar handlers）', () => {
@@ -459,5 +475,73 @@ describe('ADR-0020 S3b re-review：变量删除共享写门', () => {
     fireEvent.contextMenu(screen.getByTestId('tree-variable-v2'));
     await user.click(screen.getByRole('menuitem', { name: '删除变量' }));
     await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(2));
+  });
+});
+
+// ── W41 S10（Onshape live 2026-11-18）：树草图行「复制草图」────────────────
+// 宿主从树条目落库 params（entities+constraints，与草图显示/编辑同源）构造
+// 「全部曲线」选择 → 会话剪贴板；草图内「粘贴草图图元」消费同一剪贴板。
+describe('W41 S10：树草图行复制草图（会话剪贴板）', () => {
+  const RECT_ENTITIES: SketchEntityDto[] = [
+    { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+    { kind: 'line', id: 12, p1: { x: 10, y: 0 }, p2: { x: 10, y: 10 } },
+    { kind: 'line', id: 13, p1: { x: 10, y: 10 }, p2: { x: 0, y: 10 } },
+    { kind: 'line', id: 14, p1: { x: 0, y: 10 }, p2: { x: 0, y: 0 } },
+  ];
+  const RECT_CONSTRAINTS: SketchConstraintDto[] = [
+    { kind: 'horizontal', id: 25, refs: [11] },
+    { kind: 'vertical', id: 27, refs: [12] },
+  ];
+  const sketchEntry = (id: string, params: unknown): FeatureTreeEntry => ({
+    id, featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params,
+  });
+
+  async function copyViaTree(
+    user: ReturnType<typeof userEvent.setup>,
+    rowTestId: string,
+  ): Promise<void> {
+    fireEvent.contextMenu(screen.getByTestId(rowTestId));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    await user.click(within(menu).getByTestId('tree-menu-copy-sketch'));
+  }
+
+  it('点击复制草图 → 全部曲线+内部约束入剪贴板（跨草图粘贴可得 4 线/2 约束）', async () => {
+    const user = userEvent.setup();
+    renderSidebar({
+      entries: [sketchEntry('sk1', { entities: RECT_ENTITIES, constraints: RECT_CONSTRAINTS })],
+    });
+    await copyViaTree(user, 'tree-row-sk1');
+    expect(hasSketchClipboard()).toBe(true);
+    // 无成功 toast（live 未证提示形态：复制静默、粘贴入口变可用）。
+    expect(mocks.outputMessage).not.toHaveBeenCalled();
+
+    const pasted = pasteSketchClipboard([], []);
+    expect(pasted.ok).toBe(true);
+    if (!pasted.ok) return;
+    expect(pasted.entities).toHaveLength(4);
+    expect(pasted.constraints).toHaveLength(2);
+  });
+
+  it('空草图：复制 0 项不报错、不覆盖既有剪贴板', async () => {
+    const user = userEvent.setup();
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    renderSidebar({ entries: [sketchEntry('empty', { entities: [], constraints: [] })] });
+    await copyViaTree(user, 'tree-row-empty');
+    expect(mocks.outputMessage).not.toHaveBeenCalled();
+    expect(hasSketchClipboard()).toBe(true);
+    const pasted = pasteSketchClipboard([], []);
+    expect(pasted.ok).toBe(true);
+    if (!pasted.ok) return;
+    expect(pasted.entities).toHaveLength(4);
+  });
+
+  it('params 不可读（无 entities/constraints）→ 可见 Error toast，剪贴板不变', async () => {
+    const user = userEvent.setup();
+    renderSidebar({ entries: [sketchEntry('broken', {})] });
+    await copyViaTree(user, 'tree-row-broken');
+    expect(hasSketchClipboard()).toBe(false);
+    const toast = lastToast();
+    expect(toast.priority).toBe(10);
+    expect(toast.briefMessage).toContain('复制草图失败');
   });
 });

@@ -30,9 +30,19 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, RenameResult, VariableDto } from '@luban-cad/shared';
+import type {
+  BodyInfo,
+  FeatureOp,
+  FeatureOpResult,
+  FeatureTreeEntry,
+  RenameResult,
+  SketchConstraintDto,
+  SketchEntityDto,
+  VariableDto,
+} from '@luban-cad/shared';
 import { FeatureTree } from '../tree/FeatureTree.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
+import { copySketchById } from '../internal/sketch-clipboard.js';
 import { isFeatureNode, isSketchNode, type TreeNode } from '../tree/TreeRow.js';
 import {
   removeVariable, variableWriteBlockI18nKey, variableWriteBlockReason,
@@ -236,6 +246,42 @@ export function PartStudioSidebar({
   );
 
   /**
+   * W41 S10（Onshape live 2026-11-18）：树草图行「复制草图」——从特征树条目
+   * 落库 params（entities+constraints，与草图显示/编辑同源）构造「全部曲线」
+   * 选择，经 `copySketchById` 写入会话剪贴板；草图内空白菜单「粘贴草图图元」
+   * 消费同一剪贴板（跨草图粘贴闭环）。空草图复制 0 项：不覆盖既有剪贴板、
+   * 不报错（live 未证提示形态）。params 不可读/异常才可见报错，不静默。
+   */
+  const handleCopySketch = React.useCallback(
+    (sketchId: string) => {
+      const entry = entries?.find((candidate) => candidate.id === sketchId);
+      try {
+        const params = entry?.params as { entities?: unknown; constraints?: unknown } | undefined;
+        if (!params || !Array.isArray(params.entities) || !Array.isArray(params.constraints)) {
+          notify(
+            OutputMessagePriority.Error,
+            t('partStudio.sketch.copySketchFailed', { message: t('partStudio.tree.unsupported') }),
+          );
+          return;
+        }
+        copySketchById(
+          sketchId,
+          params.entities as SketchEntityDto[],
+          params.constraints as SketchConstraintDto[],
+        );
+      } catch (err) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.sketch.copySketchFailed', {
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    },
+    [entries, notify, t],
+  );
+
+  /**
    * 特征删除（HITL 已在 FeatureTree 确认）：草图行走 shared v1.3 `deleteSketch`
    *（私有后端 `checkSketchDeletable` 校验存在性 + 被特征引用即诚实拒收；
    * `applyDeleteSketch` 清投影驱动边后删元素）；其余行走 `deleteFeature`，
@@ -388,6 +434,7 @@ export function PartStudioSidebar({
         bodiesError={bodiesError}
         viewport={viewport}
         onEdit={handleEdit}
+        onCopySketch={handleCopySketch}
         onDelete={handleDelete}
         onSuppress={handleSuppress}
         onRename={handleRename}

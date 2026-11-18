@@ -8,6 +8,7 @@ import { Point3d } from '@itwin/core-geometry';
 import type { SketchDto } from '@luban-cad/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SketchEntityPicker } from '../components/SketchEntityPicker.js';
+import { clearSketchClipboard, copySketchEntities } from '../internal/sketch-clipboard.js';
 import type { SketchEntitySelection, SketchPickerGeometry } from '../internal/sketch-entity-picker.js';
 import { curveDistance, distToSegment, hitTestSketchEntity } from '../internal/sketch-entity-picker.js';
 import { markRightDragMenuSuppression } from '../internal/right-drag-menu.js';
@@ -110,14 +111,17 @@ function renderPicker(opts: {
   onToggleDimensionDriven?: (constraintId: number, nextDriven: boolean) => void | Promise<void>;
   selected?: readonly SketchEntitySelection[];
   onDelete?: (selection: readonly SketchEntitySelection[]) => void;
+  onPaste?: () => void;
 } = {}): {
   onFinishSketch: ReturnType<typeof vi.fn>;
   onTransform: ReturnType<typeof vi.fn>;
   onSelectionChange: ReturnType<typeof vi.fn>;
+  onPaste: ReturnType<typeof vi.fn>;
 } {
   const onFinishSketch = vi.fn();
   const onTransform = vi.fn();
   const onSelectionChange = vi.fn();
+  const onPaste = vi.fn();
   render(React.createElement(SketchEntityPicker, {
     viewport: makeSketchViewport(),
     sketch: opts.sketch ?? SKETCH,
@@ -132,10 +136,11 @@ function renderPicker(opts: {
     ...(opts.onDeleteDimension ? { onDeleteDimension: opts.onDeleteDimension } : {}),
     ...(opts.onToggleDimensionDriven ? { onToggleDimensionDriven: opts.onToggleDimensionDriven } : {}),
     ...(opts.onDelete ? { onDelete: opts.onDelete } : {}),
+    ...(opts.onPaste ? { onPaste } : {}),
     // FIX-2：缺省接线；withTransform=false 模拟只读/不可变换宿主（不下传）。
     ...(opts.withTransform === false ? {} : { onTransform }),
   }));
-  return { onFinishSketch, onTransform, onSelectionChange };
+  return { onFinishSketch, onTransform, onSelectionChange, onPaste };
 }
 
 /** 右键曲线中点（控制点 ≤6px 优先，取 ≥6px 的线段中部）→ 实体菜单。 */
@@ -625,5 +630,62 @@ describe('SketchEntityPicker P1-2：树事件让位', () => {
     } finally {
       tree.remove();
     }
+  });
+});
+
+// ── W41 S10（Onshape live 2026-11-18）：草图空白菜单无「复制草图」──────────
+// live 证据：树行复制草图后，草图内空白菜单只多「粘贴草图图元」（已启用），
+// 没有「复制草图」。空白菜单是唯一被移除的变体；尺寸菜单变体未采、保持不动。
+describe('W41 S10：草图空白菜单复制/粘贴行', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    clearSketchClipboard();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    clearSketchClipboard();
+  });
+
+  function openBlankMenu(): HTMLElement {
+    fireEvent.contextMenu(document, { clientX: 300, clientY: 250 });
+    return screen.getByTestId('sketch-blank-menu');
+  }
+
+  function fillClipboard(): void {
+    copySketchEntities(
+      [{ kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } }],
+      [],
+      [{ sketchId: 'sk-1', entityId: 11, part: 'curve' }],
+    );
+  }
+
+  it('空白菜单不含「复制草图」；剪贴板为空时「粘贴草图图元」禁用', () => {
+    renderPicker();
+    const menu = openBlankMenu();
+    expect(within(menu).queryByRole('menuitem', { name: '复制草图' })).toBeNull();
+    const paste = within(menu).getByRole('menuitem', { name: '粘贴草图图元' }) as HTMLButtonElement;
+    expect(paste.disabled).toBe(true);
+    expect(paste.getAttribute('title')).toBe('该操作暂未支持');
+  });
+
+  it('剪贴板非空 → 粘贴启用；点击调用宿主 onPaste 并收合菜单', () => {
+    fillClipboard();
+    const { onPaste } = renderPicker({ onPaste: vi.fn() });
+    const menu = openBlankMenu();
+    expect(within(menu).queryByRole('menuitem', { name: '复制草图' })).toBeNull();
+    const paste = within(menu).getByTestId('sketch-blank-menu-paste') as HTMLButtonElement;
+    expect(paste.disabled).toBe(false);
+    expect(paste.getAttribute('title')).toBeNull();
+    fireEvent.click(paste);
+    expect(onPaste).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('sketch-blank-menu')).toBeNull();
+  });
+
+  it('尺寸菜单变体不受影响（「复制草图」行仍在，未采不动）', () => {
+    renderPicker({ dimensionLabelHitTestRef: dimensionHitRef(7), onDeleteDimension: vi.fn() });
+    const menu = openDimensionMenu();
+    expect(within(menu).getByRole('menuitem', { name: '复制草图' })).toBeTruthy();
+    expect(menu).toBeTruthy();
   });
 });

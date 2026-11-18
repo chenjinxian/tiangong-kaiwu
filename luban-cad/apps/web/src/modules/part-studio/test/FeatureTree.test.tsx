@@ -845,6 +845,38 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(within(menu).getByRole('menuitem', { name: '编辑…' })).toBeDefined();
     expect(within(menu).queryByRole('menuitem', { name: '编辑草图…' })).toBeNull();
   });
+
+  // ── W41 S10（Onshape live 2026-11-18）：草图行「复制草图」──────────────
+  it('右键 sketch 节点：菜单有「复制草图」（紧随编辑草图…），点击回调 sketch id 并收合', async () => {
+    const user = userEvent.setup();
+    const onCopySketch = vi.fn();
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} onCopySketch={onCopySketch} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk2'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const items = within(menu).getAllByRole('menuitem');
+    const copy = within(menu).getByTestId('tree-menu-copy-sketch');
+    expect(copy.getAttribute('role')).toBe('menuitem');
+    expect(copy.querySelector('svg')).not.toBeNull();
+    // live 行序：重命名 / 编辑草图… / 复制草图（紧随其后，隔一条分隔线后继续既有项）。
+    expect(items[0]!.textContent).toContain('重命名');
+    expect(items[1]!.textContent).toContain('编辑草图…');
+    expect(items[2]).toBe(copy);
+    await user.click(copy);
+    expect(onCopySketch).toHaveBeenCalledTimes(1);
+    expect(onCopySketch).toHaveBeenCalledWith('sk2');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('复制草图：canEdit=false（只读）仍可用（复制不写模型）；非 sketch 行不出现', () => {
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} canEdit={false} onCopySketch={vi.fn()} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    let menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect((within(menu).getByTestId('tree-menu-copy-sketch') as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.mouseDown(document.body);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex9'));
+    menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).queryByTestId('tree-menu-copy-sketch')).toBeNull();
+  });
 });
 
 // ── B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门 ───────────────────

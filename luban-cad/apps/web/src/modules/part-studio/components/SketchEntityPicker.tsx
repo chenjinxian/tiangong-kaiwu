@@ -695,15 +695,8 @@ export function SketchEntityPicker({
         >
           {t('partStudio.sketch.blankMenuConfirm', { name: sketchName ?? '' })}
         </button>
-        <button
-          type="button"
-          role="menuitem"
-          className="part-studio-tree-menu__item"
-          disabled
-          title={unsupported}
-        >
-          {t('partStudio.sketch.blankMenuCopySketch')}
-        </button>
+        {/* Onshape live 2026-11-18（W41 S10）：草图空白菜单**没有**「复制草图」
+            （树行复制草图为唯一入口）；保留「粘贴草图图元」按会话剪贴板启用。 */}
         <button
           type="button"
           role="menuitem"

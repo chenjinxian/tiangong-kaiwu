@@ -119,6 +119,23 @@ export function copySketchEntities(
   return copied.curveCount;
 }
 
+/**
+ * 树级「复制草图」：整张草图的全部曲线（line/arc/circle/spline）一次性复制到
+ * 会话剪贴板；曲线直接引用的显式 point（端点/圆心）按 `copySketchEntities`
+ * 既有语义自动并入。只收录 refs 全在复制集内的约束（跨草图外部几何/原点关系
+ * 不复制）。返回复制的曲线数；0=空草图（不覆盖既有剪贴板、不报错）。
+ */
+export function copySketchById(
+  sketchId: string,
+  entities: readonly SketchEntityDto[],
+  constraints: readonly SketchConstraintDto[],
+): number {
+  const selection: SketchEntitySelection[] = entities
+    .filter((entity) => entity.kind !== 'point')
+    .map((entity) => ({ sketchId, entityId: entity.id, part: 'curve' as const }));
+  return copySketchEntities(entities, constraints, selection);
+}
+
 export type SketchPasteResult =
   | {
     ok: true;

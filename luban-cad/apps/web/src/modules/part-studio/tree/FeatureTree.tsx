@@ -61,6 +61,7 @@ import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto, VariableDto } from '@luban-cad/shared';
 import {
+  SvgCopy,
   SvgDelete,
   SvgDraw,
   SvgEdit,
@@ -140,6 +141,12 @@ export interface FeatureTreeProps {
   onRename?: (node: TreeNode, name: string) => void;
   /** 编辑特征/零件（FeatureDialog 宿主路由接口）。 */
   onEdit?: (node: TreeNode) => void;
+  /**
+   * Onshape live 2026-11-18（W41 S10）：草图行右键「复制草图」——宿主读取该
+   * 草图落库 params（entities+constraints）并填充会话剪贴板（草图内「粘贴
+   * 草图图元」随即可用）。只读会话同样可用（复制不写模型）。
+   */
+  onCopySketch?: (sketchId: string) => void;
   /** 抑制/取消抑制（特征段专属菜单项）。 */
   onSuppress?: (node: FeatureNode, suppressed: boolean) => void;
   /**
@@ -381,6 +388,7 @@ export function FeatureTree({
   viewport,
   onRename,
   onEdit,
+  onCopySketch,
   onSuppress,
   onDelete,
   canEdit = true,
@@ -1106,6 +1114,28 @@ export function FeatureTree({
             >
               <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEditAll /></span>
               {t('partStudio.tree.edit')}
+            </button>
+          )}
+          {/* Onshape live 2026-11-18（W41 S10）：草图行「复制草图」——紧随
+              「编辑草图…」，把整张草图曲线/内部约束复制到会话剪贴板（草图内
+              「粘贴草图图元」消费）。「粘贴到草图中」live 行为未采，本切片不渲染。 */}
+          {isSketchNode(menuNode) && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="tree-menu-copy-sketch"
+              onClick={() => {
+                setMenu(null);
+                if (onCopySketch) {
+                  onCopySketch(menuNode.id);
+                } else {
+                  console.warn(`[part-studio] 复制草图 ${menuNode.name}（onCopySketch 未接线）`);
+                }
+              }}
+            >
+              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgCopy /></span>
+              {t('partStudio.sketch.blankMenuCopySketch')}
             </button>
           )}
           <div className="part-studio-tree-menu__separator" role="separator" />

@@ -21,8 +21,18 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
-import type { BodyInfo, FeatureOp, FeatureOpResult, FeatureTreeEntry, SketchDto, VariableDto } from '@luban-cad/shared';
+import type {
+  BodyInfo,
+  FeatureOp,
+  FeatureOpResult,
+  FeatureTreeEntry,
+  SketchConstraintDto,
+  SketchDto,
+  SketchEntityDto,
+  VariableDto,
+} from '@luban-cad/shared';
 import type { UseSketchSystem } from '../hooks/useSketchSystem.js';
+import { clearSketchClipboard, copySketchById } from '../internal/sketch-clipboard.js';
 
 // M6-a T6：面域读面 RPC 替身（FeatureDialog 拉伸草图通道 getSketch 直调）。
 const featureRpc = vi.hoisted(() => ({
@@ -109,14 +119,18 @@ const sketchEntityPickerProbe = vi.hoisted(() => ({
     | ((constraintId: number, nextDriven: boolean) => void | Promise<void>)
     | null
     | undefined,
+  // W41 S10：粘贴链路观测面（树复制草图 → 草图内空白菜单「粘贴草图图元」）。
+  onPaste: null as (() => void) | null | undefined,
 }));
 vi.mock('../components/SketchEntityPicker.js', () => ({
   SketchEntityPicker: (props: {
     onTransform?: () => void;
     onToggleDimensionDriven?: (constraintId: number, nextDriven: boolean) => void | Promise<void>;
+    onPaste?: () => void;
   }) => {
     sketchEntityPickerProbe.onTransform = props.onTransform;
     sketchEntityPickerProbe.onToggleDimensionDriven = props.onToggleDimensionDriven;
+    sketchEntityPickerProbe.onPaste = props.onPaste;
     return null;
   },
 }));
@@ -233,6 +247,8 @@ beforeEach(() => {
   dimensionEditorProbe.onGlyphHover = null;
   sketchEntityPickerProbe.onTransform = null;
   sketchEntityPickerProbe.onToggleDimensionDriven = null;
+  sketchEntityPickerProbe.onPaste = null;
+  clearSketchClipboard();
   resetStore();
 });
 
@@ -928,6 +944,85 @@ describe('D6（2026-11-16）：草图实体菜单「变换草图图元」宿主�
       />,
     );
     expect(sketchEntityPickerProbe.onTransform).toBeUndefined();
+  });
+});
+
+// ── W41 S10（2026-11-18）：树「复制草图」→ 草图内「粘贴草图图元」链路 ──────
+// 复制入口在特征树（Sidebar），粘贴仍走本宿主的 active-sketch 通道：同一
+// internal/sketch-clipboard 模块态，一次 updateSketch 原位插入并选中副本。
+const COPY_PASTE_SKETCH: SketchDto = {
+  id: 'sk1',
+  entities: [
+    { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+    { kind: 'line', id: 12, p1: { x: 10, y: 0 }, p2: { x: 10, y: 10 } },
+    { kind: 'line', id: 13, p1: { x: 10, y: 10 }, p2: { x: 0, y: 10 } },
+    { kind: 'line', id: 14, p1: { x: 0, y: 10 }, p2: { x: 0, y: 0 } },
+  ],
+  constraints: [
+    { kind: 'horizontal', id: 25, refs: [11] },
+    { kind: 'vertical', id: 27, refs: [12] },
+  ],
+  solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+};
+
+describe('W41 S10：树复制草图 → 草图内粘贴', () => {
+  it('copySketchById 填充剪贴板 → picker onPaste 一次 updateSketch 原位插入副本并选中', async () => {
+    const applyUpdate = vi.fn(async () => ({ ok: true }));
+    const system = {
+      activeSketch: COPY_PASTE_SKETCH,
+      loading: false,
+      applyUpdate,
+      applyConstraintValue: vi.fn(),
+      refresh: vi.fn(),
+    } as unknown as UseSketchSystem;
+    act(() => usePartStudioStore.getState().enterSketch('sk1'));
+    render(
+      <PartStudioCanvas
+        viewportRef={{ current: null } as RefObject<HTMLDivElement>}
+        sketchSystem={system}
+      />,
+    );
+    expect(typeof sketchEntityPickerProbe.onPaste).toBe('function');
+
+    expect(copySketchById('source-sketch', COPY_PASTE_SKETCH.entities, COPY_PASTE_SKETCH.constraints)).toBe(4);
+    // onPaste 实为 async（applyUpdate → setCanvasSelection）：必须 await act，
+    // 否则 act 作用域失衡会让后续用例的 render 不冲刷（整文件假死教训）。
+    await act(async () => { sketchEntityPickerProbe.onPaste?.(); });
+    await waitFor(() => expect(applyUpdate).toHaveBeenCalledTimes(1));
+    const [entities, constraints] = applyUpdate.mock.calls[0] as unknown as [
+      SketchEntityDto[],
+      SketchConstraintDto[],
+    ];
+    expect(entities).toHaveLength(8);
+    expect(constraints).toHaveLength(4);
+    // 原件原样保留；副本 id 全新（不覆盖源实体）。
+    expect(entities.slice(0, 4)).toEqual(COPY_PASTE_SKETCH.entities);
+    expect(new Set(entities.map((entity) => entity.id)).size).toBe(8);
+    // 粘贴完成后选中 4 条副本曲线（草图实体选择条目）。
+    const selected = usePartStudioStore.getState().canvas.selection;
+    const pastedSelection = selected.filter((entry) => entry.kind === 'sketchEntity' && entry.sketchId === 'sk1');
+    expect(pastedSelection).toHaveLength(4);
+    expect(pastedSelection.every((entry) => entry.entityId !== undefined && entry.entityId > 14)).toBe(true);
+  });
+
+  it('剪贴板为空：onPaste 不提交、草图不变（无假成功）', async () => {
+    const applyUpdate = vi.fn(async () => ({ ok: true }));
+    const system = {
+      activeSketch: COPY_PASTE_SKETCH,
+      loading: false,
+      applyUpdate,
+      applyConstraintValue: vi.fn(),
+      refresh: vi.fn(),
+    } as unknown as UseSketchSystem;
+    act(() => usePartStudioStore.getState().enterSketch('sk1'));
+    render(
+      <PartStudioCanvas
+        viewportRef={{ current: null } as RefObject<HTMLDivElement>}
+        sketchSystem={system}
+      />,
+    );
+    await act(async () => { sketchEntityPickerProbe.onPaste?.(); });
+    expect(applyUpdate).not.toHaveBeenCalled();
   });
 });
 
