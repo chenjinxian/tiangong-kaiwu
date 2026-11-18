@@ -1659,6 +1659,14 @@ export function PartStudioCanvas({
           connection={connection}
           viewport={viewport}
           canEdit={canEdit}
+          // ADR-0020 S6：间距表达式复用页面持有的变量表与 S3b 内联创建宿主
+          //（与 FeatureDialog/Hole/Shell 同源，不新建读取实例/RPC）。
+          variables={partStudioVariables}
+          variablesLoading={variablesLoading}
+          variablesError={variablesError}
+          variablesReady={variablesReady}
+          onCreateVariable={openInlineCreateVariable}
+          variablesDialogActive={variablesDialog.active}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />

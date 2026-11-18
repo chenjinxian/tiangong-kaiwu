@@ -835,6 +835,8 @@
     "patternCenteredHint": "居中：N 为每侧实例数（含原件），总实例数为 2N−1（种子居中）",
     "patternCountCenteredInvalid": "每侧实例数须为 2–500 的整数（含原件）",
     "patternSpacingLabel": "距离",
+    "patternSpacingExpressionLabel": "间距表达式",
+    "patternSpacingField": "间距字段",
     "patternAngleLabel": "总角度（度）",
     "patternAxisLabel": "方向轴",
     "patternAxisOptions": {

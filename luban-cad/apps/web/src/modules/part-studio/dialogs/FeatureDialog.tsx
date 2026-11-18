@@ -168,6 +168,11 @@
  *（hasBodies=false）→ 诚实提示 + 提交禁用（requiresUpstream；
  * 后端 op 边界同口径拒收）。距离/草图/chips 输入一律隐藏；首版无 FEATURE pattern /
  * 任意轴引用 / 曲线阵列（范围裁决）。
+ * ADR-0020 S6（shared 1.76）：linear 间距改用 `ExpressionNumberField`（kind length；
+ * 表达式仅 linear 适用）——载荷 `{spacing: 求值/数值, spacingExpression?: 原文}`，
+ * spacing 保持必填物化快照；circular 不渲染该行、载荷不带两个键；编辑未触碰的
+ * 落库表达式原样保留（变量表未就绪时按物化快照放行），数值编辑/切圆周删除本键；
+ * 本地求值无效 → 红态 + 提交/预览阻断（`#` 未定义走 S5 本地化错误）。
  *
  * newBody / 目标实体（B6 M-A3.2a，shared v1.15）：
  * - extrude 通道「新建实体」复选（new 模式）：勾选才在 params 带 `newBody:true`
@@ -1405,6 +1410,17 @@ export function FeatureDialog({
     return storedNumberString(storedCount) ?? '2';
   });
   const [patternSpacing, setPatternSpacing] = React.useState(() => storedNumberString(editParams?.spacing) ?? '10');
+  // ADR-0020 S6（shared 1.76）：线性阵列第一方向间距表达式——spacing 保持必填
+  // 物化快照（编辑回显/变量表未就绪放行都用它）；circular 不适用。
+  const storedPatternSpacingExpression = React.useMemo(
+    () => readStoredExpression(editParams, 'spacingExpression'),
+    [editParams],
+  );
+  const patternSpacingField = useExpressionField(storedPatternSpacingExpression);
+  const storedMaterializedPatternSpacing = React.useMemo<number | undefined>(() => {
+    const raw = editParams?.spacing;
+    return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+  }, [editParams]);
   const [patternAngle, setPatternAngle] = React.useState(() => storedNumberString(editParams?.angle) ?? '360');
   const [patternAxis, setPatternAxis] = React.useState<PatternParams['axis']>(() =>
     editParams?.axis === 'X' || editParams?.axis === 'Y' || editParams?.axis === 'Z' ? editParams.axis : 'X',
@@ -1945,8 +1961,30 @@ export function FeatureDialog({
   const patternEffectiveCount = patternCenteredActive ? patternCountNumber * 2 - 1 : patternCountNumber;
   const patternCountValid = Number.isInteger(patternCountNumber) && patternCountNumber >= 2
     && patternCountNumber <= (patternCenteredActive ? 500 : 1000); // M1：与 zod 同域 2..1000（居中折算后）
-  const patternSpacingNumber = Number(patternSpacing);
-  const patternSpacingValid = Number.isFinite(patternSpacingNumber) && patternSpacingNumber > 0;
+  // ADR-0020 S6：间距表达式仅 linear 适用（circular 行不渲染、载荷不带该键）。
+  // 表达式在场时数值态忽略草稿，只用求值（预览/载荷同源）。
+  const patternSpacingExpressionApplicable = patternChannel && patternKind === 'linear';
+  const patternSpacingExpressionActive = patternSpacingExpressionApplicable
+    && patternSpacingField.expression !== undefined;
+  const patternSpacingNumber = patternSpacingExpressionActive && patternSpacingField.evaluation?.ok
+    ? patternSpacingField.evaluation.value
+    : Number(patternSpacing);
+  const patternSpacingValid = !patternSpacingExpressionApplicable
+    || (patternSpacingExpressionActive
+      ? patternSpacingField.evaluation?.ok === true
+      : (patternSpacing.trim() !== '' && Number.isFinite(patternSpacingNumber) && patternSpacingNumber > 0));
+  const patternSpacingExpressionSource = patternSpacingExpressionActive
+    && patternSpacingField.evaluation?.ok
+    ? patternSpacingField.evaluation.expression
+    : undefined;
+  // 切圆周后 linear 行卸载（组件自身的“不适用清除”不再运行）——宿主补同口径
+  // 清除并把草稿归位为可解析数值，保证切回 linear 不留旧 `#expr`。
+  React.useEffect(() => {
+    if (!patternSpacingExpressionApplicable && patternSpacingField.expression !== undefined) {
+      patternSpacingField.setExpression(undefined);
+      setPatternSpacing((prev) => numericTextOr(prev, '10'));
+    }
+  }, [patternSpacingExpressionApplicable, patternSpacingField]);
   const patternAngleNumber = Number(patternAngle);
   const patternAngleValid = Number.isFinite(patternAngleNumber) && patternAngleNumber > 0 && patternAngleNumber <= 360;
   // v1.62：第二方向仅 linear 生效；centered 输入为每侧 N（载荷 2N−1）。
@@ -1981,7 +2019,8 @@ export function FeatureDialog({
     || (startOffsetExpressionApplicable && startOffsetField.invalid)
     || (thinWallActive && thinThicknessField.invalid)
     || (draftEnabled && draftField.invalid)
-    || (revolveAngleExpressionApplicable && revolveAngleField.invalid);
+    || (revolveAngleExpressionApplicable && revolveAngleField.invalid)
+    || (patternSpacingExpressionApplicable && patternSpacingField.invalid);
   const submitDisabled = submitting || editReadOnly || !canEdit || !sketchReady || !filletReady
     || !draftReady || !thinThicknessValid || !endOffsetValid || expressionFieldsInvalid
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
@@ -2132,6 +2171,10 @@ export function FeatureDialog({
             kind: 'linear',
             count: patternEffectiveCount,
             spacing: patternSpacingNumber,
+            // ADR-0020 S6：表达式原文随影子求值载荷提交（后端物化同源）。
+            ...(patternSpacingExpressionSource !== undefined
+              ? { spacingExpression: patternSpacingExpressionSource }
+              : {}),
             axis: patternAxis,
             ...(patternCenteredActive ? { centered: true } : {}),
             ...(patternOppositeDirection ? { oppositeDirection: true } : {}),
@@ -2206,6 +2249,7 @@ export function FeatureDialog({
     mirrorFaceReadOnly, mirrorPlaneLineReadOnly, mirrorFaceMissing, mirrorFaceOwnerMismatch,
     patternChannel, patternKind, patternEffectiveCount, patternCountValid,
     patternSpacingNumber, patternSpacingValid, patternAngleNumber, patternAngleValid,
+    patternSpacingExpressionActive, patternSpacingField, patternSpacingExpressionSource,
     patternCenteredActive, patternAxis, patternUpstreamMissing,
     patternOppositeDirection,
     patternSecondActive, patternSecondCountValid, patternSecondSpacingValid, patternTotalCountValid,
@@ -2322,6 +2366,12 @@ export function FeatureDialog({
         if (revolveAngleExpressionApplicable && revolveAngleField.invalid)
           return revolveAngleField.evaluation !== undefined && !revolveAngleField.evaluation.ok
             ? expressionFieldMessage(revolveAngleField.evaluation.error, 'angleRadFromDeg', t)
+            : undefined;
+        if (patternSpacingExpressionApplicable && patternSpacingField.invalid)
+          return patternSpacingField.evaluation !== undefined && !patternSpacingField.evaluation.ok
+            ? expressionFieldMessage(patternSpacingField.evaluation.error, 'length', t, {
+              variableTypeField: t('partStudio.featureDialog.patternSpacingField'),
+            })
             : undefined;
         return undefined;
       })();
@@ -2560,7 +2610,12 @@ export function FeatureDialog({
                     // count 含原件 + spacing>0 + 世界轴。无 angle 键（两形态键集互斥）。
                     kind: 'linear' as const,
                     count: patternEffectiveCount,
+                    // ADR-0020 S6：spacing 恒为必填物化快照；表达式原文随载荷
+                    // 提交（纯数值/未触碰的纯数值路径不带本键）。
                     spacing: patternSpacingNumber,
+                    ...(patternSpacingExpressionSource !== undefined
+                      ? { spacingExpression: patternSpacingExpressionSource }
+                      : {}),
                     axis: patternAxis,
                     // v1.49（ADR-0007 切片 6）：居中线性阵列——count 为总实例数
                     // 2N−1（奇数、seed 居中）；非居中不发该键（旧载荷兼容）。
@@ -2959,6 +3014,9 @@ export function FeatureDialog({
     patternCountValid,
     patternSpacingNumber,
     patternSpacingValid,
+    patternSpacingExpressionApplicable,
+    patternSpacingExpressionSource,
+    patternSpacingField,
     patternAngleNumber,
     patternAngleValid,
     patternAxis,
@@ -5370,18 +5428,31 @@ export function FeatureDialog({
                   </section>
                   {patternKind === 'linear' ? (
                     <section className="part-studio-feature-dialog__distance" data-field="pattern-spacing">
-                      <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-spacing">
-                        {t('partStudio.featureDialog.patternSpacingLabel')}
-                      </label>
-                      <input
+                      {/* ADR-0020 S6：线性间距 = 通用表达式数值字段（S4c 同一
+                          聚焦/失焦、`#` 补全/内联创建、错误本地化引擎）。 */}
+                      <ExpressionNumberField
                         id="part-studio-feature-dialog-pattern-spacing"
-                        type="text"
-                        inputMode="decimal"
-                        aria-label={t('partStudio.featureDialog.patternSpacingLabel')}
-                        className="part-studio-feature-dialog__input"
-                        value={patternSpacing}
+                        label={t('partStudio.featureDialog.patternSpacingLabel')}
+                        numberText={patternSpacing}
+                        setNumberText={setPatternSpacing}
+                        expression={patternSpacingField.expression}
+                        setExpression={patternSpacingField.setExpression}
+                        kind="length"
+                        unitLabel=""
+                        applicable={patternSpacingExpressionApplicable}
                         disabled={submitting}
-                        onChange={(event) => setPatternSpacing(event.target.value)}
+                        variables={depthVariableList}
+                        variablesLoading={variablesLoading}
+                        variablesError={variablesError}
+                        variablesReady={variablesReady}
+                        onCreateVariable={onCreateVariable}
+                        variablesDialogActive={variablesDialogActive}
+                        storedExpression={storedPatternSpacingExpression}
+                        storedExpressionUntouchedValue={storedMaterializedPatternSpacing}
+                        onValidity={patternSpacingField.onValidity}
+                        onEnter={handleConfirm}
+                        expressionLabel={t('partStudio.featureDialog.patternSpacingExpressionLabel')}
+                        variableTypeField={t('partStudio.featureDialog.patternSpacingField')}
                       />
                     </section>
                   ) : (

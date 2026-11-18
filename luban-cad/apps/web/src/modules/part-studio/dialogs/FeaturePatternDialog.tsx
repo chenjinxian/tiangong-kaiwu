@@ -24,6 +24,12 @@
  * 图标钮，数值行 13.3333px）+ 「第二个方向」折叠组（live 20×27 箭头；有落库轴
  * = 勾选/箭头可用/默认展开，无落库轴 = 勾选与箭头诚实禁用、灰 #d7d7d7）+
  * 「跳过实例」组保持禁用折叠行。载荷与提交语义不变。
+ * ADR-0020 S6（shared 1.76）：linear 间距改用 `ExpressionNumberField`（kind length；
+ * 仅 linear 适用）——载荷 `{spacing: 求值/数值, spacingExpression?: 原文}`，spacing
+ * 保持必填物化快照；circular 两键都不带（后端对本键在 circular 显式拒收）；编辑
+ * 未触碰的落库表达式原样保留（变量表未就绪按物化快照放行），数值编辑/切圆周清除；
+ * 求值无效 → 红态 + 确认与 previewOp 同时阻断（`#` 未定义走 S5 本地化错误）。
+ * 变量表/内联创建由页面单点 hook 经 props 直通（不新建读取实例/RPC）。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -36,9 +42,13 @@ import {
 } from '@itwin/core-frontend';
 import { useTranslation } from 'react-i18next';
 import { DialogHeaderButtons } from './DialogHeaderButtons.js';
-import type { FeatureOp, FeatureOpResult, PreviewResult } from '@luban-cad/shared';
+import type { FeatureOp, FeatureOpResult, PreviewResult, VariableDto } from '@luban-cad/shared';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 import { useDialogCommandHandler } from '../internal/dialog-commands.js';
+// ADR-0020 S6：间距表达式复用 S4c 通用表达式数值字段（单一状态机/补全/错误本地化）。
+import { numericTextOr, readStoredExpression } from '../internal/feature-expression-field.js';
+import type { VariableCreateRequest } from '../internal/variables.js';
+import { ExpressionNumberField, useExpressionField } from '../components/ExpressionNumberField.js';
 
 /** A4：源特征显示项（id=落库结构引用，label=树派生/自定义名）。 */
 export interface FeaturePatternFeatureOption {
@@ -56,6 +66,18 @@ export interface FeaturePatternDialogProps {
    * 原值。缺省或 id 未命中 → 回退原始 id（不崩溃，不改语义）。
    */
   features?: readonly FeaturePatternFeatureOption[];
+  /**
+   * ADR-0020 S6：Part Studio 变量表（页面单点持有，与 FeatureDialog/Hole/Shell
+   * 同源直通）——线性间距字段的 `#` 补全与本地求值。缺省空集（单测/壳期）。
+   */
+  variables?: readonly VariableDto[];
+  variablesLoading?: boolean;
+  variablesError?: string;
+  variablesReady?: boolean;
+  /** S3b 内联创建变量请求（页面 `openInlineCreateVariable` 直通）。 */
+  onCreateVariable?: (request: VariableCreateRequest) => void;
+  /** 宿主内联创建面板当前 active 变体（null=关闭；用于取消检测）。 */
+  variablesDialogActive?: boolean | string | null;
   initialParams?: unknown;
   applyOp?: (op: FeatureOp) => Promise<FeatureOpResult>;
   /** 改参预览（后端影子求值几何 → TileRpc 动态图形；失败静默无预览）。 */
@@ -143,6 +165,12 @@ export function FeaturePatternDialog({
   featureName,
   featureId,
   features,
+  variables,
+  variablesLoading = false,
+  variablesError,
+  variablesReady = true,
+  onCreateVariable,
+  variablesDialogActive = null,
   initialParams,
   applyOp,
   previewOp,
@@ -164,6 +192,16 @@ export function FeaturePatternDialog({
     return String(stored.centered ? Math.round((stored.count + 1) / 2) : stored.count);
   });
   const [spacing, setSpacing] = React.useState(() => (stored.spacing !== undefined ? String(stored.spacing) : '10'));
+  // ADR-0020 S6（shared 1.76）：线性间距表达式——spacing 保持必填物化快照
+  //（落库回显/变量表未就绪放行都用它）；表达式仅 kind=linear 适用。
+  const storedSpacingExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'spacingExpression'),
+    [initialParams],
+  );
+  const spacingField = useExpressionField(storedSpacingExpression);
+  const storedMaterializedSpacing = stored.spacing !== undefined && stored.spacing > 0
+    ? stored.spacing
+    : undefined;
   const [angle, setAngle] = React.useState(() => (stored.angle !== undefined ? String(stored.angle) : '360'));
   const [secondEnabled, setSecondEnabled] = React.useState(stored.secondDirection !== undefined);
   // W10c：折叠组默认展开（有落库第二方向时，树行编辑流程/既有 e2e 直接可编辑）；
@@ -210,12 +248,24 @@ export function FeaturePatternDialog({
   const centeredActive = centered && kind === 'linear';
   const countNumber = Number(count);
   const effectiveCount = centeredActive ? countNumber * 2 - 1 : countNumber;
-  const spacingNumber = Number(spacing);
+  // ADR-0020 S6：间距表达式仅 linear 适用；表达式在场时数值态忽略草稿，
+  // 预览/载荷共用同一求值（无效 → 提交与预览同时阻断）。
+  const spacingExpressionApplicable = kind === 'linear';
+  const spacingExpressionActive = spacingExpressionApplicable && spacingField.expression !== undefined;
+  const spacingNumber = spacingExpressionActive && spacingField.evaluation?.ok
+    ? spacingField.evaluation.value
+    : Number(spacing);
+  const spacingExpressionSource = spacingExpressionActive && spacingField.evaluation?.ok
+    ? spacingField.evaluation.expression
+    : undefined;
   const angleNumber = Number(angle);
   const countValid = centeredActive
     ? Number.isInteger(countNumber) && countNumber >= 2 && countNumber <= 500
     : Number.isInteger(countNumber) && countNumber >= 2 && countNumber <= 1000;
-  const spacingValid = Number.isFinite(spacingNumber) && spacingNumber > 0;
+  const spacingValid = !spacingExpressionApplicable
+    || (spacingExpressionActive
+      ? spacingField.evaluation?.ok === true
+      : (spacing.trim() !== '' && Number.isFinite(spacingNumber) && spacingNumber > 0));
   const angleValid = Number.isFinite(angleNumber) && angleNumber > 0 && angleNumber <= 360;
   // 切片 11：第二方向只在 linear 下可见；轴是结构引用（编辑中不改）。
   const secondAxis = stored.secondDirection?.axis;
@@ -240,8 +290,18 @@ export function FeaturePatternDialog({
   const sourceMissing = sourceIds.length === 0;
   const submitDisabled = busy || !canEdit || !editMode || sourceMissing || !axisValid
     || !countValid || (kind === 'linear' ? !spacingValid : !angleValid)
+    || (spacingExpressionApplicable && spacingField.invalid)
     || (secondDirectionActive
       && (!secondAxisValid || !secondCountValid || !secondSpacingValid || totalOverLimit));
+
+  // 切圆周后 linear 行卸载（组件自身的“不适用清除”不再运行）——宿主补同口径
+  // 清除并把草稿归位为可解析数值（切回 linear 不留旧 `#expr`）。
+  React.useEffect(() => {
+    if (!spacingExpressionApplicable && spacingField.expression !== undefined) {
+      spacingField.setExpression(undefined);
+      setSpacing((prev) => numericTextOr(prev, '10'));
+    }
+  }, [spacingExpressionApplicable, spacingField]);
 
   const buildParams = React.useCallback((): Record<string, unknown> | undefined => {
     const storedAxis = stored.axis;
@@ -252,7 +312,16 @@ export function FeaturePatternDialog({
         : { sourceFeatureId: stored.sourceFeatureId }),
       kind,
       count: effectiveCount,
-      ...(kind === 'linear' ? { spacing: spacingNumber } : { angle: angleNumber }),
+      // ADR-0020 S6：spacing 恒为物化快照；表达式原文随载荷提交（仅 linear；
+      // circular 两键都不带——后端对本键在 circular 显式拒收）。
+      ...(kind === 'linear'
+        ? {
+          spacing: spacingNumber,
+          ...(spacingExpressionSource !== undefined
+            ? { spacingExpression: spacingExpressionSource }
+            : {}),
+        }
+        : { angle: angleNumber }),
       axis: storedAxis,
       ...(centeredActive ? { centered: true } : {}),
       // 取消勾选 = 从载荷移除第二方向（updateParams 整体替换参数；可撤销）。
@@ -265,8 +334,9 @@ export function FeaturePatternDialog({
         },
       } : {}),
     };
-  }, [stored, sourceIds, kind, centeredActive, effectiveCount, spacingNumber, angleNumber,
-    secondDirectionActive, secondAxis, effectiveSecondCount, secondSpacingNumber, secondCenteredActive]);
+  }, [stored, sourceIds, kind, centeredActive, effectiveCount, spacingNumber, spacingExpressionSource,
+    angleNumber, secondDirectionActive, secondAxis, effectiveSecondCount, secondSpacingNumber,
+    secondCenteredActive]);
 
   // 改参预览（2026-11-08）：后端 featurePattern 影子求值回传结果 entryArray，
   // 前端经 TileRpc 动态图形显示；参数非法/无预览时静默清空（不渲染假 overlay）。
@@ -536,25 +606,36 @@ export function FeaturePatternDialog({
         )}
         {kind === 'linear' ? (
           // W10c：距离行 = 值 + mm 单位 + 禁用计算器（载荷仍是 mm 数值）。
+          // ADR-0020 S6：输入改用通用表达式数值字段（聚焦原文/失焦求值、`#`
+          // 补全/内联创建、S5 错误本地化；id/testid/单位/计算器保持原约定）。
           <section
             className="part-studio-feature-dialog__distance part-studio-feature-pattern-dialog__value-row part-studio-feature-pattern-dialog__value-row--with-unit"
             data-field="feature-pattern-spacing"
           >
-            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-pattern-spacing">
-              {t('partStudio.featureDialog.patternSpacingLabel')}
-            </label>
-            <input
+            <ExpressionNumberField
               id="part-studio-feature-pattern-spacing"
-              type="text"
-              inputMode="decimal"
-              aria-label={t('partStudio.featureDialog.patternSpacingLabel')}
-              className="part-studio-feature-dialog__input"
-              value={spacing}
+              label={t('partStudio.featureDialog.patternSpacingLabel')}
+              numberText={spacing}
+              setNumberText={setSpacing}
+              expression={spacingField.expression}
+              setExpression={spacingField.setExpression}
+              kind="length"
+              unitLabel="mm"
+              applicable={spacingExpressionApplicable}
               disabled={busy || !canEdit}
-              onChange={(event) => setSpacing(event.target.value)}
-              data-testid="part-studio-feature-pattern-spacing"
+              variables={variables}
+              variablesLoading={variablesLoading}
+              variablesError={variablesError}
+              variablesReady={variablesReady}
+              onCreateVariable={onCreateVariable}
+              variablesDialogActive={variablesDialogActive}
+              storedExpression={storedSpacingExpression}
+              storedExpressionUntouchedValue={storedMaterializedSpacing}
+              onValidity={spacingField.onValidity}
+              inputTestId="part-studio-feature-pattern-spacing"
+              expressionLabel={t('partStudio.featureDialog.patternSpacingExpressionLabel')}
+              variableTypeField={t('partStudio.featureDialog.patternSpacingField')}
             />
-            <span className="part-studio-feature-dialog__value-unit">mm</span>
             <button
               type="button"
               className="part-studio-feature-dialog__calculator"

@@ -835,6 +835,8 @@
     "patternCenteredHint": "Centered: N is the number of instances on each side (including the original); total instances = 2N−1 (seed centered)",
     "patternCountCenteredInvalid": "Instances per side must be an integer between 2 and 500 (including the original)",
     "patternSpacingLabel": "Distance",
+    "patternSpacingExpressionLabel": "Pattern spacing expression",
+    "patternSpacingField": "spacing field",
     "patternAngleLabel": "Total angle (degrees)",
     "patternAxisLabel": "Axis",
     "patternAxisOptions": {

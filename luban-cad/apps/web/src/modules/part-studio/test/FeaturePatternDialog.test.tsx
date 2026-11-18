@@ -17,7 +17,7 @@ import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
+import type { FeatureOp, FeatureOpResult, PreviewResult, VariableDto } from '@luban-cad/shared';
 
 const mocks = vi.hoisted(() => ({ outputMessage: vi.fn() }));
 
@@ -391,6 +391,165 @@ describe('FeaturePatternDialog', () => {
     expect(screen.queryByTestId('part-studio-feature-pattern-total-invalid')).toBeNull();
     expect(confirm().disabled).toBe(false);
     expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  // ADR-0020 S6（shared 1.76）：线性间距表达式——spacing 保持必填物化快照，
+  // 表达式原文随载荷提交；circular 两键都不带；未触碰保留、数值/切圆周清除；
+  // 无效求值阻断确认与 previewOp（S5 本地化错误）。
+  const SP_VARIABLE: VariableDto = { id: 'v-sp', name: 'sp', expression: '10', type: 'length' };
+  const spacingInput = (): HTMLInputElement =>
+    screen.getByTestId('part-studio-feature-pattern-spacing') as HTMLInputElement;
+  const confirmButton = (): HTMLButtonElement =>
+    screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+
+  it('S6 间距表达式：`#sp` → 载荷 {spacing: 求值 10, spacingExpression: "#sp"}；preview 用求值 spacing', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({ ok: true, affected: [] }));
+    const { applyOp, user } = renderDialog({ variables: [SP_VARIABLE], previewOp });
+    const expectedParams = {
+      sourceFeatureId: '0x20000000008',
+      kind: 'linear',
+      count: 3,
+      spacing: 10,
+      axis,
+      spacingExpression: '#sp',
+    };
+    expect(spacingInput().value).toBe('6');
+    await user.click(spacingInput());
+    await user.clear(spacingInput());
+    await user.type(spacingInput(), '#sp');
+    expect(spacingInput().value).toBe('#sp'); // 聚焦=表达式原文
+    await user.tab();
+    expect(spacingInput().value).toBe('10'); // 失焦=本地求值（sp=10）
+    await waitFor(() => expect(previewOp.mock.calls.at(-1)?.[0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: expectedParams,
+    }), { timeout: 3000 });
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: expectedParams,
+    });
+  });
+
+  it('S6 编辑未触碰保留：改实例数 → spacingExpression 原样保留（spacing 按表达式求值重物化）', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE] },
+      stored({ spacingExpression: '#sp' }),
+    );
+    const count = screen.getByRole('textbox', { name: '实例数' });
+    await user.clear(count);
+    await user.type(count, '4');
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear',
+        count: 4,
+        // 表达式在场 → spacing 与本地求值同源（后端写边界仍按表达式权威物化，
+        // 快照必须与表达式一致，不能保留旧值 6）。
+        spacing: 10,
+        axis,
+        spacingExpression: '#sp',
+      },
+    });
+  });
+
+  it('S6 数值编辑清除：写入 20 → 载荷 spacing 20 且不带 spacingExpression', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE] },
+      stored({ spacingExpression: '#sp' }),
+    );
+    await user.click(spacingInput());
+    expect(spacingInput().value).toBe('#sp');
+    await user.clear(spacingInput());
+    await user.type(spacingInput(), '20');
+    await user.tab();
+    await user.click(confirmButton());
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(op.params).toMatchObject({ kind: 'linear', count: 3, spacing: 20 });
+    expect(op.params).not.toHaveProperty('spacingExpression');
+  });
+
+  it('S6 切圆周：表达式清除、载荷无 spacing/spacingExpression；切回线性草稿归位数值', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE] },
+      stored({ spacingExpression: '#sp' }),
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    expect(screen.queryByTestId('part-studio-feature-pattern-spacing')).toBeNull();
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'circular',
+        count: 3,
+        angle: 360,
+        axis,
+      },
+    });
+    // 切回线性：旧表达式已清除。必须**聚焦**断言（未聚焦的受控输入显示
+    // numberText，即使表达式残留也会是数值——聚焦才暴露残留的 `#sp`）；
+    // 再提交一次并断言载荷不带 spacingExpression（宿主清除 effect 的真正判据）。
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'linear');
+    await user.click(spacingInput());
+    expect(spacingInput().value).toBe('6');
+    await user.tab();
+    await user.click(confirmButton());
+    expect(applyOp.mock.calls[1]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear',
+        count: 3,
+        spacing: 6,
+        axis,
+      },
+    });
+  });
+
+  it('S6 无效表达式阻断：`#nope` → ✓ 禁用 + S5 本地化字段错误 + 不重发 previewOp/不发 op', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({ ok: true, affected: [] }));
+    const { applyOp, user } = renderDialog({ variables: [SP_VARIABLE], previewOp });
+    await waitFor(() => expect(previewOp).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    await user.click(spacingInput());
+    await user.clear(spacingInput());
+    await user.type(spacingInput(), '#nope');
+    expect(spacingInput().getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByTestId('expression-field-error').textContent).toContain('未知变量');
+    expect(confirmButton().disabled).toBe(true);
+    // 无效表达式不产生新的影子求值（不回落数值草稿、不出假预览）。
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(previewOp).toHaveBeenCalledTimes(1);
+    await user.click(confirmButton());
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('S6 变量表未就绪：未触碰的落库表达式按物化 spacing 放行（不误报未知变量）', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [], variablesLoading: true },
+      stored({ spacingExpression: '#sp' }),
+    );
+    expect(confirmButton().disabled).toBe(false);
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear',
+        count: 3,
+        spacing: 6,
+        axis,
+        spacingExpression: '#sp',
+      },
+    });
   });
 
   // ── W10c（2026-11-16 live 对话框形状）────────────────────────────────────
