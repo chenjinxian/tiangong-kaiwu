@@ -189,6 +189,17 @@
  * `spacing`（保持必填快照）；仅 `kind="linear"` 适用，circular 携带显式拒收（零变更）；
  * kind=`length`、>0，变量类型门 length/number/any，长度上限同其他表达式键；无表达式不读
  * 变量表。第二方向间距/circular angle/count 表达式不在本切片。
+ * v1.77（ADR-0020 S7）：倒角值 1/2 表达式（mode 相关 kind；详见 ChamferParams）。
+ * v1.78（ADR-0020 S8）：孔沉头/锥口字段表达式——`HoleParams.counterboreDiameterExpression?/
+ * counterboreDepthExpression?`（仅 `holeStyle="counterbore"`，物化 `counterboreDiameterMm`/
+ * `counterboreDepthMm`，length>0）与 `countersinkDiameterExpression?/
+ * countersinkAngleExpression?`（仅 `holeStyle="countersink"`，物化 `countersinkDiameterMm`
+ * 与 `countersinkAngleDeg`——**角度按度书写/物化**，kind=`angleDeg`，域 0<deg<180）。
+ * 数值目标保持必填物化快照；写/预览载荷须携带**已满足跨字段规则的数值占位键**（registry
+ * zod 先于表达式求值；表达式合成缺失目标仅 `updateVariables` stored-row 修复路径允许）；
+ * 非适用样式携带对应表达式显式拒收（零变更）；变量类型门 length/number/any（直径/深度）
+ * 与 angle/number/any（锥口角度）；物化后 registry schema 复验覆盖「锥口/沉头直径 > 主孔径」
+ * 与角度域。`tipAngleDeg` 不接表达式（UI 为下拉）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -250,11 +261,34 @@ export interface HoleParams {
   /** counterbore 必填：沉头孔直径/深度（孔轴线从草图平面起算）。 */
   counterboreDiameterMm?: number;
   counterboreDepthMm?: number;
+  /** v1.78（ADR-0020 S8）：沉头孔直径/深度表达式（设计意图；如 `"#holeDia * 2"`）。
+   *  - **仅 `holeStyle="counterbore"` 适用**；其余样式携带 → 显式拒收（零变更，不静默忽略）。
+   *  - 写入/预览载荷**必须同时携带 `counterboreDiameterMm`/`counterboreDepthMm` 数值占位键**
+   *    （缺省时服务端 registry zod 直接拒收，不会进入表达式求值），且占位值须已满足样式必填
+   *    与「沉头直径 > 主孔径」跨字段规则；物化后仍由 registry schema 复验（求值越界零变更）。
+   *    **仅 `updateVariables` 的 stored-row 修复路径允许用表达式补全缺失的目标键**（不改写
+   *    写入门禁）——与 S6 `spacingExpression` 同口径。
+   *  - length 语义（>0）；变量类型门 length/number/any（angle 变量拒收）；表达式长度上限
+   *    `MAX_EXPRESSION_LENGTH`；无本键时后端不读变量表。 */
+  counterboreDiameterExpression?: string;
+  counterboreDepthExpression?: string;
   /** countersink 必填：起始面侧锥口直径（> diameterMm）。 */
   countersinkDiameterMm?: number;
   /** countersink 必填：包含角（deg，0<angle<180；90=标准沉头）。锥口深度由
    *  (countersinkDiameterMm−diameterMm)/2 / tan(angle/2) 自动求得。 */
   countersinkAngleDeg?: number;
+  /** v1.78（ADR-0020 S8）：锥口直径/角度表达式（物化 `countersinkDiameterMm`/
+   *  `countersinkAngleDeg`）。
+   *  - **仅 `holeStyle="countersink"` 适用**；其余样式携带 → 显式拒收（零变更，不静默忽略）。
+   *  - 写入/预览载荷**必须同时携带 `countersinkDiameterMm`/`countersinkAngleDeg` 数值占位键**
+   *    （缺省时 registry zod 直接拒收，不进入表达式求值），且占位值须已满足「锥口直径 >
+   *    主孔径」与角度域 **(0,180)**；物化后仍由 registry schema 复验。**仅 `updateVariables`
+   *    的 stored-row 修复路径允许用表达式补全缺失的目标键**。
+   *  - 直径 length（>0）；角度**按度书写**、物化到 `countersinkAngleDeg`（kind=angleDeg，
+   *    不换算弧度），变量类型门 angle/number/any；表达式长度上限 `MAX_EXPRESSION_LENGTH`；
+   *    无本键时后端不读变量表。 */
+  countersinkDiameterExpression?: string;
+  countersinkAngleExpression?: string;
   diameterMm: number;
   /** v1.74（ADR-0020 S4c）：孔径表达式（设计意图；如 `"#holeDia"`）。
    *  - 后端在写/预览边界用变量表 + shared 求值器求值并物化 `diameterMm`；
@@ -1213,7 +1247,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.77.0";
+  public static interfaceVersion = "1.78.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
