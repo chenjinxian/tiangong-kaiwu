@@ -875,7 +875,28 @@ export interface ChamferParams {
   propagateSmooth: boolean;
   edges: FilletEdgeRef[];
   values1: number | number[];
+  /** v1.77（ADR-0020 S7）：倒角值 1 表达式（设计意图；如 `"#width / 2"`）。
+   *  - 仅 mode 1（Length）/2（Distances，含 UI 等距离）/3（DistanceAngle）合法；mode 0（Ranges）/
+   *    4（AngleDistance）携带**显式拒收**（零变更），不静默忽略；
+   *  - kind `length`（求值结果必须为有限正数，沿用 schema 正值域）；
+   *  - **目标 `values1` 仅支持标量 number**——逐边数组目标显式拒收（本切片不接逐边数组表达式）；
+   *  - 后端写/预览/变量传播用变量表 + shared 求值器求值并物化 `values1`；`values1` 保持必填
+   *    物化快照；仅 length/number/any 类型变量可用；错误零变更。 */
+  values1Expression?: string;
+  /** 第二个倒角值（mode 1 不适用）：mode 2 = 第二距离；mode 3 = 角度（弧度契约）。
+   *  mode 3 标量值域为 **(0, π) 弧度**（对应 UI 度制 (0, 180)）；数组为逐边角度（内核域，
+   *  不接逐边数组表达式）。 */
   values2?: number | number[];
+  /** v1.77（ADR-0020 S7）：倒角值 2 表达式（`values2` 的物化规则**随 mode**）。
+   *  - 仅 mode 2（Distances）/3（DistanceAngle）合法；mode 0/1/4 携带**显式拒收**；
+   *  - mode 2 → kind `length`（有限正数）；mode 3 → kind `angleRadFromDeg`（UI/表达式按**度**
+   *    书写，求值后换算 `value * π / 180` 物化 `values2`，与 UI mode=3 载荷弧度一致）；
+   *  - **目标 `values2` 仅支持标量 number**——逐边数组目标显式拒收；
+   *  - UI 等距离（mode 2 且 values1==values2）由 Web 同时发送 `values1Expression`/
+   *    `values2Expression`（原文相同），后端按各自值独立物化，不额外推断“等距离”；
+   *  - `values2` 保持物化快照；mode 2 仅 length/number/any 变量可用，mode 3 仅
+   *    angle/number/any 变量可用；错误零变更。 */
+  values2Expression?: string;
 }
 
 /**
@@ -1192,7 +1213,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.76.0";
+  public static interfaceVersion = "1.77.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
