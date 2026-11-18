@@ -37,6 +37,7 @@ import {
   VARIABLE_TYPES,
   type VariableDialogVariant,
 } from '../internal/variables.js';
+import { expressionFailureMessage } from '../internal/expression-error-message.js';
 import '../dialogs/FeatureDialog.css';
 import './VariablesDialog.css';
 
@@ -105,7 +106,7 @@ export interface VariablesDialogProps {
   onClose: () => void;
 }
 
-/** 本地规则错误的 message 是 i18n key；shared 求值错误原文透传。 */
+/** 本地规则错误的 message 是 i18n key；求值错误走结构化 failure（S5）。 */
 function validationMessage(
   t: (key: string) => string,
   message: string,
@@ -183,9 +184,16 @@ export function VariablesDialog({
     scopeActive: variablesScopeActive,
     error: variablesError,
   });
+  const validationErrorText = validation.ok
+    ? undefined
+    : validation.failure !== undefined
+      ? expressionFailureMessage(validation.failure, t)
+      : validation.message !== undefined
+        ? validationMessage(t, validation.message)
+        : undefined;
   const errorMessage = commitError
     ?? (writeBlock !== undefined ? t(variableWriteBlockI18nKey(writeBlock)) : undefined)
-    ?? (validation.ok ? undefined : validationMessage(t, validation.message));
+    ?? validationErrorText;
   const canCommit = canEdit && validation.ok && !busy && writeBlock === undefined;
   const readOnly = !canEdit || busy;
 

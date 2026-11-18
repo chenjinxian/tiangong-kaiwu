@@ -13,7 +13,23 @@ import {
   dimensionExpressionErrorI18nKey,
   evaluateDimensionInput,
   isNumericDimensionText,
+  type DimensionExpressionError,
+  type DimensionExpressionResult,
 } from '../internal/sketch-dimension-expression.js';
+
+/** 已窄化的表达式错误（code='expression'）。 */
+type ExpressionDimensionError = Extract<DimensionExpressionError, { code: 'expression' }>;
+
+/**
+ * 断言失败且 code='expression'（P3-1：无条件断言，避免 guarded 断言空过），
+ * 并返回已窄化的错误对象。
+ */
+function expressionErrorOf(result: DimensionExpressionResult): ExpressionDimensionError {
+  if (result.ok) throw new Error('应无效');
+  expect(result.error.code).toBe('expression');
+  if (result.error.code !== 'expression') throw new Error('应失败于表达式错误');
+  return result.error;
+}
 
 const VARIABLES: VariableDto[] = [
   { id: 'v1', name: 'width', expression: '10' },
@@ -95,38 +111,55 @@ describe('evaluateDimensionInput：表达式', () => {
     expect(result.expression).toBe('#ang * 2');
   });
 
-  it('未知变量 → expression 码 + shared 错误消息（原样透传）', () => {
-    const result = evaluateDimensionInput({ kind: 'length', text: '#nope' });
-    expect(result.ok).toBe(false);
-    if (result.ok) throw new Error('应无效');
-    expect(result.error.code).toBe('expression');
-    if (result.error.code === 'expression') {
-      expect(result.error.message).toContain('未知变量');
-      expect(result.error.message).toContain('#nope');
-    }
+  it('未知变量 → expression 码 + shared 错误消息/结构化字段（S5 additive）', () => {
+    const error = expressionErrorOf(evaluateDimensionInput({ kind: 'length', text: '#nope' }));
+    expect(error.message).toContain('未知变量');
+    expect(error.message).toContain('#nope');
+    expect(error.detail).toEqual({ kind: 'unknownVariable', name: 'nope' });
+    expect(error.position).toBe(0);
+    expect(error.attributedVariable).toBeUndefined();
+    expect(error.referenceChain).toBeUndefined();
   });
 
   it('语法错误 → expression 码；空输入 → 独立 empty 码（UI 复用既有文案）', () => {
     const syntax = evaluateDimensionInput({ kind: 'length', text: '1 +' });
-    expect(syntax.ok).toBe(false);
-    if (!syntax.ok) expect(syntax.error.code).toBe('expression');
+    if (syntax.ok) throw new Error('应无效');
+    expect(syntax.error.code).toBe('expression');
     const empty = evaluateDimensionInput({ kind: 'length', text: '   ' });
     expect(empty).toEqual({ ok: false, error: { code: 'empty' } });
     expect(evaluateDimensionInput({ kind: 'angle', text: '' }))
       .toEqual({ ok: false, error: { code: 'empty' } });
   });
 
-  it('变量表循环 → expression 码 + 错误消息（含变量归因），任何表达式都拒收', () => {
+  it('变量表循环 → expression 码 + 闭环 detail（确定性），任何表达式都拒收', () => {
     const cyclic: VariableDto[] = [
       { id: 'a', name: 'a', expression: '#b + 1' },
       { id: 'b', name: 'b', expression: '#a + 1' },
     ];
-    const result = evaluateDimensionInput({ kind: 'length', text: '#a', variables: cyclic });
-    expect(result.ok).toBe(false);
-    if (!result.ok && result.error.code === 'expression') {
-      expect(result.error.message).toContain('循环');
-      expect(result.error.message).toContain('#a');
-    }
+    const error = expressionErrorOf(
+      evaluateDimensionInput({ kind: 'length', text: '#a', variables: cyclic }),
+    );
+    expect(error.message).toContain('循环');
+    expect(error.message).toContain('#a');
+    expect(error.detail).toEqual({ kind: 'cycle', chain: ['a', 'b', 'a'] });
+    // cycle 自带闭环链，不做变量归因前缀（shared 口径）。
+    expect(error.attributedVariable).toBeUndefined();
+    expect(error.referenceChain).toBeUndefined();
+  });
+
+  it('变量表归因 → attributedVariable/referenceChain + cause detail 保留（S5）', () => {
+    const variables: VariableDto[] = [
+      { id: 'v1', name: 'bad', expression: '1 +' },
+    ];
+    const error = expressionErrorOf(
+      evaluateDimensionInput({ kind: 'length', text: '#bad * 2', variables }),
+    );
+    expect(error.detail).toEqual({ kind: 'unexpectedEnd' });
+    expect(error.position).toBe(3);
+    expect(error.attributedVariable).toBe('bad');
+    expect(error.referenceChain).toEqual(['bad']);
+    // shared 原文保留（后端错误面兼容）；UI 本地化由 expressionFailureMessage 负责。
+    expect(error.message).toBe('变量 "bad": 表达式意外结束（缺少操作数）（引用链：bad）');
   });
 
   it('表达式结果非正 → invalidValue；非有限 → expression；角度表达式越界 → invalidAngle', () => {

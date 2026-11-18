@@ -2273,6 +2273,31 @@
   "autosave": {
     "failed": "自动保存失败：{{message}}"
   },
+  "expression": {
+    "errors": {
+      "empty": "表达式为空",
+      "invalidNumber": "非法数字字面量",
+      "invalidChar": "非法字符 \"{{char}}\"",
+      "invalidVariableRef": "变量引用 # 后须为字母或下划线",
+      "trailingCharacter": "多余的字符 \"{{token}}\"",
+      "unexpectedToken": "意外的记号 \"{{token}}\"",
+      "unexpectedEnd": "表达式意外结束（缺少操作数）",
+      "missingRightParen": "缺少右括号",
+      "depthLimit": "表达式嵌套超过 {{limit}} 层",
+      "lengthLimit": "表达式超过 {{limit}} 字符上限",
+      "invalidVariableName": "非法变量名: \"{{name}}\"",
+      "duplicateName": "变量名重复: \"{{name}}\"",
+      "unknownVariable": "未知变量: #{{name}}",
+      "cycle": "变量循环引用: {{chain}}",
+      "divisionByZero": "除数为零",
+      "literalOutOfRange": "数字字面量超出有限数范围: {{text}}",
+      "resultNotFinite": "表达式结果不是有限数",
+      "variableNotFinite": "变量 #{{name}} 的值不是有限数",
+      "expressionInvalidGeneric": "无效的表达式",
+      "inVariable": "变量 \"{{name}}\": {{reason}}",
+      "chain": "（引用链：{{chain}}）"
+    }
+  },
   "variables": {
     "autocomplete": {
       "create": "新建变量…"

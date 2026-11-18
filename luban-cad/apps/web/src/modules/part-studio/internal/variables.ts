@@ -20,6 +20,7 @@ import {
   evaluateExpression,
   evaluateVariableTable,
   isValidVariableName,
+  type ExpressionFailure,
   type VariableDto,
   type VariableType,
 } from '@luban-cad/shared';
@@ -258,12 +259,30 @@ export interface VariableDraft {
 export type VariableDraftField = 'name' | 'value' | 'type' | 'description';
 
 /**
- * 草稿校验结果。本地规则错误 `message` 是 i18n key（`partStudio.variables.*`），
- * 求值错误是 shared 求值器原文（与 S2 口径一致，直接展示不翻译）。
+ * 草稿校验结果（S5 本地化；判别联合）：本地规则错误 `message` 是 i18n key
+ * （`partStudio.variables.*`）；求值错误（仅 value 字段）携带 shared **结构化
+ * failure**（`detail/attributedVariable/referenceChain`），由 `VariablesDialog`
+ * 用 `expressionFailureMessage` 做 zh/en 本地化。判别联合保证失败分支不可能
+ * 同时缺 message 与 failure。
  */
 export type VariableDraftValidation =
   | { ok: true; dto: VariableDto }
-  | { ok: false; field: VariableDraftField; message: string };
+  | {
+    ok: false;
+    /** 本地规则字段（message 分支；含 value 的本地规则如空值）。 */
+    field: VariableDraftField;
+    /** 本地规则错误的 i18n key（`partStudio.variables.*`）。 */
+    message: string;
+    failure?: never;
+  }
+  | {
+    ok: false;
+    /** 求值错误只归 value 字段。 */
+    field: 'value';
+    /** 求值失败的 shared 结构化错误。 */
+    failure: ExpressionFailure;
+    message?: never;
+  };
 
 /**
  * 草稿 → 契约 DTO（单一校验入口；对话框 ✓ 门禁与提交载荷共用）。
@@ -272,7 +291,7 @@ export type VariableDraftValidation =
  * - type：四值枚举；
  * - description：trim 后 ≤1024；
  * - value：非空表达式；既有变量（排除自身）作为引用表求值——自引用即
- *   unknownVariable，循环/语法错误原样返回 shared 消息。
+ *   unknownVariable，循环/语法错误返回 shared 结构化 failure（不拼中文）。
  */
 export function validateVariableDraft(
   draft: VariableDraft,
@@ -306,7 +325,7 @@ export function validateVariableDraft(
     proposed.push({ name, expression });
   const table = evaluateVariableTable(proposed);
   if (!table.ok)
-    return { ok: false, field: 'value', message: table.message };
+    return { ok: false, field: 'value', failure: table };
 
   const dto: VariableDto = {
     id: draft.id ?? nextVariableId(existing),

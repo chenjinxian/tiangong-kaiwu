@@ -8,19 +8,27 @@
  *   `parseConstraintEditorValue`（角度按度→弧度、非正/≥180° 拒收），并**不携带**
  *   expression——提交仍走 `updateSketchConstraint` 单值通道。
  * - 其余文本（含 `#`、运算符、括号、非法数字）一律按表达式求值：先用 shared
- *   `evaluateVariableTable` 把 Part Studio 变量表求成 name→值（失败消息原样
- *   透传，如 `变量 "x": ...`），再 `evaluateExpression(text, values)`。
+ *   `evaluateVariableTable` 把 Part Studio 变量表求成 name→值（失败时携带
+ *   结构化 detail/归因字段），再 `evaluateExpression(text, values)`。
  * - 角度表达式按**度**书写（与界面一致），返回契约弧度；长度类（length/
  *   distance/radius/diameter）要求有限且 > 0。
  * - 求值器是纯函数、禁 eval（shared 职责）；这里只做 UI 预校验，事实源仍是
  *   params（P0-06）——后端权威求值覆盖 value。
  *
- * 错误模型（2026-11-17 评审 P2）：本地错误返回**错误码**（empty/invalidValue/
- * invalidAngle），由 UI 映射 zh-CN/en i18n 文案；shared 求值器消息（语法/未知
- * 变量/循环/非有限）按 `expression` 码原样透传（与 S1 契约一致）。
+ * 错误模型（2026-11-17 评审 P2；S5 2026-11-18）：本地错误返回**错误码**
+ * （empty/invalidValue/invalidAngle），由 UI 映射 zh-CN/en i18n 文案；shared
+ * 求值错误（语法/未知变量/循环/非有限）按 `expression` 码携带
+ * `detail/position/attributedVariable/referenceChain`——UI 用
+ * `expressionFailureMessage` 做 zh/en 本地化，不再直出中文 `message`。
  */
-import type { SketchConstraintDto, VariableDto } from '@luban-cad/shared';
+import type {
+  ExpressionErrorCode,
+  ExpressionErrorDetail,
+  SketchConstraintDto,
+  VariableDto,
+} from '@luban-cad/shared';
 import { evaluateExpression, evaluateVariableTable } from '@luban-cad/shared';
+import { expressionFailureToLocal } from './expression-error-message.js';
 import { parseConstraintEditorValue } from './sketch-dimension-value.js';
 
 /** 尺寸输入（kind = 约束种类；text = 用户当前文本；variables = 既有变量表）。 */
@@ -30,14 +38,25 @@ export interface DimensionExpressionInput {
   variables?: readonly VariableDto[];
 }
 
-/** 本地错误码：空输入 / 非正（角度越界）/ shared 求值错误（消息透传）。 */
+/** 本地错误码：空输入 / 非正（角度越界）/ shared 求值错误（结构化 detail，UI 本地化）。 */
 export type DimensionExpressionErrorCode = 'empty' | 'invalidValue' | 'invalidAngle' | 'expression';
 
 export type DimensionExpressionError =
   | { code: 'empty' }
   | { code: 'invalidValue' }
   | { code: 'invalidAngle' }
-  | { code: 'expression'; message: string };
+  | {
+    code: 'expression';
+    /** shared 原文（后端错误面/调试用；UI 显示走 expressionFailureMessage）。 */
+    message: string;
+    /** 包装前的 shared 错误码（P2-1：empty 语义丢失防线）。 */
+    sourceCode?: ExpressionErrorCode;
+    /** ADR-0020 S5：shared 结构化字段（additive；UI 本地化依据）。 */
+    position?: number;
+    detail?: ExpressionErrorDetail;
+    attributedVariable?: string;
+    referenceChain?: string[];
+  };
 
 export type DimensionExpressionResult =
   | { ok: true; value: number; expression?: string }
@@ -46,11 +65,11 @@ export type DimensionExpressionResult =
 /** 纯数字文本（允许首尾空白与正负号/小数；不支持科学计数法——按表达式处理）。 */
 const NUMERIC_DIMENSION_TEXT = /^[+-]?(\d+(\.\d*)?|\.\d+)$/;
 
-/** 本地错误码 → i18n key（`expression` 码无 key，直接显示 shared 消息）。 */
+/** 本地错误码 → i18n key（`expression` 码无 key；由 expressionFailureMessage 本地化）。 */
 export const DIMENSION_INVALID_VALUE_I18N_KEY = 'partStudio.sketch.panel.errors.invalidDimension';
 export const DIMENSION_INVALID_ANGLE_I18N_KEY = 'partStudio.sketch.expression.invalidAngle';
 
-/** 错误 → i18n key；shared 求值错误（`expression`）返回 undefined（消息透传）。 */
+/** 错误 → i18n key；shared 求值错误（`expression`）返回 undefined（走结构化本地化）。 */
 export function dimensionExpressionErrorI18nKey(
   error: DimensionExpressionError,
 ): string | undefined {
@@ -74,9 +93,9 @@ export function isNumericDimensionText(text: string): boolean {
  * 尺寸输入 → 契约值（单一预校验入口；编辑器/放置值弹层共用）。
  *
  * 数字：复用 `parseConstraintEditorValue`（角度度→弧度；非正/≥180 拒收），
- * `expression` 缺省。表达式：变量表失败 → 同一错误消息；表达式失败 → 同一
- * 错误消息；角度校验 0<deg<180 后换弧度，长度类校验 >0 且有限；成功返回
- * `expression` = trim 后的原文（提交时落库设计意图）。
+ * `expression` 缺省。表达式：变量表/表达式失败 → 共享的 `expression` 错误
+ * （带 detail/归因字段）；角度校验 0<deg<180 后换弧度，长度类校验 >0 且有限；
+ * 成功返回 `expression` = trim 后的原文（提交时落库设计意图）。
  */
 export function evaluateDimensionInput(input: DimensionExpressionInput): DimensionExpressionResult {
   const text = input.text.trim();
@@ -94,8 +113,8 @@ export function evaluateDimensionInput(input: DimensionExpressionInput): Dimensi
     };
   }
 
-  // 表达式：变量表失败（语法/循环/重复名）→ 原样透传 shared 错误消息；
-  // 未知变量由后续 evaluateExpression 报 `未知变量: #name`（同一消息面）。
+  // 表达式：变量表失败（语法/循环/重复名）→ 搬运 shared 结构化失败；
+  // 未知变量由后续 evaluateExpression 报（同一错误面）。
   let values: ReadonlyMap<string, number> | undefined;
   const variables = input.variables ?? [];
   if (variables.length > 0) {
@@ -104,13 +123,13 @@ export function evaluateDimensionInput(input: DimensionExpressionInput): Dimensi
       expression: variable.expression,
     })));
     if (!table.ok)
-      return { ok: false, error: { code: 'expression', message: table.message } };
+      return { ok: false, error: expressionFailureToLocal(table) };
     values = table.values;
   }
 
   const result = evaluateExpression(text, values);
   if (!result.ok)
-    return { ok: false, error: { code: 'expression', message: result.message } };
+    return { ok: false, error: expressionFailureToLocal(result) };
 
   if (input.kind === 'angle') {
     if (!(result.value > 0 && result.value < 180))

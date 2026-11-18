@@ -162,12 +162,17 @@ describe('validateVariableDraft', () => {
     expect(self.ok).toBe(false);
     if (!self.ok) {
       expect(self.field).toBe('value');
-      // 提议整表把自引用变成显式循环（旧定义不参与解析）。
-      expect(self.message).toMatch(/循环|未知变量/);
+      // 提议整表把自引用变成显式循环（旧定义不参与解析）；S5：结构化 failure，
+      // 不再返回中文 message（UI 用 expressionFailureMessage 本地化）。
+      expect(self.message).toBeUndefined();
+      expect(self.failure).toMatchObject({
+        code: 'cycle',
+        detail: { kind: 'cycle', chain: ['width', 'width'] },
+      });
     }
   });
 
-  it('新建自引用（#同名）→ 未知变量（不得循环）', () => {
+  it('新建自引用（#同名）→ 显式循环（结构化 failure）', () => {
     const result = validateVariableDraft(
       { name: 'loop', valueText: '#loop + 1', type: 'length', description: '' },
       existing,
@@ -175,7 +180,11 @@ describe('validateVariableDraft', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.field).toBe('value');
-      expect(result.message).toMatch(/循环|未知变量/);
+      expect(result.message).toBeUndefined();
+      expect(result.failure).toMatchObject({
+        code: 'cycle',
+        detail: { kind: 'cycle', chain: ['loop', 'loop'] },
+      });
     }
   });
 
@@ -228,7 +237,7 @@ describe('validateVariableDraft', () => {
     });
   });
 
-  it('语法/非有限错误透传 shared 消息', () => {
+  it('语法/非有限错误 → 结构化 failure（S5；不返回中文 message）', () => {
     const syntax = validateVariableDraft(
       { name: 'x', valueText: '1 +', type: 'length', description: '' },
       existing,
@@ -236,16 +245,29 @@ describe('validateVariableDraft', () => {
     expect(syntax.ok).toBe(false);
     if (!syntax.ok) {
       expect(syntax.field).toBe('value');
-      expect(syntax.message.length).toBeGreaterThan(0);
+      expect(syntax.message).toBeUndefined();
+      expect(syntax.failure).toMatchObject({
+        code: 'syntax',
+        detail: { kind: 'unexpectedEnd' },
+        attributedVariable: 'x',
+        referenceChain: ['x'],
+      });
     }
     const nonFinite = validateVariableDraft(
       { name: 'x', valueText: '1/0', type: 'length', description: '' },
       existing,
     );
     expect(nonFinite.ok).toBe(false);
+    if (!nonFinite.ok) {
+      expect(nonFinite.message).toBeUndefined();
+      expect(nonFinite.failure).toMatchObject({
+        code: 'nonFinite',
+        detail: { kind: 'divisionByZero' },
+      });
+    }
   });
 
-  it('既有变量表损坏 → 值字段错误（不静默通过）', () => {
+  it('既有变量表损坏 → 值字段错误（不静默通过；结构化 failure）', () => {
     const broken = [V('a', 'a', '#b'), V('b', 'b', '#a')];
     const result = validateVariableDraft(
       { name: 'x', valueText: '1', type: 'length', description: '' },
@@ -254,7 +276,8 @@ describe('validateVariableDraft', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.field).toBe('value');
-      expect(result.message.length).toBeGreaterThan(0);
+      expect(result.message).toBeUndefined();
+      expect(result.failure).toMatchObject({ code: 'cycle' });
     }
   });
 });

@@ -38,6 +38,7 @@ import {
   evaluateDimensionInput,
   type DimensionExpressionError,
 } from '../internal/sketch-dimension-expression.js';
+import { expressionFailureMessage } from '../internal/expression-error-message.js';
 import { formatDimensionPopupValue } from '../internal/sketch-dimension-value.js';
 import type { VariableCreateRequest } from '../internal/variables.js';
 import {
@@ -235,14 +236,15 @@ export function SketchValuePopup({ sketchSystem, variables, onCreateVariable }: 
   }, [pendingCandidate]);
 
   /**
-   * 本地预校验错误文案（评审 P2）：本地码 → zh/en i18n key；shared 求值错误
-   * （unknownVariable/syntax/cycle/nonFinite）按 `expression` 码原样透传消息。
+   * 本地预校验错误文案（评审 P2；S5 本地化）：本地码 → zh/en i18n key；
+   * shared 求值错误（unknownVariable/syntax/cycle/nonFinite）按结构化 detail
+   * 走 `expressionFailureMessage`（不再直出中文 shared message）。
    */
   const dimensionErrorText = React.useCallback((error: DimensionExpressionError): string => {
+    if (error.code === 'expression')
+      return expressionFailureMessage(error, t);
     const key = dimensionExpressionErrorI18nKey(error);
-    if (key !== undefined)
-      return t(key);
-    return error.code === 'expression' ? error.message : '';
+    return key === undefined ? '' : t(key);
   }, [t]);
 
   const confirm = React.useCallback(async () => {
@@ -453,7 +455,7 @@ export function SketchValuePopup({ sketchSystem, variables, onCreateVariable }: 
     variables,
   });
   // 评审 P3：空输入保留既有错误文案（不再因「打开即空」被抑制）；错误码经
-  // i18n 映射，shared 求值消息透传。
+  // i18n 映射，shared 求值错误走结构化 detail 本地化（S5）。
   const liveErrorMessage = dimensionEvaluation.ok
     ? undefined
     : dimensionErrorText(dimensionEvaluation.error);

@@ -11,8 +11,9 @@
  * revolve `angleExpression`（度→弧度）。
  *
  * 与后端 `FeatureExpressionResolution` 同序：先求值（变量表 → 表达式；语法/
- * 未知变量/循环等 shared 错误原样透传），再做**变量类型门**（length 类
- * length/number/any；angle 类 angle/number/any；未声明 type 按 length）。
+ * 未知变量/循环等 shared 错误搬运为结构化 `expression` 错误并携带 detail/归因
+ * 字段，由 UI 本地化），再做**变量类型门**（length 类 length/number/any；
+ * angle 类 angle/number/any；未声明 type 按 length）。
  *
  * 纯数字通道不携带 expression（提交时删除对应键）；各字段的领域约束
  * （>0 / 非零 |deg|<89 / 0<deg<=360 / 非 fullRevolve 等）由调用方通过
@@ -21,17 +22,22 @@
  *
  * 错误模型：本地错误只给**错误码**（empty/invalidValue/invalidAngle/variableType），
  * 由 UI 做 i18n 映射（`expressionFieldErrorI18nKey` / `expressionFieldMessage`）；
- * shared 求值器消息按 `expression` 码原样透传（与 S1/S2 同口径）。变量量纲
- * 错误**不拼中文**，只带 variableName/variableType（P0-07 契约边界）。
+ * shared 求值错误按 `expression` 码搬运**结构化 detail/归因字段**（S5），
+ * `expressionFieldMessage` 用 `expressionFailureMessage` 做 zh/en 本地化（不再
+ * 直出中文 message）。变量量纲错误**不拼中文**，只带 variableName/variableType
+ * （P0-07 契约边界）。
  */
 import {
   collectVariableReferences,
   evaluateExpression,
   evaluateVariableTable,
+  type ExpressionErrorCode,
+  type ExpressionErrorDetail,
   type VariableDto,
   type VariableType,
 } from '@luban-cad/shared';
 import { formatFixedHalfUp } from './decimal-format.js';
+import { expressionFailureMessage, expressionFailureToLocal } from './expression-error-message.js';
 import { isNumericDimensionText } from './sketch-dimension-expression.js';
 
 /** 特征表达式字段量纲类别。 */
@@ -53,7 +59,8 @@ export interface FeatureExpressionFieldInput {
  * 特征字段本地错误：
  * - `empty` / `invalidValue` / `invalidAngle`：本地域错误（可含 message 供调用方覆盖）；
  * - `variableType`：引用变量的量纲与字段不兼容（带 name/type，消息由 i18n 组装）；
- * - `expression`：shared 求值器错误（message 原样展示，当前为中文——残留登记）。
+ * - `expression`：shared 求值器错误（携带 `detail/position/attributedVariable/
+ *   referenceChain`，UI 走 `expressionFailureMessage` 本地化；message 仅兼容保留）。
  */
 export type FeatureExpressionFieldError =
   | {
@@ -68,7 +75,16 @@ export type FeatureExpressionFieldError =
     variableName?: string;
     variableType?: string;
   }
-  | { code: 'expression'; message: string };
+  | {
+    code: 'expression';
+    message: string;
+    /** 包装前的 shared 错误码（P2-1：empty 语义丢失防线）。 */
+    sourceCode?: ExpressionErrorCode;
+    position?: number;
+    detail?: ExpressionErrorDetail;
+    attributedVariable?: string;
+    referenceChain?: string[];
+  };
 
 export type FeatureExpressionFieldResult =
   | { ok: true; value: number; expression?: string }
@@ -142,7 +158,7 @@ export function evaluateFeatureNumberField(
     return finalize(input.kind, numeric, undefined, input.validate);
   }
 
-  // 表达式：变量表失败（语法/循环/重复名）→ shared 消息原样透传。
+  // 表达式：变量表失败（语法/循环/重复名）→ 搬运 shared 结构化失败。
   let values: ReadonlyMap<string, number> | undefined;
   const variables = input.variables ?? [];
   if (variables.length > 0) {
@@ -151,13 +167,13 @@ export function evaluateFeatureNumberField(
       expression: variable.expression,
     })));
     if (!table.ok)
-      return { ok: false, error: { code: 'expression', message: table.message } };
+      return { ok: false, error: expressionFailureToLocal(table) };
     values = table.values;
   }
 
   const evaluated = evaluateExpression(text, values);
   if (!evaluated.ok)
-    return { ok: false, error: { code: 'expression', message: evaluated.message } };
+    return { ok: false, error: expressionFailureToLocal(evaluated) };
 
   // 变量类型门（先求值后门，同 S4b）：未定义引用已由求值器报 unknownVariable。
   const accepted = expressionFieldVariableTypes(input.kind);
@@ -178,7 +194,7 @@ export function evaluateFeatureNumberField(
 }
 
 /**
- * 本地错误 → i18n key；`expression` 码无 key（shared 消息透传）。
+ * 本地错误 → i18n key；`expression` 码无 key（走 expressionFailureMessage 本地化）。
  * variablesLoading/variablesUnavailable 属 UI 附属错误（组件层），不在本模块。
  */
 export function expressionFieldErrorI18nKey(
@@ -205,7 +221,7 @@ export type ExpressionFieldUiError =
 
 /**
  * UI 错误 → 可直接展示的文本（组件/对话框共用；禁止裸 i18n key 出屏）。
- * - `expression`：shared 消息原样；
+ * - `expression`：`expressionFailureMessage` 的 zh/en 本地化（detail/归因）；
  * - `variableType`：i18n 模板（name/type/field/expected 插值）；
  * - 变量表未就绪：独立文案，绝不误报未知变量。
  */
@@ -217,7 +233,7 @@ export function expressionFieldMessage(
 ): string {
   switch (error.code) {
     case 'expression':
-      return error.message;
+      return expressionFailureMessage(error, t);
     case 'variableType':
       return t('partStudio.featureDialog.expressionVariableType', {
         name: error.variableName ?? '?',

@@ -468,6 +468,19 @@ describe('i18n 骨架', () => {
       expect(zhKeys, `partStudio.${key} 应在 zh-CN part-studio.json 中存在`).toContain(key);
     }
   });
+  // ADR-0020 S5（表达式错误本地化）：en 词库不得含 CJK 字符（中文直出回归门禁）。
+  it('en 词库无 CJK 字符（全命名空间）', async () => {
+    const CJK = /[　-〿㐀-鿿豈-﫿＀-￯𠀀-𯨟]/u;
+    const locales = {
+      common: (await import('../locales/en/common.json')).default,
+      auth: (await import('../locales/en/auth.json')).default,
+      documents: (await import('../locales/en/documents.json')).default,
+      settings: (await import('../locales/en/settings.json')).default,
+      'part-studio': (await import('../locales/en/part-studio.json')).default,
+    };
+    for (const [name, locale] of Object.entries(locales))
+      expect(JSON.stringify(locale), `en ${name} 不得包含 CJK`).not.toMatch(CJK);
+  });
   // M2 Task 7：settings 词库（设置页）键集一致性 + 页面取用键存在性。
   it('settings 词库：zh/en 键奇偶且设置页取用键存在', async () => {
     const zh = (await import('../locales/zh-CN/settings.json')).default;

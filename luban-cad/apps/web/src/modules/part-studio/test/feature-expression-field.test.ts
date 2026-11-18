@@ -12,6 +12,7 @@ import {
   formatExpressionFieldValue,
   numericTextOr,
   readStoredExpression,
+  type FeatureExpressionFieldError,
 } from '../internal/feature-expression-field.js';
 
 const variable = (
@@ -27,6 +28,22 @@ function errorOf(result: ReturnType<typeof evaluateFeatureNumberField>): {
   variableType?: string;
 } {
   if (result.ok) throw new Error('expected error');
+  return result.error;
+}
+
+/** 已窄化的表达式错误（code='expression'）。 */
+type ExpressionFieldError = Extract<FeatureExpressionFieldError, { code: 'expression' }>;
+
+/**
+ * 断言失败且 code='expression'（P3-1：无条件断言，避免 guarded 断言空过），
+ * 并返回已窄化的表达式错误。
+ */
+function expressionErrorOf(
+  result: ReturnType<typeof evaluateFeatureNumberField>,
+): ExpressionFieldError {
+  if (result.ok) throw new Error('expected error');
+  expect(result.error.code).toBe('expression');
+  if (result.error.code !== 'expression') throw new Error('expected expression error');
   return result.error;
 }
 
@@ -112,17 +129,35 @@ describe('evaluateFeatureNumberField（S4c 纯逻辑）', () => {
       .toBe('invalidAngle');
   });
 
-  it('shared 求值错误原样透传（未知变量/语法/循环）', () => {
-    const unknown = errorOf(evaluateFeatureNumberField({ kind: 'length', text: '#nope' }));
-    expect(unknown.code).toBe('expression');
+  it('shared 求值错误：保留 message + 结构化 detail/归因字段（S5 additive）', () => {
+    const unknown = expressionErrorOf(evaluateFeatureNumberField({ kind: 'length', text: '#nope' }));
     expect(unknown.message).toContain('未知变量');
-    const table = errorOf(evaluateFeatureNumberField({
+    expect(unknown).toMatchObject({
+      code: 'expression',
+      position: 0,
+      detail: { kind: 'unknownVariable', name: 'nope' },
+    });
+    const tableError = expressionErrorOf(evaluateFeatureNumberField({
       kind: 'length',
       text: '#a',
       variables: [variable('a', '#b'), variable('b', '#a')],
     }));
-    expect(table.code).toBe('expression');
-    expect(table.message).toBeTruthy();
+    expect(tableError.message).toBeTruthy();
+    expect(tableError.detail).toEqual({ kind: 'cycle', chain: ['a', 'b', 'a'] });
+  });
+
+  it('表级归因错误搬运 attributedVariable/referenceChain（depth 字段自身表达式语法错）', () => {
+    const error = expressionErrorOf(evaluateFeatureNumberField({
+      kind: 'length',
+      text: '#bad * 2',
+      variables: [variable('bad', '1 +')],
+    }));
+    expect(error).toMatchObject({
+      position: 3,
+      detail: { kind: 'unexpectedEnd' },
+      attributedVariable: 'bad',
+      referenceChain: ['bad'],
+    });
   });
 
   it('错误码 → i18n key；variableType 不拼中文（message 缺省）', () => {
@@ -137,7 +172,7 @@ describe('evaluateFeatureNumberField（S4c 纯逻辑）', () => {
     expect(expressionFieldExpectedVariableTypes('angleDeg')).toBe('angle/number/any');
   });
 
-  it('expressionFieldMessage：variableType 用 i18n 模板插值；expression 透传 shared', () => {
+  it('expressionFieldMessage：variableType 用 i18n 模板插值；expression 走结构化本地化', () => {
     const t = (key: string, options?: Record<string, unknown>): string =>
       `${key}:${String(options?.name ?? '')}:${String(options?.type ?? '')}:${String(options?.field ?? '')}:${String(options?.expected ?? '')}`;
     expect(expressionFieldMessage(
@@ -146,10 +181,54 @@ describe('evaluateFeatureNumberField（S4c 纯逻辑）', () => {
       t,
       { variableTypeField: '深度字段' },
     )).toBe('partStudio.featureDialog.expressionVariableType:ang:angle:深度字段:length/number/any');
-    expect(expressionFieldMessage({ code: 'expression', message: '未知变量: #x' }, 'length', t))
-      .toBe('未知变量: #x');
     expect(expressionFieldMessage({ code: 'variablesLoading' }, 'length', t))
       .toBe('partStudio.featureDialog.expressionVariablesLoading::::');
+
+    // ADR-0020 S5：expression 错误按 detail 映射本地化 key（不回落 shared 中文 message）。
+    const calls: { key: string; options?: Record<string, unknown> }[] = [];
+    const localized = (key: string, options?: Record<string, unknown>): string => {
+      calls.push({ key, ...(options !== undefined ? { options } : {}) });
+      return key;
+    };
+    expect(expressionFieldMessage({
+      code: 'expression',
+      message: '未知变量: #x',
+      detail: { kind: 'unknownVariable', name: 'x' },
+    }, 'length', localized)).toBe('partStudio.expression.errors.unknownVariable');
+    expect(calls).toEqual([
+      { key: 'partStudio.expression.errors.unknownVariable', options: { name: 'x' } },
+    ]);
+
+    // 无 detail → 本地化通用文案（中文 shared message 被丢弃）。
+    calls.length = 0;
+    expect(expressionFieldMessage({ code: 'expression', message: '未知变量: #x' }, 'length', localized))
+      .toBe('partStudio.expression.errors.expressionInvalidGeneric');
+    expect(calls).toEqual([
+      { key: 'partStudio.expression.errors.expressionInvalidGeneric' },
+    ]);
+
+    // 表级归因：inVariable 前缀 + 原因 + 引用链。
+    calls.length = 0;
+    expect(expressionFieldMessage({
+      code: 'expression',
+      message: '变量 "bad": 表达式意外结束（缺少操作数）（引用链：a → bad）',
+      detail: { kind: 'unexpectedEnd' },
+      attributedVariable: 'bad',
+      referenceChain: ['a', 'bad'],
+    }, 'length', localized)).toBe(
+      // mock 返回 key 本身：inVariable 的返回值不再内嵌 reason（reason 走 options）。
+      'partStudio.expression.errors.inVariable'
+      + 'partStudio.expression.errors.chain',
+    );
+    expect(calls).toEqual([
+      // 实参先于 inVariable 调用求值（reason 模板先产出）。
+      { key: 'partStudio.expression.errors.unexpectedEnd' },
+      {
+        key: 'partStudio.expression.errors.inVariable',
+        options: { name: 'bad', reason: 'partStudio.expression.errors.unexpectedEnd' },
+      },
+      { key: 'partStudio.expression.errors.chain', options: { chain: 'a → bad' } },
+    ]);
   });
 
   it('formatExpressionFieldValue：长度 4 位小数去尾零、角度显示 deg、-0 归一', () => {

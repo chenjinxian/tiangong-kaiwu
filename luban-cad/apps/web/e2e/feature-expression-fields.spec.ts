@@ -257,6 +257,8 @@ test.describe('ADR-0020 S4c 特征数值字段表达式（真栈）', () => {
     await invalidRadius.click();
     await invalidRadius.fill('#nope');
     await expect(invalidRadius).toHaveAttribute('aria-invalid', 'true');
+    // S5：表达式错误走结构化 detail + zh i18n（不再是 shared 中文 message 直出）。
+    await expect(invalidDialog.getByText('未知变量: #nope')).toBeVisible();
     await expect(invalidDialog.getByRole('button', { name: '确认' })).toBeDisabled();
     await invalidDialog.getByRole('button', { name: '取消' }).click();
     await expect(invalidDialog).toBeHidden();
