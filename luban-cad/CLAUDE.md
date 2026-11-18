@@ -457,6 +457,12 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （P3 注记：空草图静默保留旧剪贴板、失败文案复用“未支持”、依赖树 params 含
   entities/constraints、尺寸菜单变体未采）。**未发布**；残：树级「粘贴到草图中」
   未接（live 行为未采）、添加评论/动态抑制表达式/工程图/DXF/外观菜单项未接。
+- **W42 S11 倒角未支持模式诚实只读守卫（2026-11-18，纯前端；S7 复核残）**：
+  编辑存量倒角 `mode` 0/1/4/未知时不再静默重读为 mode 3：可见 `role="note"` 横幅
+  （含模式名）+ 数值/表达式/拾取/切向延伸/确认禁用，取消可用；落库值按原文中性展示
+  （不做弧度→度或距离/角度互换）、不发 preview/提交。mode 2/3 行为不变。验证：
+  web **2586/2586**（+5）、tsc(src+e2e)/eslint 绿；回归 `chamfer-expression`
+  **2 passed（41.6 s）**。**未发布**；mode 4 可编辑实现留待 live 证据。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

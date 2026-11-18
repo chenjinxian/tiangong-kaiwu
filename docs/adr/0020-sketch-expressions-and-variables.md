@@ -531,8 +531,9 @@ count/centered/axis 并走 registry 复验（总实例 ≤1000 等）；`updateV
   OFFSET_ANGLE 度→弧度修复 + 缺失目标文案）→ 修复；web opus APPROVE WITH FIXES
   （P2 角度字段内联创建单位；测试隔离/预览载荷/未触碰保留；e2e 体积与取消断言）
   → 修复。**残**：mode 4（AngleDistance）存量行编辑仍按 mode 3 重解释（UI 从不
-  创建 mode 4，shared 1.77 拒收 mode-4 表达式→失败闭合；另切片修复）；逐边数组
-  表达式/测量类型扩展未做。
+  创建 mode 4，shared 1.77 拒收 mode-4 表达式→失败闭合；**W42 S11 已以诚实只读
+  守卫关闭**：mode 0/1/4/未知显示可见横幅、字段/确认禁用、取消可用、不重映射
+  提交）；逐边数组表达式/测量类型扩展未做。
 - **S8 实测（2026-11-18）**：shared **317/317**（+5）含 test:types；private backend
   targeted **174/174（6 files）**、全量 **1106 passed / 1 expected fail / 8 skipped
   （112 files）**、tsc 绿；web **2551/2551**（160 files）、tsc/eslint 绿。真栈
