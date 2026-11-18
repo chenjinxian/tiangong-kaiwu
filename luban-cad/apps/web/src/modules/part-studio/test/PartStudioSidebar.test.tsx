@@ -22,6 +22,7 @@ import type {
   FeatureTreeEntry,
   RenameResult,
   SketchConstraintDto,
+  SketchDto,
   SketchEntityDto,
   VariableDto,
 } from '@luban-cad/shared';
@@ -64,7 +65,7 @@ vi.mock('@itwin/core-frontend', () => ({
 }));
 
 import { usePartStudioStore } from '../index.js';
-import { PartStudioSidebar } from '../components/PartStudioSidebar.js';
+import { PartStudioSidebar, sketchReadScopeArgs } from '../components/PartStudioSidebar.js';
 import {
   clearSketchClipboard,
   copySketchById,
@@ -102,6 +103,7 @@ function renderSidebar(opts?: {
   entries?: FeatureTreeEntry[];
   renameFeature?: (featureId: string, name: string) => Promise<RenameResult>;
   renameBody?: (bodyId: string, name: string) => Promise<RenameResult>;
+  readSketch?: (sketchId: string) => Promise<SketchDto | undefined>;
 }): void {
   render(
     <PartStudioSidebar
@@ -111,6 +113,7 @@ function renderSidebar(opts?: {
       canEdit={opts?.canEdit ?? true}
       renameFeature={opts?.renameFeature}
       renameBody={opts?.renameBody}
+      readSketch={opts?.readSketch}
     />,
   );
 }
@@ -543,5 +546,184 @@ describe('W41 S10：树草图行复制草图（会话剪贴板）', () => {
     const toast = lastToast();
     expect(toast.priority).toBe(10);
     expect(toast.briefMessage).toContain('复制草图失败');
+  });
+});
+
+// ── W44 S13（Onshape live 2026-11-19 probe w46b）：树草图行「粘贴到草图中」──
+// live：复制草图后对目标草图执行「粘贴到草图中」→ 图元直接写入目标草图、
+// **不打开草图**（空目标草图重开可见复制矩形）。本产品以一次标准
+// `updateSketch` op 合并剪贴板实例（可撤销；重映射 id/内部约束）。
+// 复核 P2：目标草图必须新鲜读面（readSketch/RPC），不得用树 entries.params
+// 旧快照 wholesale 覆盖。
+describe('W44 S13：树草图行粘贴到草图中（新鲜读面 + 一次 updateSketch）', () => {
+  const RECT_ENTITIES: SketchEntityDto[] = [
+    { kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+    { kind: 'line', id: 12, p1: { x: 10, y: 0 }, p2: { x: 10, y: 10 } },
+    { kind: 'line', id: 13, p1: { x: 10, y: 10 }, p2: { x: 0, y: 10 } },
+    { kind: 'line', id: 14, p1: { x: 0, y: 10 }, p2: { x: 0, y: 0 } },
+  ];
+  const RECT_CONSTRAINTS: SketchConstraintDto[] = [
+    { kind: 'coincident', id: 21, refs: [{ entity: 11, part: 'end' }, { entity: 12, part: 'start' }] },
+    { kind: 'horizontal', id: 25, refs: [11] },
+  ];
+  const EXISTING_ENTITY: SketchEntityDto =
+    { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 } };
+  const EXISTING_CONSTRAINT: SketchConstraintDto = { kind: 'vertical', id: 7, refs: [5] };
+  const sketchEntry = (id: string, params: unknown): FeatureTreeEntry => ({
+    id, featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params,
+  });
+  const targetSketch = (
+    entities: SketchEntityDto[],
+    constraints: SketchConstraintDto[],
+  ): SketchDto => ({ entities, constraints } as unknown as SketchDto);
+
+  async function pasteViaTree(
+    user: ReturnType<typeof userEvent.setup>,
+    rowTestId: string,
+  ): Promise<void> {
+    fireEvent.contextMenu(screen.getByTestId(rowTestId));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    await user.click(within(menu).getByTestId('tree-menu-paste-sketch'));
+  }
+
+  it('新鲜读面合并：一次 updateSketch（确定性 id 重映射 + 既有实体/约束保序保 id）', async () => {
+    const user = userEvent.setup();
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    const applyOp = vi.fn().mockResolvedValue({ ok: true } as FeatureOpResult);
+    const readSketch = vi.fn().mockResolvedValue(
+      targetSketch([EXISTING_ENTITY], [EXISTING_CONSTRAINT]),
+    );
+    // 树 entries 故意给空 params：证明 handler 不读旧快照。
+    renderSidebar({
+      entries: [sketchEntry('target', { entities: [], constraints: [] })],
+      applyOp,
+      readSketch,
+    });
+    await pasteViaTree(user, 'tree-row-target');
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(readSketch).toHaveBeenCalledWith('target');
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateSketch' }>;
+    // 精确载荷：nextId = max(实体 5, 约束 7)+1 = 8；实体 8..11、约束 12..13。
+    expect(op).toEqual({
+      kind: 'updateSketch',
+      sketchId: 'target',
+      entities: [
+        EXISTING_ENTITY,
+        { kind: 'line', id: 8, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+        { kind: 'line', id: 9, p1: { x: 10, y: 0 }, p2: { x: 10, y: 10 } },
+        { kind: 'line', id: 10, p1: { x: 10, y: 10 }, p2: { x: 0, y: 10 } },
+        { kind: 'line', id: 11, p1: { x: 0, y: 10 }, p2: { x: 0, y: 0 } },
+      ],
+      constraints: [
+        EXISTING_CONSTRAINT,
+        { kind: 'coincident', id: 12, refs: [{ entity: 8, part: 'end' }, { entity: 9, part: 'start' }] },
+        { kind: 'horizontal', id: 13, refs: [8] },
+      ],
+    });
+    // 成功不弹 toast（live 未证成功提示形态；与复制同口径）。
+    expect(mocks.outputMessage).not.toHaveBeenCalled();
+  });
+
+  it('后端拒收 → 可见 Error toast（不静默）', async () => {
+    const user = userEvent.setup();
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    const applyOp = vi.fn().mockResolvedValue({ ok: false, error: 'dof 冲突' } as FeatureOpResult);
+    const readSketch = vi.fn().mockResolvedValue(targetSketch([], []));
+    renderSidebar({ entries: [sketchEntry('target', {})], applyOp, readSketch });
+    await pasteViaTree(user, 'tree-row-target');
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalledTimes(1));
+    const toast = lastToast();
+    expect(toast.priority).toBe(10);
+    expect(toast.briefMessage).toContain('粘贴到草图失败');
+    expect(toast.briefMessage).toContain('dof 冲突');
+  });
+
+  it('读取返回 undefined → 「目标草图不存在或不可读」，零 applyOp', async () => {
+    const user = userEvent.setup();
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    const applyOp = vi.fn();
+    const readSketch = vi.fn().mockResolvedValue(undefined);
+    renderSidebar({ entries: [sketchEntry('target', {})], applyOp, readSketch });
+    await pasteViaTree(user, 'tree-row-target');
+    expect(applyOp).not.toHaveBeenCalled();
+    const toast = lastToast();
+    expect(toast.priority).toBe(10);
+    expect(toast.briefMessage).toContain('目标草图不存在或不可读');
+  });
+
+  it('读取抛错 → 「读取草图失败」+ 原因，零 applyOp', async () => {
+    const user = userEvent.setup();
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    const applyOp = vi.fn();
+    const readSketch = vi.fn().mockRejectedValue(new Error('rpc down'));
+    renderSidebar({ entries: [sketchEntry('target', {})], applyOp, readSketch });
+    await pasteViaTree(user, 'tree-row-target');
+    expect(applyOp).not.toHaveBeenCalled();
+    const toast = lastToast();
+    expect(toast.priority).toBe(10);
+    expect(toast.briefMessage).toContain('读取草图失败');
+    expect(toast.briefMessage).toContain('rpc down');
+  });
+
+  it('applyOp 抛错 → 可见 Error toast（不成为未处理拒绝）', async () => {
+    const user = userEvent.setup();
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    const applyOp = vi.fn().mockRejectedValue(new Error('network'));
+    const readSketch = vi.fn().mockResolvedValue(targetSketch([], []));
+    renderSidebar({ entries: [sketchEntry('target', {})], applyOp, readSketch });
+    await pasteViaTree(user, 'tree-row-target');
+    await waitFor(() => expect(mocks.outputMessage).toHaveBeenCalledTimes(1));
+    const toast = lastToast();
+    expect(toast.priority).toBe(10);
+    expect(toast.briefMessage).toContain('粘贴到草图失败');
+    expect(toast.briefMessage).toContain('network');
+  });
+
+  it('剪贴板为空：菜单禁用，点击零读面/零 applyOp/零 toast', () => {
+    const applyOp = vi.fn();
+    const readSketch = vi.fn();
+    renderSidebar({ entries: [sketchEntry('target', {})], applyOp, readSketch });
+    fireEvent.contextMenu(screen.getByTestId('tree-row-target'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const paste = within(menu).getByTestId('tree-menu-paste-sketch') as HTMLButtonElement;
+    expect(paste.disabled).toBe(true);
+    fireEvent.click(paste);
+    expect(readSketch).not.toHaveBeenCalled();
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(mocks.outputMessage).not.toHaveBeenCalled();
+  });
+
+  it('scope 参数：A 文档恒省略 ?model=；B/legacy 传 partStudioId', () => {
+    expect(sketchReadScopeArgs('A', 'model-1')).toEqual([]);
+    expect(sketchReadScopeArgs('B', 'model-1')).toEqual(['model-1']);
+    expect(sketchReadScopeArgs(undefined, 'model-1')).toEqual(['model-1']);
+    expect(sketchReadScopeArgs('B', undefined)).toEqual([]);
+  });
+
+  it('默认 RPC 读面（未注入 readSketch）：无连接 → 读取草图失败（未连接 iModel），零 applyOp', async () => {
+    const user = userEvent.setup();
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    const applyOp = vi.fn();
+    renderSidebar({ entries: [sketchEntry('target', {})], applyOp });
+    await pasteViaTree(user, 'tree-row-target');
+    expect(applyOp).not.toHaveBeenCalled();
+    const toast = lastToast();
+    expect(toast.priority).toBe(10);
+    expect(toast.briefMessage).toContain('读取草图失败');
+    expect(toast.briefMessage).toContain('未连接 iModel');
+  });
+
+  it('只读（canEdit=false）：菜单禁用，点击零读面/零 applyOp', () => {
+    copySketchById('source', RECT_ENTITIES, RECT_CONSTRAINTS);
+    const applyOp = vi.fn();
+    const readSketch = vi.fn();
+    renderSidebar({ entries: [sketchEntry('target', {})], applyOp, readSketch, canEdit: false });
+    fireEvent.contextMenu(screen.getByTestId('tree-row-target'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const paste = within(menu).getByTestId('tree-menu-paste-sketch') as HTMLButtonElement;
+    expect(paste.disabled).toBe(true);
+    fireEvent.click(paste);
+    expect(readSketch).not.toHaveBeenCalled();
+    expect(applyOp).not.toHaveBeenCalled();
   });
 });

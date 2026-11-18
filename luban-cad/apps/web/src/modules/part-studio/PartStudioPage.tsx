@@ -1237,6 +1237,8 @@ function PartStudioSession({
               onRetry={featureSystem.refresh}
               connection={connection ?? undefined}
               partStudioId={activeModelId}
+              // W44 S13：A 文档恒省略手工 ?model= scope（与 useSketchSystem 读面同口径）。
+              scopeMode={mode}
               // B6 M-A3.2a：读面仅在成功读取后下传（初次失败/未就绪 → 树回退 legacy
               // 物理查询；I1：初次失败也下传 bodiesError → 可见错误条 + 重试，不静默）。
               // I3：viewport 显式下传 → consumed 隐藏随晚到/重建视口重跑。

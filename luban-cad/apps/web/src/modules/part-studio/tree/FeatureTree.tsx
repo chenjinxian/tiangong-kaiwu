@@ -61,7 +61,6 @@ import { EmphasizeElements, IModelApp } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureTreeEntry, SketchPlaneDto, VariableDto } from '@luban-cad/shared';
 import {
-  SvgCopy,
   SvgDelete,
   SvgDraw,
   SvgEdit,
@@ -71,6 +70,7 @@ import {
 } from '@itwin/itwinui-icons-react';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { OnshapeIconName } from '../icons/onshape-icons.js';
+import { hasSketchClipboard } from '../internal/sketch-clipboard.js';
 import { CapabilityDialog } from '../ribbon/Ribbon.js';
 import { isGated } from '../internal/capabilities.js';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
@@ -147,6 +147,12 @@ export interface FeatureTreeProps {
    * 草图图元」随即可用）。只读会话同样可用（复制不写模型）。
    */
   onCopySketch?: (sketchId: string) => void;
+  /**
+   * W44 S13（Onshape live 2026-11-19 probe w46b）：草图行右键「粘贴到草图中」——
+   * 把会话剪贴板图元**直接写入目标草图（不打开草图）**；宿主以一次 updateSketch
+   * 提交（可撤销）。剪贴板为空/只读时菜单项禁用。
+   */
+  onPasteSketch?: (sketchId: string) => void;
   /** 抑制/取消抑制（特征段专属菜单项）。 */
   onSuppress?: (node: FeatureNode, suppressed: boolean) => void;
   /**
@@ -389,6 +395,7 @@ export function FeatureTree({
   onRename,
   onEdit,
   onCopySketch,
+  onPasteSketch,
   onSuppress,
   onDelete,
   canEdit = true,
@@ -1118,7 +1125,12 @@ export function FeatureTree({
           )}
           {/* Onshape live 2026-11-18（W41 S10）：草图行「复制草图」——紧随
               「编辑草图…」，把整张草图曲线/内部约束复制到会话剪贴板（草图内
-              「粘贴草图图元」消费）。「粘贴到草图中」live 行为未采，本切片不渲染。 */}
+              「粘贴草图图元」消费）。W44 S13：live 菜单这两项**无图标**。
+              live 2026-11-19（probe w46b）：「粘贴到草图中」把剪贴板图元直接
+              写入目标草图（不打开草图）；剪贴板为空时本产品禁用（live 空剪贴板
+              启用态未采）。**残项**：live 在草图打开态显示的是另一变体树菜单
+              （无复制/粘贴项，w44 截图）；本产品仍显示两项，未做 sketchActive
+              变体门——登记为已知差异，见 CLAUDE W44 条目。 */}
           {isSketchNode(menuNode) && (
             <button
               type="button"
@@ -1134,8 +1146,30 @@ export function FeatureTree({
                 }
               }}
             >
-              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgCopy /></span>
               {t('partStudio.sketch.blankMenuCopySketch')}
+            </button>
+          )}
+          {isSketchNode(menuNode) && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="tree-menu-paste-sketch"
+              disabled={!canEdit || !hasSketchClipboard()}
+              title={!canEdit
+                ? t('partStudio.tree.readonlyHint')
+                : hasSketchClipboard() ? undefined : t('partStudio.sketch.pasteClipboardEmpty')}
+              onClick={() => {
+                if (!canEdit || !hasSketchClipboard()) return;
+                setMenu(null);
+                if (onPasteSketch) {
+                  onPasteSketch(menuNode.id);
+                } else {
+                  console.warn(`[part-studio] 粘贴到草图 ${menuNode.name}（onPasteSketch 未接线）`);
+                }
+              }}
+            >
+              {t('partStudio.sketch.treePasteIntoSketch')}
             </button>
           )}
           <div className="part-studio-tree-menu__separator" role="separator" />

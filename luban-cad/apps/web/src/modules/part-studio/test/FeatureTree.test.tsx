@@ -22,6 +22,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BodyInfo, FeatureTreeEntry, VariableDto } from '@luban-cad/shared';
+import { clearSketchClipboard, copySketchById } from '../internal/sketch-clipboard.js';
 
 const mocks = vi.hoisted(() => ({
   emphasizeElements: vi.fn(),
@@ -150,6 +151,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.viewport = null;
   resetStore();
+  // W44 S13：剪贴板是模块态——逐用例清零，避免菜单启用态跨用例泄漏。
+  clearSketchClipboard();
 });
 
 describe('FeatureTree 双段渲染（对齐 os-11；真数据源 entries）', () => {
@@ -856,7 +859,8 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     const items = within(menu).getAllByRole('menuitem');
     const copy = within(menu).getByTestId('tree-menu-copy-sketch');
     expect(copy.getAttribute('role')).toBe('menuitem');
-    expect(copy.querySelector('svg')).not.toBeNull();
+    // W44 S13：live 菜单「复制草图」无图标（w43-copy-menu 截图）。
+    expect(copy.querySelector('svg')).toBeNull();
     // live 行序：重命名 / 编辑草图… / 复制草图（紧随其后，隔一条分隔线后继续既有项）。
     expect(items[0]!.textContent).toContain('重命名');
     expect(items[1]!.textContent).toContain('编辑草图…');
@@ -876,6 +880,51 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     fireEventContextMenu(screen.getByTestId('tree-row-ex9'));
     menu = screen.getByRole('menu', { name: '特征菜单' });
     expect(within(menu).queryByTestId('tree-menu-copy-sketch')).toBeNull();
+  });
+
+  // ── W44 S13（Onshape live 2026-11-19 probe w46b）：草图行「粘贴到草图中」──
+  it('右键 sketch：粘贴到草图中紧随复制草图；剪贴板空禁用，复制后可用并回调 sketch id', async () => {
+    clearSketchClipboard();
+    const user = userEvent.setup();
+    const onPasteSketch = vi.fn();
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} onPasteSketch={onPasteSketch} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk2'));
+    let menu = screen.getByRole('menu', { name: '特征菜单' });
+    const items = within(menu).getAllByRole('menuitem');
+    const paste = within(menu).getByTestId('tree-menu-paste-sketch') as HTMLButtonElement;
+    // live 行序：复制草图 / 粘贴到草图中（紧随，均无图标），隔分隔线后继续既有项。
+    expect(items[2]!.textContent).toContain('复制草图');
+    expect(items[3]).toBe(paste);
+    expect(paste.textContent).toContain('粘贴到草图中');
+    expect(paste.querySelector('svg')).toBeNull();
+    expect(paste.disabled).toBe(true);
+    expect(paste.getAttribute('title')).toBe('剪贴板为空（先复制草图）');
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole('menu')).toBeNull();
+
+    copySketchById('src', [{ kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } }], []);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk2'));
+    menu = screen.getByRole('menu', { name: '特征菜单' });
+    const enabledPaste = within(menu).getByTestId('tree-menu-paste-sketch') as HTMLButtonElement;
+    expect(enabledPaste.disabled).toBe(false);
+    await user.click(enabledPaste);
+    expect(onPasteSketch).toHaveBeenCalledTimes(1);
+    expect(onPasteSketch).toHaveBeenCalledWith('sk2');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('粘贴到草图中：canEdit=false 禁用（可见只读提示）；非 sketch 行不出现', () => {
+    copySketchById('src', [{ kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } }], []);
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} canEdit={false} onPasteSketch={vi.fn()} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    let menu = screen.getByRole('menu', { name: '特征菜单' });
+    const paste = within(menu).getByTestId('tree-menu-paste-sketch') as HTMLButtonElement;
+    expect(paste.disabled).toBe(true);
+    expect(paste.getAttribute('title')).toBe('当前为只读权限，无法执行此操作');
+    fireEvent.mouseDown(document.body);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex9'));
+    menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).queryByTestId('tree-menu-paste-sketch')).toBeNull();
   });
 });
 

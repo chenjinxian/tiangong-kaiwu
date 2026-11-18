@@ -9,6 +9,7 @@ import {
   copySketchById,
   copySketchEntities,
   hasSketchClipboard,
+  instantiateSketchCopy,
   pasteSketchClipboard,
 } from '../internal/sketch-clipboard.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
@@ -180,5 +181,25 @@ describe('copySketchById（树级复制草图）', () => {
 
     // 仅 point 的草图同样无曲线可复制。
     expect(copySketchById('sketch-points', [{ kind: 'point', id: 1, x: 0, y: 0 }], [])).toBe(0);
+  });
+
+  it('实例化 fail-closed：实体数字引用缺失 → undefined；origin/集外约束被跳过', () => {
+    // 实体引用数字 point 但复制集未包含该 point → 调用方不得提交。
+    expect(instantiateSketchCopy(
+      [{ kind: 'line', id: 11, p1: 99, p2: { x: 1, y: 0 } }],
+      [],
+      1,
+    )).toBeUndefined();
+    // 约束引用 origin/集外实体 → 该约束跳过，实体仍可实例化。
+    const originRef = instantiateSketchCopy(
+      [{ kind: 'line', id: 11, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 } }],
+      [
+        { kind: 'horizontal', id: 21, refs: [{ origin: {} } as never] },
+        { kind: 'vertical', id: 22, refs: [77] },
+      ],
+      1,
+    );
+    expect(originRef?.entities).toHaveLength(1);
+    expect(originRef?.constraints).toHaveLength(0);
   });
 });

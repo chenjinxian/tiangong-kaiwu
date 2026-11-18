@@ -1,11 +1,13 @@
 /**
  * W41 S10（Onshape live 2026-11-18）：树草图行「复制草图」→ 另一草图内
  * 「粘贴草图图元」真栈链。
+ * W44 S13（Onshape live 2026-11-19 probe w46b）：树草图行「粘贴到草图中」——
+ * 剪贴板图元直接写入目标草图、**不打开草图**（live 空目标草图重开可见矩形）。
  *
- * live 证据：特征树草图行右键菜单含「复制草图」；草图编辑内画布空白右键
- * 菜单含「粘贴草图图元」（复制后启用），且**没有**「复制草图」。
+ * live 证据：特征树草图行右键菜单含「复制草图」「粘贴到草图中」；草图编辑内
+ * 画布空白右键菜单含「粘贴草图图元」（复制后启用），且**没有**「复制草图」。
  *
- * 本 spec（RPC 断言，不靠截图）：
+ * 用例 1（S10，草图内粘贴）：
  *   1) RPC 建种子草图 A（矩形：4 线 + 8 内联约束）；
  *   2) 树行右键 → 复制草图（会话剪贴板）；
  *   3) UI 新建草图 B（Front 平面，进入编辑态）；
@@ -13,6 +15,12 @@
  *   5) RPC 读 B：4 线 / 8 约束（4 coincident + 2 horizontal + 2 vertical）、
  *      包围盒 40×20、A 不变；
  *   6) 完成草图 → reload 重开 → B 持久（4 线 / 8 约束）。
+ *
+ * 用例 2（S13，树级粘贴）：
+ *   1) RPC 建 A（矩形）与 B（空草图）；
+ *   2) 树 A 复制草图 → 树 B「粘贴到草图中」；
+ *   3) 断言未打开草图对话框；RPC 读 B 4 线/8 约束、包围盒 40×20、A 不变；
+ *   4) reload 重开 → B 持久。
  */
 import { expect, test } from '@playwright/test';
 import type { SketchConstraintDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -100,7 +108,7 @@ async function expectRectangleCopy(
   expect(Math.abs(Math.max(...ys) - Math.min(...ys) - 20)).toBeLessThan(0.5);
 }
 
-test.describe('W41 S10：树复制草图 → 草图内粘贴草图图元', () => {
+test.describe('W41 S10 / W44 S13：草图复制与粘贴（树/草图内）', () => {
   test('树右键复制草图 A → 新草图 B 粘贴 → RPC 读 B（4 线/8 约束）→ reload 持久', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const token = await getApiToken();
@@ -186,6 +194,95 @@ test.describe('W41 S10：树复制草图 → 草图内粘贴草图图元', () =>
 
     // ── 6) 完成草图 → reload 重开 → B 持久 ───────────────────────────
     await finishSketch(page);
+    await page.reload();
+    const reopened = await openSeedImodelEditor(page, seed);
+    await expectRectangleCopy(reopened, sketchBId, token);
+  });
+
+  test('树右键复制草图 A → 树「粘贴到草图中」写入空草图 B（不打开草图）→ RPC 4 线/8 约束 → reload 持久', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+
+    // ── 1) RPC 建 A（矩形）与 B（空草图，同平面）────────────────────────
+    const rectangle = rectangleSketch(40, 20);
+    const lease = await borrowWriteLease(ctx, token, 's13-tree-paste');
+    const createdA = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: rectangle.entities,
+      constraints: rectangle.constraints,
+      plane: FRONT,
+    }, lease, token);
+    assertFeatureOpOk(createdA, '种子草图 A');
+    const sketchAId = createdA.featureId!;
+    const createdB = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [],
+      constraints: [],
+      plane: FRONT,
+    }, lease, token);
+    assertFeatureOpOk(createdB, '目标空草图 B');
+    const sketchBId = createdB.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    await expect(page.getByTestId(`tree-row-${sketchAId}`)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId(`tree-row-${sketchBId}`)).toBeVisible({ timeout: 60_000 });
+
+    // ── 2) 树 A 复制草图 → 树 B 粘贴到草图中（不打开草图）──────────────
+    await page.getByTestId(`tree-row-${sketchAId}`).click({ button: 'right' });
+    let menu = page.getByRole('menu', { name: '特征菜单' });
+    await expect(menu).toBeVisible();
+    await menu.getByTestId('tree-menu-copy-sketch').click();
+    await expect(menu).toHaveCount(0);
+
+    await page.getByTestId(`tree-row-${sketchBId}`).click({ button: 'right' });
+    menu = page.getByRole('menu', { name: '特征菜单' });
+    const pasteItem = menu.getByTestId('tree-menu-paste-sketch');
+    await expect(pasteItem).toBeEnabled();
+    await pasteItem.click();
+    // live 语义：目标草图不被打开（无草图对话框/草图工具条）。
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toHaveCount(0);
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toHaveCount(0);
+
+    // ── 3) RPC 读 B：4 线/8 约束 + 包围盒；A 不变 ──────────────────────
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchBId, token);
+      return sketch !== undefined
+        && sketch.entities.filter((entity) => entity.kind === 'line').length === 4
+        && sketch.constraints.length === 8;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
+    await expectRectangleCopy(ctx, sketchBId, token);
+
+    const source = await getSketchRpc(ctx, sketchAId, token);
+    expect(source?.entities.filter((entity) => entity.kind === 'line')).toHaveLength(4);
+    expect(source?.constraints).toHaveLength(8);
+
+    // 迟开守卫：树刷新完成后仍不得出现草图对话框/草图工具条（live 不打开草图）。
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toHaveCount(0);
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toHaveCount(0);
+
+    // P0-10 可撤销：Ribbon Undo → B 退回空草图；Redo → 4 线/8 约束恢复。
+    const undo = page.getByTestId('part-studio-ribbon-undo');
+    await expect(undo).toBeEnabled({ timeout: 30_000 });
+    await undo.click();
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchBId, token);
+      return sketch !== undefined && sketch.entities.length === 0 && sketch.constraints.length === 0;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
+    const redo = page.getByTestId('part-studio-ribbon-redo');
+    await expect(redo).toBeEnabled({ timeout: 30_000 });
+    await redo.click();
+    await expect.poll(async () => {
+      const sketch = await getSketchRpc(ctx, sketchBId, token);
+      return sketch !== undefined
+        && sketch.entities.filter((entity) => entity.kind === 'line').length === 4
+        && sketch.constraints.length === 8;
+    }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
+
+    // ── 4) reload 重开 → B 持久 ────────────────────────────────────────
     await page.reload();
     const reopened = await openSeedImodelEditor(page, seed);
     await expectRectangleCopy(reopened, sketchBId, token);

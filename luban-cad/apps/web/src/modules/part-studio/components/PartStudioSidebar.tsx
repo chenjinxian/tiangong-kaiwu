@@ -30,6 +30,7 @@ import {
   OutputMessagePriority,
 } from '@itwin/core-frontend';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
+import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import type {
   BodyInfo,
   FeatureOp,
@@ -37,18 +38,20 @@ import type {
   FeatureTreeEntry,
   RenameResult,
   SketchConstraintDto,
+  SketchDto,
   SketchEntityDto,
   VariableDto,
 } from '@luban-cad/shared';
 import { FeatureTree } from '../tree/FeatureTree.js';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
-import { copySketchById } from '../internal/sketch-clipboard.js';
+import { copySketchById, pasteSketchClipboard } from '../internal/sketch-clipboard.js';
 import { isFeatureNode, isSketchNode, type TreeNode } from '../tree/TreeRow.js';
 import {
   removeVariable, variableWriteBlockI18nKey, variableWriteBlockReason,
 } from '../internal/variables.js';
 import type { FeatureNode } from '../types.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import type { DocumentMode } from '@modules/documents';
 
 export interface PartStudioSidebarProps {
   /** 特征段原始条目（Session useFeatureSystem.tree 直通；缺省空集）。 */
@@ -112,6 +115,29 @@ export interface PartStudioSidebarProps {
   variablesReady?: boolean;
   /** 是否有可读的 scope（false=未连接/PS 未就绪）。 */
   variablesScopeActive?: boolean;
+  /**
+   * W44 S13：树级「粘贴到草图中」的目标草图**新鲜读面**（缺省=按
+   * `connection.key`+`partStudioId` 直连 `LubanFeatureRpcInterface.getSketch`）。
+   * 不得改用树 `entries.params`：树快照可能落后于后端（另一标签页/外部编辑/
+   * 刷新失败），wholesale `updateSketch` 用旧快照会静默回退已提交编辑。
+   */
+  readSketch?: (sketchId: string) => Promise<SketchDto | undefined>;
+  /**
+   * W44 S13：文档模式（A 文档恒省略手工 `?model=` scope）——与
+   * `useFeatureSystem`/`useSketchSystem` 同口径；缺省按 B/legacy 传 partStudioId。
+   */
+  scopeMode?: DocumentMode;
+}
+
+/**
+ * W44 S13：树粘贴新鲜读面的 `getSketch` scope 参数。A 文档（`?model=` 手工覆盖）
+ * 恒省略 scope，与 `useSketchSystem.refresh` / `useFeatureSystem` 的读面一致。
+ */
+export function sketchReadScopeArgs(
+  scopeMode: DocumentMode | undefined,
+  partStudioId: string | undefined,
+): [] | [string] {
+  return scopeMode === 'A' || partStudioId === undefined ? [] : [partStudioId];
 }
 
 export function PartStudioSidebar({
@@ -128,6 +154,8 @@ export function PartStudioSidebar({
   bodiesError,
   viewport,
   applyOp,
+  readSketch,
+  scopeMode,
   canEdit = true,
   renameFeature,
   renameBody,
@@ -279,6 +307,85 @@ export function PartStudioSidebar({
       }
     },
     [entries, notify, t],
+  );
+
+  /**
+   * W44 S13（Onshape live 2026-11-19 probe w46b）：树草图行「粘贴到草图中」——
+   * 把会话剪贴板实例化进目标草图（原位、id 重映射、内部约束随集），经一次
+   * 标准 `updateSketch` op 提交（可撤销）；**不打开草图**（live 实测：空目标
+   * 草图粘贴后无草图对话框，重开可见复制几何）。目标 params 不可读/剪贴板空/
+   * 后端拒收均可见报错，不静默；canEdit=false 防御性拒收。
+   */
+  const handlePasteSketch = React.useCallback(
+    async (sketchId: string) => {
+      if (!canEdit) return;
+      if (!applyOp) {
+        console.warn(`[part-studio] 粘贴到草图 ${sketchId}（applyOp 未接线）`);
+        return;
+      }
+      // P2（W44 复核）：目标草图必须**新鲜读面**。树 entries.params 可能落后于
+      // 后端（另一标签页/外部编辑/刷新失败），wholesale updateSketch 用旧快照
+      // 会静默回退已提交编辑（且 undo 只能回到旧快照）。
+      let sketch: SketchDto | undefined;
+      try {
+        if (readSketch) {
+          sketch = await readSketch(sketchId);
+        } else {
+          const connectionKey = connection?.key;
+          if (!connectionKey) throw new Error(t('partStudio.sketch.noConnection'));
+          const scopeArgs = sketchReadScopeArgs(scopeMode, partStudioId);
+          sketch = await LubanFeatureRpcInterface.getClient()
+            .getSketch(connectionKey, sketchId, ...scopeArgs);
+        }
+      } catch (err) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.sketch.readSketchFailed', {
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        return;
+      }
+      if (!sketch || !Array.isArray(sketch.entities) || !Array.isArray(sketch.constraints)) {
+        notify(OutputMessagePriority.Error, t('partStudio.sketch.sketchNotFound'));
+        return;
+      }
+      // 合并/重映射在 try 内：params 形态异常（null/缺 refs）不得变成未处理拒绝。
+      try {
+        const result = pasteSketchClipboard(sketch.entities, sketch.constraints);
+        if (!result.ok) {
+          notify(
+            OutputMessagePriority.Error,
+            result.reason === 'empty'
+              ? t('partStudio.sketch.pasteClipboardEmpty')
+              : t('partStudio.sketch.pasteSketchFailed', {
+                message: t('partStudio.sketch.pasteClipboardInvalid'),
+              }),
+          );
+          return;
+        }
+        const applied = await applyOp({
+          kind: 'updateSketch',
+          sketchId,
+          entities: result.entities,
+          constraints: result.constraints,
+        });
+        if (!applied.ok) {
+          notify(
+            OutputMessagePriority.Error,
+            t('partStudio.sketch.pasteSketchFailed', { message: applied.error ?? '' }),
+          );
+        }
+      } catch (err) {
+        notify(
+          OutputMessagePriority.Error,
+          t('partStudio.sketch.pasteSketchFailed', {
+            message: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    },
+    [applyOp, canEdit, connection?.key, notify, partStudioId, readSketch, scopeMode, t],
   );
 
   /**
@@ -435,6 +542,7 @@ export function PartStudioSidebar({
         viewport={viewport}
         onEdit={handleEdit}
         onCopySketch={handleCopySketch}
+        onPasteSketch={handlePasteSketch}
         onDelete={handleDelete}
         onSuppress={handleSuppress}
         onRename={handleRename}
