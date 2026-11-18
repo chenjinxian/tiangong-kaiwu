@@ -397,6 +397,22 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   APPROVE（P3 补测/文档已修）；web APPROVE WITH FIXES（P2 circular 清除测试过弱）→
   强化并以临时禁用清除验证转红后还原。**未发布**；残：第二方向间距/circular angle/
   count 表达式未接；FEATURE 阵列真栈 e2e 未单独覆盖（单测覆盖）。
+- **W38 S7 倒角数值字段表达式（2026-11-18，shared 1.77 / 私有后端 / web；ADR-0020 §2.12）**：
+  `ChamferParams.values1Expression?/values2Expression?`（live：等距离/两个距离/距离和
+  角度三模式字段均接受表达式，角度接受 angle 变量）；仅标量目标、mode 1/2/3；
+  values1 length；values2 mode 2 length / mode 3 angleRadFromDeg（度→弧度）；mode 0/4/
+  数组/缺目标显式拒收；mode 3 标量弧度域 `(0,π)`。后端 field-spec mode 相关 kind +
+  registry 复验 + updateVariables 全键扫描/undo（并修复 ScenarioReplay OFFSET_ANGLE
+  度→弧度潜伏 bug）；web 三模式复用 `ExpressionNumberField`（等距离双键同文、未触碰
+  保留、数值清除、切模式清非适用/换量纲、角度内联创建 deg→angle、预览求值、S5
+  本地化）。验证：shared **312/312**（+3）；backend targeted **141/141（5 files）**、
+  全量 **1086 passed/1 expected fail/8 skipped（112 files）**、tsc 绿；web
+  **2532/2532**（160 files）、tsc/eslint 绿；真栈 `chamfer-expression` **2 passed
+  （1.2 m：`#sp`+`#ang` → values2≈π/4、编辑回显、变量 2→4、原生 undo/redo、push+
+  冷重开）** + `live-chamfer-mode3` **2 passed（3960 mm³）**。复核：后端 APPROVE
+  WITH FIXES（弧度域钉/ScenarioReplay/文案）→ 修复；web APPROVE WITH FIXES（角度
+  内联创建单位、测试隔离/预览载荷/e2e）→ 修复。**未发布**；残：mode 4
+  AngleDistance 存量行编辑按 mode 3 重解释（失败闭合，另切片）；逐边数组表达式未做。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

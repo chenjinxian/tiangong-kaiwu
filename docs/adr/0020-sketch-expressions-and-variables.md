@@ -1,8 +1,9 @@
 # ADR-0020 — Sketch expressions and Part Studio variables (v1)
 
-- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5/S6 已实现；
+- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5/S6/S7 已实现；
   S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施；S5 表达式错误结构化与本地化
-  按 §2.10 实施；S6 线性阵列间距表达式按 §2.11 实施）**
+  按 §2.10 实施；S6 线性阵列间距表达式按 §2.11 实施；S7 倒角数值字段表达式按
+  §2.12 实施）**
 - 日期：2026-11-17
 - 关联：AIRR `docs/superpowers/specs/2026-11-17-expressions-variables-airr.md`；
   `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared `LubanFeatureRpcInterface`
@@ -359,6 +360,21 @@ field-spec + registry schema 复验 + `updateVariables` 全键扫描/undo；web 
 数值清除、circular 清除、preview 用求值数）。**不做**：第二方向间距、circular
 angle、count 表达式；发布未授权。
 
+### 2.12 S7 倒角数值字段表达式（2026-11-18 recon）
+
+**Live 证据（私有 `probe-20261118/`）**：倒角对话框三种类型——等距离（单「距离」）、
+两个距离（距离1/距离2）、距离和角度（距离 mm + 角度 45 deg）；等距离与距离字段
+接受 `#width`，角度字段接受 angle 变量 `#ang`（均有效 + 数量补全）。**契约 shared
+1.76.0 → 1.77.0**：`ChamferParams.values1Expression?`/`values2Expression?`，仅
+**标量**目标（数组/逐边显式拒收）；mode 1/2/3 适用（UI：等距离与两个距离均为
+mode 2；距离和角度 mode 3）：values1 kind length；values2 mode 2 length、mode 3
+angleRadFromDeg（度书写→弧度物化），mode 0/4 与缺目标显式拒收；mode 3 标量
+values2 弧度域 `(0, π)` 明确校验。后端复用 field-spec（支持 mode 相关 kind）+
+registry 复验 + updateVariables 全键扫描/undo；web 三模式数值行复用
+`ExpressionNumberField`（等距离双键同文、未触碰保留、数值清除、切换模式清非适用/
+换量纲字段、无效禁提、预览用求值数、S5 本地化；角度字段内联创建 `deg`→angle）。
+**不做**：逐边数组表达式、mode 0/4、测量类型扩展；发布未授权。
+
 ## 3. 备选方案
 
 - **A. 全部前端求值，后端只收数值**：不新增契约；但重建/变量变更无法由后端权威
@@ -468,6 +484,20 @@ angle、count 表达式；发布未授权。
   （P3 补测/文档建议 → 已修）；web opus APPROVE WITH FIXES（P2 circular 清除测试
   过弱）→ 强化为聚焦断言 + 提交载荷无 `spacingExpression`，并以临时禁用清除效果
   验证测试转红（已还原）。FEATURE 阵列真栈 e2e 未单独覆盖（单测覆盖，登记）。
+- **S7 实测（2026-11-18）**：shared **312/312**（+3）含 test:types；private backend
+  targeted **141/141（5 files）**、全量 **1086 passed / 1 expected fail / 8 skipped
+  （112 files）**、tsc 绿。web **2532/2532**（160 files）、tsc/ eslint 绿。真栈
+  `chamfer-expression` **2 passed（1.2 m；setup + 1 用例）**：距离和角度
+  `#sp`+`#ang` → 树 `{mode:3, values1:2, values1Expression:'#sp',
+  values2Expression:'#ang'}`、`values2≈π/4` → 值编辑回显/取消零写 → 变量 sp 2→4
+  物化 → 原生 undo/redo（均保持 π/4）→ push+冷重开体积与 Redo 后一致；回归
+  `examples/live-chamfer-mode3` **2 passed（41.7 s，3960 mm³）**。复核：后端 opus
+  APPROVE WITH FIXES（mode-3 弧度域 `(0,π)` 非表达式回归钉 + ScenarioReplay
+  OFFSET_ANGLE 度→弧度修复 + 缺失目标文案）→ 修复；web opus APPROVE WITH FIXES
+  （P2 角度字段内联创建单位；测试隔离/预览载荷/未触碰保留；e2e 体积与取消断言）
+  → 修复。**残**：mode 4（AngleDistance）存量行编辑仍按 mode 3 重解释（UI 从不
+  创建 mode 4，shared 1.77 拒收 mode-4 表达式→失败闭合；另切片修复）；逐边数组
+  表达式/测量类型扩展未做。
 
 ## 5. 回滚
 

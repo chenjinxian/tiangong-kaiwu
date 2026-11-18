@@ -352,3 +352,24 @@ circular 清除、无效禁提、preview 用求值数、S5 本地化错误）。
 冷重开）；回归 body pattern **3 passed**、feature-pattern **5 passed + 1 既有
 KNOWN-RED（标记）**。复核：后端 APPROVE（P3 补测/文档已修）；web APPROVE WITH
 FIXES（P2 circular 清除测试过弱）→ 强化并用临时禁用清除效果验证转红后还原。
+
+## 15. S7 倒角数值字段表达式（2026-11-18）
+
+**Live 证据**：倒角类型=等距离（单距离）/两个距离（距离1/2）/距离和角度（距离 mm +
+角度 45 deg）；距离字段接受 `#width`，角度字段接受 angle 变量 `#ang`（均有效 +
+数量补全）。**设计**：shared 1.77.0 `ChamferParams.values1Expression?/
+values2Expression?`（仅标量目标、mode 1/2/3；values1 length；values2 mode 2 length、
+mode 3 angleRadFromDeg 度→弧度；mode 0/4、数组、缺目标显式拒收；mode 3 标量弧度域
+(0,π)）。后端 field-spec 支持 mode 相关 kind + registry 复验 + updateVariables 全键
+扫描/undo；web 三模式数值行复用 `ExpressionNumberField`（等距离双键同文、未触碰
+保留、数值清除、切模式清非适用/换量纲、无效禁提、预览求值、S5 本地化、角度内联
+创建 deg→angle）。**不做**：逐边数组、mode 0/4、测量类型扩展；发布未授权。
+
+**验证**：shared **312/312**（+3）含 test:types；private backend targeted **141/141
+（5 files）**、全量 **1086 passed/1 expected fail/8 skipped（112 files）**、tsc 绿；
+web **2532/2532**（160 files）、tsc/eslint 绿；真栈 `chamfer-expression` **2 passed
+（1.2 m）**（`#sp`+`#ang` 距离-角度：params/π/4 快照、编辑回显、变量 2→4 物化、
+原生 undo/redo、push+冷重开）+ 回归 `live-chamfer-mode3` **2 passed（3960 mm³）**。
+复核：后端 APPROVE WITH FIXES（弧度域回归钉/ScenarioReplay 度→弧度/文案）→ 修复；
+web APPROVE WITH FIXES（角度内联创建单位、测试隔离/预览载荷/e2e 断言）→ 修复。
+残：mode 4 存量行重解释（失败闭合，另切片）；逐边数组表达式未做。
