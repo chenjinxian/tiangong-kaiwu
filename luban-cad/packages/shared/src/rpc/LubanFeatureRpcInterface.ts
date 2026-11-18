@@ -184,6 +184,11 @@
  * 目标字段保持必填（物化快照）；后端泛化 field-spec 解析（length/signedLength/angleDeg/
  * angleRadFromDeg），写/预览/变量传播统一物化；适用性（blind/THIN/draft/secondDirection/
  * 非全周）不满足时显式拒收。
+ * v1.76（ADR-0020 S6）：阵列间距表达式——`PatternParams.spacingExpression?`（PART/body
+ * 线性阵列）与 `FeaturePatternParams.spacingExpression?`（FEATURE 线性阵列）。均物化各自
+ * `spacing`（保持必填快照）；仅 `kind="linear"` 适用，circular 携带显式拒收（零变更）；
+ * kind=`length`、>0，变量类型门 length/number/any，长度上限同其他表达式键；无表达式不读
+ * 变量表。第二方向间距/circular angle/count 表达式不在本切片。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -591,6 +596,19 @@ export interface PatternParams {
   secondDirection?: PatternSecondDirection;
   /** v1.63（ADR-0007 切片 14）：第一方向反向（仅 linear；沿 axis 负向平移）。 */
   oppositeDirection?: boolean;
+  /** v1.76（ADR-0020 S6）：线性阵列第一方向间距表达式。
+   *
+   * - **仅 `kind="linear"` 适用**。写入/预览载荷**必须同时携带 `spacing` 占位键**（缺省时
+   *   服务端 registry zod 直接拒收，不会进入表达式求值）；`spacing` 保持必填快照——无
+   *   表达式时即设计值，有表达式时是后端在写入/变量变更时权威求值物化的值，冷重建/求值
+   *   只消费它。**仅 `updateVariables` 的 stored-row 修复路径允许用表达式补全缺失的
+   *   `spacing`**（不改写写入门禁）。circular 携带本键显式拒收（零变更，不静默忽略）。
+   * - kind=`length`、结果须为有限正数（沿用 `spacing` 的 >0 schema）；变量类型门
+   *   length/number/any（angle 变量拒收）；表达式长度上限 `MAX_EXPRESSION_LENGTH`。
+   * - 求值/类型/上限错误 → 整 op 拒收零变更；无本键时后端不读变量表（既有行为不变）。
+   * - 本切片不接第二方向间距（`PatternSecondDirection.spacing`）与 circular angle 表达式。
+   * - web 提交形态：`{ spacing: 求值, spacingExpression: 原文 }`；纯数值提交删除本键。 */
+  spacingExpression?: string;
 }
 
 /** v1.62：PART/body 线性阵列的第二方向（世界轴枚举，与第一方向同轴口径）。 */
@@ -653,6 +671,15 @@ export interface FeaturePatternParams {
   centered?: boolean;
   /** v1.61（ADR-0007 切片 10）：linear 第二方向；仅 kind=linear 合法。 */
   secondDirection?: FeaturePatternSecondDirection;
+  /** v1.76（ADR-0020 S6）：FEATURE 线性阵列第一方向间距表达式。
+   *
+   * 与 `PatternParams.spacingExpression` 同口径：仅 `kind="linear"` 适用；写入/预览载荷
+   * **必须同时携带 `spacing` 占位键**（缺省时 registry zod 直接拒收，不进入表达式求值；
+   * **仅 `updateVariables` 的 stored-row 修复路径**允许表达式补全缺失的 `spacing`）；
+   * 物化 `spacing` 必填快照；kind=`length`、>0；变量类型门 length/number/any；长度上限
+   * `MAX_EXPRESSION_LENGTH`；circular 携带显式拒收、错误零变更；无表达式不读变量表。
+   * 本切片不接第二方向间距、circular angle、count 表达式。 */
+  spacingExpression?: string;
 }
 
 /**
@@ -1165,7 +1192,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.75.0";
+  public static interfaceVersion = "1.76.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
