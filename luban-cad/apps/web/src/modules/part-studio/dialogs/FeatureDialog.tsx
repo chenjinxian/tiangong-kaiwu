@@ -177,6 +177,12 @@
  * （kind length，仅第二方向激活时适用）——表达式**嵌套在**
  * `secondDirection.spacingExpression`（与第一方向顶层同名键分层，状态/载荷互不
  * 覆盖）；未触碰保留、数值编辑清除、取消第二方向/切圆周清除、无效阻断提交/预览。
+ * ADR-0020 S12（shared 1.80）：circular 总角度改用 `ExpressionNumberField`
+ * （kind angleDeg；表达式仅 circular 适用）——载荷 `{angle: 求值/数值,
+ * angleExpression?: 原文}`，angle 保持必填物化快照（度制直接物化）；linear
+ * 不渲染该行、载荷不带两键；未触碰保留、数值编辑/切 linear 清除、无效阻断提交/预览。
+ * 显示命名对齐（S12）：circular body pattern 的标题/树行为「环形阵列 N」
+ * （显示伪类型 `patternCircular`，底层 featureType 仍是 `pattern`）。
  *
  * newBody / 目标实体（B6 M-A3.2a，shared v1.15）：
  * - extrude 通道「新建实体」复选（new 模式）：勾选才在 params 带 `newBody:true`
@@ -1401,15 +1407,6 @@ export function FeatureDialog({
   const [mirrorSourceFeatureId, setMirrorSourceFeatureId] = React.useState('');
   const mirrorFeatureReady = mirrorScope === 'body'
     || (mirrorSourceFeatureId !== '' && mirrorPlaneChoice !== 'FACE');
-  // F2（2026-11-16）：新建标题/成功 toast 必须跟随实际提交类型——镜像特征
-  // 作用域提交 featureMirror，布尔作用域提交 booleanAdd/booleanSubtract；
-  // 否则标题显示「镜像 N/布尔运算 N」而树行是「特征镜像 N/并集 N/差集 N」。
-  // 仅显示层派生，不改载荷；提交类型权威仍是 handleConfirm 内的
-  // submittedFeatureType。编辑模式保持落库名。
-  const submittedForName = mirrorChannel && mirrorScope === 'feature' ? 'featureMirror' : effectiveFeatureType;
-  const displayFeatureName = mode === 'edit' || !featureNameForType || submittedForName === undefined
-    ? featureName
-    : featureNameForType(submittedForName);
   // B5 pattern 通道：kind（ribbon 入口可指定初始值）+ count（含原件，缺省 2——
   // 2026-11-15 live 默认）+ spacing（linear 缺省 10）/ angle（circular 缺省 360°）
   // + axis（linear 缺省 X；circular 锁定 Z，见下方载荷/渲染）。
@@ -1418,6 +1415,22 @@ export function FeatureDialog({
       ? editParams.kind
       : (initialPatternKind ?? 'linear'),
   );
+  // F2（2026-11-16）：新建标题/成功 toast 必须跟随实际提交类型——镜像特征
+  // 作用域提交 featureMirror，布尔作用域提交 booleanAdd/booleanSubtract；
+  // 否则标题显示「镜像 N/布尔运算 N」而树行是「特征镜像 N/并集 N/差集 N」。
+  // 仅显示层派生，不改载荷；提交类型权威仍是 handleConfirm 内的
+  // submittedFeatureType。编辑模式保持落库名。
+  // ADR-0020 S12：circular body pattern 用显示伪类型 `patternCircular` 解析
+  // 标题/序号（环形阵列 N，与树派生名同源）；linear 仍 `pattern`（阵列 N）。
+  // 只影响显示，提交类型权威仍是 submittedFeatureType / effectiveFeatureType。
+  const submittedForName = mirrorChannel && mirrorScope === 'feature'
+    ? 'featureMirror'
+    : patternChannel && patternKind === 'circular'
+      ? 'patternCircular'
+      : effectiveFeatureType;
+  const displayFeatureName = mode === 'edit' || !featureNameForType || submittedForName === undefined
+    ? featureName
+    : featureNameForType(submittedForName);
   // v1.49（ADR-0007 切片 6）：居中线性阵列——落库 count 是总实例数 2N−1，
   // 编辑回显换算回每侧 N（脏/偶数原样显示，交给提交校验诚实拒收）。
   const patternStoredCentered = editParams?.centered === true;
@@ -1447,6 +1460,19 @@ export function FeatureDialog({
     return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
   }, [editParams]);
   const [patternAngle, setPatternAngle] = React.useState(() => storedNumberString(editParams?.angle) ?? '360');
+  // ADR-0020 S12（shared 1.80）：circular 总角度表达式——angle 保持必填物化
+  // 快照（度制；kind angleDeg 直接物化，不做弧度换算）；仅 circular 适用。
+  const storedPatternAngleExpression = React.useMemo(
+    // 仅 pattern 通道读取：revolve 也有同名 `angleExpression` 键（度→弧度），
+    // 非 pattern 载入时不得把 revolve 的表达式误读为阵列角度。
+    () => readStoredExpression(patternChannel ? editParams : undefined, 'angleExpression'),
+    [editParams, patternChannel],
+  );
+  const patternAngleField = useExpressionField(storedPatternAngleExpression);
+  const storedMaterializedPatternAngle = React.useMemo<number | undefined>(() => {
+    const raw = editParams?.angle;
+    return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+  }, [editParams]);
   const [patternAxis, setPatternAxis] = React.useState<PatternParams['axis']>(() =>
     editParams?.axis === 'X' || editParams?.axis === 'Y' || editParams?.axis === 'Z' ? editParams.axis : 'X',
   );
@@ -2158,8 +2184,31 @@ export function FeatureDialog({
       setPatternSpacing((prev) => numericTextOr(prev, '10'));
     }
   }, [patternSpacingExpressionApplicable, patternSpacingField]);
-  const patternAngleNumber = Number(patternAngle);
-  const patternAngleValid = Number.isFinite(patternAngleNumber) && patternAngleNumber > 0 && patternAngleNumber <= 360;
+  // ADR-0020 S12：总角度表达式仅 circular 适用（linear 行不渲染、载荷不带该键）。
+  // 表达式在场时数值态忽略草稿，预览/载荷共用同一求值（无效 → 提交与预览同时阻断）。
+  const patternAngleExpressionApplicable = patternChannel && patternKind === 'circular';
+  const patternAngleExpressionActive = patternAngleExpressionApplicable
+    && patternAngleField.expression !== undefined;
+  const patternAngleNumber = patternAngleExpressionActive && patternAngleField.evaluation?.ok
+    ? patternAngleField.evaluation.value
+    : Number(patternAngle);
+  const patternAngleValid = !patternAngleExpressionApplicable
+    || (patternAngleExpressionActive
+      ? patternAngleField.evaluation?.ok === true
+        && Number.isFinite(patternAngleNumber) && patternAngleNumber > 0 && patternAngleNumber <= 360
+      : (Number.isFinite(patternAngleNumber) && patternAngleNumber > 0 && patternAngleNumber <= 360));
+  const patternAngleExpressionSource = patternAngleExpressionActive
+    && patternAngleField.evaluation?.ok
+    ? patternAngleField.evaluation.expression
+    : undefined;
+  // 切 linear 后 circular 行卸载（组件自身的“不适用清除”不再运行）——宿主补
+  // 同口径清除并把草稿归位为可解析数值（切回 circular 不留旧 `#expr`）。
+  React.useEffect(() => {
+    if (!patternAngleExpressionApplicable && patternAngleField.expression !== undefined) {
+      patternAngleField.setExpression(undefined);
+      setPatternAngle((prev) => numericTextOr(prev, '360'));
+    }
+  }, [patternAngleExpressionApplicable, patternAngleField]);
   // v1.62：第二方向仅 linear 生效；centered 输入为每侧 N（载荷 2N−1）。
   const patternSecondActive = patternChannel && patternKind === 'linear' && patternSecondEnabled;
   const patternSecondCenteredActive = patternSecondActive && patternSecondCentered;
@@ -2221,6 +2270,7 @@ export function FeatureDialog({
     || (draftEnabled && draftField.invalid)
     || (revolveAngleExpressionApplicable && revolveAngleField.invalid)
     || (patternSpacingExpressionApplicable && patternSpacingField.invalid)
+    || (patternAngleExpressionApplicable && patternAngleField.invalid)
     || (patternSecondSpacingExpressionApplicable && patternSecondSpacingField.invalid);
   // W42 S11：存量倒角 mode 0/1/4（及未知）为诚实只读——✓/成品一律禁用，
   // 关闭出口只留取消。
@@ -2420,7 +2470,11 @@ export function FeatureDialog({
         : {
             kind: 'circular',
             count: patternCountNumber,
+            // ADR-0020 S12：angle 恒为必填物化快照（度）；表达式原文随载荷提交。
             angle: patternAngleNumber,
+            ...(patternAngleExpressionSource !== undefined
+              ? { angleExpression: patternAngleExpressionSource }
+              : {}),
             axis: 'Z',
           }) as FeatureParams;
       previewFeatureType = 'pattern';
@@ -2478,6 +2532,7 @@ export function FeatureDialog({
     patternChannel, patternKind, patternEffectiveCount, patternCountValid,
     patternSpacingNumber, patternSpacingValid, patternAngleNumber, patternAngleValid,
     patternSpacingExpressionActive, patternSpacingField, patternSpacingExpressionSource,
+    patternAngleExpressionActive, patternAngleField, patternAngleExpressionSource,
     patternCenteredActive, patternAxis, patternUpstreamMissing,
     patternOppositeDirection,
     patternSecondActive, patternSecondCountValid, patternSecondSpacingValid, patternTotalCountValid,
@@ -2605,6 +2660,12 @@ export function FeatureDialog({
           return patternSpacingField.evaluation !== undefined && !patternSpacingField.evaluation.ok
             ? expressionFieldMessage(patternSpacingField.evaluation.error, 'length', t, {
               variableTypeField: t('partStudio.featureDialog.patternSpacingField'),
+            })
+            : undefined;
+        if (patternAngleExpressionApplicable && patternAngleField.invalid)
+          return patternAngleField.evaluation !== undefined && !patternAngleField.evaluation.ok
+            ? expressionFieldMessage(patternAngleField.evaluation.error, 'angleDeg', t, {
+              variableTypeField: t('partStudio.featureDialog.patternAngleField'),
             })
             : undefined;
         if (patternSecondSpacingExpressionApplicable && patternSecondSpacingField.invalid)
@@ -2921,12 +2982,17 @@ export function FeatureDialog({
                       : {}),
                   }
                 : {
-                    // 圆周阵列：绕世界 Z 过原点；axis 恒 'Z'（UI 锁定 + 服务端 zod 同口径）。
+                    // 环形阵列：绕世界 Z 过原点；axis 恒 'Z'（UI 锁定 + 服务端 zod 同口径）。
                     // angle 度制 (0,360]；实例角度=k*step（360→angle/count；部分角→
                     // angle/(count-1)，首末夹总角）。无 spacing 键。
                     kind: 'circular' as const,
                     count: patternCountNumber,
+                    // ADR-0020 S12：angle 恒为必填物化快照（度制，angleDeg 直接
+                    // 物化）；表达式原文随载荷提交（仅 circular）。
                     angle: patternAngleNumber,
+                    ...(patternAngleExpressionSource !== undefined
+                      ? { angleExpression: patternAngleExpressionSource }
+                      : {}),
                     axis: 'Z' as const,
                   })
             : mirrorChannel
@@ -5843,18 +5909,34 @@ export function FeatureDialog({
                     </section>
                   ) : (
                     <section className="part-studio-feature-dialog__angle" data-field="pattern-angle">
-                      <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-angle">
-                        {t('partStudio.featureDialog.patternAngleLabel')}
-                      </label>
-                      <input
+                      {/* ADR-0020 S12：总角度 = 通用表达式数值字段（kind angleDeg，
+                          度制直出；`#` 补全/内联创建按 deg 建 angle 变量）。 */}
+                      <ExpressionNumberField
                         id="part-studio-feature-dialog-pattern-angle"
-                        type="text"
-                        inputMode="decimal"
-                        aria-label={t('partStudio.featureDialog.patternAngleLabel')}
-                        className="part-studio-feature-dialog__input"
-                        value={patternAngle}
+                        label={t('partStudio.featureDialog.patternAngleLabel')}
+                        numberText={patternAngle}
+                        setNumberText={setPatternAngle}
+                        expression={patternAngleField.expression}
+                        setExpression={patternAngleField.setExpression}
+                        kind="angleDeg"
+                        unitLabel=""
+                        applicable={patternAngleExpressionApplicable}
                         disabled={submitting}
-                        onChange={(event) => setPatternAngle(event.target.value)}
+                        validate={(value) => Number.isFinite(value) && value > 0 && value <= 360}
+                        inlineCreateUnit="deg"
+                        variables={depthVariableList}
+                        variablesLoading={variablesLoading}
+                        variablesError={variablesError}
+                        variablesReady={variablesReady}
+                        onCreateVariable={onCreateVariable}
+                        variablesDialogActive={variablesDialogActive}
+                        storedExpression={storedPatternAngleExpression}
+                        storedExpressionUntouchedValue={storedMaterializedPatternAngle}
+                        onValidity={patternAngleField.onValidity}
+                        onEnter={handleConfirm}
+                        inputTestId="part-studio-feature-dialog-pattern-angle"
+                        expressionLabel={t('partStudio.featureDialog.patternAngleExpressionLabel')}
+                        variableTypeField={t('partStudio.featureDialog.patternAngleField')}
                       />
                     </section>
                   )}

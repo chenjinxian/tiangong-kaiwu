@@ -828,7 +828,7 @@
     "patternKindLabel": "阵列类型",
     "patternKindOptions": {
       "linear": "线性阵列",
-      "circular": "圆周阵列"
+      "circular": "环形阵列"
     },
     "patternCountLabel": "实例数",
     "patternCountLabelCentered": "每侧实例数（含原件）",
@@ -840,13 +840,15 @@
     "patternSecondSpacingExpressionLabel": "第二方向间距表达式",
     "patternSecondSpacingField": "第二方向间距字段",
     "patternAngleLabel": "总角度（度）",
+    "patternAngleExpressionLabel": "总角度表达式",
+    "patternAngleField": "总角度字段",
     "patternAxisLabel": "方向轴",
     "patternAxisOptions": {
       "X": "X 轴",
       "Y": "Y 轴",
       "Z": "Z 轴"
     },
-    "patternScopeHint": "首版仅支持实体（PART）级阵列：实例含原件并 Union 为单一体；圆周绕世界 Z 轴过原点（360° 时步进=总角/数量，部分角时步进=总角/(数量−1)）",
+    "patternScopeHint": "首版仅支持实体（PART）级阵列：实例含原件并 Union 为单一体；环形阵列绕世界 Z 轴过原点（360° 时步进=总角/数量，部分角时步进=总角/(数量−1)）",
     "patternNeedsBodyHint": "阵列需要上游实体：请先创建至少一个实体特征",
     "patternCountInvalid": "实例数量须为 2–1000 的整数（含原件）",
     "patternSpacingInvalid": "间距须为正数",
@@ -1652,6 +1654,7 @@
       "sweep": "扫掠",
       "mirror": "镜像",
       "pattern": "阵列",
+      "patternCircular": "环形阵列",
       "hole": "孔",
       "cPlane": "平面",
       "sketch": "草图",
@@ -1781,7 +1784,7 @@
     },
     "curvePattern": {
       "title": "曲线阵列（规划中）",
-      "message": "曲线阵列已在鲁班CAD 路线图中登记，当前版本仅支持实体（PART）级的线性与圆周阵列，后续里程碑提供。"
+      "message": "曲线阵列已在鲁班CAD 路线图中登记，当前版本仅支持实体（PART）级的线性与环形阵列，后续里程碑提供。"
     },
     "faceBlend": {
       "title": "面混合（规划中）",
@@ -2110,7 +2113,7 @@
     "secondDirectionExpand": "展开或收起第二个方向",
     "secondDirectionExpandHint": "勾选「第二个方向」后可展开该组。",
     "secondDirectionNoAxis": "该特征未落库第二方向轴，无法新增第二方向（请删除后重建并指定第二方向轴）。",
-    "secondDirectionCircularUnavailable": "圆周阵列不支持第二方向。",
+    "secondDirectionCircularUnavailable": "环形阵列不支持第二方向。",
     "calculatorUnavailable": "计算器弹层尚未接入；数值请直接输入。"
   },
   "cPlaneDialog": {

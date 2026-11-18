@@ -35,6 +35,9 @@ export const NEW_FEATURE_LABEL_KEYS: Readonly<Record<string, string>> = {
   transform: 'partStudio.tree.featureTypes.transform',
   booleanBodies: 'partStudio.tree.featureTypes.booleanBodies',
   pattern: 'partStudio.tree.featureTypes.pattern',
+  // ADR-0020 S12：circular body pattern 的显示类型（live 命名「环形阵列 N」）。
+  // 仅显示投影，底层 featureType 仍是 `pattern`（载荷/删除/过滤不变）。
+  patternCircular: 'partStudio.tree.featureTypes.patternCircular',
   featurePattern: 'partStudio.tree.featureTypes.featurePattern',
   featureMirror: 'partStudio.tree.featureTypes.featureMirror',
   cPlane: 'partStudio.tree.featureTypes.cPlane',
@@ -43,12 +46,32 @@ export const NEW_FEATURE_LABEL_KEYS: Readonly<Record<string, string>> = {
 /** 计数只需 featureType（FeatureTreeEntry 结构性兼容；自定义名/抑制态不参与）。 */
 export interface FeatureNamingEntry {
   readonly featureType: string;
+  /** ADR-0020 S12：显示类型判定只需 pattern 的落库 `kind`（其它类型忽略）。 */
+  readonly params?: unknown;
 }
 
 /**
- * 新建特征名：`<labelFor(featureType)> <同类条目数 + 1>`。
- * @param featureType 新特征类型（树 `FeatureTreeEntry.featureType`）
- * @param entries 当前特征树条目（全部条目；按类型过滤计数）
+ * 显示类型（ADR-0020 S12）：body pattern 的 circular 形态在树/标题/序号中
+ * 显示为「环形阵列 N」，linear 保持「阵列 N」。
+ *
+ * 这是**显示投影**：返回的伪类型 `patternCircular` 仅用于 i18n 词条与计数，
+ * 不进入 FeatureTreeEntry.featureType、不参与载荷/删除/过滤；未知形态回退
+ * 原始 featureType（绝不猜）。
+ */
+export function featureDisplayType(entry: FeatureNamingEntry): string {
+  if (entry.featureType !== 'pattern') return entry.featureType;
+  const params = entry.params;
+  if (typeof params === 'object' && params !== null
+    && (params as { kind?: unknown }).kind === 'circular')
+    return 'patternCircular';
+  return entry.featureType;
+}
+
+/**
+ * 新建特征名：`<labelFor(displayType)> <同类条目数 + 1>`。
+ * @param featureType 新特征类型（树 `FeatureTreeEntry.featureType`；circular
+ *   body pattern 传显示伪类型 `patternCircular`，计数按同类显示类型）
+ * @param entries 当前特征树条目（全部条目；按显示类型过滤计数）
  * @param labelFor 类型 → 显示标签（宿主注入 i18n 解析）
  */
 export function nextFeatureName(
@@ -56,6 +79,6 @@ export function nextFeatureName(
   entries: readonly FeatureNamingEntry[],
   labelFor: (featureType: string) => string,
 ): string {
-  const count = entries.filter((entry) => entry.featureType === featureType).length;
+  const count = entries.filter((entry) => featureDisplayType(entry) === featureType).length;
   return `${labelFor(featureType)} ${count + 1}`;
 }

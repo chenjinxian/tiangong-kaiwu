@@ -840,6 +840,8 @@
     "patternSecondSpacingExpressionLabel": "Second direction spacing expression",
     "patternSecondSpacingField": "second-direction spacing field",
     "patternAngleLabel": "Total angle (degrees)",
+    "patternAngleExpressionLabel": "Total angle expression",
+    "patternAngleField": "total angle field",
     "patternAxisLabel": "Axis",
     "patternAxisOptions": {
       "X": "X axis",
@@ -1652,6 +1654,7 @@
       "sweep": "Sweep",
       "mirror": "Mirror",
       "pattern": "Pattern",
+      "patternCircular": "Circular pattern",
       "hole": "Hole",
       "cPlane": "Plane",
       "sketch": "Sketch",

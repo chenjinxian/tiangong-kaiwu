@@ -54,7 +54,7 @@ function renderDialog(
   const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
   const onConfirm = vi.fn();
   const user = userEvent.setup();
-  render(
+  const rendered = render(
     <FeaturePatternDialog
       featureName="特征阵列 1"
       featureId="f-pattern"
@@ -65,7 +65,7 @@ function renderDialog(
       {...props}
     />,
   );
-  return { applyOp, onConfirm, user };
+  return { applyOp, onConfirm, user, unmount: rendered.unmount };
 }
 
 describe('FeaturePatternDialog', () => {
@@ -917,5 +917,153 @@ describe('FeaturePatternDialog', () => {
     expect(expander.disabled).toBe(false);
     expect(expander.getAttribute('aria-expanded')).toBe('true');
     expect(screen.getByTestId('part-studio-feature-pattern-second-body')).toBeTruthy();
+  });
+
+  // ADR-0020 S12（shared 1.80）：circular 总角度表达式——angle 保持必填物化
+  // 快照（度制直接物化）；仅 circular 适用；未触碰保留、数值/切 linear 清除、
+  // 无效求值阻断提交/预览（S5 本地化）、长度变量拒收。
+  const ANGLE_VARIABLE: VariableDto = { id: 'v-ang', name: 'ang', expression: '90', type: 'angle' };
+  const LENGTH_VARIABLE: VariableDto = { id: 'v-len', name: 'len', expression: '10', type: 'length' };
+  const circularStored = (overrides: Record<string, unknown> = {}): Record<string, unknown> =>
+    stored({ kind: 'circular', count: 4, angle: 90, angleExpression: '#ang', ...overrides });
+  const angleInput = (): HTMLInputElement =>
+    screen.getByTestId('part-studio-feature-pattern-angle') as HTMLInputElement;
+
+  it('S12 角度表达式：`#ang` → 载荷 {angle: 求值 90, angleExpression:"#ang"}；preview 用求值 angle', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({ ok: true, affected: [] }));
+    const { applyOp, user } = renderDialog({ variables: [ANGLE_VARIABLE], previewOp }, circularStored());
+    const expectedParams = {
+      sourceFeatureId: '0x20000000008',
+      kind: 'circular',
+      count: 4,
+      angle: 90,
+      axis,
+      angleExpression: '#ang',
+    };
+    expect(angleInput().value).toBe('90'); // 失焦=物化快照
+    await user.click(angleInput());
+    expect(angleInput().value).toBe('#ang'); // 聚焦=表达式原文
+    await user.tab();
+    expect(angleInput().value).toBe('90');
+    await waitFor(() => expect(previewOp.mock.calls.at(-1)?.[0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: expectedParams,
+    }), { timeout: 3000 });
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: expectedParams,
+    });
+  });
+
+  it('S12 编辑未触碰保留：改实例数 → angleExpression 原样保留（angle 按求值重物化）', async () => {
+    const { applyOp, user } = renderDialog({ variables: [ANGLE_VARIABLE] }, circularStored());
+    const count = screen.getByRole('textbox', { name: '实例数' });
+    await user.clear(count);
+    await user.type(count, '5');
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'circular',
+        count: 5,
+        angle: 90,
+        axis,
+        angleExpression: '#ang',
+      },
+    });
+  });
+
+  it('S12 数值编辑清除：写入 180 → 载荷 angle 180 且不带 angleExpression', async () => {
+    const { applyOp, user } = renderDialog({ variables: [ANGLE_VARIABLE] }, circularStored());
+    await user.click(angleInput());
+    expect(angleInput().value).toBe('#ang');
+    await user.clear(angleInput());
+    await user.type(angleInput(), '180');
+    await user.tab();
+    await user.click(confirmButton());
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(op.params).toMatchObject({ kind: 'circular', count: 4, angle: 180 });
+    expect(op.params).not.toHaveProperty('angleExpression');
+  });
+
+  it('S12 切 linear：角度表达式清除、载荷无 angle/angleExpression；切回 circular 草稿归位数值', async () => {
+    const { applyOp, user } = renderDialog({ variables: [ANGLE_VARIABLE] }, circularStored());
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'linear');
+    expect(screen.queryByTestId('part-studio-feature-pattern-angle')).toBeNull();
+    await user.click(confirmButton());
+    const linearOp = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(linearOp.params).toMatchObject({ kind: 'linear', count: 4, spacing: 6 });
+    expect(linearOp.params).not.toHaveProperty('angle');
+    expect(linearOp.params).not.toHaveProperty('angleExpression');
+    // 切回 circular：旧表达式已清除（聚焦暴露残留的 `#ang`），草稿归位数值 90。
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    await user.click(angleInput());
+    expect(angleInput().value).toBe('90');
+    await user.tab();
+    await user.click(confirmButton());
+    const circularOp = applyOp.mock.calls[1]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(circularOp.params).toMatchObject({ kind: 'circular', count: 4, angle: 90 });
+    expect(circularOp.params).not.toHaveProperty('angleExpression');
+  });
+
+  it('S12 变量表未就绪：未触碰的落库表达式按物化 angle 放行（不误报未知变量）', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [], variablesLoading: true },
+      circularStored(),
+    );
+    expect(confirmButton().disabled).toBe(false);
+    await user.click(confirmButton());
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'circular',
+        count: 4,
+        angle: 90,
+        axis,
+        angleExpression: '#ang',
+      },
+    });
+  });
+
+  it('S12 无效表达式阻断：`#nope` → ✓ 禁用 + S5 本地化字段错误 + 不重发 previewOp/不发 op', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({ ok: true, affected: [] }));
+    const { applyOp, user } = renderDialog({ variables: [ANGLE_VARIABLE], previewOp }, circularStored());
+    await waitFor(() => expect(previewOp).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    await user.click(angleInput());
+    await user.clear(angleInput());
+    await user.type(angleInput(), '#nope');
+    expect(angleInput().getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByTestId('expression-field-error').textContent).toContain('未知变量');
+    expect(confirmButton().disabled).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(previewOp).toHaveBeenCalledTimes(1);
+    await user.click(confirmButton());
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('S12 角度域与类型门：求值 450 红态；length 变量被角度字段拒收', async () => {
+    const invalid = renderDialog({ variables: [LENGTH_VARIABLE] }, circularStored({ angleExpression: undefined }));
+    await invalid.user.click(angleInput());
+    await invalid.user.clear(angleInput());
+    await invalid.user.type(angleInput(), '90 * 5');
+    expect(angleInput().getAttribute('aria-invalid')).toBe('true');
+    expect(confirmButton().disabled).toBe(true);
+    invalid.unmount();
+
+    const { applyOp, user } = renderDialog({ variables: [LENGTH_VARIABLE] }, circularStored());
+    await user.click(angleInput());
+    await user.clear(angleInput());
+    await user.type(angleInput(), '#len');
+    expect(screen.getByTestId('expression-field-error').textContent).toContain('总角度字段');
+    expect(confirmButton().disabled).toBe(true);
+    await user.click(confirmButton());
+    expect(applyOp).not.toHaveBeenCalled();
   });
 });

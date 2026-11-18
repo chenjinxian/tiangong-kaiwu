@@ -43,7 +43,7 @@ const EXAMPLES = [
   {
     name: 'Exercise: Intermediate Drawing / Drive Sleeve',
     metric: '1,175,022.882 mm³',
-    note: 'CAP_FACE 起始面 + 6 孔圆周阵列，0.00012% 误差',
+    note: 'CAP_FACE 起始面 + 6 孔环形阵列，0.00012% 误差',
     image: '/showcase/example-drive-sleeve.webp',
   },
   {

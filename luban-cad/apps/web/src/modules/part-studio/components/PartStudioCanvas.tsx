@@ -1682,7 +1682,13 @@ export function PartStudioCanvas({
           featureName={
             dialog.mode === 'edit'
               ? dialog.featureName
-              : newFeatureName(dialog.featureType)
+              // ADR-0020 S12：circular body pattern 的显示类型是 patternCircular
+              //（标题/树行同源「环形阵列 N」）；linear 仍按 featureType 'pattern'。
+              : newFeatureName(
+                dialog.featureType === 'pattern' && dialog.patternKind === 'circular'
+                  ? 'patternCircular'
+                  : dialog.featureType,
+              )
           }
           // F2：标题/toast 跟随实际提交类型（镜像特征作用域→特征镜像、
           // 布尔作用域→并集/差集），与树派生名同口径。

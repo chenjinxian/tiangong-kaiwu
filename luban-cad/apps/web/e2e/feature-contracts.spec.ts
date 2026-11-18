@@ -221,7 +221,7 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
     params: { profileSketchId: sketchE, pathSketchId: sketchF, bodyType: 'SOLID' },
   }, 'sweep');
 
-  // ── 7) Pattern circular：绕世界 Z 3 份/360°（B5 圆周真栈通道）────────────
+  // ── 7) Pattern circular：绕世界 Z 3 份/360°（B5 环形真栈通道）────────────
   await applyFeature({
     kind: 'insertFeature', featureType: 'pattern',
     params: { kind: 'circular', count: 3, angle: 360, axis: 'Z' },
@@ -242,8 +242,10 @@ test('真栈合成：B1–B5 特征 RPC 全链（boolean/loft/sweep/mirror/patte
   console.log(`[release] 树 ${finalTree.length} 行，特征类型 ${[...featureTypes].join(',')}`);
 
   const featureList = page.getByTestId('part-studio-feature-list');
-  for (const name of ['拉伸 1', '镜像 1', '阵列 1', '差集 1', '放样 1', '扫掠 1', '阵列 2'])
-    await expect(featureList.getByRole('button', { name }), `页面树应有「${name}」`).toBeVisible({ timeout: 90_000 });
+  // ADR-0020 S12：circular pattern 的树行显示名为「环形阵列 N」（linear 仍是「阵列 N」）。
+  // exact：否则『阵列 1』会同时子串命中『环形阵列 1』（strict mode violation）。
+  for (const name of ['拉伸 1', '镜像 1', '阵列 1', '差集 1', '放样 1', '扫掠 1', '环形阵列 1'])
+    await expect(featureList.getByRole('button', { name, exact: true }), `页面树应有「${name}」`).toBeVisible({ timeout: 90_000 });
 
   // ── 9) BodySolid 恰 1 个（单 body 不变量；顺带守住直改副本/多体泄漏）──────
   const bodyCount = await page.evaluate(async () => {

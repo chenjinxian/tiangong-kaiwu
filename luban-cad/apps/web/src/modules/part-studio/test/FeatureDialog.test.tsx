@@ -3879,7 +3879,9 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
     const kind = screen.getByRole('combobox', { name: '阵列类型' }) as HTMLSelectElement;
     expect(kind.value).toBe('linear');
     expect(within(kind).getByRole('option', { name: '线性阵列' })).toBeDefined();
-    expect(within(kind).getByRole('option', { name: '圆周阵列' })).toBeDefined();
+    // ADR-0020 S12：用户可见命名对齐 live「环形阵列」（旧「圆周阵列」退役）。
+    expect(within(kind).getByRole('option', { name: '环形阵列' })).toBeDefined();
+    expect(within(kind).queryByRole('option', { name: '圆周阵列' })).toBeNull();
     expect((screen.getByRole('textbox', { name: '实例数' }) as HTMLInputElement).value).toBe('2');
     expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('10');
     expect(screen.getByRole('textbox', { name: '实例数' }).closest('section')!.getAttribute('title'))
@@ -4364,6 +4366,222 @@ describe('B5 pattern 通道（PART 级线性/圆周阵列）', () => {
         kind: 'linear', count: 3, spacing: 10, axis: 'X', spacingExpression: '#sp',
       },
     });
+  });
+
+  // ADR-0020 S12（shared 1.80）：circular 总角度表达式——angle 保持必填物化
+  // 快照（度制直接物化，不做弧度换算）；仅 circular 适用；未触碰保留、
+  // 数值/切 linear 清除、无效求值阻断提交/预览（S5 本地化）、长度变量拒收。
+  const ANGLE_VARIABLE: VariableDto = { id: 'v-ang', name: 'ang', expression: '90', type: 'angle' };
+  const LENGTH_VARIABLE: VariableDto = { id: 'v-len', name: 'len', expression: '10', type: 'length' };
+  const angleInput = (): HTMLInputElement =>
+    screen.getByTestId('part-studio-feature-dialog-pattern-angle') as HTMLInputElement;
+  const EDIT_CIRCULAR_WITH_ANGLE_EXPRESSION = {
+    kind: 'circular', count: 4, angle: 90, axis: 'Z', angleExpression: '#ang',
+  };
+
+  it('S12 角度表达式：circular `#ang` → 载荷 {angle: 求值 90, angleExpression:"#ang"}（预览同源）', async () => {
+    const applyOp = makeApplyOp();
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    const { user, onConfirm } = renderPatternDialog(applyOp, {
+      initialPatternKind: 'circular',
+      previewOp,
+      variables: [ANGLE_VARIABLE],
+    });
+    const count = screen.getByRole('textbox', { name: '实例数' });
+    await user.clear(count);
+    await user.type(count, '4');
+    const input = angleInput();
+    expect(input.value).toBe('360');
+    expect(input.getAttribute('data-expression-field')).toBe('angleDeg');
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#ang');
+    expect(input.value).toBe('#ang'); // 聚焦显示表达式原文
+    await user.tab();
+    expect(input.value).toBe('90'); // 失焦显示本地求值（ang=90）
+    const expected = {
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'circular', count: 4, angle: 90, axis: 'Z', angleExpression: '#ang' },
+    };
+    await waitFor(() => expect(previewOp.mock.calls.at(-1)?.[0]).toMatchObject(expected), { timeout: 3000 });
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith(expected);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('S12 编辑未触碰保留：改实例数 → angleExpression 原样保留（angle 按求值重物化）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-ang',
+      variables: [ANGLE_VARIABLE],
+      initialParams: EDIT_CIRCULAR_WITH_ANGLE_EXPRESSION,
+    });
+    const count = screen.getByRole('textbox', { name: '实例数' });
+    await user.clear(count);
+    await user.type(count, '5');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-ang',
+      params: { kind: 'circular', count: 5, angle: 90, axis: 'Z', angleExpression: '#ang' },
+    });
+  });
+
+  it('S12 编辑 + 变量表未就绪：未触碰的落库表达式按物化 angle 放行', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-ang-loading',
+      variables: [],
+      variablesLoading: true,
+      initialParams: EDIT_CIRCULAR_WITH_ANGLE_EXPRESSION,
+    });
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-ang-loading',
+      params: { kind: 'circular', count: 4, angle: 90, axis: 'Z', angleExpression: '#ang' },
+    });
+  });
+
+  it('S12 数值编辑清除：写入 180 → 载荷 angle 180 且不带 angleExpression', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, {
+      mode: 'edit',
+      featureId: 'f-ang-num',
+      variables: [ANGLE_VARIABLE],
+      initialParams: EDIT_CIRCULAR_WITH_ANGLE_EXPRESSION,
+    });
+    const input = angleInput();
+    expect(input.value).toBe('90'); // 失焦=物化快照
+    await user.click(input);
+    expect(input.value).toBe('#ang');
+    await user.clear(input);
+    await user.type(input, '180');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(op.params).toMatchObject({ kind: 'circular', count: 4, angle: 180, axis: 'Z' });
+    expect(op.params).not.toHaveProperty('angleExpression');
+  });
+
+  it('S12 切 linear：角度表达式清除、载荷无 angle/angleExpression；切回 circular 草稿归位数值', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, {
+      variables: [ANGLE_VARIABLE],
+      initialPatternKind: 'circular',
+    });
+    const input = angleInput();
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#ang');
+    await user.tab();
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'linear');
+    expect(screen.queryByTestId('part-studio-feature-dialog-pattern-angle')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'linear', count: 2, spacing: 10, axis: 'X' },
+    });
+    // 切回 circular：旧表达式已清除，草稿归位为可解析数值（求值过的 90）。
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    const back = angleInput();
+    await user.click(back);
+    expect(back.value).toBe('90');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[1]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'pattern',
+      params: { kind: 'circular', count: 2, angle: 90, axis: 'Z' },
+    });
+  });
+
+  it('S12 linear 不发送 angleExpression（变量在场也不误带）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, { variables: [ANGLE_VARIABLE] });
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'insertFeature' }>;
+    expect(op.params).not.toHaveProperty('angleExpression');
+    expect(op.params).not.toHaveProperty('angle');
+  });
+
+  it('S12 无效表达式阻断提交与预览：`#nope` → ✓ 禁用 + 字段错误 + 不重发 previewOp', async () => {
+    const applyOp = makeApplyOp();
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    const { user } = renderPatternDialog(applyOp, {
+      initialPatternKind: 'circular',
+      previewOp,
+      variables: [ANGLE_VARIABLE],
+    });
+    await waitFor(() => expect(previewOp).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    const input = angleInput();
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#nope');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByTestId('expression-field-error').textContent).toContain('未知变量');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(previewOp).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('S12 角度域：表达式求值 450 → 字段红态 + ✓ 禁用（(0,360]）', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, { initialPatternKind: 'circular' });
+    const input = angleInput();
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '90 * 5');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByTestId('expression-field-error').textContent).toContain('角度');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('S12 类型门：length 变量用于角度字段 → 量纲错误 + ✓ 禁用', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = renderPatternDialog(applyOp, {
+      initialPatternKind: 'circular',
+      variables: [LENGTH_VARIABLE],
+    });
+    const input = angleInput();
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#len');
+    expect(screen.getByTestId('expression-field-error').textContent)
+      .toContain('总角度字段');
+    expect(screen.getByTestId('expression-field-error').textContent)
+      .toContain('length');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  // ADR-0020 S12 命名对齐：circular 新建标题走显示伪类型 `patternCircular`
+  //（环形阵列 N），linear 保持 `pattern`（阵列 N）。
+  it('S12 命名：circular 新建标题 = 环形阵列 N（featureNameForType 收 patternCircular）', async () => {
+    const featureNameForType = vi.fn((featureType: string) => (
+      featureType === 'patternCircular' ? '环形阵列 1' : '阵列 1'
+    ));
+    const { user } = renderPatternDialog(makeApplyOp(), {
+      initialPatternKind: 'circular',
+      featureNameForType,
+    });
+    expect(featureNameForType).toHaveBeenCalledWith('patternCircular');
+    expect(screen.getByRole('dialog', { name: '环形阵列 1' })).toBeDefined();
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'linear');
+    expect(screen.getByRole('dialog', { name: '阵列 1' })).toBeDefined();
+    expect(featureNameForType).toHaveBeenCalledWith('pattern');
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    expect(screen.getByRole('dialog', { name: '环形阵列 1' })).toBeDefined();
   });
 
   // ADR-0020 S9（shared 1.79）：第二方向间距表达式——嵌套在

@@ -4,7 +4,8 @@
  * 以及词条键覆盖全部新建路由类型（词条值与 zh-CN 词库的一致性由宿主集成测试覆盖）。
  */
 import { describe, expect, it, vi } from 'vitest';
-import { NEW_FEATURE_LABEL_KEYS, nextFeatureName } from '../internal/feature-naming.js';
+import { NEW_FEATURE_LABEL_KEYS, featureDisplayType, nextFeatureName } from '../internal/feature-naming.js';
+import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
 
 const LABELS: Readonly<Record<string, string>> = {
   extrude: '拉伸',
@@ -19,6 +20,7 @@ const LABELS: Readonly<Record<string, string>> = {
   transform: '变换',
   booleanBodies: '布尔',
   pattern: '阵列',
+  patternCircular: '环形阵列',
   featurePattern: '特征阵列',
   featureMirror: '特征镜像',
   mirror: '镜像',
@@ -100,5 +102,40 @@ describe('nextFeatureName', () => {
     // 表内词条键统一挂 partStudio 前缀（i18n 词库键，不臆造裸字符串）。
     for (const key of Object.values(NEW_FEATURE_LABEL_KEYS))
       expect(key.startsWith('partStudio.')).toBe(true);
+  });
+
+  // ADR-0020 S12：circular body pattern 的显示类型是 `patternCircular`（live
+  // 「环形阵列 N」），linear 保持 `pattern`（阵列 N）。仅显示投影，底层
+  // featureType 不变。
+  it('S12 display type：pattern 的 circular 形态 → patternCircular；linear/其它不变', () => {
+    expect(featureDisplayType({ featureType: 'pattern', params: { kind: 'linear' } })).toBe('pattern');
+    expect(featureDisplayType({ featureType: 'pattern', params: { kind: 'circular' } })).toBe('patternCircular');
+    // 非 pattern 类型（含 featurePattern）不参与显示类型改写。
+    expect(featureDisplayType({ featureType: 'featurePattern', params: { kind: 'circular' } }))
+      .toBe('featurePattern');
+    // 缺参数/未知形态如实回退，不猜。
+    expect(featureDisplayType({ featureType: 'pattern' })).toBe('pattern');
+    expect(featureDisplayType({ featureType: 'pattern', params: { kind: 'spiral' } })).toBe('pattern');
+  });
+
+  it('S12 circular 新名按环形显示类型计数：线性/环形各自独立', () => {
+    const entries = [
+      entry('pattern', { params: { kind: 'linear' } }),
+      entry('pattern', { params: { kind: 'circular' } }),
+      entry('pattern', { params: { kind: 'circular' } }),
+      entry('featurePattern', { params: { kind: 'circular' } }),
+    ];
+    expect(nextFeatureName('pattern', entries, labelFor)).toBe('阵列 2');
+    expect(nextFeatureName('patternCircular', entries, labelFor)).toBe('环形阵列 3');
+  });
+
+  it('S12 树行名：circular 行 = 环形阵列 N；type 仍是落库 pattern', () => {
+    const rows = mapFeatureEntries([
+      { id: 'a', featureType: 'pattern', orderKey: 1, suppressed: false, status: 0, params: { kind: 'linear' } },
+      { id: 'b', featureType: 'pattern', orderKey: 2, suppressed: false, status: 0, params: { kind: 'circular' } },
+      { id: 'c', featureType: 'pattern', orderKey: 3, suppressed: false, status: 0, params: { kind: 'circular' } },
+    ], labelFor);
+    expect(rows.map((row) => row.name)).toEqual(['阵列 1', '环形阵列 1', '环形阵列 2']);
+    expect(rows.map((row) => row.type)).toEqual(['pattern', 'pattern', 'pattern']);
   });
 });

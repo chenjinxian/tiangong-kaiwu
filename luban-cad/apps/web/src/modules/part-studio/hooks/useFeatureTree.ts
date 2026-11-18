@@ -24,6 +24,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FeatureTreeEntry } from '@luban-cad/shared';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
+import { featureDisplayType } from '../internal/feature-naming.js';
 import type { FeatureNode, PartNode } from '../types.js';
 import type { TreeFilterQuery } from '../tree/TreeFilter.js';
 import { matchFeature, matchPart } from '../tree/TreeFilter.js';
@@ -62,6 +63,10 @@ export interface FeatureTreeModel {
 /**
  * FeatureTreeEntry[] → FeatureNode[] 视图模型映射：orderKey 升序（后端已序，
  * 防御性再排——旧应用 FeaturePanel 同纪律）+ 同类型序号自增命名。
+ *
+ * ADR-0020 S12：`pattern` 的 circular 形态按**显示类型** `patternCircular`
+ * 计数/取词条（「环形阵列 N」）；`type` 仍是落库 `featureType`（过滤/图标/
+ * 载荷语义不变）。
  */
 export function mapFeatureEntries(
   entries: readonly FeatureTreeEntry[],
@@ -71,14 +76,15 @@ export function mapFeatureEntries(
   return [...entries]
     .sort((a, b) => a.orderKey - b.orderKey)
     .map((entry) => {
-      const seq = (perTypeCounter.get(entry.featureType) ?? 0) + 1;
-      perTypeCounter.set(entry.featureType, seq);
+      const displayType = featureDisplayType(entry);
+      const seq = (perTypeCounter.get(displayType) ?? 0) + 1;
+      perTypeCounter.set(displayType, seq);
       return {
         id: entry.id,
         // v1.70：用户自定义名优先（Onshape 行内重命名）；缺省/空串回退「类型 + 序号」派生。
         name: entry.name !== undefined && entry.name.trim() !== ''
           ? entry.name
-          : `${typeLabel(entry.featureType)} ${seq}`,
+          : `${typeLabel(displayType)} ${seq}`,
         type: entry.featureType,
         hasError: entry.status !== 0,
         isSuppressed: entry.suppressed,

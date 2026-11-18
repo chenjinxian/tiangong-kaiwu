@@ -35,6 +35,10 @@
  * `secondDirection.spacingExpression`（与第一方向顶层同名键分层，状态/载荷
  * 互不覆盖）；未触碰保留、数值编辑清除、取消勾选/切圆周清除、求值无效阻断
  * 提交与 previewOp；载荷 spacing 仍是表达式求值/数值的必填物化快照。
+ * ADR-0020 S12（shared 1.80）：circular 总角度改用 `ExpressionNumberField`
+ * （kind angleDeg，度制直接物化）——载荷 `{angle: 求值/数值, angleExpression?:
+ * 原文}`，angle 保持必填物化快照；linear 行不渲染、载荷不带两键；未触碰保留、
+ * 数值编辑清除、切 linear 清除、求值无效阻断提交与 previewOp。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -211,6 +215,16 @@ export function FeaturePatternDialog({
     ? stored.spacing
     : undefined;
   const [angle, setAngle] = React.useState(() => (stored.angle !== undefined ? String(stored.angle) : '360'));
+  // ADR-0020 S12（shared 1.80）：circular 总角度表达式——angle 保持必填物化
+  // 快照（度制；kind angleDeg 直接物化，不做弧度换算）；仅 circular 适用。
+  const storedAngleExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'angleExpression'),
+    [initialParams],
+  );
+  const angleField = useExpressionField(storedAngleExpression);
+  const storedMaterializedAngle = stored.angle !== undefined && stored.angle > 0
+    ? stored.angle
+    : undefined;
   const [secondEnabled, setSecondEnabled] = React.useState(stored.secondDirection !== undefined);
   // W10c：折叠组默认展开（有落库第二方向时，树行编辑流程/既有 e2e 直接可编辑）；
   // 折叠只是可见性状态，不参与载荷（收起时仍按 secondDirectionActive 提交/校验）。
@@ -274,7 +288,16 @@ export function FeaturePatternDialog({
   const spacingExpressionSource = spacingExpressionActive && spacingField.evaluation?.ok
     ? spacingField.evaluation.expression
     : undefined;
-  const angleNumber = Number(angle);
+  // ADR-0020 S12：总角度表达式仅 circular 适用（linear 行不渲染、载荷不带该键）。
+  // 表达式在场时数值态忽略草稿，预览/载荷共用同一求值（无效 → 提交与预览同时阻断）。
+  const angleExpressionApplicable = kind === 'circular';
+  const angleExpressionActive = angleExpressionApplicable && angleField.expression !== undefined;
+  const angleNumber = angleExpressionActive && angleField.evaluation?.ok
+    ? angleField.evaluation.value
+    : Number(angle);
+  const angleExpressionSource = angleExpressionActive && angleField.evaluation?.ok
+    ? angleField.evaluation.expression
+    : undefined;
   const countValid = centeredActive
     ? Number.isInteger(countNumber) && countNumber >= 2 && countNumber <= 500
     : Number.isInteger(countNumber) && countNumber >= 2 && countNumber <= 1000;
@@ -282,7 +305,11 @@ export function FeaturePatternDialog({
     || (spacingExpressionActive
       ? spacingField.evaluation?.ok === true
       : (spacing.trim() !== '' && Number.isFinite(spacingNumber) && spacingNumber > 0));
-  const angleValid = Number.isFinite(angleNumber) && angleNumber > 0 && angleNumber <= 360;
+  const angleValid = !angleExpressionApplicable
+    || (angleExpressionActive
+      ? angleField.evaluation?.ok === true
+        && Number.isFinite(angleNumber) && angleNumber > 0 && angleNumber <= 360
+      : (Number.isFinite(angleNumber) && angleNumber > 0 && angleNumber <= 360));
   // 切片 11：第二方向只在 linear 下可见；轴是结构引用（编辑中不改）。
   const secondAxis = stored.secondDirection?.axis;
   const secondAxisValid = secondAxis !== undefined
@@ -322,11 +349,12 @@ export function FeaturePatternDialog({
   const submitDisabled = busy || !canEdit || !editMode || sourceMissing || !axisValid
     || !countValid || (kind === 'linear' ? !spacingValid : !angleValid)
     || (spacingExpressionApplicable && spacingField.invalid)
+    || (angleExpressionApplicable && angleField.invalid)
     || (secondSpacingExpressionApplicable && secondSpacingField.invalid)
     || (secondDirectionActive
       && (!secondAxisValid || !secondCountValid || !secondSpacingValid || totalOverLimit));
 
-  // 切圆周后 linear 行卸载（组件自身的“不适用清除”不再运行）——宿主补同口径
+  // 切环形后 linear 行卸载（组件自身的“不适用清除”不再运行）——宿主补同口径
   // 清除并把草稿归位为可解析数值（切回 linear 不留旧 `#expr`）。
   React.useEffect(() => {
     if (!spacingExpressionApplicable && spacingField.expression !== undefined) {
@@ -334,6 +362,15 @@ export function FeaturePatternDialog({
       setSpacing((prev) => numericTextOr(prev, '10'));
     }
   }, [spacingExpressionApplicable, spacingField]);
+
+  // ADR-0020 S12：切 linear 后 circular 行卸载——宿主补同口径清除并把草稿
+  // 归位为可解析数值（切回 circular 不留旧 `#expr`）。
+  React.useEffect(() => {
+    if (!angleExpressionApplicable && angleField.expression !== undefined) {
+      angleField.setExpression(undefined);
+      setAngle((prev) => numericTextOr(prev, '360'));
+    }
+  }, [angleExpressionApplicable, angleField]);
 
   // ADR-0020 S9：取消勾选第二方向/切圆周后第二方向行卸载（组件自身的
   // “不适用清除”不再运行）——宿主补同口径清除并把草稿归位为可解析数值。
@@ -362,7 +399,14 @@ export function FeaturePatternDialog({
             ? { spacingExpression: spacingExpressionSource }
             : {}),
         }
-        : { angle: angleNumber }),
+        : {
+          // ADR-0020 S12：angle 恒为必填物化快照（度制，angleDeg 直接物化）；
+          // 表达式原文随载荷提交（仅 circular）。
+          angle: angleNumber,
+          ...(angleExpressionSource !== undefined
+            ? { angleExpression: angleExpressionSource }
+            : {}),
+        }),
       axis: storedAxis,
       ...(centeredActive ? { centered: true } : {}),
       // 取消勾选 = 从载荷移除第二方向（updateParams 整体替换参数；可撤销）。
@@ -380,8 +424,8 @@ export function FeaturePatternDialog({
       } : {}),
     };
   }, [stored, sourceIds, kind, centeredActive, effectiveCount, spacingNumber, spacingExpressionSource,
-    angleNumber, secondDirectionActive, secondAxis, effectiveSecondCount, secondSpacingNumber,
-    secondCenteredActive, secondSpacingExpressionSource]);
+    angleNumber, angleExpressionSource, secondDirectionActive, secondAxis, effectiveSecondCount,
+    secondSpacingNumber, secondCenteredActive, secondSpacingExpressionSource]);
 
   // 改参预览（2026-11-08）：后端 featurePattern 影子求值回传结果 entryArray，
   // 前端经 TileRpc 动态图形显示；参数非法/无预览时静默清空（不渲染假 overlay）。
@@ -703,19 +747,33 @@ export function FeaturePatternDialog({
           </section>
         ) : (
           <section className="part-studio-feature-dialog__angle" data-field="feature-pattern-angle">
-            <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-pattern-angle">
-              {t('partStudio.featureDialog.patternAngleLabel')}
-            </label>
-            <input
+            {/* ADR-0020 S12：总角度 = 通用表达式数值字段（kind angleDeg，度制直出；
+                `#` 补全/内联创建按 deg 建 angle 变量）。 */}
+            <ExpressionNumberField
               id="part-studio-feature-pattern-angle"
-              type="text"
-              inputMode="decimal"
-              aria-label={t('partStudio.featureDialog.patternAngleLabel')}
-              className="part-studio-feature-dialog__input"
-              value={angle}
+              label={t('partStudio.featureDialog.patternAngleLabel')}
+              numberText={angle}
+              setNumberText={setAngle}
+              expression={angleField.expression}
+              setExpression={angleField.setExpression}
+              kind="angleDeg"
+              unitLabel=""
+              applicable={angleExpressionApplicable}
               disabled={busy || !canEdit}
-              onChange={(event) => setAngle(event.target.value)}
-              data-testid="part-studio-feature-pattern-angle"
+              validate={(value) => Number.isFinite(value) && value > 0 && value <= 360}
+              inlineCreateUnit="deg"
+              variables={variables}
+              variablesLoading={variablesLoading}
+              variablesError={variablesError}
+              variablesReady={variablesReady}
+              onCreateVariable={onCreateVariable}
+              variablesDialogActive={variablesDialogActive}
+              storedExpression={storedAngleExpression}
+              storedExpressionUntouchedValue={storedMaterializedAngle}
+              onValidity={angleField.onValidity}
+              inputTestId="part-studio-feature-pattern-angle"
+              expressionLabel={t('partStudio.featureDialog.patternAngleExpressionLabel')}
+              variableTypeField={t('partStudio.featureDialog.patternAngleField')}
             />
           </section>
         )}
