@@ -446,6 +446,17 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   已修）；web APPROVE WITH FIXES（P3 文案/测试 flake/payload 全等/e2e 取消零写/
   circular 清除单测）→ 修复。**未发布**；残：circular angle/count 表达式、逐实例/
   数组表达式未接；FEATURE 阵列第二方向真栈仅单测。
+- **W41 S10 草图树「复制草图」（2026-11-18，纯前端；live 菜单证据）**：
+  特征树草图行右键新增「复制草图」（紧随 编辑…）：读取该草图 params 的全部曲线图元
+  （曲线 + 曲线引用点 + 内部约束；独立点及其约束不复制）填充既有会话剪贴板；空草图
+  复制 0 项且不覆盖旧剪贴板；读失败可见通知。草图内画布空白菜单移除不符 live 的
+  「复制草图」禁用项（仅保留 `粘贴草图图元`，剪贴板非空启用）；尺寸标签菜单变体保持
+  不动（未采）。真栈：树复制草图 A → 新草图 B 粘贴 → RPC 读 B **4 线/8 约束** →
+  reload 持久 **2 passed（51 s）**；回归 `context-menu-states` + `mouse-interaction`
+  **6 passed（2.3 m）**；web **2581/2581**、tsc(src+e2e)/eslint 绿。复核 APPROVE
+  （P3 注记：空草图静默保留旧剪贴板、失败文案复用“未支持”、依赖树 params 含
+  entities/constraints、尺寸菜单变体未采）。**未发布**；残：树级「粘贴到草图中」
+  未接（live 行为未采）、添加评论/动态抑制表达式/工程图/DXF/外观菜单项未接。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
