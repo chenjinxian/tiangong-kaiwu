@@ -30,6 +30,11 @@
  * 未触碰的落库表达式原样保留（变量表未就绪按物化快照放行），数值编辑/切圆周清除；
  * 求值无效 → 红态 + 确认与 previewOp 同时阻断（`#` 未定义走 S5 本地化错误）。
  * 变量表/内联创建由页面单点 hook 经 props 直通（不新建读取实例/RPC）。
+ * ADR-0020 S9（shared 1.79）：第二方向「间距」同样改用 `ExpressionNumberField`
+ * （kind length，仅 secondDirection 激活时适用）——表达式**嵌套在**
+ * `secondDirection.spacingExpression`（与第一方向顶层同名键分层，状态/载荷
+ * 互不覆盖）；未触碰保留、数值编辑清除、取消勾选/切圆周清除、求值无效阻断
+ * 提交与 previewOp；载荷 spacing 仍是表达式求值/数值的必填物化快照。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -100,6 +105,8 @@ interface StoredSecondDirection {
   spacing?: number;
   centered?: boolean;
   axis?: { origin: Vec3; direction: Vec3 };
+  /** ADR-0020 S9：嵌套层表达式原文（与第一方向顶层 `spacingExpression` 同名不同层）。 */
+  spacingExpression?: string;
 }
 
 interface StoredFeaturePatternParams {
@@ -154,6 +161,7 @@ function readStored(value: unknown): StoredFeaturePatternParams {
       spacing: typeof secondRaw.spacing === 'number' ? secondRaw.spacing : undefined,
       centered: secondRaw.centered === true,
       axis: readAxis(secondRaw.axis),
+      spacingExpression: readStoredExpression(secondRaw, 'spacingExpression'),
     },
   };
 }
@@ -217,6 +225,14 @@ export function FeaturePatternDialog({
   });
   const [secondSpacing, setSecondSpacing] = React.useState(() =>
     (stored.secondDirection?.spacing !== undefined ? String(stored.secondDirection.spacing) : '10'));
+  // ADR-0020 S9（shared 1.79）：嵌套第二方向间距表达式——与第一方向顶层
+  // `spacingExpression` 同名不同层；spacing 保持必填物化快照。
+  const storedSecondSpacingExpression = stored.secondDirection?.spacingExpression;
+  const secondSpacingField = useExpressionField(storedSecondSpacingExpression);
+  const storedMaterializedSecondSpacing = stored.secondDirection?.spacing !== undefined
+    && stored.secondDirection.spacing > 0
+    ? stored.secondDirection.spacing
+    : undefined;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
 
@@ -279,11 +295,26 @@ export function FeaturePatternDialog({
   const secondCenteredActive = secondDirectionActive && secondCentered;
   const secondCountNumber = Number(secondCount);
   const effectiveSecondCount = secondCenteredActive ? secondCountNumber * 2 - 1 : secondCountNumber;
-  const secondSpacingNumber = Number(secondSpacing);
+  // ADR-0020 S9：嵌套第二方向间距表达式仅第二方向生效（线性且勾选）；表达式
+  // 在场时数值态忽略草稿，预览/载荷共用同一求值（无效 → 提交与预览同时阻断）。
+  const secondSpacingExpressionApplicable = secondDirectionActive;
+  const secondSpacingExpressionActive = secondSpacingExpressionApplicable
+    && secondSpacingField.expression !== undefined;
+  const secondSpacingNumber = secondSpacingExpressionActive && secondSpacingField.evaluation?.ok
+    ? secondSpacingField.evaluation.value
+    : Number(secondSpacing);
+  const secondSpacingExpressionSource = secondSpacingExpressionActive
+    && secondSpacingField.evaluation?.ok
+    ? secondSpacingField.evaluation.expression
+    : undefined;
   const secondCountValid = secondCenteredActive
     ? Number.isInteger(secondCountNumber) && secondCountNumber >= 2 && secondCountNumber <= 500
     : Number.isInteger(secondCountNumber) && secondCountNumber >= 2 && secondCountNumber <= 1000;
-  const secondSpacingValid = Number.isFinite(secondSpacingNumber) && secondSpacingNumber > 0;
+  const secondSpacingValid = !secondSpacingExpressionApplicable
+    || (secondSpacingExpressionActive
+      ? secondSpacingField.evaluation?.ok === true
+      : (secondSpacing.trim() !== '' && Number.isFinite(secondSpacingNumber)
+        && secondSpacingNumber > 0));
   const totalCount = effectiveCount * effectiveSecondCount;
   const totalOverLimit = secondDirectionActive && countValid && secondCountValid
     && Number.isFinite(totalCount) && totalCount > 1000;
@@ -291,6 +322,7 @@ export function FeaturePatternDialog({
   const submitDisabled = busy || !canEdit || !editMode || sourceMissing || !axisValid
     || !countValid || (kind === 'linear' ? !spacingValid : !angleValid)
     || (spacingExpressionApplicable && spacingField.invalid)
+    || (secondSpacingExpressionApplicable && secondSpacingField.invalid)
     || (secondDirectionActive
       && (!secondAxisValid || !secondCountValid || !secondSpacingValid || totalOverLimit));
 
@@ -302,6 +334,15 @@ export function FeaturePatternDialog({
       setSpacing((prev) => numericTextOr(prev, '10'));
     }
   }, [spacingExpressionApplicable, spacingField]);
+
+  // ADR-0020 S9：取消勾选第二方向/切圆周后第二方向行卸载（组件自身的
+  // “不适用清除”不再运行）——宿主补同口径清除并把草稿归位为可解析数值。
+  React.useEffect(() => {
+    if (!secondSpacingExpressionApplicable && secondSpacingField.expression !== undefined) {
+      secondSpacingField.setExpression(undefined);
+      setSecondSpacing((prev) => numericTextOr(prev, '10'));
+    }
+  }, [secondSpacingExpressionApplicable, secondSpacingField]);
 
   const buildParams = React.useCallback((): Record<string, unknown> | undefined => {
     const storedAxis = stored.axis;
@@ -331,12 +372,16 @@ export function FeaturePatternDialog({
           spacing: secondSpacingNumber,
           axis: secondAxis,
           ...(secondCenteredActive ? { centered: true } : {}),
+          // ADR-0020 S9：表达式原文只在嵌套层携带（与第一方向顶层同名键分层）。
+          ...(secondSpacingExpressionSource !== undefined
+            ? { spacingExpression: secondSpacingExpressionSource }
+            : {}),
         },
       } : {}),
     };
   }, [stored, sourceIds, kind, centeredActive, effectiveCount, spacingNumber, spacingExpressionSource,
     angleNumber, secondDirectionActive, secondAxis, effectiveSecondCount, secondSpacingNumber,
-    secondCenteredActive]);
+    secondCenteredActive, secondSpacingExpressionSource]);
 
   // 改参预览（2026-11-08）：后端 featurePattern 影子求值回传结果 entryArray，
   // 前端经 TileRpc 动态图形显示；参数非法/无预览时静默清空（不渲染假 overlay）。
@@ -802,22 +847,31 @@ export function FeaturePatternDialog({
                   <span>{t('partStudio.featureDialog.centerLabel')}</span>
                 </label>
                 <section className="part-studio-feature-dialog__distance" data-field="feature-pattern-second-spacing">
-                  <label
-                    className="part-studio-feature-dialog__distance-label"
-                    htmlFor="part-studio-feature-pattern-second-spacing"
-                  >
-                    {t('partStudio.featurePatternDialog.secondSpacingLabel')}
-                  </label>
-                  <input
+                  {/* ADR-0020 S9：第二方向间距 = 通用表达式数值字段（与第一方向
+                      同引擎；表达式只在嵌套 secondDirection 对象内提交）。 */}
+                  <ExpressionNumberField
                     id="part-studio-feature-pattern-second-spacing"
-                    type="text"
-                    inputMode="decimal"
-                    aria-label={t('partStudio.featurePatternDialog.secondSpacingLabel')}
-                    className="part-studio-feature-dialog__input"
-                    value={secondSpacing}
+                    label={t('partStudio.featurePatternDialog.secondSpacingLabel')}
+                    numberText={secondSpacing}
+                    setNumberText={setSecondSpacing}
+                    expression={secondSpacingField.expression}
+                    setExpression={secondSpacingField.setExpression}
+                    kind="length"
+                    unitLabel=""
+                    applicable={secondSpacingExpressionApplicable}
                     disabled={busy || !canEdit}
-                    onChange={(event) => setSecondSpacing(event.target.value)}
-                    data-testid="part-studio-feature-pattern-second-spacing"
+                    variables={variables}
+                    variablesLoading={variablesLoading}
+                    variablesError={variablesError}
+                    variablesReady={variablesReady}
+                    onCreateVariable={onCreateVariable}
+                    variablesDialogActive={variablesDialogActive}
+                    storedExpression={storedSecondSpacingExpression}
+                    storedExpressionUntouchedValue={storedMaterializedSecondSpacing}
+                    onValidity={secondSpacingField.onValidity}
+                    inputTestId="part-studio-feature-pattern-second-spacing"
+                    expressionLabel={t('partStudio.featurePatternDialog.secondSpacingExpressionLabel')}
+                    variableTypeField={t('partStudio.featurePatternDialog.secondSpacingField')}
                   />
                 </section>
                 <p

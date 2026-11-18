@@ -837,6 +837,8 @@
     "patternSpacingLabel": "距离",
     "patternSpacingExpressionLabel": "间距表达式",
     "patternSpacingField": "间距字段",
+    "patternSecondSpacingExpressionLabel": "第二方向间距表达式",
+    "patternSecondSpacingField": "第二方向间距字段",
     "patternAngleLabel": "总角度（度）",
     "patternAxisLabel": "方向轴",
     "patternAxisOptions": {
@@ -2084,6 +2086,8 @@
     "secondCountLabel": "第二方向实例数量（含原件）",
     "secondCountLabelCentered": "第二方向每侧实例数（含原件）",
     "secondSpacingLabel": "第二方向间距",
+    "secondSpacingExpressionLabel": "第二方向间距表达式",
+    "secondSpacingField": "第二方向间距字段",
     "secondCenteredLabel": "第二方向居中",
     "secondDirectionHint": "第二方向轴是结构引用，编辑中只读保留；取消勾选后提交将移除第二方向。",
     "secondAxisReadonly": "第二方向轴：原点 {{origin}}，方向 {{direction}}（只读）",

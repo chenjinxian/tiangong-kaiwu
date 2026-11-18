@@ -552,6 +552,277 @@ describe('FeaturePatternDialog', () => {
     });
   });
 
+  // ADR-0020 S9（shared 1.79）：第二方向间距表达式——嵌套在
+  // `secondDirection.spacingExpression`（与第一方向顶层同名键分层）。
+  const SP_VARIABLE_S9: VariableDto = { id: 'v-sp', name: 'sp', expression: '10', type: 'length' };
+  const W_VARIABLE_S9: VariableDto = { id: 'v-w', name: 'w', expression: '5', type: 'length' };
+  const secondAxisS9 = {
+    origin: { x: 0, y: 0, z: 0 },
+    direction: { x: 0, y: 1, z: 0 },
+  };
+  const secondSpacingInputS9 = (): HTMLInputElement =>
+    screen.getByTestId('part-studio-feature-pattern-second-spacing') as HTMLInputElement;
+
+  it('S9 两层同名表达式区分（仅第一方向）：顶层带 spacingExpression，第二方向对象不带', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9] },
+      stored({
+        spacingExpression: '#sp',
+        secondDirection: { count: 2, spacing: 8, axis: secondAxisS9 },
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 10, axis, spacingExpression: '#sp',
+        secondDirection: { count: 2, spacing: 8, axis: secondAxisS9 },
+      },
+    });
+  });
+
+  it('S9 两层同名表达式区分（仅第二方向）：嵌套带 spacingExpression，顶层不带', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9] },
+      stored({
+        secondDirection: {
+          count: 2, spacing: 8, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 6, axis,
+        // 嵌套表达式在场 → 嵌套 spacing 与本地求值同源（8 → 10），顶层不串键。
+        secondDirection: {
+          count: 2, spacing: 10, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      },
+    });
+  });
+
+  it('S9 两层同名表达式区分（两层同时）：各自使用自己的求值/原文，互不覆盖', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9, W_VARIABLE_S9] },
+      stored({
+        spacingExpression: '#sp',
+        secondDirection: {
+          count: 2, spacing: 8, axis: secondAxisS9, spacingExpression: '#w',
+        },
+      }),
+    );
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 10, axis, spacingExpression: '#sp',
+        secondDirection: {
+          count: 2, spacing: 5, axis: secondAxisS9, spacingExpression: '#w',
+        },
+      },
+    });
+  });
+
+  it('S9 第二方向表达式输入：`#sp` → 嵌套 {spacing: 求值, spacingExpression}；preview 同源', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({ ok: true, affected: [] }));
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9], previewOp },
+      stored({ secondDirection: { count: 2, spacing: 8, axis: secondAxisS9 } }),
+    );
+    const input = secondSpacingInputS9();
+    expect(input.value).toBe('8');
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#sp');
+    expect(input.value).toBe('#sp');
+    await user.tab();
+    expect(input.value).toBe('10');
+    const expected = {
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 6, axis,
+        secondDirection: {
+          count: 2, spacing: 10, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      },
+    };
+    await waitFor(() => expect(previewOp.mock.calls.at(-1)?.[0]).toEqual(expected), { timeout: 3000 });
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith(expected);
+    const params = (applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>).params;
+    expect(params).not.toHaveProperty('spacingExpression');
+  });
+
+  it('S9 第二方向未触碰保留：改实例数 → 嵌套 spacingExpression 原样保留 + 求值重物化', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9] },
+      stored({
+        secondDirection: {
+          count: 2, spacing: 8, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      }),
+    );
+    const secondCount = screen.getByRole('textbox', { name: '第二方向实例数量（含原件）' });
+    await user.clear(secondCount);
+    await user.type(secondCount, '3');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).toHaveBeenCalledWith({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 6, axis,
+        secondDirection: {
+          count: 3, spacing: 10, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      },
+    });
+  });
+
+  it('S9 第二方向数值编辑清除：改成 20 → 嵌套 spacing 20 且不带 spacingExpression', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9] },
+      stored({
+        secondDirection: {
+          count: 2, spacing: 8, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      }),
+    );
+    const input = secondSpacingInputS9();
+    await user.click(input);
+    expect(input.value).toBe('#sp');
+    await user.clear(input);
+    await user.type(input, '20');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0] as Extract<FeatureOp, { kind: 'updateParams' }>;
+    expect(op.params).toMatchObject({
+      secondDirection: { count: 2, spacing: 20, axis: secondAxisS9 },
+    });
+    const second = (op.params as Record<string, unknown>).secondDirection as Record<string, unknown>;
+    expect(second.spacingExpression).toBeUndefined();
+  });
+
+  it('S9 禁用第二方向清除表达式：取消勾选 → 载荷无 secondDirection；重新勾选草稿归位数值', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9] },
+      stored({
+        secondDirection: {
+          count: 2, spacing: 8, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      }),
+    );
+    const enabled = screen.getByRole('checkbox', { name: '第二个方向' });
+    expect((enabled as HTMLInputElement).checked).toBe(true);
+    await user.click(enabled);
+    expect(screen.queryByTestId('part-studio-feature-pattern-second-spacing')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 6, axis,
+      },
+    });
+    // 重新勾选：旧表达式已被宿主清除（聚焦才暴露残留的 `#sp`）；数值草稿保留
+    // **当前草稿**——本用例从未聚焦表达式，草稿仍是落库快照 8（若先聚焦/失焦，
+    // numberText 已被投影为求值 10，则保留 10）。
+    await user.click(enabled);
+    const back = secondSpacingInputS9();
+    await user.click(back);
+    expect(back.value).toBe('8');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[1]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 6, axis,
+        secondDirection: { count: 2, spacing: 8, axis: secondAxisS9 },
+      },
+    });
+  });
+
+  it('S9 切圆周清除第二方向表达式：载荷无 secondDirection；切回线性重新启用后不带表达式', async () => {
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9] },
+      stored({
+        secondDirection: {
+          count: 2, spacing: 8, axis: secondAxisS9, spacingExpression: '#sp',
+        },
+      }),
+    );
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'circular');
+    expect(screen.queryByTestId('part-studio-feature-pattern-second-spacing')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'circular', count: 3, angle: 360, axis,
+      },
+    });
+    // 切回线性：切圆周已把第二方向取消（勾选=禁用/未勾选），重新启用后
+    // 旧表达式已被清理；数值草稿仍是未触碰的落库快照（8）。
+    await user.selectOptions(screen.getByRole('combobox', { name: '阵列类型' }), 'linear');
+    const enabled = screen.getByRole('checkbox', { name: '第二个方向' }) as HTMLInputElement;
+    expect(enabled.checked).toBe(false);
+    await user.click(enabled);
+    const back = secondSpacingInputS9();
+    await user.click(back);
+    expect(back.value).toBe('8');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[1]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-pattern',
+      params: {
+        sourceFeatureId: '0x20000000008',
+        kind: 'linear', count: 3, spacing: 6, axis,
+        secondDirection: { count: 2, spacing: 8, axis: secondAxisS9 },
+      },
+    });
+    const second = (applyOp.mock.calls[1]![0] as Extract<FeatureOp, { kind: 'updateParams' }>)
+      .params as Record<string, unknown>;
+    expect(
+      (second.secondDirection as Record<string, unknown>).spacingExpression,
+    ).toBeUndefined();
+  });
+
+  it('S9 第二方向无效表达式阻断：`#nope` → ✓ 禁用 + S5 本地化字段错误 + 不重发 previewOp/不发 op', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({ ok: true, affected: [] }));
+    const { applyOp, user } = renderDialog(
+      { variables: [SP_VARIABLE_S9], previewOp },
+      stored({ secondDirection: { count: 2, spacing: 8, axis: secondAxisS9 } }),
+    );
+    await waitFor(() => expect(previewOp).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    const input = secondSpacingInputS9();
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, '#nope');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByTestId('expression-field-error').textContent).toContain('未知变量');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    // 无效表达式不产生新的影子求值（不回落数值草稿、不出假预览）。
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(previewOp).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
   // ── W10c（2026-11-16 live 对话框形状）────────────────────────────────────
   it('W10c：阵列范围=只读禁用「特征阵列」（固定原因）；操作页签四个全禁用且无活动页签', () => {
     renderDialog();

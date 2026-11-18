@@ -837,6 +837,8 @@
     "patternSpacingLabel": "Distance",
     "patternSpacingExpressionLabel": "Pattern spacing expression",
     "patternSpacingField": "spacing field",
+    "patternSecondSpacingExpressionLabel": "Second direction spacing expression",
+    "patternSecondSpacingField": "second-direction spacing field",
     "patternAngleLabel": "Total angle (degrees)",
     "patternAxisLabel": "Axis",
     "patternAxisOptions": {
@@ -2084,6 +2086,8 @@
     "secondCountLabel": "Second direction instance count (including original)",
     "secondCountLabelCentered": "Second direction instances per side (including original)",
     "secondSpacingLabel": "Second direction spacing",
+    "secondSpacingExpressionLabel": "Second direction spacing expression",
+    "secondSpacingField": "second-direction spacing field",
     "secondCenteredLabel": "Second direction centered",
     "secondDirectionHint": "The second-direction axis is a structural reference and stays read-only; unchecking removes the second direction on submit.",
     "secondAxisReadonly": "Second direction axis: origin {{origin}}, direction {{direction}} (read-only)",

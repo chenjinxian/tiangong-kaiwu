@@ -173,6 +173,10 @@
  * spacing 保持必填物化快照；circular 不渲染该行、载荷不带两个键；编辑未触碰的
  * 落库表达式原样保留（变量表未就绪时按物化快照放行），数值编辑/切圆周删除本键；
  * 本地求值无效 → 红态 + 提交/预览阻断（`#` 未定义走 S5 本地化错误）。
+ * ADR-0020 S9（shared 1.79）：第二方向「间距」同样改用 `ExpressionNumberField`
+ * （kind length，仅第二方向激活时适用）——表达式**嵌套在**
+ * `secondDirection.spacingExpression`（与第一方向顶层同名键分层，状态/载荷互不
+ * 覆盖）；未触碰保留、数值编辑清除、取消第二方向/切圆周清除、无效阻断提交/预览。
  *
  * newBody / 目标实体（B6 M-A3.2a，shared v1.15）：
  * - extrude 通道「新建实体」复选（new 模式）：勾选才在 params 带 `newBody:true`
@@ -1448,8 +1452,17 @@ export function FeatureDialog({
       spacing: typeof r.spacing === 'number' && Number.isFinite(r.spacing) ? r.spacing : undefined,
       axis,
       centered: r.centered === true,
+      // ADR-0020 S9（shared 1.79）：嵌套第二方向间距表达式——与第一方向顶层
+      // `spacingExpression` **同名但不同层**，状态/载荷分层保存，互不覆盖。
+      spacingExpression: readStoredExpression(r, 'spacingExpression'),
     };
   }, [editParams]);
+  const storedPatternSecondSpacingExpression = patternStoredSecond?.spacingExpression;
+  const patternSecondSpacingField = useExpressionField(storedPatternSecondSpacingExpression);
+  const storedMaterializedPatternSecondSpacing = React.useMemo<number | undefined>(() => {
+    const raw = patternStoredSecond?.spacing;
+    return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+  }, [patternStoredSecond]);
   const [patternSecondEnabled, setPatternSecondEnabled] = React.useState(patternStoredSecond !== undefined);
   const [patternSecondCentered, setPatternSecondCentered] = React.useState(patternStoredSecond?.centered === true);
   const [patternSecondCount, setPatternSecondCount] = React.useState(() => {
@@ -2106,8 +2119,33 @@ export function FeatureDialog({
     : patternSecondCountNumber;
   const patternSecondCountValid = Number.isInteger(patternSecondCountNumber) && patternSecondCountNumber >= 2
     && patternSecondCountNumber <= (patternSecondCenteredActive ? 500 : 1000);
-  const patternSecondSpacingNumber = Number(patternSecondSpacing);
-  const patternSecondSpacingValid = Number.isFinite(patternSecondSpacingNumber) && patternSecondSpacingNumber > 0;
+  // ADR-0020 S9：第二方向间距表达式仅第二方向生效（线性且勾选）；表达式在场时
+  // 数值态忽略草稿，预览/载荷共用同一求值（无效 → 提交与预览同时阻断）。
+  const patternSecondSpacingExpressionApplicable = patternSecondActive;
+  const patternSecondSpacingExpressionActive = patternSecondSpacingExpressionApplicable
+    && patternSecondSpacingField.expression !== undefined;
+  const patternSecondSpacingNumber = patternSecondSpacingExpressionActive
+    && patternSecondSpacingField.evaluation?.ok
+    ? patternSecondSpacingField.evaluation.value
+    : Number(patternSecondSpacing);
+  const patternSecondSpacingValid = !patternSecondSpacingExpressionApplicable
+    || (patternSecondSpacingExpressionActive
+      ? patternSecondSpacingField.evaluation?.ok === true
+      : (patternSecondSpacing.trim() !== '' && Number.isFinite(patternSecondSpacingNumber)
+        && patternSecondSpacingNumber > 0));
+  const patternSecondSpacingExpressionSource = patternSecondSpacingExpressionActive
+    && patternSecondSpacingField.evaluation?.ok
+    ? patternSecondSpacingField.evaluation.expression
+    : undefined;
+  // 取消勾选第二方向/切圆周后第二方向行卸载（组件自身的“不适用清除”不再运行）
+  // ——宿主补同口径清除并把草稿归位为可解析数值（重新勾选不留旧 `#expr`）。
+  React.useEffect(() => {
+    if (!patternSecondSpacingExpressionApplicable
+      && patternSecondSpacingField.expression !== undefined) {
+      patternSecondSpacingField.setExpression(undefined);
+      setPatternSecondSpacing((prev) => numericTextOr(prev, '10'));
+    }
+  }, [patternSecondSpacingExpressionApplicable, patternSecondSpacingField]);
   const patternTotalCount = patternEffectiveCount * patternSecondEffectiveCount;
   const patternTotalCountValid = !patternSecondActive || !patternCountValid || !patternSecondCountValid
     || patternTotalCount <= 1000;
@@ -2132,7 +2170,8 @@ export function FeatureDialog({
     || (thinWallActive && thinThicknessField.invalid)
     || (draftEnabled && draftField.invalid)
     || (revolveAngleExpressionApplicable && revolveAngleField.invalid)
-    || (patternSpacingExpressionApplicable && patternSpacingField.invalid);
+    || (patternSpacingExpressionApplicable && patternSpacingField.invalid)
+    || (patternSecondSpacingExpressionApplicable && patternSecondSpacingField.invalid);
   const submitDisabled = submitting || editReadOnly || !canEdit || !sketchReady || !filletReady
     || !draftReady || !thinThicknessValid || !endOffsetValid || expressionFieldsInvalid
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
@@ -2311,6 +2350,10 @@ export function FeatureDialog({
                     spacing: patternSecondSpacingNumber,
                     axis: patternSecondAxis,
                     ...(patternSecondCenteredActive ? { centered: true } : {}),
+                    // ADR-0020 S9：嵌套层表达式原文（物化 spacing 同源求值）。
+                    ...(patternSecondSpacingExpressionSource !== undefined
+                      ? { spacingExpression: patternSecondSpacingExpressionSource }
+                      : {}),
                   },
                 }
               : {}),
@@ -2380,6 +2423,7 @@ export function FeatureDialog({
     patternOppositeDirection,
     patternSecondActive, patternSecondCountValid, patternSecondSpacingValid, patternTotalCountValid,
     patternSecondEffectiveCount, patternSecondSpacingNumber, patternSecondAxis, patternSecondCenteredActive,
+    patternSecondSpacingExpressionActive, patternSecondSpacingField, patternSecondSpacingExpressionSource,
     booleanBodiesChannel, booleanBodiesReady, booleanEffectiveTargetKey,
     booleanEffectiveToolKeys, booleanOperation, booleanKeepTools,
     targetSelectorVisible, effectiveTargetBodyKey,
@@ -2499,6 +2543,12 @@ export function FeatureDialog({
           return patternSpacingField.evaluation !== undefined && !patternSpacingField.evaluation.ok
             ? expressionFieldMessage(patternSpacingField.evaluation.error, 'length', t, {
               variableTypeField: t('partStudio.featureDialog.patternSpacingField'),
+            })
+            : undefined;
+        if (patternSecondSpacingExpressionApplicable && patternSecondSpacingField.invalid)
+          return patternSecondSpacingField.evaluation !== undefined && !patternSecondSpacingField.evaluation.ok
+            ? expressionFieldMessage(patternSecondSpacingField.evaluation.error, 'length', t, {
+              variableTypeField: t('partStudio.featureDialog.patternSecondSpacingField'),
             })
             : undefined;
         return undefined;
@@ -2799,6 +2849,11 @@ export function FeatureDialog({
                             spacing: patternSecondSpacingNumber,
                             axis: patternSecondAxis,
                             ...(patternSecondCentered ? { centered: true } : {}),
+                            // ADR-0020 S9：仅第二方向对象内携带表达式原文
+                            // （与第一方向顶层同名键分层，不串层）。
+                            ...(patternSecondSpacingExpressionSource !== undefined
+                              ? { spacingExpression: patternSecondSpacingExpressionSource }
+                              : {}),
                           },
                         }
                       : {}),
@@ -3206,6 +3261,8 @@ export function FeatureDialog({
     patternSecondSpacingNumber,
     patternSecondAxis,
     patternSecondCenteredActive,
+    patternSecondSpacingExpressionSource,
+    patternSecondSpacingField,
     // B6 M-A4.2a：booleanBodies 载荷面。
     booleanBodiesChannel,
     booleanBodiesReady,
@@ -5795,19 +5852,32 @@ export function FeatureDialog({
                         />
                       </section>
                       <section className="part-studio-feature-dialog__distance" data-field="pattern-second-spacing">
-                        <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-pattern-second-spacing">
-                          {t('partStudio.featureDialog.patternSecondSpacingLabel')}
-                        </label>
-                        <input
+                        {/* ADR-0020 S9：第二方向间距 = 通用表达式数值字段（与第一
+                            方向同引擎；表达式只在嵌套 secondDirection 对象内提交）。 */}
+                        <ExpressionNumberField
                           id="part-studio-feature-dialog-pattern-second-spacing"
-                          type="text"
-                          inputMode="decimal"
-                          aria-label={t('partStudio.featureDialog.patternSecondSpacingLabel')}
-                          className="part-studio-feature-dialog__input"
-                          value={patternSecondSpacing}
+                          label={t('partStudio.featureDialog.patternSecondSpacingLabel')}
+                          numberText={patternSecondSpacing}
+                          setNumberText={setPatternSecondSpacing}
+                          expression={patternSecondSpacingField.expression}
+                          setExpression={patternSecondSpacingField.setExpression}
+                          kind="length"
+                          unitLabel=""
+                          applicable={patternSecondSpacingExpressionApplicable}
                           disabled={submitting}
-                          onChange={(event) => setPatternSecondSpacing(event.target.value)}
-                          data-testid="part-studio-feature-dialog-pattern-second-spacing"
+                          variables={depthVariableList}
+                          variablesLoading={variablesLoading}
+                          variablesError={variablesError}
+                          variablesReady={variablesReady}
+                          onCreateVariable={onCreateVariable}
+                          variablesDialogActive={variablesDialogActive}
+                          storedExpression={storedPatternSecondSpacingExpression}
+                          storedExpressionUntouchedValue={storedMaterializedPatternSecondSpacing}
+                          onValidity={patternSecondSpacingField.onValidity}
+                          onEnter={handleConfirm}
+                          inputTestId="part-studio-feature-dialog-pattern-second-spacing"
+                          expressionLabel={t('partStudio.featureDialog.patternSecondSpacingExpressionLabel')}
+                          variableTypeField={t('partStudio.featureDialog.patternSecondSpacingField')}
                         />
                       </section>
                       <select
