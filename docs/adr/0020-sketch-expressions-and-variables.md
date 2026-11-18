@@ -1,8 +1,8 @@
 # ADR-0020 — Sketch expressions and Part Studio variables (v1)
 
-- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5 已实现；
+- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5/S6 已实现；
   S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施；S5 表达式错误结构化与本地化
-  按 §2.10 实施）**
+  按 §2.10 实施；S6 线性阵列间距表达式按 §2.11 实施）**
 - 日期：2026-11-17
 - 关联：AIRR `docs/superpowers/specs/2026-11-17-expressions-variables-airr.md`；
   `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared `LubanFeatureRpcInterface`
@@ -345,6 +345,20 @@ counterbore/countersink/tip 表达式、pattern 的 count/spacing/angle、阵列
 **不做**：后端错误文案本地化（`特征 <id>：...` 等仍中文，登记）；单位/函数语法扩展；
 改动求值语义。发布未授权。
 
+### 2.11 S6 线性阵列间距表达式（2026-11-18 recon）
+
+**Live 证据（脱敏，私有 `probe-20261118/`）**：Onshape 线性阵列编辑对话框类型下拉为
+零件阵列/特征阵列/面阵列；Part pattern 与切到特征阵列后的 FEATURE pattern，「距离」
+字段均接受 `#width`（字段保持有效并打开数量补全）。**契约 shared 1.75.0 → 1.76.0**：
+`PatternParams.spacingExpression?` 与 `FeaturePatternParams.spacingExpression?`，
+仅 `kind === "linear"`；kind length >0；物化 `spacing`（必填快照；写/预览载荷须携带
+`spacing` 占位键，resolver 对无占位的合成仅用于 `updateVariables` 存量行修复）；
+circular 携带显式拒收；变量类型门 length/number/any；错误零变更。后端复用 S4c
+field-spec + registry schema 复验 + `updateVariables` 全键扫描/undo；web 两个阵列
+对话框的间距行复用 `ExpressionNumberField`（linear 适用、无效禁提、未触碰保留、
+数值清除、circular 清除、preview 用求值数）。**不做**：第二方向间距、circular
+angle、count 表达式；发布未授权。
+
 ## 3. 备选方案
 
 - **A. 全部前端求值，后端只收数值**：不新增契约；但重建/变量变更无法由后端权威
@@ -422,6 +436,15 @@ counterbore/countersink/tip 表达式、pattern 的 count/spacing/angle、阵列
   2026-11-13 起登记的既有 count off-by-one known-red（当时已用 `git stash`
   未改代码复跑同值复现），非本切片引入，未放宽断言；`tutorial2` 全链
   **2 passed（4.6 m，357.730 cm³ 不变）**。
+  复核：后端 opus APPROVE WITH FIXES → 修复（第二方向收紧 blind-only、测试
+  自洽、错误前缀/注释、服务级零变更与角度传播测试）→ scoped APPROVE；web opus
+  APPROVE WITH FIXES → 修复（P1 控制器不稳定导致 preview RPC 自激循环、无效态
+  红框/文案、`°→angle` 内联创建、英寸预填 mm、第二方向无效幽灵、hole 点草图
+  e2e）→ scoped APPROVE；仅余 P3（英寸表达式在场时预填旧单位、`deg` 映射）已修。
+  **真栈意外发现并修复产品缺陷**：`PartStudioPage` 以 `enabled: canEdit &&
+  !readonlyBlocked` 覆盖 `useAutoPush` 的环境缺省，`VITE_EDITOR_AUTOSAVE=0`
+  从未生效；20s 防抖静默 push 会清空原生 undo/redo 栈（S4c 数值编辑后 undo
+  偶发失效的真因）。新增 `resolveAutoPushEnabled` 总门与真栈回归测试。
 - **S5 实测（2026-11-18）**：shared **307/307**（含 test:types，detail 17 种逐项、
   归因/循环链、message 逐字兼容 exact-string）；shared build/dist 1.75.0。私有后端
   对 shared 1.75 兼容：表达式相关 targeted **96/96**、`tsc --noEmit` 绿（无代码改动）。
@@ -432,15 +455,19 @@ counterbore/countersink/tip 表达式、pattern 的 count/spacing/angle、阵列
   shell/extrude/revolve 全流程不回归。复核：opus APPROVE WITH FIXES → 修复（P2 空
   变量定义 `sourceCode` 保留、空断言、注释、校验联合、CJK 守卫扩展）→ scoped
   APPROVE。
-  复核：后端 opus APPROVE WITH FIXES → 修复（第二方向收紧 blind-only、测试
-  自洽、错误前缀/注释、服务级零变更与角度传播测试）→ scoped APPROVE；web opus
-  APPROVE WITH FIXES → 修复（P1 控制器不稳定导致 preview RPC 自激循环、无效态
-  红框/文案、`°→angle` 内联创建、英寸预填 mm、第二方向无效幽灵、hole 点草图
-  e2e）→ scoped APPROVE；仅余 P3（英寸表达式在场时预填旧单位、`deg` 映射）已修。
-  **真栈意外发现并修复产品缺陷**：`PartStudioPage` 以 `enabled: canEdit &&
-  !readonlyBlocked` 覆盖 `useAutoPush` 的环境缺省，`VITE_EDITOR_AUTOSAVE=0`
-  从未生效；20s 防抖静默 push 会清空原生 undo/redo 栈（S4c 数值编辑后 undo
-  偶发失效的真因）。新增 `resolveAutoPushEnabled` 总门与真栈回归测试。
+- **S6 实测（2026-11-18）**：shared **309/309**（+2 契约测试）含 test:types；
+  private backend targeted **217/217（9 files）**、全量 **1070 passed / 1 expected
+  fail / 8 skipped（112 files）**、tsc 绿（含复核补测：无 `spacing` 占位的写面
+  负例、FEATURE pattern 抑制传播、scoped 隔离）。web **2518/2518**（160 files）、
+  tsc(src+e2e)/eslint 绿。真栈 `pattern-spacing-expression` **2 passed（1.1 m；
+  setup + 1 用例）**：体线性阵列 `#sp`（sp=10，count 2）→ **160 mm³** + 树 params
+  `{spacing:10, spacingExpression:'#sp'}` → 变量 sp 10→20 物化 → 原生 undo/redo →
+  push+冷重开。回归：`pattern-centered-ui`、`pattern-second-direction-ui`
+  **3 passed（1.2 m）**；`feature-pattern-edit-ui`、`feature-pattern-tree-ops`
+  **5 passed + 1 既有 KNOWN-RED（标记）**（3.7 m）。复核：后端 opus **APPROVE**
+  （P3 补测/文档建议 → 已修）；web opus APPROVE WITH FIXES（P2 circular 清除测试
+  过弱）→ 强化为聚焦断言 + 提交载荷无 `spacingExpression`，并以临时禁用清除效果
+  验证测试转红（已还原）。FEATURE 阵列真栈 e2e 未单独覆盖（单测覆盖，登记）。
 
 ## 5. 回滚
 

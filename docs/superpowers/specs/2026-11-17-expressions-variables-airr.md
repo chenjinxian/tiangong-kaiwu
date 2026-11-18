@@ -331,3 +331,24 @@ files）、tsc(src+e2e)/eslint 绿；真栈 `feature-expression-fields` **5 pass
 含 zh 本地化 `未知变量: #nope` 断言。复核：opus APPROVE WITH FIXES（P2 empty 来源
 丢失）→ 修复（sourceCode/空断言/注释/校验判别联合/CJK 守卫）→ scoped APPROVE。
 **不做**：后端错误文案本地化（仍中文，登记）；单位/函数语法；发布未授权。
+
+## 14. S6 线性阵列间距表达式（2026-11-18）
+
+**Live 证据**：线性阵列编辑对话框类型下拉=零件阵列/特征阵列/面阵列；Part pattern
+与切换后的 FEATURE pattern「距离」字段均接受 `#width`（有效 + 数量补全）。
+
+**设计**：shared 1.76.0 `PatternParams.spacingExpression?` 与
+`FeaturePatternParams.spacingExpression?`（仅 linear；kind length >0；物化 `spacing`
+必填快照且写/预览载荷须带占位键；circular 显式拒收；类型门 length/number/any）。
+后端复用 S4c field-spec + registry 复验 + updateVariables 全键扫描/undo；web 两个
+阵列对话框间距行复用 `ExpressionNumberField`（linear 适用、未触碰保留、数值清除、
+circular 清除、无效禁提、preview 用求值数、S5 本地化错误）。**不做**：第二方向
+间距、circular angle、count 表达式；发布未授权。
+
+**验证**：shared **309/309**（+2）；private backend targeted **217/217（9 files）**、
+全量 **1070 passed/1 expected fail/8 skipped（112 files）**、tsc 绿；web
+**2518/2518**（160 files）、tsc/ eslint 绿；真栈 `pattern-spacing-expression`
+**2 passed（1.1 m）**（`#sp` → 160 mm³、变量 10→20 物化、原生 undo/redo、push+
+冷重开）；回归 body pattern **3 passed**、feature-pattern **5 passed + 1 既有
+KNOWN-RED（标记）**。复核：后端 APPROVE（P3 补测/文档已修）；web APPROVE WITH
+FIXES（P2 circular 清除测试过弱）→ 强化并用临时禁用清除效果验证转红后还原。

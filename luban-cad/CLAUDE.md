@@ -382,6 +382,21 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `未知变量: #nope` 断言。复核：opus APPROVE WITH FIXES（P2 空变量定义 empty 来源
   丢失）→ 修复（sourceCode/非空断言/注释/校验判别联合/CJK 守卫扩展）→ scoped
   APPROVE。**未发布**；残：后端错误文案（`特征 <id>：...`）仍中文。
+- **W37 S6 线性阵列间距表达式（2026-11-18，shared 1.76 / 私有后端 / web；ADR-0020 §2.11）**：
+  `PatternParams.spacingExpression?` 与 `FeaturePatternParams.spacingExpression?`
+  （live：Part pattern 与 FEATURE pattern「距离」均接受 `#width`）；仅 linear，
+  `spacing` 保持必填物化快照且写/预览载荷须带占位键，circular 显式拒收，类型门
+  length/number/any。后端复用 S4c field-spec/registry 复验/updateVariables 全键扫描
+  + undo；web 两个阵列对话框间距行复用 `ExpressionNumberField`（linear 适用、
+  未触碰保留、数值清除、circular 清除、无效禁提、preview 用求值数、S5 本地化）。
+  验证：shared **309/309**（+2）；backend targeted **217/217（9 files）**、全量
+  **1070 passed/1 expected fail/8 skipped（112 files）**、tsc 绿；web **2518/2518**
+  （160 files）、tsc/e2e tsc/eslint 绿；真栈 `pattern-spacing-expression`
+  **2 passed（1.1 m：`#sp` → 160 mm³、变量 10→20 物化、原生 undo/redo、push+冷重开）**；
+  回归 body pattern 3、feature-pattern 5 + 1 既有 KNOWN-RED（标记）。复核：后端
+  APPROVE（P3 补测/文档已修）；web APPROVE WITH FIXES（P2 circular 清除测试过弱）→
+  强化并以临时禁用清除验证转红后还原。**未发布**；残：第二方向间距/circular angle/
+  count 表达式未接；FEATURE 阵列真栈 e2e 未单独覆盖（单测覆盖）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
