@@ -101,6 +101,11 @@ export interface FeatureNode {
   isHidden: boolean;
   /** 使用/更改的变量名（:variable 筛选依据，区分大小写）。 */
   variables?: readonly string[];
+  /**
+   * W46 S16：落库参数快照（FeatureTreeEntry.params 直通）——树菜单相机项
+   * （草图放大/视图垂直于）读 plane+entities；不参与筛选/命名。
+   */
+  params?: unknown;
 }
 
 /** 零件条目（双段树零件段视图模型；注入口径同 FeatureNode）。 */

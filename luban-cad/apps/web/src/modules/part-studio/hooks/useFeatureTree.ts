@@ -89,6 +89,7 @@ export function mapFeatureEntries(
         hasError: entry.status !== 0,
         isSuppressed: entry.suppressed,
         isHidden: false,
+        params: entry.params,
       };
     });
 }

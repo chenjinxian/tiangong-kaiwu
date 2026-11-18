@@ -21,7 +21,7 @@ import type { JSX } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { BodyInfo, FeatureTreeEntry, VariableDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureTreeEntry, SketchEntityDto, VariableDto } from '@luban-cad/shared';
 import { clearSketchClipboard, copySketchById } from '../internal/sketch-clipboard.js';
 
 const mocks = vi.hoisted(() => ({
@@ -806,7 +806,7 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     act(() => { usePartStudioStore.getState().exitSketch(); });
     fireEventContextMenu(screen.getByTestId('tree-row-sk3'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
-    await user.click(within(menu).getByRole('menuitem', { name: '编辑草图…' }));
+    await user.click(within(menu).getByRole('menuitem', { name: '编辑…' }));
     sketch = usePartStudioStore.getState().sketch;
     expect(sketch.isActive).toBe(true);
     expect(sketch.activeSketchPlane).toEqual(FRONT_PLANE_DTO);
@@ -822,18 +822,14 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(usePartStudioStore.getState().sketch.activeSketchId).toBeNull();
   });
 
-  it('右键 sketch 节点：菜单有「编辑草图…」（带图标）、无「编辑…」；点击进草图模式', async () => {
+  it('右键 sketch 节点：菜单「编辑…」（无图标，live w47-04）；点击进草图模式', async () => {
     const user = userEvent.setup();
     render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
     fireEventContextMenu(screen.getByTestId('tree-row-sk2'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
-    const editSketch = within(menu).getByRole('menuitem', { name: '编辑草图…' });
-    // 通用「编辑…」（FeatureDialog 路由）对 sketch 节点隐藏——草图不走特征对话框。
-    expect(within(menu).queryByRole('menuitem', { name: '编辑…' })).toBeNull();
-    // 菜单项左置图标（os-15 V20 同口径）。
-    const icon = editSketch.querySelector('svg');
-    expect(icon).not.toBeNull();
-    expect(icon?.closest('[aria-hidden="true"]')).not.toBeNull();
+    const editSketch = within(menu).getByRole('menuitem', { name: '编辑…' });
+    // live：草图行与特征行同文案「编辑…」，且草图行无图标。
+    expect(editSketch.querySelector('svg')).toBeNull();
     await user.click(editSketch);
     expect(usePartStudioStore.getState().sketch.isActive).toBe(true);
     expect(usePartStudioStore.getState().sketch.activeSketchId).toBe('sk2');
@@ -841,16 +837,15 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
-  it('右键非 sketch 节点：菜单有「编辑…」、无「编辑草图…」（既有行为不变）', () => {
+  it('右键非 sketch 节点：菜单有「编辑…」（既有行为不变）', () => {
     render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
     fireEventContextMenu(screen.getByTestId('tree-row-ex9'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
     expect(within(menu).getByRole('menuitem', { name: '编辑…' })).toBeDefined();
-    expect(within(menu).queryByRole('menuitem', { name: '编辑草图…' })).toBeNull();
   });
 
   // ── W41 S10（Onshape live 2026-11-18）：草图行「复制草图」──────────────
-  it('右键 sketch 节点：菜单有「复制草图」（紧随编辑草图…），点击回调 sketch id 并收合', async () => {
+  it('右键 sketch 节点：菜单有「复制草图」（紧随「编辑…」），点击回调 sketch id 并收合', async () => {
     const user = userEvent.setup();
     const onCopySketch = vi.fn();
     render(<FeatureTree entries={SKETCH_TREE_ENTRIES} onCopySketch={onCopySketch} />);
@@ -861,9 +856,9 @@ describe('M6-a T7：草图节点本地化 + 编辑入口（Onshape 语义=双击
     expect(copy.getAttribute('role')).toBe('menuitem');
     // W44 S13：live 菜单「复制草图」无图标（w43-copy-menu 截图）。
     expect(copy.querySelector('svg')).toBeNull();
-    // live 行序：重命名 / 编辑草图… / 复制草图（紧随其后，隔一条分隔线后继续既有项）。
+    // live 行序：重命名 / 编辑… / 复制草图 / 粘贴到草图中（W46 S16 后）。
     expect(items[0]!.textContent).toContain('重命名');
-    expect(items[1]!.textContent).toContain('编辑草图…');
+    expect(items[1]!.textContent).toContain('编辑…');
     expect(items[2]).toBe(copy);
     await user.click(copy);
     expect(onCopySketch).toHaveBeenCalledTimes(1);
@@ -948,7 +943,7 @@ describe('B6 M-A5 T2：零件行守卫 + 逐 body 可见性 + canEdit 门', () =
     // 删除… 仍禁用（后端无 deleteBodies FeatureOp）；编辑/抑制/草图项缺席。
     expect(within(menu).getByRole('menuitem', { name: '重命名' })).toHaveProperty('disabled', false);
     expect(within(menu).getByRole('menuitem', { name: '删除…' })).toHaveProperty('disabled', true);
-    for (const name of ['编辑…', '抑制', '编辑草图…']) {
+    for (const name of ['编辑…', '抑制']) {
       expect(within(menu).queryByRole('menuitem', { name })).toBeNull();
     }
     // 右键仍先选中该行（既有语义不变）。
@@ -1479,12 +1474,115 @@ describe('W45 S15：草图打开态树菜单变体', () => {
     expect(within(menu).getByTestId('tree-menu-hide-other-sketches')).toBeDefined();
   });
 
-  it('关闭草图后恢复全菜单（复制/删除在列，短菜单项缺席）', () => {
+  it('关闭草图后恢复全菜单（复制/删除在列，短菜单专属项仍在但图标项恢复）', () => {
     render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
     fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
     expect(within(menu).getByTestId('tree-menu-copy-sketch')).toBeDefined();
     expect(within(menu).getByRole('menuitem', { name: '删除' })).toBeDefined();
-    expect(within(menu).queryByTestId('tree-menu-hide-other-sketches')).toBeNull();
+    // W46 S16：关闭态草图行全菜单也包含隐藏项（live w47-04 21 项）。
+    expect(within(menu).getByTestId('tree-menu-hide-other-sketches')).toBeDefined();
+  });
+});
+
+// ── W46 S16（Onshape live 2026-11-19 probe w47-04）：关闭态草图行全菜单 ──────
+// live 21 项顺序；本产品已实现项启用（重命名/编辑…/复制/粘贴/抑制/放大/
+// 视图垂直于/删除），未实现子系统项诚实禁用；无「清除选择」「添加表达式」。
+describe('W46 S16：关闭态草图行全菜单对齐', () => {
+  const CLIPBOARD_LINE: SketchEntityDto[] = [
+    { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 0 } },
+  ];
+
+  it('草图行全菜单 = live 21 项顺序；可执行项启用、未支持项禁用', () => {
+    copySketchById('src', CLIPBOARD_LINE, []);
+    const viewport = {} as never;
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} viewport={viewport} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items.map((item) => (item.textContent ?? '').trim())).toEqual([
+      '重命名',
+      '编辑…',
+      '复制草图',
+      '粘贴到草图中',
+      '显示尺寸',
+      '将选定内容添加到文件夹…',
+      '隐藏',
+      '隐藏其他草图',
+      '隐藏所有草图',
+      '创建 草图 1 的工程图…',
+      '导出为 DXF/DWG…',
+      '剖视图…',
+      '抑制',
+      '动态抑制添加表达式…›',
+      '添加评论',
+      '放大选定对象',
+      '视图垂直于',
+      '显示依赖项…',
+      '滚动到此处',
+      '编辑草图外观…',
+      '删除',
+    ]);
+    // sk1 params={}（空草图）：放大选定对象无可定位几何 → 禁用；视图垂直于可用。
+    const enabled = new Set([0, 1, 2, 3, 12, 16, 20]);
+    items.forEach((item, index) => {
+      expect((item as HTMLButtonElement).disabled, `第 ${index} 项 ${item.textContent}`)
+        .toBe(!enabled.has(index));
+    });
+    expect((items[15] as HTMLButtonElement).disabled).toBe(true);
+    // 无 live 之外的「清除选择」/「添加表达式」；无旧「编辑草图…」文案。
+    expect(within(menu).queryByRole('menuitem', { name: '清除选择' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '添加表达式' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '编辑草图…' })).toBeNull();
+  });
+
+  it('放大选定对象/视图垂直于：有几何+视口时启用并真实驱动相机', async () => {
+    const user = userEvent.setup();
+    const lookAtVolume = vi.fn();
+    const setRotation = vi.fn();
+    const viewport = {
+      view: {
+        lookAtVolume,
+        setRotation,
+        is3d: () => true,
+        turnCameraOff: vi.fn(),
+      },
+      viewRect: { aspect: 1.5 },
+      synchWithView: vi.fn(),
+    } as never;
+    const geometryEntries: FeatureTreeEntry[] = [
+      {
+        id: 'geo', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0,
+        params: {
+          plane: FRONT_PLANE_DTO,
+          entities: [{ kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 10, y: 5 } }],
+          constraints: [],
+        },
+      },
+    ];
+    render(<FeatureTree entries={geometryEntries} viewport={viewport} />);
+    // 放大选定对象：世界包围盒 → lookAtVolume。
+    fireEventContextMenu(screen.getByTestId('tree-row-geo'));
+    let menu = screen.getByRole('menu', { name: '特征菜单' });
+    const zoom = within(menu).getByTestId('tree-menu-zoom-sketch') as HTMLButtonElement;
+    expect(zoom.disabled).toBe(false);
+    await user.click(zoom);
+    expect(lookAtVolume).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+    // 视图垂直于：setRotation。
+    fireEventContextMenu(screen.getByTestId('tree-row-geo'));
+    menu = screen.getByRole('menu', { name: '特征菜单' });
+    const viewNormal = within(menu).getByTestId('tree-menu-view-normal') as HTMLButtonElement;
+    expect(viewNormal.disabled).toBe(false);
+    await user.click(viewNormal);
+    expect(setRotation).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('空草图（无 entities）：放大选定对象禁用（不假成功）', () => {
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} viewport={{} as never} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect((within(menu).getByTestId('tree-menu-zoom-sketch') as HTMLButtonElement).disabled).toBe(true);
   });
 });

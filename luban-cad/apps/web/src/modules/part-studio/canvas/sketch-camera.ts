@@ -98,7 +98,7 @@ export function fitCameraToSketch(
   plane: SketchPlaneDto | null | undefined,
   entities: readonly SketchEntityDto[],
 ): boolean {
-  if (!viewport || typeof viewport.view.lookAtVolume !== 'function') return false;
+  if (!viewport || !viewport.view || typeof viewport.view.lookAtVolume !== 'function') return false;
   const range = sketchWorldRange(plane, entities);
   if (!range) return false;
   viewport.view.lookAtVolume(range, viewport.viewRect.aspect, {
@@ -116,7 +116,8 @@ export function orientCameraToSketchPlane(
 ): void {
   if (!viewport) return;
   const view = viewport.view;
-  if (typeof view.setRotation !== 'function') return;
+  // 防御：单测/壳期伪视口可能没有 view（`viewport.view.setRotation` 不得裸读）。
+  if (!view || typeof view.setRotation !== 'function') return;
   const frame = sketchPlaneFrameFrom(plane);
   const rotation = Matrix3d.createRows(frame.xDir, frame.yDir, frame.normal);
   view.setRotation(rotation);
