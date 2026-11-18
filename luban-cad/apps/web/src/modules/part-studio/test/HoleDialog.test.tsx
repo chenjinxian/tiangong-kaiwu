@@ -7,7 +7,10 @@
 //  4) edit 模式回显落库参数并走 updateParams；
 //  5) 沉头孔/倒角孔页签禁用（后端未实现，禁止假成功）；
 //  6) 审计 C3（2026-11-16）：沉头/倒角数值行带禁用计算器（载荷/校验不变）；
-//  7) 审计 C4（2026-11-16）：孔类型/钻孔尺寸行 = 11px 灰标签 + 14px 无边框值。
+//  7) 审计 C4（2026-11-16）：孔类型/钻孔尺寸行 = 11px 灰标签 + 14px 无边框值；
+//  8) ADR-0020 S8（shared 1.78）：沉头/锥口字段表达式——物化快照 + 原文载荷、
+//     未触碰保留、数值/样式切换清除、无效禁提（S5 本地化）、mm/in 投影与 deg
+//     内联创建、非适用样式不夹带表达式键、预览用求值数。
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import React from 'react';
@@ -533,5 +536,475 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
       featureType: 'hole',
       params: { tipAngleDeg: 180 },
     });
+  });
+});
+
+// ── ADR-0020 S8（shared 1.78）：沉头/锥口字段表达式 ────────────────────────
+// 复用 ExpressionNumberField（与孔径/孔深同一状态机）；数值目标保持必填
+// 物化快照，原文随载荷；仅当前孔样式适用键发送（样式切换清除）；
+// 无效表达式走 S5 本地化错误并禁用提交；mm/in 只是显示投影（快照恒 mm）。
+describe('HoleDialog 沉头/锥口表达式（ADR-0020 S8）', () => {
+  const W_VARIABLE = { id: 'vw', name: 'w', expression: '10', type: 'length' as const };
+  const H_VARIABLE = { id: 'vh', name: 'h', expression: '5', type: 'length' as const };
+  const DIA_INCH_VARIABLE = { id: 'vd', name: 'dia', expression: '6.35', type: 'length' as const };
+  const SD_VARIABLE = { id: 'vs', name: 'sd', expression: '12', type: 'length' as const };
+  const ANGLE_VARIABLE = { id: 'va', name: 'ang', expression: '90', type: 'angle' as const };
+
+  async function openCounterbore(): Promise<void> {
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    fireEvent.click(screen.getByText('沉头孔').closest('button')!);
+  }
+
+  async function openCountersink(): Promise<void> {
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    fireEvent.click(screen.getByText('倒角孔').closest('button')!);
+  }
+
+  function submitParams(op: FeatureOp): Record<string, unknown> {
+    return (op as unknown as { params: Record<string, unknown> }).params;
+  }
+
+  it('沉头孔直径/深度：`#w`/`#h` 求值物化（mm）且原文随载荷', async () => {
+    const { applyOp } = renderDialog({ variables: [W_VARIABLE, H_VARIABLE] });
+    await openCounterbore();
+    const cboreDiameter = screen.getByTestId('hole-cbore-diameter') as HTMLInputElement;
+    const cboreDepth = screen.getByTestId('hole-cbore-depth') as HTMLInputElement;
+    expect(cboreDiameter.getAttribute('data-expression-field')).toBe('length');
+    expect(cboreDepth.getAttribute('data-expression-field')).toBe('length');
+    fireEvent.change(cboreDiameter, { target: { value: '#w' } });
+    fireEvent.change(cboreDepth, { target: { value: '#h' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(submitParams(applyOp.mock.calls[0]![0])).toMatchObject({
+      holeStyle: 'counterbore',
+      counterboreDiameterMm: 10,
+      counterboreDiameterExpression: '#w',
+      counterboreDepthMm: 5,
+      counterboreDepthExpression: '#h',
+    });
+  });
+
+  it('主孔径 + 沉头直径同用表达式：两键各自求值/原文（#w / #w*2）', async () => {
+    const { applyOp } = renderDialog({ variables: [W_VARIABLE] });
+    await openCounterbore();
+    fireEvent.change(screen.getByTestId('hole-diameter'), { target: { value: '#w' } });
+    fireEvent.change(screen.getByTestId('hole-cbore-diameter'), { target: { value: '#w*2' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(submitParams(applyOp.mock.calls[0]![0])).toMatchObject({
+      diameterMm: 10,
+      diameterExpression: '#w',
+      holeStyle: 'counterbore',
+      counterboreDiameterMm: 20,
+      counterboreDiameterExpression: '#w*2',
+    });
+  });
+
+  it('沉头孔数值编辑清除对应表达式（未编辑的深度表达式保留）', async () => {
+    const { applyOp } = renderDialog({ variables: [W_VARIABLE, H_VARIABLE] });
+    await openCounterbore();
+    const cboreDiameter = screen.getByTestId('hole-cbore-diameter') as HTMLInputElement;
+    const cboreDepth = screen.getByTestId('hole-cbore-depth') as HTMLInputElement;
+    fireEvent.change(cboreDiameter, { target: { value: '#w' } });
+    fireEvent.change(cboreDepth, { target: { value: '#h' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(cboreDiameter, { target: { value: '12' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({
+      holeStyle: 'counterbore', counterboreDiameterMm: 12, counterboreDepthMm: 5,
+    });
+    // 仅被编辑的直径表达式清除；未触碰的深度表达式仍按原文发送。
+    expect('counterboreDiameterExpression' in params).toBe(false);
+    expect(params.counterboreDepthExpression).toBe('#h');
+  });
+
+  it('沉头孔未触碰（编辑回显）保留表达式；变量表未就绪按物化快照放行', async () => {
+    const initialParams = {
+      sketchId: 'sketch-1',
+      pointIds: [2],
+      holeStyle: 'counterbore',
+      diameterMm: 5,
+      counterboreDiameterMm: 10,
+      counterboreDepthMm: 4,
+      counterboreDiameterExpression: '#w',
+      counterboreDepthExpression: '#h',
+      endBound: 'throughAll',
+    };
+    const withVariables = renderDialog({
+      featureId: 'feature-8',
+      initialParams,
+      variables: [
+        { id: 'vw', name: 'w', expression: '10', type: 'length' },
+        { id: 'vh', name: 'h', expression: '4', type: 'length' },
+      ],
+    });
+    const cboreDiameter = await screen.findByTestId('hole-cbore-diameter') as HTMLInputElement;
+    expect(cboreDiameter.value).toBe('10');
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(withVariables.applyOp).toHaveBeenCalledTimes(1));
+    expect(withVariables.applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'feature-8',
+      params: {
+        sketchId: 'sketch-1',
+        pointIds: [2],
+        holeStyle: 'counterbore',
+        counterboreDiameterMm: 10,
+        counterboreDepthMm: 4,
+        counterboreDiameterExpression: '#w',
+        counterboreDepthExpression: '#h',
+        diameterMm: 5,
+        endBound: 'throughAll',
+        tipAngleDeg: 180,
+      },
+    });
+    cleanup();
+
+    // 变量表加载中：未触碰落库表达式按物化快照提交（不误报未知变量）。
+    const loading = renderDialog({
+      featureId: 'feature-8',
+      initialParams,
+      variables: [],
+      variablesLoading: true,
+    });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(loading.applyOp).toHaveBeenCalledTimes(1));
+    expect(submitParams(loading.applyOp.mock.calls[0]![0])).toMatchObject({
+      holeStyle: 'counterbore',
+      counterboreDiameterMm: 10,
+      counterboreDepthMm: 4,
+      counterboreDiameterExpression: '#w',
+      counterboreDepthExpression: '#h',
+    });
+  });
+
+  it('沉头孔无效表达式：S5 本地化错误 + 禁用提交（零 op）', async () => {
+    const { applyOp } = renderDialog({ variables: [] });
+    await openCounterbore();
+    const cboreDiameter = screen.getByTestId('hole-cbore-diameter') as HTMLInputElement;
+    fireEvent.change(cboreDiameter, { target: { value: '#nope' } });
+    await waitFor(() => expect(cboreDiameter.getAttribute('aria-invalid')).toBe('true'));
+    const error = await screen.findByTestId('expression-field-error');
+    expect(error.textContent).toContain('未知变量');
+    expect(cboreDiameter.getAttribute('aria-describedby')).toBe(error.id);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('沉头孔英寸投影：表达式求值恒 mm；切 Inch 显示 0.25，快照仍 6.35', async () => {
+    const { applyOp } = renderDialog({ variables: [DIA_INCH_VARIABLE] });
+    await openCounterbore();
+    const cboreDiameter = screen.getByTestId('hole-cbore-diameter') as HTMLInputElement;
+    fireEvent.change(cboreDiameter, { target: { value: '#dia' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    await waitFor(() => expect(cboreDiameter.value).toBe('0.25'));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(submitParams(applyOp.mock.calls[0]![0])).toMatchObject({
+      counterboreDiameterMm: 6.35,
+      counterboreDiameterExpression: '#dia',
+    });
+  });
+
+  it('沉头孔英寸内联创建：0.25 in 纯数字草稿按契约 mm 预填（6.35）', async () => {
+    const onCreateVariable = vi.fn();
+    const { applyOp } = renderDialog({ variables: [], onCreateVariable });
+    await openCounterbore();
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    const cboreDiameter = screen.getByTestId('hole-cbore-diameter') as HTMLInputElement;
+    fireEvent.change(cboreDiameter, { target: { value: '0.25' } });
+    await waitFor(() => expect(cboreDiameter.value).toBe('0.25'));
+    fireEvent.change(cboreDiameter, { target: { value: '#newd' } });
+    fireEvent.keyDown(cboreDiameter, { key: 'Enter' });
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'newd',
+      valueText: '6.35',
+      unit: 'mm',
+    }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('P2-1 英寸 + 无效表达式 + 样式切换：草稿按当前单位归位（10 mm → 0.3937 in），快照不是 254', async () => {
+    const { applyOp } = renderDialog({ variables: [] });
+    await openCounterbore();
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    const cboreDiameter = screen.getByTestId('hole-cbore-diameter') as HTMLInputElement;
+    fireEvent.change(cboreDiameter, { target: { value: '#bad' } });
+    await waitFor(() => expect(cboreDiameter.getAttribute('aria-invalid')).toBe('true'));
+    // 非适用样式切换会清除无效表达式；切回时草稿必须是单位正确的可解析数值。
+    fireEvent.click(screen.getByText('简单').closest('button')!);
+    fireEvent.click(screen.getByText('沉头孔').closest('button')!);
+    const restored = screen.getByTestId('hole-cbore-diameter') as HTMLInputElement;
+    expect(restored.value).not.toContain('#');
+    expect(restored.value).toBe('0.3937'); // 10 mm 的英寸显示投影
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    // 显示投影 4 位小数 → 物化回来的快照逼近 10 mm（绝不是 254 mm）。
+    expect(Number(params.counterboreDiameterMm)).toBeCloseTo(10, 3);
+    // 5 mm → 0.1969 in（4 位投影）回算 5.00126 mm；精度 2 足够且明确不是 127/254。
+    expect(Number(params.counterboreDepthMm)).toBeCloseTo(5, 2);
+    expect('counterboreDiameterExpression' in params).toBe(false);
+    expect('counterboreDepthExpression' in params).toBe(false);
+  });
+
+  it('P2-1 主孔深表达式归位：英寸 + 无效深度表达式 + 切终止条件 → 0.3937 in（10 mm）', async () => {
+    renderDialog({ variables: [] });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    const depth = screen.getByTestId('hole-depth') as HTMLInputElement;
+    fireEvent.change(depth, { target: { value: '#bad' } });
+    await waitFor(() => expect(depth.getAttribute('aria-invalid')).toBe('true'));
+    // throughAll 卸载深度字段：宿主清除表达式并按当前单位归位缺省 10 mm。
+    fireEvent.change(screen.getByTestId('hole-end-bound'), { target: { value: 'throughAll' } });
+    expect(screen.queryByTestId('hole-depth')).toBeNull();
+    fireEvent.change(screen.getByTestId('hole-end-bound'), { target: { value: 'blind' } });
+    const restored = screen.getByTestId('hole-depth') as HTMLInputElement;
+    expect(restored.value).not.toContain('#');
+    expect(restored.value).toBe('0.3937');
+  });
+
+  it('切换孔样式清除不适用表达式并归位数值草稿（不夹带旧键）', async () => {
+    const { applyOp } = renderDialog({ variables: [W_VARIABLE, H_VARIABLE] });
+    await openCounterbore();
+    fireEvent.change(screen.getByTestId('hole-cbore-diameter'), { target: { value: '#w' } });
+    fireEvent.change(screen.getByTestId('hole-cbore-depth'), { target: { value: '#h' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByText('倒角孔').closest('button')!);
+    // 沉头字段卸载；锥口字段为数值缺省。
+    expect(screen.queryByTestId('hole-cbore-diameter')).toBeNull();
+    expect((screen.getByTestId('hole-csink-diameter') as HTMLInputElement).value).toBe('10');
+    expect((screen.getByTestId('hole-csink-angle') as HTMLInputElement).value).toBe('90');
+    fireEvent.click(screen.getByText('沉头孔').closest('button')!);
+    // 切回沉头：草稿归位为求值数（非失效的 `#w`/`#h`），表达式已清除。
+    expect((screen.getByTestId('hole-cbore-diameter') as HTMLInputElement).value).toBe('10');
+    expect((screen.getByTestId('hole-cbore-depth') as HTMLInputElement).value).toBe('5');
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({
+      holeStyle: 'counterbore', counterboreDiameterMm: 10, counterboreDepthMm: 5,
+    });
+    expect('counterboreDiameterExpression' in params).toBe(false);
+    expect('counterboreDepthExpression' in params).toBe(false);
+    expect('countersinkDiameterExpression' in params).toBe(false);
+    expect('countersinkAngleExpression' in params).toBe(false);
+  });
+
+  it('锥口孔编辑未触碰保留表达式（变量表未就绪按物化快照放行）', async () => {
+    const initialParams = {
+      sketchId: 'sketch-1',
+      pointIds: [2],
+      holeStyle: 'countersink',
+      diameterMm: 5,
+      countersinkDiameterMm: 12,
+      countersinkAngleDeg: 90,
+      countersinkDiameterExpression: '#sd',
+      countersinkAngleExpression: '#ang',
+      endBound: 'throughAll',
+    };
+    const { applyOp } = renderDialog({
+      featureId: 'feature-9',
+      initialParams,
+      variables: [],
+      variablesLoading: true,
+    });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(submitParams(applyOp.mock.calls[0]![0])).toMatchObject({
+      holeStyle: 'countersink',
+      countersinkDiameterMm: 12,
+      countersinkDiameterExpression: '#sd',
+      countersinkAngleDeg: 90,
+      countersinkAngleExpression: '#ang',
+    });
+  });
+
+  it('锥口孔直径改数值只清除直径表达式（未触碰角度表达式保留）', async () => {
+    const { applyOp } = renderDialog({ variables: [SD_VARIABLE, ANGLE_VARIABLE] });
+    await openCountersink();
+    const csinkDiameter = screen.getByTestId('hole-csink-diameter') as HTMLInputElement;
+    const csinkAngle = screen.getByTestId('hole-csink-angle') as HTMLInputElement;
+    fireEvent.change(csinkDiameter, { target: { value: '#sd' } });
+    fireEvent.change(csinkAngle, { target: { value: '#ang' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(csinkDiameter, { target: { value: '14' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({
+      holeStyle: 'countersink', countersinkDiameterMm: 14, countersinkAngleDeg: 90,
+    });
+    expect('countersinkDiameterExpression' in params).toBe(false);
+    expect(params.countersinkAngleExpression).toBe('#ang');
+  });
+
+  it('锥口孔角度改数值只清除角度表达式（仍按度物化；直径表达式保留）', async () => {
+    const { applyOp } = renderDialog({ variables: [SD_VARIABLE, ANGLE_VARIABLE] });
+    await openCountersink();
+    const csinkDiameter = screen.getByTestId('hole-csink-diameter') as HTMLInputElement;
+    const csinkAngle = screen.getByTestId('hole-csink-angle') as HTMLInputElement;
+    fireEvent.change(csinkDiameter, { target: { value: '#sd' } });
+    fireEvent.change(csinkAngle, { target: { value: '#ang' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(csinkAngle, { target: { value: '82' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({
+      holeStyle: 'countersink', countersinkDiameterMm: 12, countersinkAngleDeg: 82,
+    });
+    expect('countersinkAngleExpression' in params).toBe(false);
+    expect(params.countersinkDiameterExpression).toBe('#sd');
+  });
+
+  it('锥口孔切换简单样式：表达式清除且不夹带（草稿归位为求值数）', async () => {
+    const { applyOp } = renderDialog({ variables: [SD_VARIABLE, ANGLE_VARIABLE] });
+    await openCountersink();
+    fireEvent.change(screen.getByTestId('hole-csink-diameter'), { target: { value: '#sd' } });
+    fireEvent.change(screen.getByTestId('hole-csink-angle'), { target: { value: '#ang' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByText('简单').closest('button')!);
+    expect(screen.queryByTestId('hole-csink-diameter')).toBeNull();
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({ diameterMm: 5, endBound: 'blind', depthMm: 10 });
+    expect('holeStyle' in params).toBe(false);
+    expect('countersinkDiameterMm' in params).toBe(false);
+    expect('countersinkAngleDeg' in params).toBe(false);
+    expect('countersinkDiameterExpression' in params).toBe(false);
+    expect('countersinkAngleExpression' in params).toBe(false);
+    // 切回锥口：草稿归位为求值数（非失效 `#sd`/`#ang`），表达式已清除。
+    fireEvent.click(screen.getByText('倒角孔').closest('button')!);
+    expect((screen.getByTestId('hole-csink-diameter') as HTMLInputElement).value).toBe('12');
+    expect((screen.getByTestId('hole-csink-angle') as HTMLInputElement).value).toBe('90');
+  });
+
+  it('锥口孔直径/角度：`#sd`/`#ang` → 物化 mm + 度（不换算弧度）', async () => {
+    const { applyOp } = renderDialog({ variables: [SD_VARIABLE, ANGLE_VARIABLE] });
+    await openCountersink();
+    const csinkDiameter = screen.getByTestId('hole-csink-diameter') as HTMLInputElement;
+    const csinkAngle = screen.getByTestId('hole-csink-angle') as HTMLInputElement;
+    expect(csinkDiameter.getAttribute('data-expression-field')).toBe('length');
+    expect(csinkAngle.getAttribute('data-expression-field')).toBe('angleDeg');
+    fireEvent.change(csinkDiameter, { target: { value: '#sd' } });
+    fireEvent.change(csinkAngle, { target: { value: '#ang' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({
+      holeStyle: 'countersink',
+      countersinkDiameterMm: 12,
+      countersinkDiameterExpression: '#sd',
+      countersinkAngleDeg: 90,
+      countersinkAngleExpression: '#ang',
+    });
+  });
+
+  it('锥口角度 deg 内联创建：unit=deg（不请求 length 变量）', async () => {
+    const onCreateVariable = vi.fn();
+    const { applyOp } = renderDialog({ variables: [], onCreateVariable });
+    await openCountersink();
+    const csinkAngle = screen.getByTestId('hole-csink-angle') as HTMLInputElement;
+    fireEvent.change(csinkAngle, { target: { value: '#newang' } });
+    fireEvent.keyDown(csinkAngle, { key: 'Enter' });
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'newang',
+      valueText: '90',
+      unit: 'deg',
+    }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('锥口角度表达式越界（角变量 200°）→ 角度错误 + 禁用提交', async () => {
+    const { applyOp } = renderDialog({
+      variables: [{ id: 'va2', name: 'ang2', expression: '200', type: 'angle' }],
+    });
+    await openCountersink();
+    const csinkAngle = screen.getByTestId('hole-csink-angle') as HTMLInputElement;
+    fireEvent.change(csinkAngle, { target: { value: '#ang2' } });
+    await waitFor(() => expect(csinkAngle.getAttribute('aria-invalid')).toBe('true'));
+    const error = await screen.findByTestId('expression-field-error');
+    expect(error.textContent).toContain('角度');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('不适用样式不夹带表达式键（simple 行含遗留表达式回显也不发送）', async () => {
+    const { applyOp } = renderDialog({
+      featureId: 'feature-7',
+      variables: [W_VARIABLE],
+      initialParams: {
+        sketchId: 'sketch-1',
+        pointIds: [2],
+        diameterMm: 5,
+        endBound: 'throughAll',
+        counterboreDiameterExpression: '#w',
+        countersinkAngleExpression: '#ang',
+      },
+    });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = submitParams(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({ diameterMm: 5, endBound: 'throughAll' });
+    expect('counterboreDiameterExpression' in params).toBe(false);
+    expect('countersinkAngleExpression' in params).toBe(false);
+    expect('holeStyle' in params).toBe(false);
+  });
+
+  it('预览载荷使用表达式求值数（counterbore 影子求值）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp) => ({ ok: true, affected: [] }));
+    renderDialog({ previewOp, variables: [W_VARIABLE, H_VARIABLE] });
+    await openCounterbore();
+    fireEvent.change(screen.getByTestId('hole-cbore-diameter'), { target: { value: '#w' } });
+    fireEvent.change(screen.getByTestId('hole-cbore-depth'), { target: { value: '#h' } });
+    await waitFor(() => {
+      const last = previewOp.mock.calls.at(-1)?.[0] as unknown as FeatureOp | undefined;
+      expect(last).toBeTruthy();
+      const params = submitParams(last!);
+      expect(params.counterboreDiameterMm).toBe(10);
+      expect(params.counterboreDepthMm).toBe(5);
+      expect(params.counterboreDiameterExpression).toBe('#w');
+      expect(params.counterboreDepthExpression).toBe('#h');
+    }, { timeout: 3000 });
   });
 });

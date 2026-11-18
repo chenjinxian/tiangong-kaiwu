@@ -2026,7 +2026,11 @@
     "depthTooltip": "Depth",
     "tipAngleStyle": "Tip angle style",
     "diameterExpressionLabel": "Diameter expression",
-    "depthExpressionLabel": "Depth expression"
+    "depthExpressionLabel": "Depth expression",
+    "counterboreDiameterExpressionLabel": "Counterbore diameter expression",
+    "counterboreDepthExpressionLabel": "Counterbore depth expression",
+    "countersinkDiameterExpressionLabel": "Countersink diameter expression",
+    "countersinkAngleExpressionLabel": "Countersink angle expression"
   },
   "shellDialog": {
     "facesLabel": "Faces to shell",

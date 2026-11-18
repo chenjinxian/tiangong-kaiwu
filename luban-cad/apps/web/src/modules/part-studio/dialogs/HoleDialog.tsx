@@ -10,6 +10,9 @@
  * v1.27（切片 A2）：孔位同时接受草图 point 与曲线顶点（线端点/弧端点/圆心）。
  * v1.28（切片 A3）：沉头孔（counterbore）开放；倒角孔仍禁用。
  * 钻尖角固定 180°（平底），螺纹/倒角孔明确禁用；提交仍走 FeatureService 的 hole op。
+ * ADR-0020 S8（shared 1.78）：孔径/孔深之外，沉头孔直径/深度、锥口直径/角度也接受
+ *   表达式（`counterbore*Expression`/`countersink*Expression`）——求值数物化为
+ *   对应 Mm/Deg 快照，原文随载荷；样式切换清除非适用键；锥口角度按度书写。
  */
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -89,6 +92,8 @@ function readInitialParams(value: unknown): {
 } {
   if (typeof value !== 'object' || value === null) return {};
   const p = value as Record<string, unknown>;
+  const expression = (key: string): string | undefined =>
+    typeof p[key] === 'string' ? p[key] as string : undefined;
   return {
     sketchId: typeof p.sketchId === 'string' ? p.sketchId : undefined,
     pointIds: Array.isArray(p.pointIds) && p.pointIds.every((x) => typeof x === 'number')
@@ -99,7 +104,7 @@ function readInitialParams(value: unknown): {
         && (r.part === 'start' || r.part === 'end' || r.part === 'center'))
       : undefined,
     diameterMm: typeof p.diameterMm === 'number' ? p.diameterMm : undefined,
-    diameterExpression: typeof p.diameterExpression === 'string' ? p.diameterExpression : undefined,
+    diameterExpression: expression('diameterExpression'),
     holeStyle: p.holeStyle === 'counterbore'
       ? 'counterbore'
       : p.holeStyle === 'countersink' ? 'countersink' : p.holeStyle === 'simple' ? 'simple' : undefined,
@@ -107,10 +112,12 @@ function readInitialParams(value: unknown): {
     counterboreDepthMm: typeof p.counterboreDepthMm === 'number' ? p.counterboreDepthMm : undefined,
     countersinkDiameterMm: typeof p.countersinkDiameterMm === 'number' ? p.countersinkDiameterMm : undefined,
     countersinkAngleDeg: typeof p.countersinkAngleDeg === 'number' ? p.countersinkAngleDeg : undefined,
+    // ADR-0020 S8 的四个表达式原文由 `readStoredExpression` 直接读（未触碰保留），
+    // 不在此重复返回（P3 review：去 unused）。
     endBound: p.endBound === 'blind' || p.endBound === 'throughAll' || p.endBound === 'upToNext'
       ? p.endBound : undefined,
     depthMm: typeof p.depthMm === 'number' ? p.depthMm : undefined,
-    depthExpression: typeof p.depthExpression === 'string' ? p.depthExpression : undefined,
+    depthExpression: expression('depthExpression'),
     tipAngleDeg: typeof p.tipAngleDeg === 'number' ? p.tipAngleDeg : undefined,
     direction: p.direction === 'backward' ? 'backward' : p.direction === 'forward' ? 'forward' : undefined,
   };
@@ -137,14 +144,21 @@ export function HoleDialog({
   const [unit, setUnit] = React.useState<HoleUnit>('mm');
   const [diameter, setDiameter] = React.useState(() => numberText(initial.diameterMm ?? 5) || '5');
   const [holeStyle, setHoleStyle] = React.useState<HoleStyle>(() => initial.holeStyle ?? 'simple');
+  // S8：切换孔样式清除非适用样式表达式时，数值草稿的归位缺省（同新建默认）。
+  // 缺省以契约 mm/deg 保存，写入草稿时按当前显示单位投影（英寸下不得把 10 mm
+  // 当成 10 in 展示/物化；P2 review）。
+  const defaultCounterboreDiameterMm = initial.counterboreDiameterMm ?? (initial.diameterMm ?? 5) * 2;
+  const defaultCounterboreDepthMm = initial.counterboreDepthMm ?? initial.diameterMm ?? 5;
+  const defaultCountersinkDiameterMm = initial.countersinkDiameterMm ?? (initial.diameterMm ?? 5) * 2;
+  const defaultCountersinkAngleDeg = initial.countersinkAngleDeg ?? 90;
   const [counterboreDiameter, setCounterboreDiameter] = React.useState(
-    () => numberText(initial.counterboreDiameterMm ?? (initial.diameterMm ?? 5) * 2) || '10',
+    () => numberText(defaultCounterboreDiameterMm) || '10',
   );
   const [counterboreDepth, setCounterboreDepth] = React.useState(
-    () => numberText(initial.counterboreDepthMm ?? initial.diameterMm ?? 5) || '5',
+    () => numberText(defaultCounterboreDepthMm) || '5',
   );
   const [countersinkDiameter, setCountersinkDiameter] = React.useState(
-    () => numberText(initial.countersinkDiameterMm ?? (initial.diameterMm ?? 5) * 2) || '10',
+    () => numberText(defaultCountersinkDiameterMm) || '10',
   );
   // v1.50：新建默认 118°（Onshape live 证据）；编辑旧库缺省按平底 180 回显，避免
   // 老特征改参时静默改几何。
@@ -152,7 +166,7 @@ export function HoleDialog({
     () => initial.tipAngleDeg ?? (featureId !== undefined ? 180 : 118),
   );
   const [countersinkAngle, setCountersinkAngle] = React.useState(
-    () => numberText(initial.countersinkAngleDeg ?? 90) || '90',
+    () => numberText(defaultCountersinkAngleDeg) || '90',
   );
   const [endBound, setEndBound] = React.useState<HoleEndBound>(() => initial.endBound ?? 'blind');
   // 反向（Onshape oppositeDirection；live 证据 dialog.html 的「反向」控件）：
@@ -172,6 +186,28 @@ export function HoleDialog({
     [initialParams],
   );
   const depthField = useExpressionField(storedDepthExpression);
+  // ADR-0020 S8（shared 1.78）：沉头孔直径/深度、锥口直径/角度表达式宿主控制器
+  // （与孔径/孔深同构，复用 ExpressionNumberField 单一状态机）。
+  const storedCounterboreDiameterExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'counterboreDiameterExpression'),
+    [initialParams],
+  );
+  const counterboreDiameterField = useExpressionField(storedCounterboreDiameterExpression);
+  const storedCounterboreDepthExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'counterboreDepthExpression'),
+    [initialParams],
+  );
+  const counterboreDepthField = useExpressionField(storedCounterboreDepthExpression);
+  const storedCountersinkDiameterExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'countersinkDiameterExpression'),
+    [initialParams],
+  );
+  const countersinkDiameterField = useExpressionField(storedCountersinkDiameterExpression);
+  const storedCountersinkAngleExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'countersinkAngleExpression'),
+    [initialParams],
+  );
+  const countersinkAngleField = useExpressionField(storedCountersinkAngleExpression);
   const [targetBodyId, setTargetBodyId] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
@@ -246,24 +282,38 @@ export function HoleDialog({
       });
   }, [sketchId, connectionKey, partStudioId, t]);
 
-  // ADR-0020 S4c：孔深表达式仅 blind 合法；切到其它终止条件即清除（组件在
-  // 非 blind 时不渲染，卸载后组件内清除 effect 不再运行——宿主补一条）。
-  React.useEffect(() => {
-    if (endBound !== 'blind' && depthField.expression !== undefined) {
-      depthField.setExpression(undefined);
-      setDepth((prev) => numericTextOr(prev, '10'));
-    }
-  }, [endBound, depthField]);
-
-  // 表达式适用性：孔径恒可；孔深仅 blind。
-  const diameterExpressionActive = diameterField.expression !== undefined;
-  const depthExpressionActive = depthField.expression !== undefined && endBound === 'blind';
-  const expressionFieldInvalid = (diameterExpressionActive && diameterField.invalid)
-    || (depthExpressionActive && depthField.invalid);
-
   /** 契约 mm 值 → 当前单位显示文本（4 位小数；仅显示投影，快照恒 mm）。 */
   const formatMmInUnit = (valueMm: number): string =>
     numberText(unit === 'mm' ? valueMm : valueMm / INCH_MM);
+
+  // ADR-0020 S4c：孔深表达式仅 blind 合法；切到其它终止条件即清除（组件在
+  // 非 blind 时不渲染，卸载后组件内清除 effect 不再运行——宿主补一条）。
+  // P2 review（S8）：归位缺省按当前显示单位投影（英寸下不得把 10 mm 当 10 in）。
+  React.useEffect(() => {
+    if (endBound !== 'blind' && depthField.expression !== undefined) {
+      depthField.setExpression(undefined);
+      setDepth((prev) => numericTextOr(prev, formatMmInUnit(10)));
+    }
+  }, [endBound, depthField, unit]);
+
+  // 表达式适用性：孔径恒可；孔深仅 blind；沉头直径/深度仅 counterbore；
+  // 锥口直径/角度仅 countersink（切换样式时宿主清除，见 handleHoleStyleChange）。
+  const diameterExpressionActive = diameterField.expression !== undefined;
+  const depthExpressionActive = depthField.expression !== undefined && endBound === 'blind';
+  const counterboreDiameterExpressionActive = holeStyle === 'counterbore'
+    && counterboreDiameterField.expression !== undefined;
+  const counterboreDepthExpressionActive = holeStyle === 'counterbore'
+    && counterboreDepthField.expression !== undefined;
+  const countersinkDiameterExpressionActive = holeStyle === 'countersink'
+    && countersinkDiameterField.expression !== undefined;
+  const countersinkAngleExpressionActive = holeStyle === 'countersink'
+    && countersinkAngleField.expression !== undefined;
+  const expressionFieldInvalid = (diameterExpressionActive && diameterField.invalid)
+    || (depthExpressionActive && depthField.invalid)
+    || (counterboreDiameterExpressionActive && counterboreDiameterField.invalid)
+    || (counterboreDepthExpressionActive && counterboreDepthField.invalid)
+    || (countersinkDiameterExpressionActive && countersinkDiameterField.invalid)
+    || (countersinkAngleExpressionActive && countersinkAngleField.invalid);
 
   // 单位切换保持物理尺寸（显示值按当前单位换算）；表达式求值恒 mm，只换显示。
   const switchUnit = (next: HoleUnit): void => {
@@ -286,9 +336,83 @@ export function HoleDialog({
         ? displayExpressionValue(depthField.evaluation.value)
         : depth)
       : convertNumeric(depth));
-    setCounterboreDiameter(convertNumeric(counterboreDiameter));
-    setCounterboreDepth(convertNumeric(counterboreDepth));
-    setCountersinkDiameter(convertNumeric(countersinkDiameter));
+    // S8：沉头/锥口长度字段同孔径/孔深——表达式求值恒 mm，只换显示投影。
+    setCounterboreDiameter(counterboreDiameterExpressionActive
+      ? (counterboreDiameterField.evaluation?.ok
+        ? displayExpressionValue(counterboreDiameterField.evaluation.value)
+        : counterboreDiameter)
+      : convertNumeric(counterboreDiameter));
+    setCounterboreDepth(counterboreDepthExpressionActive
+      ? (counterboreDepthField.evaluation?.ok
+        ? displayExpressionValue(counterboreDepthField.evaluation.value)
+        : counterboreDepth)
+      : convertNumeric(counterboreDepth));
+    setCountersinkDiameter(countersinkDiameterExpressionActive
+      ? (countersinkDiameterField.evaluation?.ok
+        ? displayExpressionValue(countersinkDiameterField.evaluation.value)
+        : countersinkDiameter)
+      : convertNumeric(countersinkDiameter));
+    // 锥口角度恒为 deg，不随长度单位换算。
+  };
+
+  /**
+   * ADR-0020 S8：切换孔样式→清除非适用样式的表达式（载荷不夹带非适用键，
+   * 后端显式拒收口径），并把数值草稿归位为求值数（当前单位投影）或原可解析
+   * 草稿/缺省值——切回该样式时不会显示失效的 `#expr` 文本。缺省以契约
+   * mm/deg 保存，写入草稿前按当前显示单位投影（P2 review：英寸下 10 mm 归位
+   * 必须是 0.3937 in，不能是 "10 in"）。
+   */
+  const handleHoleStyleChange = (next: HoleStyle): void => {
+    if (next === holeStyle) return;
+    const restoreDraft = (
+      evaluation: { ok: true; value: number } | { ok: false } | undefined,
+      current: string,
+      fallbackText: string,
+      project: (value: number) => string,
+    ): string => (evaluation?.ok === true
+      ? project(evaluation.value)
+      : numericTextOr(current, fallbackText));
+    if (next !== 'counterbore') {
+      if (counterboreDiameterField.expression !== undefined) {
+        setCounterboreDiameter(restoreDraft(
+          counterboreDiameterField.evaluation,
+          counterboreDiameter,
+          formatMmInUnit(defaultCounterboreDiameterMm),
+          formatMmInUnit,
+        ));
+        counterboreDiameterField.setExpression(undefined);
+      }
+      if (counterboreDepthField.expression !== undefined) {
+        setCounterboreDepth(restoreDraft(
+          counterboreDepthField.evaluation,
+          counterboreDepth,
+          formatMmInUnit(defaultCounterboreDepthMm),
+          formatMmInUnit,
+        ));
+        counterboreDepthField.setExpression(undefined);
+      }
+    }
+    if (next !== 'countersink') {
+      if (countersinkDiameterField.expression !== undefined) {
+        setCountersinkDiameter(restoreDraft(
+          countersinkDiameterField.evaluation,
+          countersinkDiameter,
+          formatMmInUnit(defaultCountersinkDiameterMm),
+          formatMmInUnit,
+        ));
+        countersinkDiameterField.setExpression(undefined);
+      }
+      if (countersinkAngleField.expression !== undefined) {
+        setCountersinkAngle(restoreDraft(
+          countersinkAngleField.evaluation,
+          countersinkAngle,
+          numberText(defaultCountersinkAngleDeg) || '90',
+          numberText,
+        ));
+        countersinkAngleField.setExpression(undefined);
+      }
+    }
+    setHoleStyle(next);
   };
 
   /** 数值路径 mm 值（表达式模式由求值数直接提供契约 mm）。 */
@@ -298,10 +422,19 @@ export function HoleDialog({
   const depthMm = depthExpressionActive
     ? (depthField.evaluation?.ok ? depthField.evaluation.value : Number.NaN)
     : unit === 'mm' ? Number(depth) : Number(depth) * INCH_MM;
-  const counterboreDiameterMm = unit === 'mm' ? Number(counterboreDiameter) : Number(counterboreDiameter) * INCH_MM;
-  const counterboreDepthMm = unit === 'mm' ? Number(counterboreDepth) : Number(counterboreDepth) * INCH_MM;
-  const countersinkDiameterMm = unit === 'mm' ? Number(countersinkDiameter) : Number(countersinkDiameter) * INCH_MM;
-  const countersinkAngleDeg = Number(countersinkAngle); // 角度恒为 deg，不随长度单位换算
+  // S8：表达式模式下物化快照取求值数（契约 mm / 角度 deg），数值模式按单位投影。
+  const counterboreDiameterMm = counterboreDiameterExpressionActive
+    ? (counterboreDiameterField.evaluation?.ok ? counterboreDiameterField.evaluation.value : Number.NaN)
+    : unit === 'mm' ? Number(counterboreDiameter) : Number(counterboreDiameter) * INCH_MM;
+  const counterboreDepthMm = counterboreDepthExpressionActive
+    ? (counterboreDepthField.evaluation?.ok ? counterboreDepthField.evaluation.value : Number.NaN)
+    : unit === 'mm' ? Number(counterboreDepth) : Number(counterboreDepth) * INCH_MM;
+  const countersinkDiameterMm = countersinkDiameterExpressionActive
+    ? (countersinkDiameterField.evaluation?.ok ? countersinkDiameterField.evaluation.value : Number.NaN)
+    : unit === 'mm' ? Number(countersinkDiameter) : Number(countersinkDiameter) * INCH_MM;
+  const countersinkAngleDeg = countersinkAngleExpressionActive
+    ? (countersinkAngleField.evaluation?.ok ? countersinkAngleField.evaluation.value : Number.NaN)
+    : Number(countersinkAngle); // 角度恒为 deg，不随长度单位换算
   const counterboreValid = holeStyle !== 'counterbore'
     || (Number.isFinite(counterboreDiameterMm) && counterboreDiameterMm > diameterMm
       && Number.isFinite(counterboreDepthMm) && counterboreDepthMm > 0);
@@ -323,9 +456,31 @@ export function HoleDialog({
       ...(pointIds.length > 0 ? { pointIds } : {}),
       ...(vertexRefs.length > 0 ? { vertexRefs } : {}),
       ...(holeStyle === 'counterbore'
-        ? { holeStyle, counterboreDiameterMm, counterboreDepthMm }
+        ? {
+            holeStyle,
+            counterboreDiameterMm,
+            counterboreDepthMm,
+            // ADR-0020 S8：求值数已物化为对应 Mm 快照；原文随载荷提交。
+            ...(counterboreDiameterExpressionActive && counterboreDiameterField.evaluation?.ok
+              ? { counterboreDiameterExpression: counterboreDiameterField.evaluation.expression }
+              : {}),
+            ...(counterboreDepthExpressionActive && counterboreDepthField.evaluation?.ok
+              ? { counterboreDepthExpression: counterboreDepthField.evaluation.expression }
+              : {}),
+          }
         : holeStyle === 'countersink'
-          ? { holeStyle, countersinkDiameterMm, countersinkAngleDeg }
+          ? {
+              holeStyle,
+              countersinkDiameterMm,
+              countersinkAngleDeg,
+              // 锥口角度按度书写/物化（kind=angleDeg，无弧度换算）。
+              ...(countersinkDiameterExpressionActive && countersinkDiameterField.evaluation?.ok
+                ? { countersinkDiameterExpression: countersinkDiameterField.evaluation.expression }
+                : {}),
+              ...(countersinkAngleExpressionActive && countersinkAngleField.evaluation?.ok
+                ? { countersinkAngleExpression: countersinkAngleField.evaluation.expression }
+                : {}),
+            }
           : {}),
       diameterMm,
       // ADR-0020 S4c：表达式设计意图（求值数已物化为 diameterMm/depthMm）。
@@ -342,7 +497,10 @@ export function HoleDialog({
     };
   }, [options, selected, sketchId, holeStyle, counterboreDiameterMm, counterboreDepthMm,
     countersinkDiameterMm, countersinkAngleDeg, diameterMm, endBound, depthMm, tipAngleDeg, direction,
-    diameterExpressionActive, depthExpressionActive, diameterField, depthField]);
+    diameterExpressionActive, depthExpressionActive, diameterField, depthField,
+    counterboreDiameterExpressionActive, counterboreDepthExpressionActive,
+    countersinkDiameterExpressionActive, countersinkAngleExpressionActive,
+    counterboreDiameterField, counterboreDepthField, countersinkDiameterField, countersinkAngleField]);
 
   // 预览宿主/动态几何（2026-11-08：后端 hole 影子求值 → TileRpc；失败静默无预览）。
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -438,8 +596,19 @@ export function HoleDialog({
     ? (depthField.evaluation?.ok ? formatMmInUnit(depthField.evaluation.value) : '—')
     : formatDisplay(depth);
   const summarySimple = `Ø ${diameterSummary} ${unitText} ↧ ${depthSummary} ${unitText}`;
+  // S8：沉头段同口径——表达式激活时取求值 mm 的当前单位投影，无效显示 `—`。
+  const counterboreDiameterSummary = counterboreDiameterExpressionActive
+    ? (counterboreDiameterField.evaluation?.ok
+      ? formatMmInUnit(counterboreDiameterField.evaluation.value)
+      : '—')
+    : formatDisplay(counterboreDiameter);
+  const counterboreDepthSummary = counterboreDepthExpressionActive
+    ? (counterboreDepthField.evaluation?.ok
+      ? formatMmInUnit(counterboreDepthField.evaluation.value)
+      : '—')
+    : formatDisplay(counterboreDepth);
   const summary = holeStyle === 'counterbore'
-    ? `${summarySimple} | ⌴Ø ${formatDisplay(counterboreDiameter)} ${unitText} ↧ ${formatDisplay(counterboreDepth)} ${unitText}`
+    ? `${summarySimple} | ⌴Ø ${counterboreDiameterSummary} ${unitText} ↧ ${counterboreDepthSummary} ${unitText}`
     : summarySimple;
   const tabClass = (active: boolean, disabled = false): string => [
     'part-studio-feature-dialog__tab',
@@ -475,11 +644,11 @@ export function HoleDialog({
         </div>
         <div role="tablist" aria-label={t('partStudio.holeDialog.types')} className="part-studio-feature-dialog__tablist">
           <button type="button" role="tab" aria-selected={holeStyle === 'simple'} className={tabClass(holeStyle === 'simple')}
-            onClick={() => setHoleStyle('simple')}>{t('partStudio.holeDialog.simple')}</button>
+            onClick={() => handleHoleStyleChange('simple')}>{t('partStudio.holeDialog.simple')}</button>
           <button type="button" role="tab" aria-selected={holeStyle === 'counterbore'} className={tabClass(holeStyle === 'counterbore')}
-            onClick={() => setHoleStyle('counterbore')}>{t('partStudio.holeDialog.counterbore')}</button>
+            onClick={() => handleHoleStyleChange('counterbore')}>{t('partStudio.holeDialog.counterbore')}</button>
           <button type="button" role="tab" aria-selected={holeStyle === 'countersink'} className={tabClass(holeStyle === 'countersink')}
-            onClick={() => setHoleStyle('countersink')}>{t('partStudio.holeDialog.countersink')}</button>
+            onClick={() => handleHoleStyleChange('countersink')}>{t('partStudio.holeDialog.countersink')}</button>
         </div>
 
         <section className="part-studio-feature-dialog__entities" data-testid="hole-locations-field">
@@ -648,104 +817,212 @@ export function HoleDialog({
         {holeStyle === 'counterbore' && (
           <>
             <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
-              <label htmlFor="hole-cbore-diameter" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.counterboreDiameter')}</label>
-              <input id="hole-cbore-diameter" data-testid="hole-cbore-diameter" className="part-studio-feature-dialog__input" inputMode="decimal"
-                value={counterboreDiameter} onChange={(e) => setCounterboreDiameter(e.target.value)} />
-              <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
-              <button
-                type="button"
-                className="part-studio-feature-dialog__calculator"
-                aria-label={t('partStudio.featureDialog.calculatorLabel')}
-                disabled
-                title={t('partStudio.featureDialog.notImplemented')}
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
-                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
-                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
-                </svg>
-              </button>
+              <ExpressionNumberField
+                id="hole-cbore-diameter"
+                label={t('partStudio.holeDialog.counterboreDiameter')}
+                numberText={counterboreDiameter}
+                setNumberText={setCounterboreDiameter}
+                expression={counterboreDiameterField.expression}
+                setExpression={counterboreDiameterField.setExpression}
+                kind="length"
+                unitLabel={unit === 'mm' ? 'mm' : 'in'}
+                unitClassName="part-studio-hole-dialog__unit"
+                applicable
+                variables={variables}
+                variablesLoading={variablesLoading}
+                variablesError={variablesError}
+                variablesReady={variablesReady}
+                onCreateVariable={onCreateVariable}
+                variablesDialogActive={variablesDialogActive}
+                storedExpression={storedCounterboreDiameterExpression}
+                storedExpressionUntouchedValue={initial.counterboreDiameterMm}
+                formatValue={(valueMm) => numberText(unit === 'mm' ? valueMm : valueMm / INCH_MM)}
+                inlineCreateUnit="mm"
+                inlineCreateValue={(text) => {
+                  const value = Number(text);
+                  return Number.isFinite(value) ? (unit === 'mm' ? value : value * INCH_MM) : undefined;
+                }}
+                onValidity={counterboreDiameterField.onValidity}
+                inputTestId="hole-cbore-diameter"
+                expressionLabel={t('partStudio.holeDialog.counterboreDiameterExpressionLabel')}
+                variableTypeField={t('partStudio.holeDialog.counterboreDiameter')}
+                trailing={(
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__calculator"
+                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                    </svg>
+                  </button>
+                )}
+              />
             </section>
             <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
-              <label htmlFor="hole-cbore-depth" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.counterboreDepth')}</label>
-              <input id="hole-cbore-depth" data-testid="hole-cbore-depth" className="part-studio-feature-dialog__input" inputMode="decimal"
-                value={counterboreDepth} onChange={(e) => setCounterboreDepth(e.target.value)} />
-              <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
-              <button
-                type="button"
-                className="part-studio-feature-dialog__calculator"
-                aria-label={t('partStudio.featureDialog.calculatorLabel')}
-                disabled
-                title={t('partStudio.featureDialog.notImplemented')}
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
-                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
-                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
-                </svg>
-              </button>
+              <ExpressionNumberField
+                id="hole-cbore-depth"
+                label={t('partStudio.holeDialog.counterboreDepth')}
+                numberText={counterboreDepth}
+                setNumberText={setCounterboreDepth}
+                expression={counterboreDepthField.expression}
+                setExpression={counterboreDepthField.setExpression}
+                kind="length"
+                unitLabel={unit === 'mm' ? 'mm' : 'in'}
+                unitClassName="part-studio-hole-dialog__unit"
+                applicable
+                variables={variables}
+                variablesLoading={variablesLoading}
+                variablesError={variablesError}
+                variablesReady={variablesReady}
+                onCreateVariable={onCreateVariable}
+                variablesDialogActive={variablesDialogActive}
+                storedExpression={storedCounterboreDepthExpression}
+                storedExpressionUntouchedValue={initial.counterboreDepthMm}
+                formatValue={(valueMm) => numberText(unit === 'mm' ? valueMm : valueMm / INCH_MM)}
+                inlineCreateUnit="mm"
+                inlineCreateValue={(text) => {
+                  const value = Number(text);
+                  return Number.isFinite(value) ? (unit === 'mm' ? value : value * INCH_MM) : undefined;
+                }}
+                onValidity={counterboreDepthField.onValidity}
+                inputTestId="hole-cbore-depth"
+                expressionLabel={t('partStudio.holeDialog.counterboreDepthExpressionLabel')}
+                variableTypeField={t('partStudio.holeDialog.counterboreDepth')}
+                trailing={(
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__calculator"
+                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                    </svg>
+                  </button>
+                )}
+              />
             </section>
           </>
         )}
         {holeStyle === 'countersink' && (
           <>
             <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
-              <label htmlFor="hole-csink-diameter" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.countersinkDiameter')}</label>
-              <input id="hole-csink-diameter" data-testid="hole-csink-diameter" className="part-studio-feature-dialog__input" inputMode="decimal"
-                value={countersinkDiameter} onChange={(e) => setCountersinkDiameter(e.target.value)} />
-              <span className="part-studio-hole-dialog__unit">{unit === 'mm' ? 'mm' : 'in'}</span>
-              <button
-                type="button"
-                className="part-studio-feature-dialog__calculator"
-                aria-label={t('partStudio.featureDialog.calculatorLabel')}
-                disabled
-                title={t('partStudio.featureDialog.notImplemented')}
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
-                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
-                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
-                </svg>
-              </button>
+              <ExpressionNumberField
+                id="hole-csink-diameter"
+                label={t('partStudio.holeDialog.countersinkDiameter')}
+                numberText={countersinkDiameter}
+                setNumberText={setCountersinkDiameter}
+                expression={countersinkDiameterField.expression}
+                setExpression={countersinkDiameterField.setExpression}
+                kind="length"
+                unitLabel={unit === 'mm' ? 'mm' : 'in'}
+                unitClassName="part-studio-hole-dialog__unit"
+                applicable
+                variables={variables}
+                variablesLoading={variablesLoading}
+                variablesError={variablesError}
+                variablesReady={variablesReady}
+                onCreateVariable={onCreateVariable}
+                variablesDialogActive={variablesDialogActive}
+                storedExpression={storedCountersinkDiameterExpression}
+                storedExpressionUntouchedValue={initial.countersinkDiameterMm}
+                formatValue={(valueMm) => numberText(unit === 'mm' ? valueMm : valueMm / INCH_MM)}
+                inlineCreateUnit="mm"
+                inlineCreateValue={(text) => {
+                  const value = Number(text);
+                  return Number.isFinite(value) ? (unit === 'mm' ? value : value * INCH_MM) : undefined;
+                }}
+                onValidity={countersinkDiameterField.onValidity}
+                inputTestId="hole-csink-diameter"
+                expressionLabel={t('partStudio.holeDialog.countersinkDiameterExpressionLabel')}
+                variableTypeField={t('partStudio.holeDialog.countersinkDiameter')}
+                trailing={(
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__calculator"
+                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                    </svg>
+                  </button>
+                )}
+              />
             </section>
             <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row">
-              <label htmlFor="hole-csink-angle" className="part-studio-feature-dialog__distance-label">{t('partStudio.holeDialog.countersinkAngle')}</label>
-              <input id="hole-csink-angle" data-testid="hole-csink-angle" className="part-studio-feature-dialog__input" inputMode="decimal"
-                value={countersinkAngle} onChange={(e) => setCountersinkAngle(e.target.value)} />
-              <span className="part-studio-hole-dialog__unit">deg</span>
-              <button
-                type="button"
-                className="part-studio-feature-dialog__calculator"
-                aria-label={t('partStudio.featureDialog.calculatorLabel')}
-                disabled
-                title={t('partStudio.featureDialog.notImplemented')}
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                  <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
-                  <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
-                  <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
-                  <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="8" cy="12" r="0.8" fill="currentColor" />
-                  <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
-                </svg>
-              </button>
+              <ExpressionNumberField
+                id="hole-csink-angle"
+                label={t('partStudio.holeDialog.countersinkAngle')}
+                numberText={countersinkAngle}
+                setNumberText={setCountersinkAngle}
+                expression={countersinkAngleField.expression}
+                setExpression={countersinkAngleField.setExpression}
+                kind="angleDeg"
+                unitLabel="deg"
+                unitClassName="part-studio-hole-dialog__unit"
+                applicable
+                validate={(deg) => deg > 0 && deg < 180}
+                variables={variables}
+                variablesLoading={variablesLoading}
+                variablesError={variablesError}
+                variablesReady={variablesReady}
+                onCreateVariable={onCreateVariable}
+                variablesDialogActive={variablesDialogActive}
+                storedExpression={storedCountersinkAngleExpression}
+                storedExpressionUntouchedValue={initial.countersinkAngleDeg}
+                inlineCreateUnit="deg"
+                onValidity={countersinkAngleField.onValidity}
+                inputTestId="hole-csink-angle"
+                expressionLabel={t('partStudio.holeDialog.countersinkAngleExpressionLabel')}
+                variableTypeField={t('partStudio.holeDialog.countersinkAngle')}
+                trailing={(
+                  <button
+                    type="button"
+                    className="part-studio-feature-dialog__calculator"
+                    aria-label={t('partStudio.featureDialog.calculatorLabel')}
+                    disabled
+                    title={t('partStudio.featureDialog.notImplemented')}
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" fill="none" stroke="currentColor" />
+                      <rect x="4.5" y="3.5" width="7" height="3" fill="none" stroke="currentColor" />
+                      <circle cx="5.4" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="9.4" r="0.8" fill="currentColor" />
+                      <circle cx="5.4" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="8" cy="12" r="0.8" fill="currentColor" />
+                      <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
+                    </svg>
+                  </button>
+                )}
+              />
             </section>
           </>
         )}

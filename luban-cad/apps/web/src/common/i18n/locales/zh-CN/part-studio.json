@@ -2026,7 +2026,11 @@
     "depthTooltip": "深度",
     "tipAngleStyle": "顶锥角样式",
     "diameterExpressionLabel": "直径表达式",
-    "depthExpressionLabel": "深度表达式"
+    "depthExpressionLabel": "深度表达式",
+    "counterboreDiameterExpressionLabel": "沉头孔直径表达式",
+    "counterboreDepthExpressionLabel": "沉头孔深度表达式",
+    "countersinkDiameterExpressionLabel": "锥口直径表达式",
+    "countersinkAngleExpressionLabel": "锥口角度表达式"
   },
   "shellDialog": {
     "facesLabel": "要移除的面",
