@@ -1575,10 +1575,21 @@
   position: relative;
 }
 
-/* 深度表达式本地校验失败：沿用既有红下划线错误口径（提交时拒绝，不静默）。 */
-.part-studio-feature-dialog__depth-row > .part-studio-feature-dialog__input[data-invalid='true'] {
+/* ADR-0020 S4b/S4c：表达式本地校验失败 → 红下划线（所有表达式字段；不静默）。 */
+.part-studio-feature-dialog .part-studio-feature-dialog__input[data-invalid='true'] {
   border-block-end-color: #aa252d;
 }
+
+/* 表达式字段侧错误文本（aria-describedby 目标；跨列整行）。 */
+.part-studio-feature-dialog__expression-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 2px 0 0;
+  color: #aa252d;
+  font-size: 11px;
+  line-height: 14px;
+}
+
 
 .part-studio-feature-dialog__input {
   block-size: 22px;
@@ -1940,6 +1951,11 @@
   grid-template-columns: auto minmax(0, 1fr) auto auto auto;
 }
 
+/* ADR-0020 S4c：表达式在场时多一枚 ×（清除表达式）列。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__thickness-row--expression {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+}
+
 .part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__thickness-row .part-studio-feature-dialog__input {
   border: 0;
   border-block-end: 1px solid #d7d7d7;
@@ -1972,6 +1988,22 @@
 
 .part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__direction[data-direction='inward'] svg {
   transform: rotate(180deg);
+}
+
+/* ADR-0020 S4c：表达式在场时方向派生只读；× 清除表达式回数值态。 */
+.part-studio-feature-dialog[data-feature='shell'] .part-studio-shell-dialog__expression-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #555555;
+  font-size: 14px;
+  line-height: 18px;
+  cursor: pointer;
 }
 
 /* ── MoveFace live 对齐（2026-11-15 dialog-audit group-c §3；仅 moveFace 作用域）──

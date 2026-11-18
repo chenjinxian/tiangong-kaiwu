@@ -48,7 +48,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { JSX } from 'react';
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -118,6 +118,16 @@ vi.mock('../tools/modeling/FilletEdgePickTool.js', () => ({
   startFilletEdgePick: pickMocks.startFilletEdgePick,
 }));
 
+// ADR-0020 S4c review P1/P2.3：预览叠层替身——记录客户端幽灵几何 props，
+// 供「第二方向无效表达式 → 整个幽灵消失」与「preview RPC 不循环」用例观测。
+const previewOverlayMock = vi.hoisted(() => ({ render: vi.fn() }));
+vi.mock('../canvas/FeaturePreviewOverlay.js', () => ({
+  FeaturePreviewOverlay: (props: Record<string, unknown>) => {
+    previewOverlayMock.render(props);
+    return null;
+  },
+}));
+
 vi.mock('@itwin/core-frontend', () => ({
   // Tool 基类桩：part-studio barrel → PartStudioPage → viewer 装饰件
   // （ToggleProjectExtentsTool extends Tool）模块加载期即需 Tool 存在。
@@ -158,7 +168,7 @@ vi.mock('@itwin/core-frontend', () => ({
   StandardViewId: { Top: 'sv-top', Front: 'sv-front', Right: 'sv-right', Iso: 'sv-iso' },
 }));
 
-import type { BodyInfo, FeatureOp, FeatureOpResult, SketchDto, SketchEntityDto, SketchRegionDto, VariableDto } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, PreviewResult, SketchDto, SketchEntityDto, SketchRegionDto, VariableDto } from '@luban-cad/shared';
 import type { CanvasSelection } from '../index.js';
 import { usePartStudioStore } from '../index.js';
 import type { FeatureDialogEntity, FeatureDialogResult } from '../dialogs/FeatureDialog.js';
@@ -199,6 +209,7 @@ function renderDialog(props: Partial<Parameters<typeof FeatureDialog>[0]> = {}):
 
 beforeEach(() => {
   vi.clearAllMocks();
+  previewOverlayMock.render.mockClear();
   mocks.viewport = null;
   workspaceRef.modelId = undefined; // 缺省 legacy 路由（无 ?model=）
   resetStore();
@@ -1538,6 +1549,236 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     });
   });
 
+  // ── ADR-0020 S4c：extrude 附加四键表达式（second/startOffset/thin/draft）──
+  it('S4c 第二方向深度表达式：blind 载荷带 secondDirectionDistanceExpression；throughAll 清除', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [{ id: 'v2', name: 'd2', expression: '5', type: 'length' }],
+    });
+    const secondToggle = screen.getByTestId('part-studio-feature-dialog-second-direction')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(secondToggle);
+    const secondDepth = screen.getByRole('textbox', { name: '第二方向深度' }) as HTMLInputElement;
+    await user.clear(secondDepth);
+    await user.type(secondDepth, '#d2*2');
+    await user.tab();
+    expect(secondDepth.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: {
+        secondDirection: { endBound: 'blind', distanceMm: 10 },
+        secondDirectionDistanceExpression: '#d2*2',
+      },
+    });
+
+    // throughAll：后端 blind-only 显式拒收 → UI 清键且不发送。
+    cleanup();
+    const secondApply = makeApplyOp();
+    const second = await renderReadyDialog(secondApply, {
+      variables: [{ id: 'v2', name: 'd2', expression: '5', type: 'length' }],
+    });
+    await second.user.click(screen.getByTestId('part-studio-feature-dialog-second-direction')
+      .querySelector('input') as HTMLInputElement);
+    const throughDepth = screen.getByRole('textbox', { name: '第二方向深度' }) as HTMLInputElement;
+    await second.user.clear(throughDepth);
+    await second.user.type(throughDepth, '#d2*2');
+    await second.user.selectOptions(
+      screen.getByTestId('part-studio-feature-dialog-second-end'),
+      'throughAll',
+    );
+    expect(throughDepth.disabled).toBe(true);
+    await second.user.click(screen.getByRole('button', { name: '确认' }));
+    const throughOp = secondApply.mock.calls[0]![0];
+    expect(throughOp).toMatchObject({
+      kind: 'insertFeature',
+      params: { secondDirection: { endBound: 'throughAll' } },
+    });
+    if (throughOp.kind !== 'insertFeature') throw new Error('expected insertFeature');
+    expect((throughOp.params as Record<string, unknown>).secondDirectionDistanceExpression)
+      .toBeUndefined();
+  });
+
+  it('S4c 起始偏移表达式（有符号长度）：载荷 startOffsetMm=求值 + 原文', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [{ id: 'v3', name: 'off', expression: '2', type: 'length' }],
+    });
+    await user.click(screen.getByTestId('part-studio-feature-dialog-start-offset')
+      .querySelector('input') as HTMLInputElement);
+    const startOffset = screen.getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement;
+    await user.clear(startOffset);
+    await user.type(startOffset, '0 - #off');
+    await user.tab();
+    expect(startOffset.value).toBe('-2');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      params: { startOffsetMm: -2, startOffsetExpression: '0 - #off' },
+    });
+  });
+
+  it('S4c 薄壁厚度表达式：仅 THIN 页签适用，载荷 thinThicknessMm=求值 + 原文', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [{ id: 'v4', name: 'wall', expression: '1.5', type: 'length' }],
+    });
+    await user.click(screen.getByRole('tab', { name: '薄壁' }));
+    const thickness = screen.getByRole('textbox', { name: '厚度 1' }) as HTMLInputElement;
+    await user.clear(thickness);
+    await user.type(thickness, '#wall*2');
+    await user.tab();
+    expect(thickness.value).toBe('3');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      params: {
+        bodyType: 'THIN',
+        thinThicknessMm: 3,
+        thinThicknessExpression: '#wall*2',
+      },
+    });
+  });
+
+  it('S4c 拔模角表达式（度）：载荷 draftAngleDeg=求值 + 原文；无效角度禁用 ✓', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [{ id: 'v5', name: 'deg', expression: '20', type: 'angle' }],
+    });
+    await user.click(screen.getByTestId('part-studio-feature-dialog-draft')
+      .querySelector('input') as HTMLInputElement);
+    const angle = screen.getByRole('textbox', { name: '拔模角度' }) as HTMLInputElement;
+    await user.clear(angle);
+    await user.type(angle, '#deg/2');
+    await user.tab();
+    expect(angle.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      params: { draftAngleDeg: 10, draftAngleExpression: '#deg/2' },
+    });
+
+    cleanup();
+    const invalidApply = makeApplyOp();
+    const invalid = await renderReadyDialog(invalidApply, {
+      variables: [{ id: 'v5', name: 'deg', expression: '20', type: 'angle' }],
+    });
+    await invalid.user.click(screen.getByTestId('part-studio-feature-dialog-draft')
+      .querySelector('input') as HTMLInputElement);
+    const invalidAngle = screen.getByRole('textbox', { name: '拔模角度' }) as HTMLInputElement;
+    await invalid.user.clear(invalidAngle);
+    await invalid.user.type(invalidAngle, '90');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(invalidApply).not.toHaveBeenCalled();
+  });
+
+  it('S4c 第二方向表达式 + 对称：第二方向自动关闭且载荷不带表达式', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [{ id: 'v2', name: 'd2', expression: '5', type: 'length' }],
+    });
+    const secondToggle = screen.getByTestId('part-studio-feature-dialog-second-direction')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(secondToggle);
+    const secondDepth = screen.getByRole('textbox', { name: '第二方向深度' }) as HTMLInputElement;
+    await user.clear(secondDepth);
+    await user.type(secondDepth, '#d2*2');
+    const symmetric = screen.getByTestId('part-studio-feature-dialog-symmetric-flat')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(symmetric);
+    expect(secondToggle.disabled).toBe(true);
+    expect(secondToggle.checked).toBe(false);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0];
+    if (op.kind !== 'insertFeature') throw new Error('expected insertFeature');
+    const params = op.params as Record<string, unknown>;
+    expect(params.symmetric).toBe(true);
+    expect(params.secondDirection).toBeUndefined();
+    expect(params.secondDirectionDistanceExpression).toBeUndefined();
+  });
+
+  it('S4c 起始偏移取消勾选：清除表达式草稿；重勾选回数值态且不发旧表达式', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderReadyDialog(applyOp, {
+      variables: [{ id: 'v3', name: 'off', expression: '2', type: 'length' }],
+    });
+    const startToggle = screen.getByTestId('part-studio-feature-dialog-start-offset')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(startToggle);
+    const startOffset = screen.getByRole('textbox', { name: '起始偏移' }) as HTMLInputElement;
+    await user.clear(startOffset);
+    await user.type(startOffset, '0 - #off');
+    await user.click(startToggle); // 取消勾选 → 清表达式 + 数值草稿归位
+    await user.click(startToggle); // 重新勾选
+    const restored = await screen.findByRole('textbox', { name: '起始偏移' }) as HTMLInputElement;
+    // 失焦时已按求值数回填 -2（合法有符号数值）——关键是不再携带表达式原文。
+    await waitFor(() => expect(restored.value).toBe('-2'));
+    expect(screen.queryByTestId('expression-field-error')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0];
+    if (op.kind !== 'insertFeature') throw new Error('expected insertFeature');
+    const params = op.params as Record<string, unknown>;
+    expect(params.startOffsetMm).toBe(-2);
+    expect(params.startOffsetExpression).toBeUndefined();
+  });
+
+  it('P2.3 第二方向表达式无效：整个客户端幽灵预览消失（不画主方向部分预览）', async () => {
+    featureRpc.getSketch.mockResolvedValue({
+      id: 'sk-1',
+      constraints: [],
+      solve: { status: 'ok', dof: 0, failedConstraintIds: [], conflictingRank: [] },
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'point', id: 2, x: 10, y: 0 },
+        { kind: 'point', id: 3, x: 10, y: 10 },
+        { kind: 'point', id: 4, x: 0, y: 10 },
+        { kind: 'line', id: 11, p1: 1, p2: 2 },
+        { kind: 'line', id: 12, p1: 2, p2: 3 },
+        { kind: 'line', id: 13, p1: 3, p2: 4 },
+        { kind: 'line', id: 14, p1: 4, p2: 1 },
+      ],
+      plane: {
+        origin: { x: 0, y: 0, z: 0 },
+        normal: { x: 0, y: 0, z: 1 },
+        xDir: { x: 1, y: 0, z: 0 },
+      },
+      regions: [{ area: 0.0001, outerEntityIds: [11, 12, 13, 14] }],
+    } as SketchDto);
+    const user = userEvent.setup();
+    render(
+      <div className="part-studio-canvas">
+        <FeatureDialog
+          featureName="拉伸"
+          mode="new"
+          featureType="extrude"
+          applyOp={vi.fn(async (): Promise<FeatureOpResult> => ({ ok: true }))}
+          sketches={[{ id: 'sk-1', label: '草图 1' }]}
+          connectionKey="model-key"
+          viewport={{} as never}
+          variables={[{ id: 'v2', name: 'd2', expression: '5', type: 'length' }]}
+          onConfirm={vi.fn()}
+          onCancel={vi.fn()}
+        />
+      </div>,
+    );
+    await screen.findByTestId('part-studio-feature-dialog-profile-field');
+    await screen.findByText('草图 1 的面');
+    await waitFor(() => expect(previewOverlayMock.render).toHaveBeenCalled(), { timeout: 3000 });
+    const secondToggle = screen.getByTestId('part-studio-feature-dialog-second-direction')
+      .querySelector('input') as HTMLInputElement;
+    await user.click(secondToggle);
+    const secondDepth = screen.getByRole('textbox', { name: '第二方向深度' }) as HTMLInputElement;
+    await user.clear(secondDepth);
+    await waitFor(() => expect(previewOverlayMock.render).toHaveBeenCalled());
+    previewOverlayMock.render.mockClear();
+    await user.type(secondDepth, '#nope');
+    await waitFor(() => expect(previewOverlayMock.render).not.toHaveBeenCalled(), { timeout: 3000 });
+    await user.clear(secondDepth);
+    await user.type(secondDepth, '5');
+    await waitFor(() => expect(previewOverlayMock.render).toHaveBeenCalled(), { timeout: 3000 });
+  });
+
   it('成功 → toast（notifications 通道，与保存错误面同款标准管道）', async () => {
     const { user } = await renderReadyDialog(makeApplyOp());
     await user.click(screen.getByRole('button', { name: '确认' }));
@@ -2401,6 +2642,58 @@ describe('M6-b T4 revolve 通道（轴拾取+全方位/角度）', () => {
         operation: 'new',
       },
     });
+  });
+
+  it('S4c 旋转角表达式：按度求值 → 载荷 angle 弧度快照 + angleExpression 原文；全周清除', async () => {
+    const applyOp = makeApplyOp();
+    const { user } = await renderRevolveDialog(
+      applyOp,
+      revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION),
+      { variables: [{ id: 'va', name: 'a', expression: '180', type: 'angle' }] },
+    );
+    await user.click(screen.getByRole('checkbox', { name: '全方位旋转' }));
+    const angle = screen.getByRole('textbox', { name: '角度（度）' }) as HTMLInputElement;
+    await user.clear(angle);
+    await user.type(angle, '#a/2');
+    await user.tab();
+    expect(angle.value).toBe('90');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = applyOp.mock.calls[0]![0];
+    expect(op).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'revolve',
+      params: {
+        sketchId: 'sk-1',
+        regions: [0],
+        axis: { sketchEntityId: 3 },
+        fullRevolve: false,
+        angle: Math.PI / 2,
+        angleExpression: '#a/2',
+        operation: 'new',
+      },
+    });
+
+    // 全周：表达式不适用 → 行卸载 + 载荷不带 angle/angleExpression。
+    cleanup();
+    const fullApply = makeApplyOp();
+    const full = await renderRevolveDialog(
+      fullApply,
+      revolveSketchDto(LINED_SKETCH_ENTITIES, ONE_REGION),
+      { variables: [{ id: 'va', name: 'a', expression: '180', type: 'angle' }] },
+    );
+    await full.user.click(screen.getByRole('checkbox', { name: '全方位旋转' }));
+    const fullAngle = screen.getByRole('textbox', { name: '角度（度）' }) as HTMLInputElement;
+    await full.user.clear(fullAngle);
+    await full.user.type(fullAngle, '#a/2');
+    await full.user.click(screen.getByRole('checkbox', { name: '全方位旋转' }));
+    expect(screen.queryByRole('textbox', { name: '角度（度）' })).toBeNull();
+    await full.user.click(screen.getByRole('button', { name: '确认' }));
+    const fullOp = fullApply.mock.calls[0]![0];
+    if (fullOp.kind !== 'insertFeature') throw new Error('expected insertFeature');
+    const fullParams = fullOp.params as Record<string, unknown>;
+    expect(fullParams.fullRevolve).toBe(true);
+    expect(fullParams.angle).toBeUndefined();
+    expect(fullParams.angleExpression).toBeUndefined();
   });
 
   it('角度换算 90° → Math.PI/2（弧度载荷契约的另一半锚点）', async () => {
@@ -4351,6 +4644,143 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     await user.click(screen.getByRole('button', { name: '确认' }));
     expect(screen.getByRole('alert').textContent).toContain('圆角半径');
     expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  // ── ADR-0020 S4c：fillet 半径表达式（length >0；chamfer 不接）──────────
+  const FILLET_RADIUS_VARIABLE: VariableDto = { id: 'vr', name: 'r', expression: '5', type: 'length' };
+  async function filletWithEdge(props: Partial<Parameters<typeof FeatureDialog>[0]> = {}) {
+    const user = userEvent.setup();
+    const { applyOp } = renderFilletDialog(makeApplyOp(), props);
+    await user.click(screen.getByTestId('part-studio-feature-dialog-add-edge'));
+    await waitFor(() => expect(pickMocks.captured).toBeDefined());
+    pickEdge(EDGE_1);
+    await screen.findByText('边 1');
+    pickMocks.captured?.onEnded?.();
+    await waitFor(() => expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    return { user, applyOp };
+  }
+
+  it('S4c 半径表达式：聚焦原文/失焦求值 → 载荷 {radius: 求值, radiusExpression: 原文}', async () => {
+    const { user, applyOp } = await filletWithEdge({ variables: [FILLET_RADIUS_VARIABLE] });
+    const radius = screen.getByRole('textbox', { name: '半径' }) as HTMLInputElement;
+    await user.clear(radius);
+    await user.type(radius, '#r*2');
+    await user.tab();
+    expect(radius.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'fillet',
+      params: {
+        radius: 10,
+        radiusExpression: '#r*2',
+        propagateSmooth: true,
+        edges: [EDGE_1],
+      },
+    });
+  });
+
+  it('P1 回归：preview RPC 返回 preview 后不随渲染循环重发（一次变化一次）', async () => {
+    const previewOp = vi.fn(async (): Promise<PreviewResult> => ({
+      ok: true,
+      affected: [],
+      preview: {
+        entries: [],
+        categoryId: '0x1',
+        placement: { origin: { x: 0, y: 0, z: 0 }, angles: { yaw: 0, pitch: 0, roll: 0 } },
+      },
+    }));
+    const { user } = await filletWithEdge({ previewOp });
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    // 让 150ms 防抖 + setState 全部落位，再观察静默窗口内调用次数不增长。
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 800)); });
+    const stable = previewOp.mock.calls.length;
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 800)); });
+    expect(previewOp.mock.calls.length, 'preview RPC 不得每渲染重发（P1 反馈环）')
+      .toBe(stable);
+
+    // 有意义变化（半径数值）→ 允许一次新调用，并再次证明其不自我循环。
+    const radius = screen.getByRole('textbox', { name: '半径' });
+    await user.clear(radius);
+    await user.type(radius, '3');
+    await waitFor(() => expect(previewOp.mock.calls.length).toBeGreaterThan(stable), { timeout: 3000 });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 800)); });
+    const afterChange = previewOp.mock.calls.length;
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 800)); });
+    expect(previewOp.mock.calls.length).toBe(afterChange);
+  });
+
+  it('S4c 半径表达式无效 → ✓ 禁用 + aria-invalid（零 op）', async () => {
+    const { user, applyOp } = await filletWithEdge({ variables: [FILLET_RADIUS_VARIABLE] });
+    const radius = screen.getByRole('textbox', { name: '半径' }) as HTMLInputElement;
+    await user.clear(radius);
+    await user.type(radius, '#nope');
+    await waitFor(() => expect(radius.getAttribute('aria-invalid')).toBe('true'));
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
+  it('P2.1 半径引用 angle 变量 → 字段侧可见 variable-type 文案（aria-describedby 可达）', async () => {
+    const { user } = await filletWithEdge({
+      variables: [{ id: 'va', name: 'ang', expression: '45', type: 'angle' }],
+    });
+    const radius = screen.getByRole('textbox', { name: '半径' }) as HTMLInputElement;
+    await user.clear(radius);
+    await user.type(radius, '#ang*2');
+    const error = await screen.findByTestId('expression-field-error');
+    expect(error.textContent).toContain('变量 #ang 的类型 angle');
+    expect(error.textContent).toContain('length/number/any');
+    expect(radius.getAttribute('aria-describedby')).toBe(error.id);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('S4c 编辑未触碰保留表达式；数值替换清除半径表达式', async () => {
+    const initialParams = {
+      radius: 10,
+      radiusExpression: '#r*2',
+      propagateSmooth: true,
+      edges: [EDGE_1],
+    };
+    const user = userEvent.setup();
+    const untouched = renderFilletDialog(makeApplyOp(), {
+      mode: 'edit',
+      featureId: 'f-1',
+      featureName: '圆角 1',
+      variables: [FILLET_RADIUS_VARIABLE],
+      initialParams,
+    });
+    const radiusInput = screen.getByRole('textbox', { name: '半径' }) as HTMLInputElement;
+    expect(radiusInput.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(untouched.applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'updateParams',
+      params: { radius: 10, radiusExpression: '#r*2', propagateSmooth: true, edges: [EDGE_1] },
+    });
+    untouched.unmount();
+    const edited = renderFilletDialog(makeApplyOp(), {
+      mode: 'edit',
+      featureId: 'f-1',
+      featureName: '圆角 1',
+      variables: [FILLET_RADIUS_VARIABLE],
+      initialParams,
+    });
+    const input = screen.getByRole('textbox', { name: '半径' }) as HTMLInputElement;
+    await user.click(input);
+    expect(input.value).toBe('#r*2');
+    await user.clear(input);
+    await user.type(input, '3');
+    await user.tab();
+    expect(input.value).toBe('3');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const op = edited.applyOp.mock.calls[0]![0];
+    expect(op).toMatchObject({
+      kind: 'updateParams',
+      featureId: 'f-1',
+      params: { radius: 3, propagateSmooth: true, edges: [EDGE_1] },
+    });
+    if (op.kind !== 'updateParams') throw new Error('expected updateParams');
+    expect((op.params as Record<string, unknown>).radiusExpression).toBeUndefined();
   });
 
   it('chips 去重（边自身 id 单键）：同 id 重拾（布尔分裂片同 id 多持）→ 仍 1 chip', async () => {

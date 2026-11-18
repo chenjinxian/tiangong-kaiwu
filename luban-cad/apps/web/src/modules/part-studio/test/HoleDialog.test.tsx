@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FeatureOp, FeatureOpResult } from '@luban-cad/shared';
 
@@ -28,7 +28,10 @@ vi.mock('@itwin/core-frontend', () => ({
   OutputMessagePriority: { Success: 1 },
 }));
 
-vi.mock('@luban-cad/shared', () => ({
+// ADR-0020 S4c：表达式求值走真实 shared 求值器（仅 RPC 面替身），
+// 与生产同源，避免手写假求值器漂移。
+vi.mock('@luban-cad/shared', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@luban-cad/shared')>()),
   LubanFeatureRpcInterface: {
     getClient: () => ({ getSketch: mocks.getSketch }),
   },
@@ -355,6 +358,162 @@ describe('HoleDialog（ADR-0006 切片 A/A2）', () => {
     expect(valueRule).toContain('border: 0');
     expect(valueRule).toContain('background: transparent');
     expect(valueRule).toContain('font-size: 14px');
+  });
+
+  // ── ADR-0020 S4c：孔径/孔深表达式（契约 mm；单位只影响显示投影）────────
+  it('S4c 孔径表达式：按 mm 求值/物化，载荷 diameterMm + diameterExpression', async () => {
+    const { applyOp } = renderDialog({
+      variables: [{ id: 'vd', name: 'd', expression: '3', type: 'length' }],
+    });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const diameter = screen.getByTestId('hole-diameter') as HTMLInputElement;
+    fireEvent.change(diameter, { target: { value: '#d*2' } });
+    // 表达式求值经组件 onValidity 回报宿主后才放行提交（无 ✓ 闪烁期）。
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      featureType: 'hole',
+      params: { diameterMm: 6, diameterExpression: '#d*2' },
+    });
+  });
+
+  it('S4c 单位切换只是显示投影：表达式求值恒 mm，in 显示 4 位小数，快照仍 mm', async () => {
+    const { applyOp } = renderDialog({
+      variables: [{ id: 'vd', name: 'dia', expression: '6.35', type: 'length' }],
+    });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const diameter = screen.getByTestId('hole-diameter') as HTMLInputElement;
+    fireEvent.change(diameter, { target: { value: '#dia' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    // 单位切换把求值 mm（6.35）投影为 0.25 in；表达式/快照不变。
+    await waitFor(() => expect(diameter.value).toBe('0.25'));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = (applyOp.mock.calls[0]![0] as unknown as { params: Record<string, unknown> }).params;
+    expect(params.diameterMm).toBe(6.35);
+    expect(params.diameterExpression).toBe('#dia');
+  });
+
+  it('S4c 孔深表达式：仅 blind 携带；切 throughAll 清除 depthMm/depthExpression', async () => {
+    const { applyOp } = renderDialog({
+      variables: [{ id: 'vp', name: 'dep', expression: '4', type: 'length' }],
+    });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const depth = screen.getByTestId('hole-depth') as HTMLInputElement;
+    fireEvent.change(depth, { target: { value: '#dep' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toMatchObject({
+      kind: 'insertFeature',
+      params: { endBound: 'blind', depthMm: 4, depthExpression: '#dep' },
+    });
+
+    fireEvent.change(screen.getByTestId('hole-end-bound'), { target: { value: 'throughAll' } });
+    expect(screen.queryByTestId('hole-depth')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(2));
+    const through = (applyOp.mock.calls[1]![0] as unknown as { params: Record<string, unknown> }).params;
+    expect(through.endBound).toBe('throughAll');
+    expect('depthMm' in through).toBe(false);
+    expect('depthExpression' in through).toBe(false);
+  });
+
+  it('P2.2 in 模式内联创建：纯数字草稿按契约 mm 建变量（0.25 in → 6.35 mm）', async () => {
+    const onCreateVariable = vi.fn();
+    renderDialog({ variables: [], onCreateVariable });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    const diameter = screen.getByTestId('hole-diameter') as HTMLInputElement;
+    fireEvent.change(diameter, { target: { value: '0.25' } });
+    await waitFor(() => expect(diameter.value).toBe('0.25'));
+    fireEvent.change(diameter, { target: { value: '#newd' } });
+    fireEvent.keyDown(diameter, { key: 'Enter' });
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'newd',
+      valueText: '6.35',
+      unit: 'mm',
+    }));
+  });
+
+  it('P3-1 表达式活跃 + 单位切换后内联创建预填恒为 6.35 mm（mm→in / in→mm）', async () => {
+    const variables = [{ id: 'vd', name: 'dia', expression: '6.35', type: 'length' as const }];
+
+    // 方向 1：mm 表达式中 → 切 Inch（显示 0.25）→ 内联创建仍按契约 mm 预填。
+    const onCreateFromMm = vi.fn();
+    renderDialog({ variables, onCreateVariable: onCreateFromMm });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const diameter = screen.getByTestId('hole-diameter') as HTMLInputElement;
+    fireEvent.change(diameter, { target: { value: '#dia' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    await waitFor(() => expect(diameter.value).toBe('0.25'));
+    fireEvent.change(diameter, { target: { value: '#newd' } });
+    fireEvent.keyDown(diameter, { key: 'Enter' });
+    expect(onCreateFromMm).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'newd',
+      valueText: '6.35',
+      unit: 'mm',
+    }));
+
+    cleanup();
+
+    // 方向 2：先 Inch（显示 0.25）→ 表达式 → 切 mm（显示 6.35）→ 内联创建。
+    const onCreateFromIn = vi.fn();
+    renderDialog({ variables, onCreateVariable: onCreateFromIn });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Inch' }));
+    const inchDiameter = screen.getByTestId('hole-diameter') as HTMLInputElement;
+    fireEvent.change(inchDiameter, { target: { value: '#dia' } });
+    await waitFor(() => expect(inchDiameter.value).toBe('0.25'));
+    fireEvent.click(screen.getByRole('tab', { name: '公制' }));
+    await waitFor(() => expect(inchDiameter.value).toBe('6.35'));
+    fireEvent.change(inchDiameter, { target: { value: '#newd2' } });
+    fireEvent.keyDown(inchDiameter, { key: 'Enter' });
+    expect(onCreateFromIn).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'newd2',
+      valueText: '6.35',
+      unit: 'mm',
+    }));
+  });
+
+  it('P3 无效表达式：摘要显示 — 而不是空白 Ø / ↧', async () => {
+    renderDialog({ variables: [] });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const diameter = screen.getByTestId('hole-diameter') as HTMLInputElement;
+    fireEvent.change(diameter, { target: { value: '#nope' } });
+    await waitFor(() =>
+      expect(screen.getByTestId('part-studio-hole-summary').textContent).toContain('Ø — mm'));
+    expect(screen.getByTestId('part-studio-hole-summary').textContent).not.toContain('Ø  mm');
+  });
+
+  it('S4c 无效表达式 → 确认禁用（零 op）', async () => {
+    const { applyOp } = renderDialog({ variables: [] });
+    openLocations();
+    fireEvent.click(await screen.findByLabelText('点 1'));
+    const diameter = screen.getByTestId('hole-diameter') as HTMLInputElement;
+    fireEvent.change(diameter, { target: { value: '#nope' } });
+    await waitFor(() => expect(diameter.getAttribute('aria-invalid')).toBe('true'));
+    const error = await screen.findByTestId('expression-field-error');
+    expect(error.textContent).toContain('未知变量');
+    expect(diameter.getAttribute('aria-describedby')).toBe(error.id);
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp).not.toHaveBeenCalled();
   });
 
   it('钻尖角选择：默认 118（Onshape live），选 180 后载荷平底（v1.50）', async () => {

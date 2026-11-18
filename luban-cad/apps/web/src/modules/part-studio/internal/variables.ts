@@ -68,6 +68,16 @@ export interface VariableCreateRequest {
 /** 说明字段上限（与表达式长度门禁同量级；live 未采，产品护栏）。 */
 export const MAX_VARIABLE_DESCRIPTION_LENGTH = 1024;
 
+/**
+ * ADR-0020 S4c：内联创建请求单位 → 变量类型。角度表达式字段（draft/revolve）
+ * 传 `°`，创建出的变量必须是 angle，否则字段的量纲门会立刻拒收。
+ */
+export function variableTypeForInlineCreateUnit(unit: string): VariableType {
+  // `°` = 特征表达式字段；`deg` = 草图尺寸编辑器/SketchValuePopup（S2）。两者
+  // 都必须建 angle 变量，否则对应字段的量纲门立即拒收 length。
+  return unit === '°' || unit === 'deg' ? 'angle' : 'length';
+}
+
 /** 全部变量单位（''=无量纲类型）。 */
 export function variableUnit(type: VariableType | undefined): 'mm' | 'deg' | '' {
   switch (type ?? 'length') {

@@ -22,11 +22,18 @@ import {
 } from '@itwin/core-frontend';
 import { useTranslation } from 'react-i18next';
 import { DialogHeaderButtons } from './DialogHeaderButtons.js';
-import type { BodyInfo, FeatureOp, FeatureOpResult, HoleVertexRef, PreviewResult } from '@luban-cad/shared';
+import type { BodyInfo, FeatureOp, FeatureOpResult, HoleVertexRef, PreviewResult, VariableDto } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import { useWorkspaceRef } from '../../../common/workspace/use-workspace-ref.js';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 import { useDialogCommandHandler } from '../internal/dialog-commands.js';
+import { numericTextOr, readStoredExpression } from '../internal/feature-expression-field.js';
+import type { VariableCreateRequest } from '../internal/variables.js';
+import {
+  ExpressionNumberField,
+  useExpressionField,
+} from '../components/ExpressionNumberField.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 const INCH_MM = 25.4;
 
@@ -61,6 +68,13 @@ export interface HoleDialogProps {
   sketches?: readonly HoleDialogSketchOption[];
   bodies?: readonly BodyInfo[];
   canEdit?: boolean;
+  /** ADR-0020 S4c：Part Studio 变量表（Session 单点持有，PartStudioCanvas 透传）。 */
+  variables?: readonly VariableDto[];
+  variablesLoading?: boolean;
+  variablesError?: string;
+  variablesReady?: boolean;
+  /** 内联创建变量请求（S3b 同一面板；不新建读取实例）。 */
+  onCreateVariable?: (request: VariableCreateRequest) => void;
   onConfirm?: () => void;
   onCancel?: () => void;
 }
@@ -69,7 +83,8 @@ function readInitialParams(value: unknown): {
   sketchId?: string; pointIds?: number[]; vertexRefs?: HoleVertexRef[]; diameterMm?: number;
   holeStyle?: HoleStyle; counterboreDiameterMm?: number; counterboreDepthMm?: number;
   countersinkDiameterMm?: number; countersinkAngleDeg?: number;
-  endBound?: HoleEndBound; depthMm?: number; tipAngleDeg?: number;
+  endBound?: HoleEndBound; depthMm?: number; depthExpression?: string; tipAngleDeg?: number;
+  diameterExpression?: string;
   direction?: 'forward' | 'backward';
 } {
   if (typeof value !== 'object' || value === null) return {};
@@ -84,6 +99,7 @@ function readInitialParams(value: unknown): {
         && (r.part === 'start' || r.part === 'end' || r.part === 'center'))
       : undefined,
     diameterMm: typeof p.diameterMm === 'number' ? p.diameterMm : undefined,
+    diameterExpression: typeof p.diameterExpression === 'string' ? p.diameterExpression : undefined,
     holeStyle: p.holeStyle === 'counterbore'
       ? 'counterbore'
       : p.holeStyle === 'countersink' ? 'countersink' : p.holeStyle === 'simple' ? 'simple' : undefined,
@@ -94,6 +110,7 @@ function readInitialParams(value: unknown): {
     endBound: p.endBound === 'blind' || p.endBound === 'throughAll' || p.endBound === 'upToNext'
       ? p.endBound : undefined,
     depthMm: typeof p.depthMm === 'number' ? p.depthMm : undefined,
+    depthExpression: typeof p.depthExpression === 'string' ? p.depthExpression : undefined,
     tipAngleDeg: typeof p.tipAngleDeg === 'number' ? p.tipAngleDeg : undefined,
     direction: p.direction === 'backward' ? 'backward' : p.direction === 'forward' ? 'forward' : undefined,
   };
@@ -105,10 +122,13 @@ function numberText(value: number): string {
 
 export function HoleDialog({
   featureName, featureId, initialParams, applyOp, previewOp, connection, viewport,
-  connectionKey, sketches = [], bodies = [], canEdit = true, onConfirm, onCancel,
+  connectionKey, sketches = [], bodies = [], canEdit = true,
+  variables, variablesLoading = false, variablesError, variablesReady = true, onCreateVariable,
+  onConfirm, onCancel,
 }: HoleDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const partStudioId = useWorkspaceRef()?.modelId;
+  const variablesDialogActive = usePartStudioStore((s) => s.variablesDialog.active);
   const initial = React.useMemo(() => readInitialParams(initialParams), [initialParams]);
   const [sketchId, setSketchId] = React.useState<string>(() => initial.sketchId ?? sketches[0]?.id ?? '');
   const [options, setOptions] = React.useState<HoleLocationOption[] | undefined>(undefined);
@@ -141,6 +161,17 @@ export function HoleDialog({
     () => initial.direction === 'backward' ? 'backward' : 'forward',
   );
   const [depth, setDepth] = React.useState(() => numberText(initial.depthMm ?? 10) || '10');
+  // ADR-0020 S4c：孔径/孔深表达式（契约单位 mm；单位切换只是显示投影）。
+  const storedDiameterExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'diameterExpression'),
+    [initialParams],
+  );
+  const diameterField = useExpressionField(storedDiameterExpression);
+  const storedDepthExpression = React.useMemo(
+    () => readStoredExpression(initialParams, 'depthExpression'),
+    [initialParams],
+  );
+  const depthField = useExpressionField(storedDepthExpression);
   const [targetBodyId, setTargetBodyId] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
@@ -215,24 +246,58 @@ export function HoleDialog({
       });
   }, [sketchId, connectionKey, partStudioId, t]);
 
-  // 单位切换保持物理尺寸（显示值按当前单位换算）。
+  // ADR-0020 S4c：孔深表达式仅 blind 合法；切到其它终止条件即清除（组件在
+  // 非 blind 时不渲染，卸载后组件内清除 effect 不再运行——宿主补一条）。
+  React.useEffect(() => {
+    if (endBound !== 'blind' && depthField.expression !== undefined) {
+      depthField.setExpression(undefined);
+      setDepth((prev) => numericTextOr(prev, '10'));
+    }
+  }, [endBound, depthField]);
+
+  // 表达式适用性：孔径恒可；孔深仅 blind。
+  const diameterExpressionActive = diameterField.expression !== undefined;
+  const depthExpressionActive = depthField.expression !== undefined && endBound === 'blind';
+  const expressionFieldInvalid = (diameterExpressionActive && diameterField.invalid)
+    || (depthExpressionActive && depthField.invalid);
+
+  /** 契约 mm 值 → 当前单位显示文本（4 位小数；仅显示投影，快照恒 mm）。 */
+  const formatMmInUnit = (valueMm: number): string =>
+    numberText(unit === 'mm' ? valueMm : valueMm / INCH_MM);
+
+  // 单位切换保持物理尺寸（显示值按当前单位换算）；表达式求值恒 mm，只换显示。
   const switchUnit = (next: HoleUnit): void => {
     if (next === unit) return;
-    const mm = unit === 'mm' ? Number(diameter) : Number(diameter) * INCH_MM;
-    const mmDepth = unit === 'mm' ? Number(depth) : Number(depth) * INCH_MM;
-    const mmCbore = unit === 'mm' ? Number(counterboreDiameter) : Number(counterboreDiameter) * INCH_MM;
-    const mmCboreDepth = unit === 'mm' ? Number(counterboreDepth) : Number(counterboreDepth) * INCH_MM;
-    const mmCsink = unit === 'mm' ? Number(countersinkDiameter) : Number(countersinkDiameter) * INCH_MM;
+    const convertNumeric = (text: string): string => {
+      const value = Number(text);
+      const mm = unit === 'mm' ? value : value * INCH_MM;
+      return numberText(next === 'mm' ? mm : mm / INCH_MM);
+    };
+    const displayExpressionValue = (valueMm: number): string =>
+      numberText(next === 'mm' ? valueMm : valueMm / INCH_MM);
     setUnit(next);
-    setDiameter(numberText(next === 'mm' ? mm : mm / INCH_MM));
-    setDepth(numberText(next === 'mm' ? mmDepth : mmDepth / INCH_MM));
-    setCounterboreDiameter(numberText(next === 'mm' ? mmCbore : mmCbore / INCH_MM));
-    setCounterboreDepth(numberText(next === 'mm' ? mmCboreDepth : mmCboreDepth / INCH_MM));
-    setCountersinkDiameter(numberText(next === 'mm' ? mmCsink : mmCsink / INCH_MM));
+    setDiameter(diameterExpressionActive
+      ? (diameterField.evaluation?.ok
+        ? displayExpressionValue(diameterField.evaluation.value)
+        : diameter)
+      : convertNumeric(diameter));
+    setDepth(depthExpressionActive
+      ? (depthField.evaluation?.ok
+        ? displayExpressionValue(depthField.evaluation.value)
+        : depth)
+      : convertNumeric(depth));
+    setCounterboreDiameter(convertNumeric(counterboreDiameter));
+    setCounterboreDepth(convertNumeric(counterboreDepth));
+    setCountersinkDiameter(convertNumeric(countersinkDiameter));
   };
 
-  const diameterMm = unit === 'mm' ? Number(diameter) : Number(diameter) * INCH_MM;
-  const depthMm = unit === 'mm' ? Number(depth) : Number(depth) * INCH_MM;
+  /** 数值路径 mm 值（表达式模式由求值数直接提供契约 mm）。 */
+  const diameterMm = diameterExpressionActive
+    ? (diameterField.evaluation?.ok ? diameterField.evaluation.value : Number.NaN)
+    : unit === 'mm' ? Number(diameter) : Number(diameter) * INCH_MM;
+  const depthMm = depthExpressionActive
+    ? (depthField.evaluation?.ok ? depthField.evaluation.value : Number.NaN)
+    : unit === 'mm' ? Number(depth) : Number(depth) * INCH_MM;
   const counterboreDiameterMm = unit === 'mm' ? Number(counterboreDiameter) : Number(counterboreDiameter) * INCH_MM;
   const counterboreDepthMm = unit === 'mm' ? Number(counterboreDepth) : Number(counterboreDepth) * INCH_MM;
   const countersinkDiameterMm = unit === 'mm' ? Number(countersinkDiameter) : Number(countersinkDiameter) * INCH_MM;
@@ -244,6 +309,7 @@ export function HoleDialog({
     || (Number.isFinite(countersinkDiameterMm) && countersinkDiameterMm > diameterMm
       && Number.isFinite(countersinkAngleDeg) && countersinkAngleDeg > 0 && countersinkAngleDeg < 180);
   const submitDisabled = !canEdit || busy || !applyOp || !sketchId || selected.size === 0
+    || expressionFieldInvalid
     || !Number.isFinite(diameterMm) || diameterMm <= 0
     || (endBound === 'blind' && (!Number.isFinite(depthMm) || depthMm <= 0))
     || !counterboreValid || !countersinkValid;
@@ -262,13 +328,21 @@ export function HoleDialog({
           ? { holeStyle, countersinkDiameterMm, countersinkAngleDeg }
           : {}),
       diameterMm,
+      // ADR-0020 S4c：表达式设计意图（求值数已物化为 diameterMm/depthMm）。
+      ...(diameterExpressionActive && diameterField.evaluation?.ok
+        ? { diameterExpression: diameterField.evaluation.expression }
+        : {}),
       endBound,
       ...(endBound === 'blind' ? { depthMm } : {}),
+      ...(depthExpressionActive && depthField.evaluation?.ok
+        ? { depthExpression: depthField.evaluation.expression }
+        : {}),
       tipAngleDeg,
       ...(direction === 'backward' ? { direction } : {}),
     };
   }, [options, selected, sketchId, holeStyle, counterboreDiameterMm, counterboreDepthMm,
-    countersinkDiameterMm, countersinkAngleDeg, diameterMm, endBound, depthMm, tipAngleDeg, direction]);
+    countersinkDiameterMm, countersinkAngleDeg, diameterMm, endBound, depthMm, tipAngleDeg, direction,
+    diameterExpressionActive, depthExpressionActive, diameterField, depthField]);
 
   // 预览宿主/动态几何（2026-11-08：后端 hole 影子求值 → TileRpc；失败静默无预览）。
   const rootRef = React.useRef<HTMLDivElement | null>(null);
@@ -355,7 +429,15 @@ export function HoleDialog({
   // 4 位小数截断（numberText），不改变载荷/默认值。
   const unitText = unit === 'mm' ? 'mm' : 'in';
   const formatDisplay = (value: string): string => (value.trim() === '' ? '' : numberText(Number(value)));
-  const summarySimple = `Ø ${formatDisplay(diameter)} ${unitText} ↧ ${formatDisplay(depth)} ${unitText}`;
+  // 摘要按**显示投影**取数：表达式激活时用求值 mm → 当前单位；无效表达式显示
+  // `—`（P3 review：不得出现空白 `Ø / ↧`），绝不落 NaN/空串。
+  const diameterSummary = diameterExpressionActive
+    ? (diameterField.evaluation?.ok ? formatMmInUnit(diameterField.evaluation.value) : '—')
+    : formatDisplay(diameter);
+  const depthSummary = depthExpressionActive
+    ? (depthField.evaluation?.ok ? formatMmInUnit(depthField.evaluation.value) : '—')
+    : formatDisplay(depth);
+  const summarySimple = `Ø ${diameterSummary} ${unitText} ↧ ${depthSummary} ${unitText}`;
   const summary = holeStyle === 'counterbore'
     ? `${summarySimple} | ⌴Ø ${formatDisplay(counterboreDiameter)} ${unitText} ↧ ${formatDisplay(counterboreDepth)} ${unitText}`
     : summarySimple;
@@ -498,20 +580,50 @@ export function HoleDialog({
           </select>
         </section>
         <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row part-studio-hole-dialog__icon-row part-studio-hole-dialog__diameter-row">
-          <span
-            className="part-studio-hole-dialog__value-icon"
-            title={`${t('partStudio.holeDialog.diameterTooltip')}: ${formatDisplay(diameter)} ${unitText}`}
-            aria-hidden="true"
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-              <circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" />
-              <path d="M3 8h10M4.75 6l-2 2 2 2M11.25 6l2 2-2 2" fill="none" stroke="currentColor" />
-            </svg>
-          </span>
-          <input id="hole-diameter" data-testid="hole-diameter" className="part-studio-feature-dialog__input" inputMode="decimal"
-            aria-label={t('partStudio.holeDialog.diameter')}
-            value={diameter} onChange={(e) => setDiameter(e.target.value)} />
-          <span className="part-studio-hole-dialog__unit">{unitText}</span>
+          <ExpressionNumberField
+            id="hole-diameter"
+            label={t('partStudio.holeDialog.diameter')}
+            showLabel={false}
+            leading={(
+              <span
+                className="part-studio-hole-dialog__value-icon"
+                title={`${t('partStudio.holeDialog.diameterTooltip')}: ${diameterSummary} ${unitText}`}
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                  <circle cx="8" cy="8" r="5.25" fill="none" stroke="currentColor" />
+                  <path d="M3 8h10M4.75 6l-2 2 2 2M11.25 6l2 2-2 2" fill="none" stroke="currentColor" />
+                </svg>
+              </span>
+            )}
+            numberText={diameter}
+            setNumberText={setDiameter}
+            expression={diameterField.expression}
+            setExpression={diameterField.setExpression}
+            kind="length"
+            unitLabel={unitText}
+            unitClassName="part-studio-hole-dialog__unit"
+            applicable
+            variables={variables}
+            variablesLoading={variablesLoading}
+            variablesError={variablesError}
+            variablesReady={variablesReady}
+            onCreateVariable={onCreateVariable}
+            variablesDialogActive={variablesDialogActive}
+            storedExpression={storedDiameterExpression}
+            storedExpressionUntouchedValue={initial.diameterMm}
+            formatValue={(valueMm) => numberText(unit === 'mm' ? valueMm : valueMm / INCH_MM)}
+            // P2.2（review）：in 显示的纯数字草稿按 25.4 换算成契约 mm 再建变量
+            //（0.25 in → 6.35 mm）；表达式求值数本身已是 mm。
+            inlineCreateUnit="mm"
+            inlineCreateValue={(text) => {
+              const value = Number(text);
+              return Number.isFinite(value) ? (unit === 'mm' ? value : value * INCH_MM) : undefined;
+            }}
+            onValidity={diameterField.onValidity}
+            inputTestId="hole-diameter"
+            expressionLabel={t('partStudio.holeDialog.diameterExpressionLabel')}
+          />
           <button
             type="button"
             className="part-studio-feature-dialog__calculator"
@@ -662,19 +774,49 @@ export function HoleDialog({
         </section>
         {endBound === 'blind' && (
           <section className="part-studio-feature-dialog__distance part-studio-hole-dialog__value-row part-studio-hole-dialog__icon-row part-studio-hole-dialog__depth-row">
-            <span
-              className="part-studio-hole-dialog__value-icon"
-              title={`${t('partStudio.holeDialog.depthTooltip')}: ${formatDisplay(depth)} ${unitText}`}
-              aria-hidden="true"
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                <path d="M8 2v8.5M5.5 8.5 8 11l2.5-2.5M3 13.5h10" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <input id="hole-depth" data-testid="hole-depth" className="part-studio-feature-dialog__input" inputMode="decimal"
-              aria-label={t('partStudio.holeDialog.depth')}
-              value={depth} onChange={(e) => setDepth(e.target.value)} />
-            <span className="part-studio-hole-dialog__unit">{unitText}</span>
+            <ExpressionNumberField
+              id="hole-depth"
+              label={t('partStudio.holeDialog.depth')}
+              showLabel={false}
+              leading={(
+                <span
+                  className="part-studio-hole-dialog__value-icon"
+                  title={`${t('partStudio.holeDialog.depthTooltip')}: ${depthSummary} ${unitText}`}
+                  aria-hidden="true"
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <path d="M8 2v8.5M5.5 8.5 8 11l2.5-2.5M3 13.5h10" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              numberText={depth}
+              setNumberText={setDepth}
+              expression={depthField.expression}
+              setExpression={depthField.setExpression}
+              kind="length"
+              unitLabel={unitText}
+              unitClassName="part-studio-hole-dialog__unit"
+              applicable={endBound === 'blind'}
+              variables={variables}
+              variablesLoading={variablesLoading}
+              variablesError={variablesError}
+              variablesReady={variablesReady}
+              onCreateVariable={onCreateVariable}
+              variablesDialogActive={variablesDialogActive}
+              storedExpression={storedDepthExpression}
+              storedExpressionUntouchedValue={initial.depthMm}
+              formatValue={(valueMm) => numberText(unit === 'mm' ? valueMm : valueMm / INCH_MM)}
+            // P2.2（review）：in 显示的纯数字草稿按 25.4 换算成契约 mm 再建变量
+            //（0.25 in → 6.35 mm）；表达式求值数本身已是 mm。
+            inlineCreateUnit="mm"
+            inlineCreateValue={(text) => {
+              const value = Number(text);
+              return Number.isFinite(value) ? (unit === 'mm' ? value : value * INCH_MM) : undefined;
+            }}
+              onValidity={depthField.onValidity}
+              inputTestId="hole-depth"
+              expressionLabel={t('partStudio.holeDialog.depthExpressionLabel')}
+            />
             <button
               type="button"
               className="part-studio-feature-dialog__calculator"

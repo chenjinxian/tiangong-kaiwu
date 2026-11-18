@@ -107,7 +107,11 @@ import { useSketchAnnotations } from '../hooks/useSketchAnnotations.js';
 import { resolveSketchStatusLength } from '../internal/sketch-status.js';
 import { VariablesDialog } from './VariablesDialog.js';
 import type { VariableCreateRequest } from '../internal/variables.js';
-import { variableWriteBlockI18nKey, variableWriteBlockReason } from '../internal/variables.js';
+import {
+  variableTypeForInlineCreateUnit,
+  variableWriteBlockI18nKey,
+  variableWriteBlockReason,
+} from '../internal/variables.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 import { mapFeatureEntries } from '../hooks/useFeatureTree.js';
 import { SKETCH_RIBBON_TOOLS } from '../ribbon/sketch-tools.js';
@@ -1144,12 +1148,14 @@ export function PartStudioCanvas({
    * 对话框：变量表刷新使 `#name` 转为有效态。
    */
   const openInlineCreateVariable = React.useCallback((request: VariableCreateRequest): void => {
-    // P3-4：unit 不再入对话框状态（值字段单位由 type 派生；调用已不再使用）。
+    // P3-4：unit 不再入对话框状态（值字段单位由 type 派生）。
+    // ADR-0020 S4c（review P2.2）：角度表达式字段（unit `°`）→ type=angle；
+    // 否则字段的量纲门会立即拒收刚创建的 length 变量。
     usePartStudioStore.getState().openVariablesDialog({
       active: 'inline-create',
       name: request.name,
       valueText: request.valueText,
-      type: 'length',
+      type: variableTypeForInlineCreateUnit(request.unit),
       ...(request.anchor ? { anchor: request.anchor } : {}),
     });
   }, []);
@@ -1532,6 +1538,12 @@ export function PartStudioCanvas({
           sketches={sketches}
           bodies={bodies}
           canEdit={canEdit}
+          // ADR-0020 S4c：孔径/孔深表达式复用页面持有多变量表与内联创建宿主。
+          variables={partStudioVariables}
+          variablesLoading={variablesLoading}
+          variablesError={variablesError}
+          variablesReady={variablesReady}
+          onCreateVariable={openInlineCreateVariable}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />
@@ -1563,6 +1575,12 @@ export function PartStudioCanvas({
           bodies={bodies}
           initialFaces={dialog.mode === 'new' ? dialog.inputFaces : undefined}
           canEdit={canEdit}
+          // ADR-0020 S4c：抽壳厚度表达式复用同一变量表/内联创建宿主。
+          variables={partStudioVariables}
+          variablesLoading={variablesLoading}
+          variablesError={variablesError}
+          variablesReady={variablesReady}
+          onCreateVariable={openInlineCreateVariable}
           onConfirm={closeDialog}
           onCancel={closeDialog}
         />

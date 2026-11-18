@@ -1209,7 +1209,7 @@ describe('PartStudioCanvas ADR-0020 S3b：变量对话框与内联创建', () =>
     await waitFor(() => expect(usePartStudioStore.getState().variablesDialog.active).toBeNull());
   });
 
-  it('尺寸编辑器未知 #name → 宿主打开内联面板（anchor 透传；默认类型 length）', () => {
+  it('尺寸编辑器未知 #name → 宿主打开内联面板（anchor 透传；deg → angle）', () => {
     renderCanvas(undefined, { variables: [], sketchSystem: sketchSystemStub() });
     act(() => usePartStudioStore.getState().enterSketch('sk-a'));
     expect(dimensionEditorProbe.onCreateVariable).toBeTypeOf('function');
@@ -1223,9 +1223,28 @@ describe('PartStudioCanvas ADR-0020 S3b：变量对话框与内联创建', () =>
       active: 'inline-create',
       name: 'foo',
       valueText: '8',
-      type: 'length',
+      type: 'angle',
       anchor: { x: 120, y: 80 },
     });
+  });
+
+  it('S4c 角度字段内联创建：unit ° → 变量类型 angle（否则量纲门立即拒收）', () => {
+    renderCanvas(undefined, { variables: [], sketchSystem: sketchSystemStub() });
+    act(() => usePartStudioStore.getState().enterSketch('sk-a'));
+    dimensionEditorProbe.onCreateVariable!({
+      name: 'ang',
+      valueText: '45',
+      unit: '°',
+      anchor: { x: 120, y: 80 },
+    });
+    expect(usePartStudioStore.getState().variablesDialog).toEqual({
+      active: 'inline-create',
+      name: 'ang',
+      valueText: '45',
+      type: 'angle',
+      anchor: { x: 120, y: 80 },
+    });
+    act(() => usePartStudioStore.getState().closeVariablesDialog());
   });
 
   it('viewOnly 置位 → 打开中的变量面板收口', () => {

@@ -165,6 +165,96 @@ describe('ShellDialog', () => {
     expect((screen.getByTestId('part-studio-shell-confirm') as HTMLButtonElement).disabled).toBe(true);
   });
 
+  // ── ADR-0020 S4c：抽壳厚度表达式（有符号距离；方向派生只读）──────────
+  const T_VARIABLE = { id: 'vt', name: 't', expression: '2', type: 'length' as const };
+
+  async function shellWithExpression(expression: string): Promise<{
+    applyOp: ReturnType<typeof vi.fn>;
+    input: HTMLInputElement;
+  }> {
+    mocks.selection = [face('body-1', 7, 11)];
+    const { applyOp } = renderDialog({ variables: [T_VARIABLE] });
+    const input = screen.getByTestId('part-studio-shell-thickness') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: expression } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(input.value).not.toBe(expression));
+    return { applyOp, input };
+  }
+
+  it('S4c 负值表达式 0 - #t：方向派生向内且只读（disabled）+ 载荷 defaultDistance=-2 + 原文', async () => {
+    const { applyOp } = await shellWithExpression('0 - #t');
+    expect((screen.getByTestId('part-studio-shell-thickness') as HTMLInputElement).value).toBe('-2');
+    const direction = screen.getByTestId('part-studio-shell-direction');
+    await waitFor(() => expect(direction.getAttribute('data-direction')).toBe('inward'));
+    expect(direction.getAttribute('aria-label')).toBe('向内');
+    expect((direction as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('part-studio-shell-confirm'));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'shell',
+      targetBodyId: 'body-1',
+      params: {
+        defaultDistance: -2,
+        defaultDistanceExpression: '0 - #t',
+        faces: [{ nodeId: 7, entityId: 11 }],
+        distances: 0,
+      },
+    });
+  });
+
+  it('S4c 正值表达式 #t：方向派生向外；× 清除后方向恢复可交互（数值态）', async () => {
+    const { applyOp } = await shellWithExpression('#t');
+    const direction = screen.getByTestId('part-studio-shell-direction');
+    await waitFor(() => expect(direction.getAttribute('data-direction')).toBe('outward'));
+    expect(direction.getAttribute('aria-label')).toBe('向外');
+    expect((direction as HTMLButtonElement).disabled).toBe(true);
+
+    const clear = screen.getByTestId('part-studio-shell-expression-clear');
+    fireEvent.click(clear);
+    await waitFor(() => expect(screen.queryByTestId('part-studio-shell-expression-clear')).toBeNull());
+    expect((direction as HTMLButtonElement).disabled).toBe(false);
+    // 清除后：数值 = |求值| = 2、方向保留求值符号（外扩）；再切向内提交负值。
+    expect((screen.getByTestId('part-studio-shell-thickness') as HTMLInputElement).value).toBe('2');
+    fireEvent.click(direction);
+    expect(direction.getAttribute('data-direction')).toBe('inward');
+    fireEvent.click(screen.getByTestId('part-studio-shell-confirm'));
+    await waitFor(() => expect(applyOp).toHaveBeenCalledTimes(1));
+    const params = (applyOp.mock.calls[0]![0] as { params: Record<string, unknown> }).params;
+    expect(params.defaultDistance).toBe(-2);
+    expect('defaultDistanceExpression' in params).toBe(false);
+  });
+
+  it('P3 无效表达式：方向不伪造成 through/穿孔（保留最近有效方向或中性，清除 title）', async () => {
+    mocks.selection = [face('body-1', 7, 11)];
+    renderDialog({ variables: [T_VARIABLE] });
+    const input = screen.getByTestId('part-studio-shell-thickness') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#nope' } });
+    const direction = screen.getByTestId('part-studio-shell-direction');
+    await waitFor(() => expect(direction.getAttribute('data-expression-invalid')).toBe('true'));
+    // 允许显示最近一次有效方向（缺省数值 2 → outward），但绝不能是 through/穿孔。
+    expect(direction.getAttribute('data-direction')).not.toBe('through');
+    expect(direction.getAttribute('aria-label')).not.toBe('穿孔');
+    expect(direction.getAttribute('aria-label')).not.toBe('向外');
+    expect(direction.getAttribute('aria-label')).not.toBe('向内');
+    expect(direction.getAttribute('aria-label')).toBe('方向');
+    const error = await screen.findByTestId('expression-field-error');
+    expect(error.textContent).toContain('未知变量');
+    expect(input.getAttribute('aria-describedby')).toBe(error.id);
+    expect(direction.getAttribute('title')).toBe('清除表达式');
+  });
+
+  it('S4c 无效表达式 → 确认禁用 + aria-invalid（零 op）', async () => {
+    mocks.selection = [face('body-1', 7, 11)];
+    const { applyOp } = renderDialog({ variables: [T_VARIABLE] });
+    const input = screen.getByTestId('part-studio-shell-thickness') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#nope' } });
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect((screen.getByTestId('part-studio-shell-confirm') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('part-studio-shell-confirm'));
+    expect(applyOp).not.toHaveBeenCalled();
+  });
+
   it('edit：回显落库壁厚/面并走 updateParams', async () => {
     const { applyOp } = renderDialog({
       featureId: 'feat-shell',

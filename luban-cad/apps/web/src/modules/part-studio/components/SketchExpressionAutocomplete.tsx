@@ -85,7 +85,10 @@ export function SketchExpressionAutocomplete({
       data-testid="sketch-expression-autocomplete"
       role="listbox"
       aria-label={t('partStudio.sketch.expression.autocompleteLabel')}
-      style={anchor ? { left: anchor.left, top: anchor.top } : undefined}
+      // ADR-0020 S4c：anchor 是**视口坐标**（ExpressionNumberField 已按 input
+      // rect + 菜单尺寸夹紧），故用 fixed 定位；S2 草图尺寸字段不传 anchor，
+      // 保持原 absolute 行为不变。
+      style={anchor ? { position: 'fixed', left: anchor.left, top: anchor.top } : undefined}
       // 菜单打开期间输入框保持焦点（键盘导航由外壳消费）。
       onMouseDown={(event) => event.preventDefault()}
     >

@@ -36,11 +36,22 @@ import type {
   FeaturePreviewGeometryDto,
   LubanTopologyId,
   PreviewResult,
+  VariableDto,
 } from '@luban-cad/shared';
 import { useCanvasSelection } from '../hooks/useCanvasSelection.js';
 import type { CanvasSelection } from '../types.js';
 import { FeaturePreviewOverlay } from '../canvas/FeaturePreviewOverlay.js';
 import { useDialogCommandHandler } from '../internal/dialog-commands.js';
+import {
+  formatExpressionFieldValue,
+  readStoredExpression,
+} from '../internal/feature-expression-field.js';
+import type { VariableCreateRequest } from '../internal/variables.js';
+import {
+  ExpressionNumberField,
+  useExpressionField,
+} from '../components/ExpressionNumberField.js';
+import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
 export interface ShellDialogProps {
   featureName: string;
@@ -56,11 +67,19 @@ export interface ShellDialogProps {
   /** 打开对话框时的预选面快照（对话框打开会清空画布选择——路由时捕获）。 */
   initialFaces?: readonly CanvasSelection[];
   canEdit?: boolean;
+  /** ADR-0020 S4c：Part Studio 变量表（Session 单点持有，PartStudioCanvas 透传）。 */
+  variables?: readonly VariableDto[];
+  variablesLoading?: boolean;
+  variablesError?: string;
+  variablesReady?: boolean;
+  onCreateVariable?: (request: VariableCreateRequest) => void;
   onConfirm?: () => void;
   onCancel?: () => void;
 }
 
 type ShellDirection = 'inward' | 'outward';
+/** 表达式在场时的派生方向：求值符号即方向（0=穿孔，独立显示，不伪造成向内）。 */
+type ShellDerivedDirection = ShellDirection | 'through';
 
 interface SelectedFace {
   key: string;
@@ -71,6 +90,7 @@ interface SelectedFace {
 
 interface StoredShellParams {
   defaultDistance?: number;
+  defaultDistanceExpression?: string;
   faces?: LubanTopologyId[];
   distances?: number | number[];
 }
@@ -80,6 +100,7 @@ function readStored(value: unknown): StoredShellParams {
   const p = value as Record<string, unknown>;
   return {
     defaultDistance: typeof p.defaultDistance === 'number' ? p.defaultDistance : undefined,
+    defaultDistanceExpression: readStoredExpression(value, 'defaultDistanceExpression'),
     faces: Array.isArray(p.faces)
       ? (p.faces as unknown[]).flatMap((entry) => {
         if (typeof entry !== 'object' || entry === null) return [];
@@ -114,11 +135,17 @@ export function ShellDialog({
   bodies = [],
   initialFaces,
   canEdit = true,
+  variables,
+  variablesLoading = false,
+  variablesError,
+  variablesReady = true,
+  onCreateVariable,
   onConfirm,
   onCancel,
 }: ShellDialogProps): React.JSX.Element {
   const { t } = useTranslation();
   const { selection } = useCanvasSelection();
+  const variablesDialogActive = usePartStudioStore((s) => s.variablesDialog.active);
   const stored = React.useMemo(() => readStored(initialParams), [initialParams]);
   const editMode = featureId !== undefined;
 
@@ -183,6 +210,10 @@ export function ShellDialog({
   const [direction, setDirection] = React.useState<ShellDirection>(
     () => (stored.defaultDistance ?? -1) < 0 ? 'inward' : 'outward',
   );
+  // ADR-0020 S4c：抽壳厚度表达式 = **有符号距离**（负=内缩、0=穿孔）。表达式
+  // 在场时方向下拉派生只读（求值符号即方向）；改方向须先清除表达式。
+  const thicknessExpression = useExpressionField(stored.defaultDistanceExpression);
+  const thicknessExpressionActive = thicknessExpression.expression !== undefined;
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>(undefined);
   const [dynamicPreview, setDynamicPreview] = React.useState<FeaturePreviewGeometryDto | undefined>(undefined);
@@ -202,31 +233,71 @@ export function ShellDialog({
       : undefined;
 
   const parsedThickness = Number(thickness);
-  const thicknessValid = thickness.trim() !== '' && Number.isFinite(parsedThickness) && parsedThickness > 0;
+  const thicknessValid = thicknessExpressionActive
+    ? thicknessExpression.evaluation?.ok === true
+    : (thickness.trim() !== '' && Number.isFinite(parsedThickness) && parsedThickness > 0);
+  // 求值符号即方向（0=穿孔，独立显示，绝不把“内缩”UI 提交成外扩距离）。
+  const expressionSignedDistance = thicknessExpression.evaluation?.ok
+    ? thicknessExpression.evaluation.value
+    : undefined;
+  const derivedDirection: ShellDerivedDirection | undefined = expressionSignedDistance === undefined
+    ? undefined
+    : expressionSignedDistance < 0 ? 'inward' : expressionSignedDistance > 0 ? 'outward' : 'through';
+  // P3（review）：无效表达式不得显示 `through`/「穿孔」假方向；保留最近一次
+  // 有效派生方向（若有），否则数据态 `unknown` + 中性「方向」标签。
+  const lastValidDerivedDirectionRef = React.useRef<ShellDerivedDirection | undefined>(undefined);
+  React.useEffect(() => {
+    if (derivedDirection !== undefined)
+      lastValidDerivedDirectionRef.current = derivedDirection;
+  }, [derivedDirection]);
+  const expressionDirection = derivedDirection ?? lastValidDerivedDirectionRef.current;
+  const expressionDirectionInvalid = thicknessExpressionActive
+    && thicknessExpression.evaluation !== undefined
+    && !thicknessExpression.evaluation.ok;
   const crossBody = !editMode && ownerKeys.length > 1;
   const missingOwner = !editMode && faces.length > 0 && ownerKeys.length === 0;
   const submitDisabled = !canEdit || busy || applyOp === undefined || faces.length === 0
-    || !thicknessValid || crossBody || missingOwner;
+    || !thicknessValid || thicknessExpression.invalid || crossBody || missingOwner;
 
-  const signedDistance = direction === 'inward' ? -parsedThickness : parsedThickness;
+  const signedDistance = thicknessExpressionActive
+    ? (expressionSignedDistance ?? Number.NaN)
+    : direction === 'inward' ? -parsedThickness : parsedThickness;
+  const expressionSource = thicknessExpressionActive && thicknessExpression.evaluation?.ok
+    ? thicknessExpression.evaluation.expression
+    : undefined;
   const buildParams = React.useCallback((): FeatureParams => {
     if (editMode) {
       const base = (typeof initialParams === 'object' && initialParams !== null)
         ? initialParams as Record<string, unknown>
         : {};
-      return {
+      const params = {
         ...base,
         defaultDistance: signedDistance,
         distances: 0,
         faces: faces.map((face) => face.topologyId),
-      } as unknown as FeatureParams;
+      } as unknown as Record<string, unknown>;
+      // 表达式设计意图：未触碰保留；纯数值/清除即删除旧键（不得静默残留）。
+      if (expressionSource !== undefined) params.defaultDistanceExpression = expressionSource;
+      else delete params.defaultDistanceExpression;
+      return params as unknown as FeatureParams;
     }
     return {
       defaultDistance: signedDistance,
+      ...(expressionSource !== undefined ? { defaultDistanceExpression: expressionSource } : {}),
       faces: faces.map((face) => face.topologyId),
       distances: 0,
     } as unknown as FeatureParams;
-  }, [editMode, initialParams, signedDistance, faces]);
+  }, [editMode, initialParams, signedDistance, faces, expressionSource]);
+
+  /** 清除表达式 → 回数值态（方向恢复可交互；数值取 |求值|、方向取求值符号）。 */
+  const clearThicknessExpression = React.useCallback((): void => {
+    const value = expressionSignedDistance;
+    thicknessExpression.setExpression(undefined);
+    if (value !== undefined) {
+      setThickness(formatExpressionFieldValue('signedLength', Math.abs(value)));
+      setDirection(value < 0 ? 'inward' : 'outward');
+    }
+  }, [expressionSignedDistance, thicknessExpression]);
 
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const [previewHost, setPreviewHost] = React.useState<HTMLElement | null>(null);
@@ -380,20 +451,33 @@ export function ShellDialog({
         )}
         {/* live 数值行：抽壳厚度 + 右对齐 mm + 禁用计算器 + 方向箭头（替换旧
             方向下拉；defaultDistance 符号映射不变：向内=负）。 */}
-        <section className="part-studio-feature-dialog__distance part-studio-shell-dialog__thickness-row">
-          <label htmlFor="shell-thickness" className="part-studio-feature-dialog__distance-label">
-            {t('partStudio.shellDialog.thickness')}
-          </label>
-          <input
+        <section
+          className={`part-studio-feature-dialog__distance part-studio-shell-dialog__thickness-row${thicknessExpressionActive ? ' part-studio-shell-dialog__thickness-row--expression' : ''}`}
+        >
+          <ExpressionNumberField
             id="shell-thickness"
-            data-testid="part-studio-shell-thickness"
-            className="part-studio-feature-dialog__input"
-            inputMode="decimal"
-            value={thickness}
+            label={t('partStudio.shellDialog.thickness')}
+            numberText={thickness}
+            setNumberText={setThickness}
+            expression={thicknessExpression.expression}
+            setExpression={thicknessExpression.setExpression}
+            kind="signedLength"
+            unitLabel="mm"
+            applicable
             disabled={!canEdit || busy}
-            onChange={(event) => setThickness(event.target.value)}
+            variables={variables}
+            variablesLoading={variablesLoading}
+            variablesError={variablesError}
+            variablesReady={variablesReady}
+            onCreateVariable={onCreateVariable}
+            variablesDialogActive={variablesDialogActive}
+            storedExpression={stored.defaultDistanceExpression}
+            storedExpressionUntouchedValue={stored.defaultDistance}
+            onValidity={thicknessExpression.onValidity}
+            onEnter={() => void confirm()}
+            inputTestId="part-studio-shell-thickness"
+            expressionLabel={t('partStudio.shellDialog.thicknessExpressionLabel')}
           />
-          <span className="part-studio-feature-dialog__value-unit">mm</span>
           <button
             type="button"
             className="part-studio-feature-dialog__calculator"
@@ -412,20 +496,47 @@ export function ShellDialog({
               <circle cx="10.6" cy="12" r="0.8" fill="currentColor" />
             </svg>
           </button>
+          {thicknessExpressionActive && (
+            <button
+              type="button"
+              className="part-studio-shell-dialog__expression-clear"
+              data-testid="part-studio-shell-expression-clear"
+              aria-label={t('partStudio.featureDialog.expressionClear')}
+              title={t('partStudio.featureDialog.expressionClear')}
+              disabled={!canEdit || busy}
+              onClick={clearThicknessExpression}
+            >
+              ×
+            </button>
+          )}
           <button
             type="button"
             id="shell-direction"
             data-testid="part-studio-shell-direction"
             className="part-studio-shell-dialog__direction"
-            data-direction={direction}
-            aria-label={direction === 'inward'
-              ? t('partStudio.shellDialog.inward')
-              : t('partStudio.shellDialog.outward')}
-            aria-pressed={direction === 'outward'}
-            title={direction === 'inward'
-              ? t('partStudio.shellDialog.inward')
-              : t('partStudio.shellDialog.outward')}
-            disabled={!canEdit || busy}
+            data-direction={thicknessExpressionActive ? (expressionDirection ?? 'unknown') : direction}
+            data-expression-derived={thicknessExpressionActive ? 'true' : 'false'}
+            data-expression-invalid={expressionDirectionInvalid ? 'true' : 'false'}
+            aria-label={thicknessExpressionActive
+              ? (expressionDirection === undefined || expressionDirectionInvalid
+                ? t('partStudio.shellDialog.direction')
+                : expressionDirection === 'through'
+                  ? t('partStudio.shellDialog.through')
+                  : expressionDirection === 'inward'
+                    ? t('partStudio.shellDialog.inward')
+                    : t('partStudio.shellDialog.outward'))
+              : direction === 'inward'
+                ? t('partStudio.shellDialog.inward')
+                : t('partStudio.shellDialog.outward')}
+            aria-pressed={thicknessExpressionActive
+              ? expressionDirection === 'outward'
+              : direction === 'outward'}
+            title={thicknessExpressionActive
+              ? t('partStudio.featureDialog.expressionClear')
+              : direction === 'inward'
+                ? t('partStudio.shellDialog.inward')
+                : t('partStudio.shellDialog.outward')}
+            disabled={!canEdit || busy || thicknessExpressionActive}
             onClick={() => setDirection((prev) => (prev === 'inward' ? 'outward' : 'inward'))}
           >
             <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
