@@ -463,6 +463,24 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （不做弧度→度或距离/角度互换）、不发 preview/提交。mode 2/3 行为不变。验证：
   web **2586/2586**（+5）、tsc(src+e2e)/eslint 绿；回归 `chamfer-expression`
   **2 passed（41.6 s）**。**未发布**；mode 4 可编辑实现留待 live 证据。
+- **W43 S12 环形阵列角度表达式 + 命名对齐（2026-11-18，shared 1.80 + 私有后端 + web）**：
+  live：环形阵列「角度 360 deg」接受 angle 变量 `#ang`（有效 + 数量补全），「实例数」
+  对 `#width`/`10/3`/`4*2` 失焦标红（count 表达式不支持），命令名 live 为「环形阵列」。
+  shared **1.80.0** `PatternParams.angleExpression?`/`FeaturePatternParams.angleExpression?`
+  （仅 circular、kind `angleDeg` 度、`angle` 占位必需；linear 携带拒收；物化后 registry
+  复验 0<angle≤360；`updateVariables` 存量行缺 angle 占位失败闭合不合成）；后端
+  field-spec/registry/updateVariables 复用（角度类型门）；web 两个阵列对话框角度行复用
+  `ExpressionNumberField`（deg 内联创建、未触碰保留/数值清除/切 linear 清除/无效禁提/
+  preview 求值），用户可见命名统一「环形阵列」（显示伪类型 `patternCircular`，底层
+  featureType 仍 `pattern`，树行/标题/工具栏/下拉同口径）。验证：shared **323/323**、
+  backend targeted **180/180**/S12 StandaloneDb **12/12**/全量 **1145+1+8**、web
+  **2606/2606**（+20）、tsc(src+e2e)/eslint 绿；真栈 `pattern-angle-expression`
+  **2 passed（57.8 s）**（count 4、`#ang`=90 → 80 mm³、变量 90→360、原生 undo/redo、
+  push+冷重开）+ 回归 `feature-contracts` 2 passed（1.1 m）、`live-body-pattern-circular`
+  2 passed（1.2 m）、`live-feature-pattern-circular` 2 passed（48.9 s，16320.000 mm³）；
+  `feature-contracts` 首跑因 `阵列 1` 子串命中「环形阵列 1」失败，
+  定位器 `exact: true` 后绿。**未发布**；
+  残：count 表达式不支持（live 明确失焦标红），FEATURE 阵列角度仅单测覆盖。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

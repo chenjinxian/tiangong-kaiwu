@@ -415,3 +415,30 @@ tsc 绿；web **2568/2568**（160 files）、tsc/eslint 绿；真栈
 质心 9,9 → 变量 10→20 y=14 → 原生 undo/redo → push+冷重开）+ 回归
 `pattern-second-direction-ui` **2 passed（1.1 m）**。复核：后端 APPROVE（P3 补测已修）；
 web APPROVE WITH FIXES（P3 文案/测试 flake/全等/取消零写/circular）→ 修复。
+
+## 18. S12 环形阵列角度表达式 + 命名对齐（2026-11-18）
+
+**Live 证据**：环形阵列对话框「角度 360 deg」接受 angle 变量 `#ang`（有效 + 数量
+补全）；「实例数」对 `#width`/`10/3`/`4*2` 失焦后均标红（count 表达式不支持，仅
+整数字面量）；live 工具栏命令名为「环形阵列」。**设计**：shared 1.80.0
+`PatternParams.angleExpression?` / `FeaturePatternParams.angleExpression?`（仅
+circular、kind `angleDeg` 度、目标 `angle` 占位必需；linear 携带拒收；count 表达式
+不做；物化后 registry 复验 0<angle≤360；`updateVariables` 存量行缺 angle 占位时
+失败闭合不合成）。后端 field-spec/registry/updateVariables（角度类型门）；
+web 两个阵列对话框角度行复用 `ExpressionNumberField`（kind angleDeg、deg 内联创建、
+未触碰保留/数值清除/切 linear 清除/无效禁提/preview 求值），用户可见命名统一为
+「环形阵列」（显示伪类型 `patternCircular`，底层 featureType 仍 `pattern`）。
+**不做**：count 表达式、曲线/面阵列；发布未授权。
+
+**验证**：shared **323/323**（+3）含 test:types；private backend targeted
+**180/180**、S12 真栈（StandaloneDb）**12/12**、全量 **1145 passed / 1 expected
+fail / 8 skipped（1154，112 files）**、tsc 绿；web **2606/2606**（160 files，+20）、
+targeted **361/361**、tsc(src+e2e)/eslint 绿；真栈
+`pattern-angle-expression` **2 passed（57.8 s；setup + 1 用例）**（环形阵列 count 4、
+`#ang`=90 → 80 mm³、变量 90→360、原生 undo/redo、push+冷重开）+ 回归
+`feature-contracts` **2 passed（1.1 m；setup+用例）**、`live-body-pattern-circular`
+**2 passed（1.2 m；setup+用例）**、`live-feature-pattern-circular` **2 passed
+（48.9 s；16320.000 mm³）**（`feature-contracts` 首跑 `阵列 1` 子串命中
+「环形阵列 1」，定位器 `exact: true` 后绿）。复核：后端 APPROVE（P3 补测已修）；
+web **APPROVE** → P3 三项修复（stored read 加 `patternChannel` 门、报告措辞、
+真栈取消零写改判别式）→ scoped **APPROVE**。
