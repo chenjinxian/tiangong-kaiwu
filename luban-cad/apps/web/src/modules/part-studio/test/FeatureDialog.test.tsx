@@ -5717,6 +5717,178 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     single.unmount();
   });
 
+  // ── W42 S11：存量倒角未支持模式（0/1/4/未知）诚实只读守卫 ────────────────
+  // 本产品 UI 只创建 mode 2/3；导入/旧库行可能是 mode 0（Ranges）/1（Length）/
+  // 4（AngleDistance，values1=角度、values2=距离）或未知 mode。旧回显把 mode 4
+  // 重读为 mode 3（距离/角度互换）——S11 改为诚实只读：横幅 + 字段/✓ 禁用 +
+  // 取消可关闭，绝不重映射后提交/预览。
+  it('S11 mode 4（角度和距离）：横幅 + 字段/✓ 禁用 + 零载荷零预览；取消可关闭', async () => {
+    const user = userEvent.setup();
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({ ok: true, affected: [] }));
+    const onCancel = vi.fn();
+    const applyOp = makeApplyOp();
+    renderFilletDialog(applyOp, {
+      featureType: 'chamfer',
+      featureName: '倒角 1',
+      mode: 'edit',
+      featureId: 'f-chamfer',
+      previewOp,
+      onCancel,
+      initialParams: {
+        mode: 4,
+        propagateSmooth: true,
+        edges: [EDGE_1],
+        values1: Math.PI / 4,
+        values2: 2,
+      },
+    });
+    const banner = screen.getByTestId('part-studio-feature-dialog-chamfer-mode-unsupported-hint');
+    expect(banner.textContent).toContain('角度和距离');
+    expect(banner.textContent).toContain('暂不支持编辑');
+    // 类型下拉不把 mode 4 伪装成「距离和角度」——只读展示落库模式名。
+    const type = screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement;
+    expect(type.disabled).toBe(true);
+    expect(type.options[type.selectedIndex]!.textContent).toBe('角度和距离');
+    // 值按落库原文只读展示（不做弧度→度/语义互换），数组/标量安全。
+    const stored1 = screen.getByRole('textbox', { name: '存储值 1' }) as HTMLInputElement;
+    expect(stored1.disabled).toBe(true);
+    expect(stored1.value).toBe(String(Math.PI / 4));
+    const stored2 = screen.getByRole('textbox', { name: '存储值 2' }) as HTMLInputElement;
+    expect(stored2.disabled).toBe(true);
+    expect(stored2.value).toBe('2');
+    // 边拾取/切向延伸也只读。
+    expect((screen.getByTestId('part-studio-feature-dialog-add-edge') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('checkbox', { name: '切向延伸' }) as HTMLInputElement).disabled).toBe(true);
+    // ✓ 禁用：点击零 op / 零 onConfirm；预览同样不发（不重映射成 mode 3）。
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(previewOp).not.toHaveBeenCalled();
+    // 取消是唯一出口。
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('S11 mode 1（长度）/0（范围）：横幅含模式名；数组 values 只读拼接安全；✓ 禁用零 op', async () => {
+    for (const [mode, label] of [[1, '长度'], [0, '范围']] as const) {
+      const user = userEvent.setup();
+      const applyOp = makeApplyOp();
+      const rendered = renderFilletDialog(applyOp, {
+        featureType: 'chamfer',
+        featureName: '倒角 1',
+        mode: 'edit',
+        featureId: 'f-chamfer',
+        initialParams: { mode, propagateSmooth: true, edges: [EDGE_1], values1: [1, 2] },
+      });
+      expect(screen.getByTestId('part-studio-feature-dialog-chamfer-mode-unsupported-hint').textContent)
+        .toContain(label);
+      const stored1 = screen.getByRole('textbox', { name: '存储值 1' }) as HTMLInputElement;
+      expect(stored1.disabled).toBe(true);
+      expect(stored1.value).toBe('1, 2'); // 逐边数组安全只读展示（不崩、不伪造默认值）
+      expect(screen.queryByRole('textbox', { name: '存储值 2' })).toBeNull();
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+      await user.click(screen.getByRole('button', { name: '确认' }));
+      expect(applyOp).not.toHaveBeenCalled();
+      rendered.unmount();
+    }
+  });
+
+  it('S11 未知 mode（5）：横幅与只读类型显示数字 + ✓ 禁用', () => {
+    renderFilletDialog(makeApplyOp(), {
+      featureType: 'chamfer',
+      featureName: '倒角 1',
+      mode: 'edit',
+      featureId: 'f-chamfer',
+      initialParams: { mode: 5, propagateSmooth: true, edges: [EDGE_1], values1: 3 },
+    });
+    expect(screen.getByTestId('part-studio-feature-dialog-chamfer-mode-unsupported-hint').textContent)
+      .toContain('5');
+    const type = screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement;
+    expect(type.disabled).toBe(true);
+    expect(type.options[type.selectedIndex]!.textContent).toBe('5');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('S11 可见提示：横幅文本在模式 4/1/0 编辑时可见并紧贴倒角类型行；mode 2/3 不渲染', () => {
+    const cases: Array<{ mode: number; label: string; values2?: number }> = [
+      { mode: 4, label: '角度和距离', values2: 2 },
+      { mode: 1, label: '长度' },
+      { mode: 0, label: '范围' },
+    ];
+    for (const { mode, label, values2 } of cases) {
+      const rendered = renderFilletDialog(makeApplyOp(), {
+        featureType: 'chamfer',
+        featureName: '倒角 1',
+        mode: 'edit',
+        featureId: 'f-chamfer',
+        initialParams: {
+          mode,
+          propagateSmooth: true,
+          edges: [EDGE_1],
+          values1: 2,
+          ...(values2 !== undefined ? { values2 } : {}),
+        },
+      });
+      const note = screen.getByTestId('part-studio-feature-dialog-chamfer-mode-unsupported-hint');
+      expect(note.getAttribute('role')).toBe('note');
+      // 可见文本（非仅 title）：完整本地化句子 + 模式名。
+      expect(note.textContent).toBe(`此倒角模式（${label}）暂不支持编辑；可取消后重新创建。`);
+      // 紧贴倒角类型行：DOM 位置在类型 section 之前（CSS order 将其渲染在类型行上方）。
+      const typeSection = (screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement)
+        .closest('section')!;
+      expect(
+        note.compareDocumentPosition(typeSection) & Node.DOCUMENT_POSITION_FOLLOWING,
+        'visible note should precede the chamfer type row',
+      ).toBeTruthy();
+      rendered.unmount();
+    }
+    for (const mode of [2, 3] as const) {
+      const rendered = renderFilletDialog(makeApplyOp(), {
+        featureType: 'chamfer',
+        featureName: '倒角 1',
+        mode: 'edit',
+        featureId: 'f-chamfer',
+        initialParams: {
+          mode,
+          propagateSmooth: true,
+          edges: [EDGE_1],
+          values1: 2,
+          values2: mode === 3 ? Math.PI / 4 : 2,
+        },
+      });
+      expect(screen.queryByTestId('part-studio-feature-dialog-chamfer-mode-unsupported-hint')).toBeNull();
+      rendered.unmount();
+    }
+  });
+
+  it('S11 回归：mode 2/3 编辑无横幅、字段/类型/✓ 可用（既有语义与载荷不变）', () => {
+    const cases = [
+      { params: { mode: 2, propagateSmooth: true, edges: [EDGE_1], values1: 2, values2: 2 }, variant: 'equal' },
+      {
+        params: { mode: 3, propagateSmooth: true, edges: [EDGE_1], values1: 2, values2: Math.PI / 4 },
+        variant: 'distanceAngle',
+      },
+    ] as const;
+    for (const { params, variant } of cases) {
+      const rendered = renderFilletDialog(makeApplyOp(), {
+        featureType: 'chamfer',
+        featureName: '倒角 1',
+        mode: 'edit',
+        featureId: 'f-chamfer',
+        initialParams: params as unknown as Record<string, unknown>,
+      });
+      expect(screen.queryByTestId('part-studio-feature-dialog-chamfer-mode-unsupported-hint')).toBeNull();
+      const type = screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement;
+      expect(type.disabled).toBe(false);
+      expect(type.value).toBe(variant);
+      const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+      expect(distance.disabled).toBe(false);
+      expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(false);
+      rendered.unmount();
+    }
+  });
+
   it('chips 去重（边自身 id 单键）：同 id 重拾（布尔分裂片同 id 多持）→ 仍 1 chip', async () => {
     const user = userEvent.setup();
     renderFilletDialog(makeApplyOp());

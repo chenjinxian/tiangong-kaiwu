@@ -290,6 +290,21 @@ function isChamferAngleDegrees(value: number): boolean {
   return value > 0 && value < 180;
 }
 
+/**
+ * W42 S11：存量倒角 values 的只读展示文本（标量 / 逐边数组均安全）。
+ * 不可读（非有限数/非数组项）→ `—`；整体缺失 → 空串（不伪造默认值）。
+ * 仅供「不支持编辑」模式的禁用字段只读回显，绝不进入载荷。
+ */
+function storedChamferValueText(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (Array.isArray(value)) {
+    const parts = value.map((item) =>
+      typeof item === 'number' && Number.isFinite(item) ? String(item) : '—');
+    return parts.length > 0 ? parts.join(', ') : '';
+  }
+  return '';
+}
+
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */
 export type FeatureResultType = 'solid' | 'surface' | 'thinWall';
 
@@ -1543,16 +1558,42 @@ export function FeatureDialog({
       : undefined),
     [featureType, editParams],
   );
+  // W42 S11（S7 复核残）：存量倒角 mode 0（Ranges）/1（Length）/4（AngleDistance）
+  // 及未知 mode 与本产品 UI（只创建 mode 2/3）语义不同——旧回显把 mode 4 的
+  // values1=角度 / values2=距离重读成 mode 3（距离/角度互换），可能提交错误
+  // mode 3。本产品不提供这些模式的编辑通道：诚实只读守卫（横幅 + 字段/确认
+  // 禁用 + 取消可用），绝不重映射后提交；新建流程（恒 mode 2/3）不受影响。
+  const storedChamferMode = React.useMemo<number | undefined>(() => {
+    if (featureType !== 'chamfer' || editParams === undefined) return undefined;
+    const raw = editParams.mode;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined;
+  }, [featureType, editParams]);
+  const chamferModeUnsupported = featureType === 'chamfer' && editParams !== undefined
+    && storedChamferMode !== 2 && storedChamferMode !== 3;
+  /** 只读展示用模式名：0/1/4 有产品名称；未知 mode 显示原始数字/文本；缺失 → —。 */
+  const chamferModeLabel = React.useMemo(() => {
+    if (!chamferModeUnsupported) return undefined;
+    switch (storedChamferMode) {
+      case 0: return t('partStudio.featureDialog.chamferModeRanges');
+      case 1: return t('partStudio.featureDialog.chamferModeLength');
+      case 4: return t('partStudio.featureDialog.chamferModeAngleDistance');
+      default: {
+        const raw = editParams?.mode;
+        return typeof raw === 'number' || typeof raw === 'string' ? String(raw) : '—';
+      }
+    }
+  }, [chamferModeUnsupported, storedChamferMode, editParams, t]);
   const [chamferVariant, setChamferVariant] = React.useState<ChamferVariant>(() => {
     if (featureType !== 'chamfer' || editParams === undefined) return 'equal';
-    const storedMode = Number(editParams.mode);
-    // 已登记残留（S7 review P3，本切片不修）：mode 4（AngleDistance）现有回显
-    // 被重读为「距离和角度」（mode 3）——values1 实际是角度、values2 是距离，
-    // 字段语义互换。UI 从不产生 mode 4；shared 1.77 对 mode 4 携带
-    // values1Expression/values2Expression 显式拒收——编辑此类旧行若补表达式
-    // 会被后端零变更拒收（诚实失败，不会静默写错）。
-    if (storedMode === 3 || storedMode === 4) return 'distanceAngle';
-    if (storedMode === 2) {
+    // S11：不支持的存量模式不参与语义推断——仅按落库值的形状选一个只读容器
+    // （两值在场 → 两个字段；否则单字段），值按原文展示、不做距离/角度换算。
+    if (chamferModeUnsupported) {
+      return typeof editParams.values2 === 'number' || Array.isArray(editParams.values2)
+        ? 'twoDistances'
+        : 'equal';
+    }
+    if (storedChamferMode === 3) return 'distanceAngle';
+    if (storedChamferMode === 2) {
       if (storedChamferValues1Expression !== undefined
         && storedChamferValues2Expression !== undefined) {
         return storedChamferValues1Expression === storedChamferValues2Expression
@@ -1567,10 +1608,15 @@ export function FeatureDialog({
     }
     return 'equal';
   });
-  const [radius, setRadius] = React.useState(() =>
-    featureType === 'chamfer' && editParams !== undefined
-      ? (storedNumberString(editParams.values1) ?? '5')
-      : (storedNumberString(editParams?.radius) ?? '5'));
+  const [radius, setRadius] = React.useState(() => {
+    if (featureType === 'chamfer' && editParams !== undefined) {
+      // S11：不支持模式的字段只读展示落库原文（数组/标量安全，不伪造 5）。
+      return chamferModeUnsupported
+        ? storedChamferValueText(editParams.values1)
+        : (storedNumberString(editParams.values1) ?? '5');
+    }
+    return storedNumberString(editParams?.radius) ?? '5';
+  });
   // ADR-0020 S4c：圆角半径表达式（仅 fillet；length > 0；chamfer 不接）。
   const storedRadiusExpression = React.useMemo(
     () => readStoredExpression(editParams, 'radiusExpression'),
@@ -1595,10 +1641,14 @@ export function FeatureDialog({
   }, [editParams]);
   const [chamferDistance2, setChamferDistance2] = React.useState(() => {
     if (chamferVariant !== 'twoDistances') return '5';
+    // S11：不支持模式只读展示落库原文，不回落默认 5（不伪造）。
+    if (chamferModeUnsupported) return storedChamferValueText(editParams?.values2);
     return storedNumberString(editParams?.values2) ?? '5';
   });
   const [chamferAngleDeg, setChamferAngleDeg] = React.useState(() => {
     if (chamferVariant !== 'distanceAngle') return '45';
+    // S11：不支持模式不得做弧度→度换算（mode 4 的 values2 是距离，不是角度）。
+    if (chamferModeUnsupported) return storedChamferValueText(editParams?.values2);
     const stored = editParams?.values2;
     return typeof stored === 'number' && Number.isFinite(stored)
       ? String(Number(((stored * 180) / Math.PI).toFixed(6)))
@@ -1711,7 +1761,7 @@ export function FeatureDialog({
    * editor 基座链，动态拆包见文件头注 fillet 通道裁决）；回调直改 chips。
    * 已存在挂起工具时优先 resume，保留既有高亮与元素几何缓存。 */
   const startPick = React.useCallback(() => {
-    if (pickingRef.current || !connectionKey) return;
+    if (pickingRef.current || !connectionKey || chamferModeUnsupported) return;
     const existing = pickToolRef.current;
     if (existing) {
       existing.resumePicking();
@@ -1764,7 +1814,7 @@ export function FeatureDialog({
         tool.suspendPicking();
       }
     })();
-  }, [connectionKey, handlePickingSuspended, handlePickingResumed, handlePickingEnded]);
+  }, [connectionKey, chamferModeUnsupported, handlePickingSuspended, handlePickingResumed, handlePickingEnded]);
 
   // 卸载守卫：对话框关闭/确认成功才真正销毁拾取工具（清除已选边高亮）。
   React.useEffect(() => {
@@ -2172,7 +2222,10 @@ export function FeatureDialog({
     || (revolveAngleExpressionApplicable && revolveAngleField.invalid)
     || (patternSpacingExpressionApplicable && patternSpacingField.invalid)
     || (patternSecondSpacingExpressionApplicable && patternSecondSpacingField.invalid);
-  const submitDisabled = submitting || editReadOnly || !canEdit || !sketchReady || !filletReady
+  // W42 S11：存量倒角 mode 0/1/4（及未知）为诚实只读——✓/成品一律禁用，
+  // 关闭出口只留取消。
+  const submitDisabled = submitting || editReadOnly || !canEdit || chamferModeUnsupported
+    || !sketchReady || !filletReady
     || !draftReady || !thinThicknessValid || !endOffsetValid || expressionFieldsInvalid
     || !loftReady || !sweepReady || booleanUpstreamMissing || mirrorUpstreamMissing
     || (mirrorChannel && mirrorScope === 'feature' && !mirrorFeatureReady)
@@ -2205,6 +2258,12 @@ export function FeatureDialog({
   const previewSeqRef = React.useRef(0);
   React.useEffect(() => {
     if (previewOp === undefined) {
+      setBackendPreview(undefined);
+      return;
+    }
+    // W42 S11：不支持编辑的存量倒角模式绝不发影子预览——预览载荷按 UI 模式
+    // 重建 mode 2/3，等于把原 values 静默重解释后送后端。
+    if (chamferModeUnsupported) {
       setBackendPreview(undefined);
       return;
     }
@@ -2410,7 +2469,7 @@ export function FeatureDialog({
       window.clearTimeout(timer);
       if (previewSeqRef.current === seq) previewSeqRef.current += 1;
     };
-  }, [edgePickChannel, chamferChannel, chamferVariant, chamferDistance2, chamferAngleDeg,
+  }, [edgePickChannel, chamferChannel, chamferModeUnsupported, chamferVariant, chamferDistance2, chamferAngleDeg,
     loftChannel, loftReady, loftSectionIds, loftSketchIds, addLoftSection, removeLoftSection, setLoftSection,
     sweepChannel, sweepReady, sweepProfileSketchId, sweepPathSketchId,
     mirrorChannel, mirrorScope, mirrorSourceFeatureId, mirrorFeatureReady,
@@ -2472,6 +2531,9 @@ export function FeatureDialog({
   const handleConfirm = React.useCallback(() => {
     if (submitting || !canEdit) return; // 禁重入 + 只读写门禁（B2：readonly 不进租约环）
     if (editReadOnly) return; // 结构键不可变类型只读（✓ 已禁用，防御兜底）
+    // W42 S11：存量倒角 mode 0/1/4（及未知）只读——绝不把 values 重映射成
+    // mode 2/3 提交（✓ 已禁用，此为防御兜底）。
+    if (chamferModeUnsupported) return;
     // featureMirror 特征作用域覆盖提交类型；其余保持 effectiveFeatureType
     // （booleanAdd/Subtract 的 booleanScope 映射在此生效）。
     const submittedFeatureType = mirrorChannel && mirrorScope === 'feature' ? 'featureMirror' : effectiveFeatureType;
@@ -3219,6 +3281,7 @@ export function FeatureDialog({
     submitting,
     canEdit,
     editReadOnly,
+    chamferModeUnsupported,
     featureId,
     editParams,
     mode,
@@ -3441,11 +3504,29 @@ export function FeatureDialog({
       <input
         type="checkbox"
         checked={propagateSmooth}
+        disabled={submitting || chamferModeUnsupported}
+        title={chamferModeUnsupported
+          ? t('partStudio.featureDialog.chamferModeUnsupportedHint', { mode: chamferModeLabel ?? '—' })
+          : undefined}
         onChange={(event) => setPropagateSmooth(event.target.checked)}
       />
       <span>{t('partStudio.featureDialog.propagateSmoothLabel')}</span>
     </label>
   );
+
+  // W42 S11：存量倒角 mode 0/1/4（及未知）无编辑通道的**可见**诚实横幅
+  // （不只 title tooltip）——紧贴倒角类型行渲染（CSS order 同排、DOM 在前）；
+  // 当通道未渲染（壳期无 applyOp）时仍在对话框主体可见（有实体字段时排其后）。
+  // 字段/✓ 禁用，取消可关闭。
+  const chamferModeWarning = chamferModeUnsupported ? (
+    <p
+      role="note"
+      className="part-studio-feature-dialog__hint"
+      data-testid="part-studio-feature-dialog-chamfer-mode-unsupported-hint"
+    >
+      {t('partStudio.featureDialog.chamferModeUnsupportedHint', { mode: chamferModeLabel ?? '—' })}
+    </p>
+  ) : undefined;
 
   // 边查询字段的拾取触发器（空态=字段覆盖层；已选态=值行尾部「添加边」）。
   // 空态可见文案由 query label 承担；拾取中显示「结束拾取」（测试锚点）。
@@ -3460,7 +3541,11 @@ export function FeatureDialog({
       aria-label={picking
         ? t('partStudio.featureDialog.stopPick')
         : t('partStudio.featureDialog.addEdge')}
-      disabled={submitting}
+      // W42 S11：不支持编辑的存量倒角模式不提供边拾取（只读守卫）。
+      disabled={submitting || chamferModeUnsupported}
+      title={chamferModeUnsupported
+        ? t('partStudio.featureDialog.chamferModeUnsupportedHint', { mode: chamferModeLabel ?? '—' })
+        : undefined}
       onClick={picking ? stopPick : startPick}
     >
       <span aria-hidden="true">
@@ -3873,6 +3958,11 @@ export function FeatureDialog({
             {t('partStudio.featureDialog.readonlyHint')}
           </p>
         )}
+
+        {/* W42 S11：存量倒角 mode 0/1/4（及未知）无编辑通道的可见诚实横幅。
+            常规编辑路径紧贴倒角类型行（参数区）；仅在通道整体未渲染（壳期无
+            applyOp）时回退到顶部，避免同一提示重复两处。 */}
+        {!edgePickChannel && chamferModeWarning}
 
         {/* 布尔上游门禁 / 相交不支持提示（B1 复审 Important/Minor）——禁用页签的可见原因，
             不静默降级：无实体时布尔无上游，相交无后端特征类型。 */}
@@ -4865,7 +4955,7 @@ export function FeatureDialog({
                 ].filter(Boolean).join(' ')}
                 data-testid="part-studio-feature-dialog-edge-field"
                 onClick={(event) => {
-                  if (submitting) return;
+                  if (submitting || chamferModeUnsupported) return;
                   if ((event.target as HTMLElement).closest('button') !== null) return;
                   if (picking) stopPick();
                   else startPick();
@@ -4894,7 +4984,7 @@ export function FeatureDialog({
                             type="button"
                             aria-label={t('partStudio.featureDialog.removeEdge', { index: index + 1 })}
                             className="part-studio-feature-dialog__chip-remove"
-                            disabled={submitting}
+                            disabled={submitting || chamferModeUnsupported}
                             onClick={() => {
                               setFilletPicks((prev) => prev.filter((_, i) => i !== index));
                             }}
@@ -5019,6 +5109,8 @@ export function FeatureDialog({
                 </select>
               </section>
             )}
+            {/* W42 S11：可见横幅紧贴倒角类型行（CSS order 与类型行同排、DOM 在前）。 */}
+            {chamferModeWarning}
             {chamferChannel && (
               <section className="part-studio-feature-dialog__distance" data-field="chamfer-type">
                 <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-chamfer-type">
@@ -5028,10 +5120,15 @@ export function FeatureDialog({
                   id="part-studio-feature-dialog-chamfer-type"
                   aria-label={t('partStudio.featureDialog.chamferTypeLabel')}
                   className="part-studio-feature-dialog__select"
-                  value={chamferVariant}
-                  disabled={submitting}
+                  // W42 S11：不支持的存量模式不映射成产品模式——下拉只读展示
+                  // 落库模式名（0=范围/1=长度/4=角度和距离；未知显示数字）。
+                  value={chamferModeUnsupported ? '__storedMode__' : chamferVariant}
+                  disabled={submitting || chamferModeUnsupported}
                   onChange={(event) => handleChamferVariantChange(event.target.value as ChamferVariant)}
                 >
+                  {chamferModeUnsupported && (
+                    <option value="__storedMode__">{chamferModeLabel ?? '—'}</option>
+                  )}
                   <option value="equal">{t('partStudio.featureDialog.chamferTypeEqual')}</option>
                   <option value="twoDistances">{t('partStudio.featureDialog.chamferTypeTwoDistances')}</option>
                   <option value="distanceAngle">{t('partStudio.featureDialog.chamferTypeDistanceAngle')}</option>
@@ -5042,9 +5139,11 @@ export function FeatureDialog({
               <ExpressionNumberField
                 id="part-studio-feature-dialog-radius"
                 label={t(chamferChannel
-                  ? (chamferVariant === 'twoDistances'
-                    ? 'partStudio.featureDialog.chamferDistance1Label'
-                    : 'partStudio.featureDialog.chamferDistanceLabel')
+                  ? (chamferModeUnsupported
+                    ? 'partStudio.featureDialog.chamferStoredValue1Label'
+                    : chamferVariant === 'twoDistances'
+                      ? 'partStudio.featureDialog.chamferDistance1Label'
+                      : 'partStudio.featureDialog.chamferDistanceLabel')
                   : 'partStudio.featureDialog.radiusLabel')}
                 numberText={radius}
                 setNumberText={setRadius}
@@ -5053,9 +5152,10 @@ export function FeatureDialog({
                   ? chamferValue1Field.setExpression
                   : radiusField.setExpression}
                 kind="length"
-                unitLabel="mm"
+                // S11：不支持模式的只读原文不做单位投影（mode 4 的值 1 是角度）。
+                unitLabel={chamferModeUnsupported ? '' : 'mm'}
                 applicable={chamferChannel || radiusExpressionApplicable}
-                disabled={submitting}
+                disabled={submitting || chamferModeUnsupported}
                 variables={depthVariableList}
                 variablesLoading={variablesLoading}
                 variablesError={variablesError}
@@ -5100,15 +5200,17 @@ export function FeatureDialog({
               <section className="part-studio-feature-dialog__distance" data-field="chamfer-distance2">
                 <ExpressionNumberField
                   id="part-studio-feature-dialog-distance2"
-                  label={t('partStudio.featureDialog.chamferDistance2Label')}
+                  label={t(chamferModeUnsupported
+                    ? 'partStudio.featureDialog.chamferStoredValue2Label'
+                    : 'partStudio.featureDialog.chamferDistance2Label')}
                   numberText={chamferDistance2}
                   setNumberText={setChamferDistance2}
                   expression={chamferValue2Field.expression}
                   setExpression={chamferValue2Field.setExpression}
                   kind="length"
-                  unitLabel="mm"
+                  unitLabel={chamferModeUnsupported ? '' : 'mm'}
                   applicable={chamferValue2ExpressionApplicable}
-                  disabled={submitting}
+                  disabled={submitting || chamferModeUnsupported}
                   variables={depthVariableList}
                   variablesLoading={variablesLoading}
                   variablesError={variablesError}
@@ -5140,7 +5242,9 @@ export function FeatureDialog({
               <section className="part-studio-feature-dialog__angle" data-field="chamfer-angle">
                 <ExpressionNumberField
                   id="part-studio-feature-dialog-chamfer-angle"
-                  label={t('partStudio.featureDialog.chamferAngleLabel')}
+                  label={t(chamferModeUnsupported
+                    ? 'partStudio.featureDialog.chamferStoredValue2Label'
+                    : 'partStudio.featureDialog.chamferAngleLabel')}
                   numberText={chamferAngleDeg}
                   setNumberText={setChamferAngleDeg}
                   expression={chamferValue2Field.expression}
@@ -5151,7 +5255,7 @@ export function FeatureDialog({
                   // 缺省 unitLabel='' 会建 length 变量并被角度量纲门立即拒收。
                   inlineCreateUnit="deg"
                   applicable={chamferValue2ExpressionApplicable}
-                  disabled={submitting}
+                  disabled={submitting || chamferModeUnsupported}
                   validate={isChamferAngleDegrees}
                   variables={depthVariableList}
                   variablesLoading={variablesLoading}

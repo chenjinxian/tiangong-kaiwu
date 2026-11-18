@@ -1203,6 +1203,9 @@
 .part-studio-feature-dialog[data-feature='chamfer'] [data-testid='part-studio-feature-dialog-propagate-smooth'] { order: 6; }
 .part-studio-feature-dialog[data-feature='fillet'] [data-testid='part-studio-feature-dialog-asymmetric'] { order: 6; }
 .part-studio-feature-dialog[data-feature='fillet'] [data-testid^='part-studio-feature-dialog-fillet-'] { order: 7; }
+/* W42 S11：存量未支持倒角模式的可见横幅紧贴倒角类型行——与类型行同 order
+ * 且 DOM 在前；无此规则默认 order:0 会浮到实体字段之前（提示离开参数区）。 */
+.part-studio-feature-dialog[data-feature='chamfer'] [data-testid='part-studio-feature-dialog-chamfer-mode-unsupported-hint'] { order: 4; }
 
 /* 阵列（2026-11-15 live 行序）：实体（要阵列化的图元）→ 方向 → 距离 →
  * 实例数 → 居中 → 第二个方向（展开子行随行）→ 跳过实例；镜像：实体字段 →
