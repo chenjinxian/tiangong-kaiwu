@@ -374,3 +374,24 @@ web **2532/2532**（160 files）、tsc/eslint 绿；真栈 `chamfer-expression` 
 复核：后端 APPROVE WITH FIXES（弧度域回归钉/ScenarioReplay 度→弧度/文案）→ 修复；
 web APPROVE WITH FIXES（角度内联创建单位、测试隔离/预览载荷/e2e 断言）→ 修复。
 残：mode 4 存量行重解释（失败闭合，另切片）；逐边数组表达式未做。
+
+## 16. S8 孔沉头/锥口字段表达式（2026-11-18）
+
+**Live 证据**：孔样式简单/沉头孔/倒角孔；沉头孔 `⌴Ø`/`⌴↧`、倒角孔 `⌵Ø`/`X °`
+字段均接受表达式（沉头深度 `#height`、锥口角度 `#ang`、主孔径 `#width` 有效 +
+数量补全）；钻尖角 `118 度` 为下拉。**设计**：shared 1.78.0 四键
+`counterboreDiameterExpression?/counterboreDepthExpression?`（仅 counterbore，
+length）、`countersinkDiameterExpression?`（仅 countersink，length）、
+`countersinkAngleExpression?`（仅 countersink，angleDeg 度）；写/预览占位须满足
+跨字段规则，样式不适用显式拒收；后端 field-spec/registry/updateVariables；web
+HoleDialog 四字段复用 `ExpressionNumberField`（mm/in 投影、角度内联创建 deg、
+无效禁提、S5 本地化）。**不做**：tipAngle/钻孔尺寸表/起始平面/终止条件表达式；
+发布未授权。
+
+**验证**：shared **317/317**（+5）含 test:types；private backend targeted
+**174/174（6 files）**、全量 **1106 passed/1 expected fail/8 skipped（112 files）**、
+tsc 绿；web **2551/2551**（160 files）、tsc/eslint 绿；真栈
+`hole-expression-fields` **2 passed（59.9 s）**（`#w`/`#w*1.5`/`#h` → 2723.750 mm³、
+变量 5→3、原生 undo/redo、push+冷重开）。复核：后端 APPROVE WITH FIXES（占位/
+存量合成/预览测试与 JSDoc）→ 修复；web APPROVE WITH FIXES（英寸模式样式切换
+单位回退、测试隔离/e2e 精确体积）→ 修复。

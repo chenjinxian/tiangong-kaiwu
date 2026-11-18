@@ -1,9 +1,9 @@
 # ADR-0020 — Sketch expressions and Part Studio variables (v1)
 
-- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5/S6/S7 已实现；
-  S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施；S5 表达式错误结构化与本地化
-  按 §2.10 实施；S6 线性阵列间距表达式按 §2.11 实施；S7 倒角数值字段表达式按
-  §2.12 实施）**
+- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5/S6/S7/S8
+  已实现；S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施；S5 表达式错误结构化与
+  本地化按 §2.10 实施；S6 线性阵列间距表达式按 §2.11 实施；S7 倒角数值字段表达式按
+  §2.12 实施；S8 孔沉头/锥口字段表达式按 §2.13 实施）**
 - 日期：2026-11-17
 - 关联：AIRR `docs/superpowers/specs/2026-11-17-expressions-variables-airr.md`；
   `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared `LubanFeatureRpcInterface`
@@ -375,6 +375,23 @@ registry 复验 + updateVariables 全键扫描/undo；web 三模式数值行复�
 换量纲字段、无效禁提、预览用求值数、S5 本地化；角度字段内联创建 `deg`→angle）。
 **不做**：逐边数组表达式、mode 0/4、测量类型扩展；发布未授权。
 
+### 2.13 S8 孔沉头/锥口字段表达式（2026-11-18 recon）
+
+**Live 证据（私有 `probe-20261118/w41-hole*.png`）**：孔样式=简单/沉头孔/倒角孔；
+沉头孔新增 `⌴Ø`/`⌴↧` 字段，倒角孔新增 `⌵Ø`/`X °` 字段；沉头深度 `#height`
+与锥口角度 angle 变量 `#ang`、主孔径 `#width` 均有效并打开数量补全；钻尖角
+`118 度` 为下拉（不接表达式）。**契约 shared 1.77.0 → 1.78.0**：
+`HoleParams.counterboreDiameterExpression?/counterboreDepthExpression?`（仅
+counterbore，length >0）、`countersinkDiameterExpression?`（仅 countersink，
+length >0）、`countersinkAngleExpression?`（仅 countersink，`angleDeg` 度，
+0<angle<180）；数值目标保持必填物化快照，写/预览载荷须携带**已满足跨字段规则**
+的数值占位（沉头/锥口直径 > 主孔径、角度域），样式不适用携带显式拒收；resolver
+合成仅用于 `updateVariables` 存量行修复；物化后 registry schema 复验。后端复用
+field-spec + updateVariables 全键扫描/undo；web HoleDialog 四字段复用
+`ExpressionNumberField`（样式适用、mm/in 投影、角度内联创建 deg→angle、无效禁提、
+S5 本地化）。**不做**：tipAngle 表达式、钻孔尺寸表/合并范围/起始平面/终止条件
+表达式；发布未授权。
+
 ## 3. 备选方案
 
 - **A. 全部前端求值，后端只收数值**：不新增契约；但重建/变量变更无法由后端权威
@@ -500,6 +517,17 @@ registry 复验 + updateVariables 全键扫描/undo；web 三模式数值行复�
   → 修复。**残**：mode 4（AngleDistance）存量行编辑仍按 mode 3 重解释（UI 从不
   创建 mode 4，shared 1.77 拒收 mode-4 表达式→失败闭合；另切片修复）；逐边数组
   表达式/测量类型扩展未做。
+- **S8 实测（2026-11-18）**：shared **317/317**（+5）含 test:types；private backend
+  targeted **174/174（6 files）**、全量 **1106 passed / 1 expected fail / 8 skipped
+  （112 files）**、tsc 绿；web **2551/2551**（160 files）、tsc/eslint 绿。真栈
+  `hole-expression-fields` **2 passed（59.9 s；setup + 1 用例）**：沉头孔主孔 `#w`
+  + 沉头直径 `#w*1.5` + 沉头深度 `#h` → 树 params（10/15/5 + 三表达式）→ 体积
+  **2723.750 mm³**（公式 2723.728）→ 变量 h 5→3 物化 → 原生 undo/redo → push+
+  冷重开。回归 `hole` 既有 **6 passed（2.9 m）**；复核：后端 opus APPROVE WITH FIXES
+  （写入口占位/存量合成/预览补测 + JSDoc）→ 修复；web opus APPROVE WITH FIXES
+  （P2 英寸模式样式切换回退把 mm 默认当英寸 → 单位投影修复；测试隔离/兄弟表达式
+  保留/e2e 精确体积与跨样式键）→ 修复。首跑 e2e 仅因测试体积常量半径笔误
+  （r=2.5 vs 5）红，产品实测体积与正确公式一致，常量已修。
 
 ## 5. 回滚
 

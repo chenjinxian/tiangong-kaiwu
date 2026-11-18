@@ -414,6 +414,22 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   WITH FIXES（弧度域钉/ScenarioReplay/文案）→ 修复；web APPROVE WITH FIXES（角度
   内联创建单位、测试隔离/预览载荷/e2e）→ 修复。**未发布**；残：mode 4
   AngleDistance 存量行编辑按 mode 3 重解释（失败闭合，另切片）；逐边数组表达式未做。
+- **W39 S8 孔沉头/锥口字段表达式（2026-11-18，shared 1.78 / 私有后端 / web；ADR-0020 §2.13）**：
+  `HoleParams.counterboreDiameterExpression?/counterboreDepthExpression?`（仅
+  counterbore）、`countersinkDiameterExpression?/countersinkAngleExpression?`（仅
+  countersink，角度 angleDeg 度）；写/预览占位须满足跨字段规则（直径>主孔、
+  角度 (0,180)），样式不适用显式拒收；后端 field-spec/registry/updateVariables；
+  web HoleDialog 四字段复用 `ExpressionNumberField`（mm/in 投影、角度内联创建 deg、
+  未触碰保留/数值清除/样式切换清非适用、无效禁提、S5 本地化）。验证：shared
+  **317/317**（+5）；backend targeted **174/174（6 files）**、全量 **1106 passed/
+  1 expected fail/8 skipped（112 files）**、tsc 绿；web **2551/2551**（160 files）、
+  tsc/eslint 绿；真栈 `hole-expression-fields` **2 passed（59.9 s：`#w` 主孔 +
+  `#w*1.5` 沉头直径 + `#h` 深度 → **2723.750 mm³**、变量 5→3 物化、原生 undo/redo、
+  push+冷重开）**。复核：后端 APPROVE WITH FIXES（写入口占位/存量合成/预览测试与
+  JSDoc）→ 修复；web APPROVE WITH FIXES（**P2 英寸模式样式切换把 mm 默认当英寸**
+  → 单位投影修复；测试隔离/e2e 精确体积）→ 修复。首跑 e2e 仅测试体积常量半径笔误
+  （r=2.5 vs 5）红，产品值正确。**未发布**；残：tipAngle/钻孔尺寸表/起始平面/
+  终止条件表达式未接；跨字段违规仍仅禁用 ✓ 无字段文案（既有）。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
