@@ -81,7 +81,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -104,7 +104,9 @@ describe("M3-a v1.1 类型契约", () => {
     expect(params.propagateSmooth).toBe(true);
     expect(params.edges).toEqual([{ edge: { nodeId: 1, entityId: 2 } }]);
     expectTypeOf<FilletEdgeRef>().toEqualTypeOf<{ edge: LubanTopologyId; bodyKey?: string }>();
-    expectTypeOf<FilletParams>().toEqualTypeOf<{ radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }>();
+    expectTypeOf<FilletParams>().toEqualTypeOf<{
+      radius: number; radiusExpression?: string; propagateSmooth: boolean; edges: FilletEdgeRef[];
+    }>();
   });
 
   it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams；新 FeatureOp 变体可构造", () => {
@@ -284,6 +286,7 @@ describe("RW2-T7 v1.5 shell 契约", () => {
     expect(perFace.distances).toEqual([0.15, 0]);
     expectTypeOf<ShellParams>().toEqualTypeOf<{
       defaultDistance: number;
+      defaultDistanceExpression?: string;
       faces: LubanTopologyId[];
       distances: number | number[];
     }>();
@@ -392,6 +395,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
       axis: { sketchEntityId: number };
       fullRevolve: boolean;
       angle?: number;
+      angleExpression?: string;
       operation?: FeatureBooleanOperation;
       mergeScope?: BodyRef[];
     }>();
@@ -667,7 +671,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -841,7 +845,7 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
   });
 
   it("版本 1.30.0（revolve 多面域；cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 });
 
@@ -905,7 +909,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 });
 
@@ -1011,10 +1015,11 @@ describe("Tutorial 2 v1.19 契约（结构化子实体 + spline + 新约束 + op
     expect(countersink.countersinkAngleDeg).toBe(90);
     expectTypeOf<HoleParams>().toEqualTypeOf<{
       sketchId: string; pointIds?: number[]; vertexRefs?: HoleVertexRef[]; diameterMm: number;
+      diameterExpression?: string;
       holeStyle?: "simple" | "counterbore" | "countersink";
       counterboreDiameterMm?: number; counterboreDepthMm?: number;
       countersinkDiameterMm?: number; countersinkAngleDeg?: number;
-      endBound: "blind" | "throughAll" | "upToNext"; depthMm?: number;
+      endBound: "blind" | "throughAll" | "upToNext"; depthMm?: number; depthExpression?: string;
       direction?: "forward" | "backward"; tipAngleDeg?: number;
     }>();
   });
@@ -1110,7 +1115,7 @@ describe("v1.30 契约（revolve 多面域）", () => {
   });
 
   it("版本 1.30.0（revolve regions 多面域；旧 regionIndex 简写保留一版）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 });
 
@@ -1330,8 +1335,8 @@ describe("v1.64 契约（faceExtrude startOffset + draft；ADR-0016 切片 A1）
     expect(split.splitByLine?.keepSide).toBe("left");
   });
 
-  it("接口版本 1.73.0（ADR-0020 S4a 拉伸深度表达式 additive 契约 bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+  it("接口版本 1.74.0（ADR-0020 S4a/S4c additive 契约 bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 });
 
@@ -1359,8 +1364,8 @@ describe("v1.72 契约（ADR-0020 S3：VariableDto.type?/description?）", () =>
     expect(JSON.parse(JSON.stringify(op))).toEqual(op);
   });
 
-  it("接口版本 1.73.0（S4a additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+  it("接口版本 1.74.0（S4a/S4c additive bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 });
 
@@ -1469,6 +1474,124 @@ describe("v1.71 契约（ADR-0020：SketchConstraintDto.expression + VariableDto
     type GetVariablesFn = LubanFeatureRpcInterface["getVariables"];
     expectTypeOf<Parameters<GetVariablesFn>[1]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<ReturnType<GetVariablesFn>>().toEqualTypeOf<Promise<VariableDto[]>>();
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.73.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
+  });
+});
+
+describe("v1.74 契约（ADR-0020 S4c：其他特征数值字段表达式）", () => {
+  const topo = (entityId: number): LubanTopologyId => ({ nodeId: 1, entityId });
+  const edgeRef = (entityId: number): FilletEdgeRef => ({ edge: topo(entityId) });
+
+  it("FilletParams.radiusExpression / ShellParams.defaultDistanceExpression：可选设计意图，目标数值仍必填", () => {
+    expectTypeOf<FilletParams["radius"]>().toEqualTypeOf<number>();
+    expectTypeOf<FilletParams["radiusExpression"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ShellParams["defaultDistance"]>().toEqualTypeOf<number>();
+    expectTypeOf<ShellParams["defaultDistanceExpression"]>().toEqualTypeOf<string | undefined>();
+
+    const fillet: FilletParams = { radius: 8, radiusExpression: "#r * 2", propagateSmooth: true, edges: [edgeRef(3)] };
+    expect(fillet.radius).toBe(8);
+    expect(fillet.radiusExpression).toBe("#r * 2");
+    expect(JSON.parse(JSON.stringify(fillet))).toEqual(fillet);
+
+    // shell 允许负/0 物化快照（有符号 length）
+    const shell: ShellParams = {
+      defaultDistance: -0.2, defaultDistanceExpression: "0 - 0.2", faces: [topo(3)], distances: 0,
+    };
+    expect(shell.defaultDistance).toBe(-0.2);
+    expect(shell.defaultDistanceExpression).toBe("0 - 0.2");
+    expect(JSON.parse(JSON.stringify(shell))).toEqual(shell);
+  });
+
+  it("HoleParams.diameterExpression/depthExpression：目标 diameterMm/depthMm 必填（blind 深度）", () => {
+    expectTypeOf<HoleParams["diameterExpression"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<HoleParams["depthExpression"]>().toEqualTypeOf<string | undefined>();
+    const hole: HoleParams = {
+      sketchId: "sk-1", diameterMm: 6.35, diameterExpression: "#holeDia",
+      endBound: "blind", depthMm: 5, depthExpression: "#plateT / 2",
+    };
+    expect(hole.diameterMm).toBe(6.35);
+    expect(hole.depthMm).toBe(5);
+    expect(JSON.parse(JSON.stringify(hole))).toEqual(hole);
+  });
+
+  it("ExtrudeParams 四个新表达式键：旧载荷不出现新键；全键往返保持", () => {
+    expectTypeOf<ExtrudeParams["secondDirectionDistanceExpression"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ExtrudeParams["startOffsetExpression"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ExtrudeParams["thinThicknessExpression"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ExtrudeParams["draftAngleExpression"]>().toEqualTypeOf<string | undefined>();
+
+    const legacy: ExtrudeParams = { profile: [], distance: 5, sketchId: "sk-1" };
+    expect(Object.keys(JSON.parse(JSON.stringify(legacy)))).toEqual(["profile", "distance", "sketchId"]);
+
+    const expressed: ExtrudeParams = {
+      profile: [], distance: 10, sketchId: "sk-1",
+      secondDirection: { endBound: "blind", distanceMm: 5, direction: "backward" },
+      secondDirectionDistanceExpression: "#d2",
+      startOffsetMm: -2, startOffsetExpression: "0 - #off",
+      draftAngleDeg: 5, draftAngleExpression: "#deg / 2",
+    };
+    expect(expressed.secondDirectionDistanceExpression).toBe("#d2");
+    expect(JSON.parse(JSON.stringify(expressed))).toEqual(expressed);
+
+    const thin: ExtrudeParams = {
+      profile: [], distance: 10, sketchId: "sk-1", bodyType: "THIN", thinThicknessMm: 1,
+      thinThicknessExpression: "#wall",
+    };
+    expect(thin.thinThicknessExpression).toBe("#wall");
+    expect(JSON.parse(JSON.stringify(thin))).toEqual(thin);
+  });
+
+  it("RevolveParams.angleExpression：度书写、angle 弧度物化快照保持必填（非全周）", () => {
+    expectTypeOf<RevolveParams["angleExpression"]>().toEqualTypeOf<string | undefined>();
+    const revolve: RevolveParams = {
+      sketchId: "sk-1", axis: { sketchEntityId: 14 }, fullRevolve: false,
+      angle: Math.PI / 2, angleExpression: "90",
+    };
+    expect(revolve.angle).toBeCloseTo(Math.PI / 2, 12);
+    expect(revolve.angleExpression).toBe("90");
+    expect(JSON.parse(JSON.stringify(revolve))).toEqual(revolve);
+  });
+
+  it("表达式随 insertFeature/updateParams op 载荷往返（additive 字段不丢）", () => {
+    const ops: FeatureOp[] = [
+      {
+        kind: "insertFeature", featureType: "fillet",
+        params: { radius: 8, radiusExpression: "#r * 2", propagateSmooth: true, edges: [edgeRef(3)] },
+      },
+      {
+        kind: "insertFeature", featureType: "shell",
+        params: { defaultDistance: -0.2, defaultDistanceExpression: "0 - #t", faces: [topo(3)], distances: 0 },
+      },
+      {
+        kind: "insertFeature", featureType: "hole",
+        params: {
+          sketchId: "sk-1", diameterMm: 6.35, diameterExpression: "#holeDia",
+          endBound: "blind", depthMm: 5, depthExpression: "#plateT / 2",
+        },
+      },
+      {
+        kind: "updateParams", featureId: "f-1",
+        params: {
+          profile: [], distance: 10, sketchId: "sk-1",
+          secondDirection: { endBound: "blind", distanceMm: 5 },
+          secondDirectionDistanceExpression: "#d2", startOffsetExpression: "0 - #off",
+          bodyType: "THIN", thinThicknessMm: 1, thinThicknessExpression: "#wall",
+          draftAngleDeg: 5, draftAngleExpression: "#deg / 2",
+        },
+      },
+      {
+        kind: "updateParams", featureId: "f-2",
+        params: {
+          sketchId: "sk-1", axis: { sketchEntityId: 14 }, fullRevolve: false,
+          angle: Math.PI, angleExpression: "180",
+        },
+      },
+    ];
+    for (const op of ops)
+      expect(JSON.parse(JSON.stringify(op))).toEqual(op);
+  });
+
+  it("接口版本 1.74.0（S4c 其他特征数值字段表达式 additive bump）", () => {
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.74.0");
   });
 });

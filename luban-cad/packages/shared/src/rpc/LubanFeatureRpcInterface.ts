@@ -177,6 +177,13 @@
  * v1.73（ADR-0020 S4a）：`ExtrudeParams.distanceExpression?`——仅拉伸盲孔深度接受表达式；
  * `distance` 保持必填并作为后端物化的求值快照（写入/变量变更时覆盖），非 blind 终止条件
  * 带表达式显式拒收。首切片不引入通用 expressions 映射（其他特征字段后续切片复用求值器）。
+ * v1.74（ADR-0020 S4c）：其他特征数值字段表达式（typed additive keys）——`FilletParams.
+ * radiusExpression?`、`ShellParams.defaultDistanceExpression?`、`HoleParams.diameterExpression?/
+ * depthExpression?`、`ExtrudeParams.secondDirectionDistanceExpression?/startOffsetExpression?/
+ * thinThicknessExpression?/draftAngleExpression?`、`RevolveParams.angleExpression?`。所有数值
+ * 目标字段保持必填（物化快照）；后端泛化 field-spec 解析（length/signedLength/angleDeg/
+ * angleRadFromDeg），写/预览/变量传播统一物化；适用性（blind/THIN/draft/secondDirection/
+ * 非全周）不满足时显式拒收。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -244,10 +251,19 @@ export interface HoleParams {
    *  (countersinkDiameterMm−diameterMm)/2 / tan(angle/2) 自动求得。 */
   countersinkAngleDeg?: number;
   diameterMm: number;
+  /** v1.74（ADR-0020 S4c）：孔径表达式（设计意图；如 `"#holeDia"`）。
+   *  - 后端在写/预览边界用变量表 + shared 求值器求值并物化 `diameterMm`；
+   *    `diameterMm` 保持必填物化快照（冷重建只消费数值）。
+   *  - 仅 length/number/any 类型变量可用于本字段；错误零变更。 */
+  diameterExpression?: string;
   /** v1.56（ADR-0006 终止条件增补）：upToNext=沿孔轴到最近的平行面（目标面动态解析）。 */
   endBound: "blind" | "throughAll" | "upToNext";
   /** blind 必填且 >0；throughAll/upToNext 忽略。 */
   depthMm?: number;
+  /** v1.74（ADR-0020 S4c）：孔深表达式（物化 `depthMm`）。
+   *  - 仅 **blind** 合法；throughAll/upToNext 携带表达式由后端显式拒收（不静默忽略）。
+   *  - `depthMm` 在 blind 下保持必填物化快照；求值结果必须为有限正数。 */
+  depthExpression?: string;
   direction?: ExtrudeDirection;
   /** 钻尖角（deg，(0,180]）：118=标准钻尖锥（锥高=r/tan(angle/2)，在 depthMm 圆柱之后追加）；
    *  180 或缺省=平底（旧库语义逐字兼容），throughAll/upToNext 忽略钻尖。 */
@@ -308,8 +324,18 @@ export interface ExtrudeParams {
   direction?: ExtrudeDirection;
   /** v1.22（ADR-0005）：起始偏移（mm，沿草图法向；可为负）。缺省 0。 */
   startOffsetMm?: number;
+  /** v1.74（ADR-0020 S4c）：起始偏移表达式（物化 `startOffsetMm`）。
+   *  - 有符号长度（求值结果可为负/0，与 `startOffsetMm` 既有 schema 一致）；
+   *  - 后端写/预览/变量传播时权威求值；`startOffsetMm` 保持物化快照。 */
+  startOffsetExpression?: string;
   /** v1.24（ADR-0005 Phase 2）：第二方向拉伸；与 symmetric 互斥。 */
   secondDirection?: ExtrudeSecondDirection;
+  /** v1.74（ADR-0020 S4c）：第二方向深度表达式（物化 `secondDirection.distanceMm`）。
+   *  - 仅 `secondDirection.endBound="blind"` 合法（与主方向 `distanceExpression` 同口径；
+   *    throughAll 携带表达式由后端显式拒收，不静默忽略）；嵌套目标只替换 distanceMm，
+   *    保留 endBound/direction；
+   *  - length（求值结果必须为有限正数）；`distanceMm` 保持物化快照。 */
+  secondDirectionDistanceExpression?: string;
   /** v1.19：合并范围（body 引用）。v1 只支持 0 或 1 个（单 active body）；多目标延后。 */
   mergeScope?: BodyRef[];
   /** @deprecated M6-c v1.8 起被 `regions` 取代（单面域简写）；兼容保留一版——服务端 zod
@@ -337,6 +363,12 @@ export interface ExtrudeParams {
   draftAngleDeg?: number;
   /** v1.51：拔模反向（Onshape「反向」复选）；仅在 `draftAngleDeg` 在场时合法。 */
   draftPullDirection?: boolean;
+  /** v1.74（ADR-0020 S4c）：拔模角表达式（**度**制；物化 `draftAngleDeg`）。
+   *  - 仅 draft 适用组合合法（sketchId 模式 + blind/缺省终止；非 symmetric/secondDirection/
+   *    THIN——与 `draftAngleDeg` 的 schema 规则一致）；
+   *  - 求值结果按度直接物化，随后由 schema 复验（有限非零、|angle|<89）；
+   *  - 仅 angle/number/any 类型变量可用于本字段（长度变量按量纲拒收）。 */
+  draftAngleExpression?: string;
   /** v1.53（ADR-0005 Phase 6）：结果体类型。缺省 SOLID（旧载荷逐字兼容）；
    * THIN=薄壁拉伸——沿闭合轮廓边界建等壁厚带（含孔面域=外环带+孔壁带）；
    * 单侧向内壁厚（v1.54 增 `thinMidPlane` 双侧居中）。SURFACE 未实现。 */
@@ -344,6 +376,10 @@ export interface ExtrudeParams {
   /** v1.53：薄壁厚度（mm，>0，须小于轮廓可偏置范围）；仅 bodyType=THIN 合法。
    * 第二厚度/非对称双侧仍未实现。 */
   thinThicknessMm?: number;
+  /** v1.74（ADR-0020 S4c）：薄壁厚度表达式（物化 `thinThicknessMm`）。
+   *  - 仅 bodyType=THIN 合法（不适用时显式拒收）；
+   *  - length（求值结果必须为有限正数）；`thinThicknessMm` 保持物化快照。 */
+  thinThicknessExpression?: string;
   /** v1.55（ADR-0005 Phase 6 增补）：薄壁中间平面——厚度以草图边界为中心向两侧各
    * `thinThicknessMm/2`；缺省 false=单侧向内。仅 bodyType=THIN 合法；与 symmetric
    * （深度对称）无关且可共存，但本切片仍禁止 THIN+symmetric 的其他语义组合。
@@ -787,7 +823,16 @@ export interface FilletEdgeRef {
   bodyKey?: string;
 }
 
-export interface FilletParams { radius: number; propagateSmooth: boolean; edges: FilletEdgeRef[] }
+export interface FilletParams {
+  radius: number;
+  /** v1.74（ADR-0020 S4c）：圆角半径表达式（设计意图；如 `"#r * 2"`）。
+   *  - 后端写/预览/变量传播用变量表 + shared 求值器求值并物化 `radius`；
+   *  - length（求值结果必须为有限正数）；`radius` 保持必填物化快照；
+   *  - 仅 length/number/any 类型变量可用于本字段；错误零变更。 */
+  radiusExpression?: string;
+  propagateSmooth: boolean;
+  edges: FilletEdgeRef[];
+}
 
 /**
  * chamfer 参数（RW2-T6）：倒角模式 + 一/双倒角值 + 邻面对边引用集。
@@ -818,6 +863,11 @@ export interface ChamferParams {
  */
 export interface ShellParams {
   defaultDistance: number;
+  /** v1.74（ADR-0020 S4c）：默认距离表达式（物化 `defaultDistance`）。
+   *  - **有符号 length**：求值结果可为负（内缩）/0（穿孔），与 `defaultDistance` 的内核
+   *    距离语义一致；后端写/预览/变量传播时权威求值；
+   *  - `defaultDistance` 保持必填物化快照；仅 length/number/any 类型变量可用；错误零变更。 */
+  defaultDistanceExpression?: string;
   faces: LubanTopologyId[];
   distances: number | number[];
 }
@@ -842,6 +892,12 @@ export interface RevolveParams {
   axis: { sketchEntityId: number };
   fullRevolve: boolean;
   angle?: number;
+  /** v1.74（ADR-0020 S4c）：旋转角表达式（UI/表达式按**度**书写；物化 `angle` 为弧度）。
+   *  - 仅非全周旋转合法（`fullRevolve=true` 携带表达式显式拒收）；
+   *  - 后端求值度值后换算 `value * π / 180` 写入 `angle`（弧度契约）；随后 schema 复验
+   *    (0, 2π]；`angle` 保持物化快照；仅 angle/number/any 类型变量可用（长度变量按量纲
+   *    拒收）；错误零变更。 */
+  angleExpression?: string;
   /** v1.19：特征内布尔操作（缺省 "add"=既有 ADD 语义逐字不变）。 */
   operation?: FeatureBooleanOperation;
   /** v1.19：合并范围（同 ExtrudeParams.mergeScope；v1 只支持 0/1 个）。 */
@@ -1109,7 +1165,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.73.0";
+  public static interfaceVersion = "1.74.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

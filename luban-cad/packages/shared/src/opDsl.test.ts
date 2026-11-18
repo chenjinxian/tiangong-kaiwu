@@ -627,3 +627,99 @@ describe("op DSL × v1.71（updateVariables 变量表整表覆写）", () => {
       expect(() => dslToOps(dsl), dsl).toThrow(OpDslParseError);
   });
 });
+
+describe("op DSL × v1.74（其他特征数值字段表达式）", () => {
+  const edge: FilletEdgeRef = { edge: { nodeId: 1, entityId: 3 } };
+
+  it("fillet radiusExpression / shell defaultDistanceExpression 往返深等 + 文本级稳定", () => {
+    const ops: FeatureOp[] = [
+      {
+        kind: "insertFeature", featureType: "fillet",
+        params: { radius: 8, radiusExpression: "#r * 2", propagateSmooth: true, edges: [edge] },
+      },
+      {
+        kind: "insertFeature", featureType: "shell",
+        params: {
+          defaultDistance: -0.2, defaultDistanceExpression: "0 - #t",
+          faces: [{ nodeId: 1, entityId: 3 }], distances: 0,
+        },
+      },
+    ];
+    for (const op of ops) {
+      const dsl = opsToDsl([op]);
+      expect(dslToOps(dsl)).toEqual([op]);
+      expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+    }
+    expect(opsToDsl([ops[0]])).toContain('"radiusExpression":"#r * 2"');
+    expect(opsToDsl([ops[1]])).toContain('"defaultDistanceExpression":"0 - #t"');
+  });
+
+  it("hole diameterExpression/depthExpression 往返深等", () => {
+    const op: FeatureOp = {
+      kind: "insertFeature", featureType: "hole",
+      params: {
+        sketchId: "sk-1", diameterMm: 6.35, diameterExpression: "#holeDia",
+        endBound: "blind", depthMm: 5, depthExpression: "#plateT / 2",
+      },
+    };
+    const dsl = opsToDsl([op]);
+    expect(dsl).toContain('"diameterExpression":"#holeDia"');
+    expect(dsl).toContain('"depthExpression":"#plateT / 2"');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("extrude 四键（secondDirection 嵌套目标）与 revolve angleExpression 往返深等", () => {
+    const extrude: FeatureOp = {
+      kind: "updateParams", featureId: "f-1",
+      params: {
+        profile: [], distance: 10, sketchId: "sk-1",
+        secondDirection: { endBound: "blind", distanceMm: 5, direction: "backward" },
+        secondDirectionDistanceExpression: "#d2", startOffsetExpression: "0 - #off",
+        bodyType: "THIN", thinThicknessMm: 1, thinThicknessExpression: "#wall",
+        draftAngleDeg: 5, draftAngleExpression: "#deg / 2",
+      },
+    };
+    const revolve: FeatureOp = {
+      kind: "updateParams", featureId: "f-2",
+      params: {
+        sketchId: "sk-1", axis: { sketchEntityId: 14 }, fullRevolve: false,
+        angle: Math.PI, angleExpression: "180",
+      },
+    };
+    for (const op of [extrude, revolve]) {
+      const dsl = opsToDsl([op]);
+      expect(dslToOps(dsl)).toEqual([op]);
+      expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+    }
+    const allDsl = opsToDsl([extrude]);
+    for (const key of [
+      "secondDirectionDistanceExpression", "startOffsetExpression",
+      "thinThicknessExpression", "draftAngleExpression",
+    ])
+      expect(allDsl).toContain(`"${key}"`);
+  });
+
+  it("无表达式的旧 fillet/shell/hole/revolve 文本逐字不变（opDsl 无需改写）", () => {
+    const cases: Array<[FeatureOp, string]> = [
+      [
+        { kind: "insertFeature", featureType: "fillet", params: { radius: 1, propagateSmooth: true, edges: [edge] } },
+        'op insertFeature fillet {"radius":1,"propagateSmooth":true,"edges":[{"edge":{"nodeId":1,"entityId":3}}]}',
+      ],
+      [
+        { kind: "insertFeature", featureType: "shell", params: { defaultDistance: 0.1, faces: [{ nodeId: 1, entityId: 3 }], distances: 0 } },
+        'op insertFeature shell {"defaultDistance":0.1,"faces":[{"nodeId":1,"entityId":3}],"distances":0}',
+      ],
+      [
+        { kind: "insertFeature", featureType: "hole", params: { sketchId: "sk-1", diameterMm: 4, endBound: "throughAll" } },
+        'op insertFeature hole {"sketchId":"sk-1","diameterMm":4,"endBound":"throughAll"}',
+      ],
+      [
+        { kind: "insertFeature", featureType: "revolve", params: { sketchId: "sk-1", axis: { sketchEntityId: 14 }, fullRevolve: true } },
+        'op insertFeature revolve {"sketchId":"sk-1","axis":{"sketchEntityId":14},"fullRevolve":true}',
+      ],
+    ];
+    for (const [op, expected] of cases)
+      expect(opsToDsl([op])).toBe(expected);
+  });
+});
