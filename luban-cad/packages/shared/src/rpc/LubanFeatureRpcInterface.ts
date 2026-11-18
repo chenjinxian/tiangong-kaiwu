@@ -206,6 +206,14 @@
  * （保持必填物化快照）；写/预览载荷须在 `secondDirection` 内携带数值 `spacing` 占位；
  * 物化保留 `count`/`centered`/`axis` 并复验两方向总实例数 ≤1000；`secondDirection`
  * 不存在不合成（无表达式即无该键）。变量变更时两层分别物化、互不覆盖。
+ * v1.80（ADR-0020 S12）：圆周阵列**总角度**表达式——`PatternParams.angleExpression?` 与
+ * `FeaturePatternParams.angleExpression?`。目标 `angle`（**度**，契约字段本就是度制；
+ * `kind=angleDeg` 度值直接物化，不做弧度换算）；仅 `kind="circular"` 适用，linear 携带
+ * 显式拒收（零变更）；`angle` 保持必填物化快照且写/预览载荷须携带数值占位（registry zod
+ * 先验；stored-row 不合成）；沿用 schema 0<angle≤360，物化后 registry 复验。变量类型门
+ * angle/number/any（length 变量拒收）、长度上限 `MAX_EXPRESSION_LENGTH`；错误零变更、
+ * 无表达式不读变量表。**实例数（count）表达式不支持**（live 对 number 输入失焦标红）——
+ * count 保持整数字面量。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -646,10 +654,24 @@ export interface PatternParams {
    * - kind=`length`、结果须为有限正数（沿用 `spacing` 的 >0 schema）；变量类型门
    *   length/number/any（angle 变量拒收）；表达式长度上限 `MAX_EXPRESSION_LENGTH`。
    * - 求值/类型/上限错误 → 整 op 拒收零变更；无本键时后端不读变量表（既有行为不变）。
-   * - circular angle/count 表达式不在本切片（第二方向见 `PatternSecondDirection.spacingExpression`，
-   *   S9 起为嵌套键而非本顶层键）。
+   * - 第二方向间距见 `PatternSecondDirection.spacingExpression`（S9 起为嵌套键而非本顶层键）；
+   *   circular 总角度表达式见 `PatternParams.angleExpression`（v1.80 / S12）。
    * - web 提交形态：`{ spacing: 求值, spacingExpression: 原文 }`；纯数值提交删除本键。 */
   spacingExpression?: string;
+  /** v1.80（ADR-0020 S12）：圆周阵列**总角度**表达式（设计意图；如 `"#ang"`）。
+   *
+   * - **仅 `kind="circular"` 适用**。写入/预览载荷**必须同时携带数值 `angle` 占位键**
+   *   （circular 的 `angle` 本就由 registry zod 要求，缺省直接拒收，不会进入表达式求值）；
+   *   `angle` 保持必填快照——无表达式时即设计值，有表达式时是后端在写入/变量变更时权威求值
+   *   物化的值；冷重建/求值只消费它。linear 携带本键显式拒收（零变更，不静默忽略）。
+   * - 目标 `angle` 是**度**（契约字段度制，`kind=angleDeg` 度值直接物化，不做弧度换算）；
+   *   沿用 schema `0<angle≤360`，物化后 registry schema 复验（角度域/居中不适用等）。
+   * - 变量类型门 angle/number/any（length 变量拒收）；结果须为有限数；表达式长度上限
+   *   `MAX_EXPRESSION_LENGTH`；求值/类型/上限/域错误 → 整 op 拒收零变更；无本键时后端不读
+   *   变量表。
+   * - **实例数（count）表达式不在本契约**（live 对实例数输入失焦标红）——count 保持整数字面量。
+   * - web 提交形态：`{ angle: 求值, angleExpression: 原文 }`；纯数值提交删除本键。 */
+  angleExpression?: string;
 }
 
 /** v1.62：PART/body 线性阵列的第二方向（世界轴枚举，与第一方向同轴口径）。 */
@@ -745,10 +767,18 @@ export interface FeaturePatternParams {
    * **仅 `updateVariables` 的 stored-row 修复路径**允许表达式补全缺失的 `spacing`）；
    * 物化 `spacing` 必填快照；kind=`length`、>0；变量类型门 length/number/any；长度上限
    * `MAX_EXPRESSION_LENGTH`；circular 携带显式拒收、错误零变更；无表达式不读变量表。
-   * 本切片（S6）不含第二方向间距——S9 起第二方向表达式为嵌套键
-   * `FeaturePatternSecondDirection.spacingExpression`（与顶层同名但不同层级）；
-   * circular angle/count 表达式仍未接。 */
+   * 第二方向间距为嵌套键 `FeaturePatternSecondDirection.spacingExpression`（S9 起，
+   * 与顶层同名但不同层级）；circular 总角度表达式见 `angleExpression`（v1.80 / S12）。 */
   spacingExpression?: string;
+  /** v1.80（ADR-0020 S12）：FEATURE 圆周阵列**总角度**表达式。
+   *
+   * 与 `PatternParams.angleExpression` 同口径：仅 `kind="circular"` 适用（linear 携带显式
+   * 拒收、错误零变更）；写入/预览载荷**必须同时携带数值 `angle` 占位键**（circular 的
+   * `angle` 由 registry zod 要求，缺省先拒收；**stored-row 不合成**）；物化 `angle` 必填
+   * 快照（度制，`kind=angleDeg` 度值直接物化）；沿用 schema `0<angle≤360`，物化后 registry
+   * schema 复验；变量类型门 angle/number/any（length 变量拒收）；长度上限
+   * `MAX_EXPRESSION_LENGTH`；无表达式不读变量表。**count 表达式不支持**（整数字面量）。 */
+  angleExpression?: string;
 }
 
 /**
@@ -1282,7 +1312,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.79.0";
+  public static interfaceVersion = "1.80.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {
