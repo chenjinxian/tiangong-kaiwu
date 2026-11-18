@@ -369,6 +369,19 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   孔 counterbore/countersink/tip、pattern 数值表达式未接；evaluator 求值错误消息
   仍中文直出；内联创建 blur 不清理 pending（面板取消/卸载清理）；Enter 提交为
   新字段新增交互；有序变量可见性仍为产品超集。
+- **W36 S5 表达式错误结构化 + zh/en 本地化（2026-11-18，shared 1.75 / web；ADR-0020 §2.10）**：
+  `ExpressionFailure.detail?` 17 种 locale-neutral 细节（tokenize/parser/表长度/深度/
+  除零/非有限/未知/循环/重复/非法名）+ `attributedVariable?/referenceChain?`；每个
+  抛错点带 detail/position，`message` 逐字不变（后端与旧调用方兼容）。web
+  `expressionFailureMessage` 按 detail/code 映射 `partStudio.expression.errors.*`
+  zh/en（归因/链/本地化兜底、`sourceCode` 保留表格级 empty），接入尺寸弹层、特征
+  表达式字段、变量草稿校验/VariablesDialog；en 全命名空间 CJK/全角/补充平面扫描。
+  验证：shared **307/307**（含 test:types）；私有后端对 shared 1.75 兼容 targeted
+  **96/96**、tsc 绿（无代码改动）；web **2506/2506**（160 files）、tsc(src+e2e)/
+  eslint 绿；真栈 `feature-expression-fields` **5 passed（2.9 m）** 含 zh 本地化
+  `未知变量: #nope` 断言。复核：opus APPROVE WITH FIXES（P2 空变量定义 empty 来源
+  丢失）→ 修复（sourceCode/非空断言/注释/校验判别联合/CJK 守卫扩展）→ scoped
+  APPROVE。**未发布**；残：后端错误文案（`特征 <id>：...`）仍中文。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +

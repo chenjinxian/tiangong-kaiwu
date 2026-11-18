@@ -1,7 +1,8 @@
 # ADR-0020 — Sketch expressions and Part Studio variables (v1)
 
-- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c 已实现；
-  S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施）**
+- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5 已实现；
+  S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施；S5 表达式错误结构化与本地化
+  按 §2.10 实施）**
 - 日期：2026-11-17
 - 关联：AIRR `docs/superpowers/specs/2026-11-17-expressions-variables-airr.md`；
   `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared `LubanFeatureRpcInterface`
@@ -316,6 +317,34 @@ counterbore/countersink/tip 表达式、pattern 的 count/spacing/angle、阵列
 - 变量作用域跨 Part Studio/跨文档；
 - 把表达式字符串存进 OpLog 之外的旁路存储。
 
+### 2.10 S5 表达式错误结构化与本地化（2026-11-18）
+
+**问题**：shared 求值器 `ExpressionFailure.message` 是中文直出；en 界面会显示中文
+（S2/S4b/S4c 登记残留）。**方案**：shared 1.74.0 → **1.75.0**，给
+`ExpressionFailure` 增加 locale-neutral 结构化字段（additive，`message` 逐字不变，
+后端/旧调用方继续兼容）：
+
+- `detail?: ExpressionErrorDetail`——17 种判别联合（invalidNumber / invalidChar /
+  invalidVariableRef / trailingCharacter / unexpectedToken / unexpectedEnd /
+  missingRightParen / depthLimit / lengthLimit / invalidVariableName / duplicateName /
+  unknownVariable / cycle{chain} / divisionByZero / literalOutOfRange /
+  resultNotFinite / variableNotFinite）；`empty` 无 detail，由 `code==='empty'` 判别。
+- `attributedVariable?: string` + `referenceChain?: string[]`——变量表求值归因（最深
+  失败变量 + 根到失败变量的引用链）；`cycle` 自持 `detail.chain` 闭环，不重复归因。
+- 每个抛错点带 detail + position；`cycle` 链确定性。求值语义/消息零变化（exact-string
+  测试锁定）。
+
+**Web**：新增 `internal/expression-error-message.ts` 的 `expressionFailureMessage`，
+按 detail/code 映射 `partStudio.expression.errors.*` zh/en 模板（含变量归因与引用链
+模板）；无 detail/未知 kind → 本地化通用兜底（en 绝不回落到 shared 中文）。本地包装
+（特征字段、尺寸弹层）保留 `sourceCode`，使变量定义为空（表格级 `empty`）仍显示
+“表达式为空/Expression is empty”。接入点：`SketchValuePopup`、特征
+`ExpressionNumberField`/`expressionFieldMessage`、`variables.ts` 草稿校验 +
+`VariablesDialog`。en 全命名空间 CJK/全角标点扫描（含补充平面）纳入 i18n 测试。
+
+**不做**：后端错误文案本地化（`特征 <id>：...` 等仍中文，登记）；单位/函数语法扩展；
+改动求值语义。发布未授权。
+
 ## 3. 备选方案
 
 - **A. 全部前端求值，后端只收数值**：不新增契约；但重建/变量变更无法由后端权威
@@ -393,6 +422,16 @@ counterbore/countersink/tip 表达式、pattern 的 count/spacing/angle、阵列
   2026-11-13 起登记的既有 count off-by-one known-red（当时已用 `git stash`
   未改代码复跑同值复现），非本切片引入，未放宽断言；`tutorial2` 全链
   **2 passed（4.6 m，357.730 cm³ 不变）**。
+- **S5 实测（2026-11-18）**：shared **307/307**（含 test:types，detail 17 种逐项、
+  归因/循环链、message 逐字兼容 exact-string）；shared build/dist 1.75.0。私有后端
+  对 shared 1.75 兼容：表达式相关 targeted **96/96**、`tsc --noEmit` 绿（无代码改动）。
+  web **2506/2506**（160 files）、tsc(src+e2e)/eslint 绿；`partStudio.expression.errors.*`
+  zh/en 21 键、en 全命名空间 CJK/全角/补充平面扫描绿；`VariableDraftValidation` 判别
+  联合（key vs failure）。真栈 `feature-expression-fields` **5 passed（2.9 m）**，含新
+  断言：无效 `#nope` 字段显示本地化 **`未知变量: #nope`**（zh），且 S4c fillet/hole/
+  shell/extrude/revolve 全流程不回归。复核：opus APPROVE WITH FIXES → 修复（P2 空
+  变量定义 `sourceCode` 保留、空断言、注释、校验联合、CJK 守卫扩展）→ scoped
+  APPROVE。
   复核：后端 opus APPROVE WITH FIXES → 修复（第二方向收紧 blind-only、测试
   自洽、错误前缀/注释、服务级零变更与角度传播测试）→ scoped APPROVE；web opus
   APPROVE WITH FIXES → 修复（P1 控制器不稳定导致 preview RPC 自激循环、无效态

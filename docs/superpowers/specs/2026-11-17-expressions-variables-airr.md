@@ -309,3 +309,25 @@ shell `0 - #t`（内缩方向派生只读）、extrude 第二方向（blind-only
 APPROVE；web APPROVE WITH FIXES（P1 preview RPC 自激循环等）→ 修复 → scoped APPROVE。
 真栈暴露并修复 `VITE_EDITOR_AUTOSAVE=0` 被页面 `enabled` 覆盖的产品缺陷（20s 静默
 push 清原生 undo 栈），`resolveAutoPushEnabled` 总门 + 回归测试。
+
+## 13. S5 表达式错误结构化与本地化（2026-11-18）
+
+**问题/设计**：shared 求值器消息中文直出（en 界面显示中文，S2/S4b/S4c 残留）。
+shared 1.75.0 给 `ExpressionFailure` 增加 locale-neutral 的
+`detail?: ExpressionErrorDetail`（17 种：invalidNumber/invalidChar/invalidVariableRef/
+trailingCharacter/unexpectedToken/unexpectedEnd/missingRightParen/depthLimit/
+lengthLimit/invalidVariableName/duplicateName/unknownVariable/cycle{chain}/
+divisionByZero/literalOutOfRange/resultNotFinite/variableNotFinite）+ 
+`attributedVariable?/referenceChain?`（表级最深失败变量与根引用链）；`empty` 无
+detail；`message` 逐字不变（后端/旧调用方兼容）。每个抛错点带 detail/position；
+cycle 链闭环确定性。Web 新增 `expressionFailureMessage` 按 detail/code 映射
+`partStudio.expression.errors.*` zh/en 模板（含归因/链/兜底），本地包装保留
+`sourceCode` 使表格级 empty 仍显示“表达式为空”。接入 SketchValuePopup、特征
+表达式字段、变量草稿校验/VariablesDialog；en 全命名空间 CJK/全角/补充平面扫描。
+
+**验证**：shared **307/307**（含 test:types）；shared build/dist 1.75.0；私有后端对
+shared 1.75 兼容 targeted **96/96**、tsc 绿（无代码改动）；web **2506/2506**（160
+files）、tsc(src+e2e)/eslint 绿；真栈 `feature-expression-fields` **5 passed（2.9 m）**
+含 zh 本地化 `未知变量: #nope` 断言。复核：opus APPROVE WITH FIXES（P2 empty 来源
+丢失）→ 修复（sourceCode/空断言/注释/校验判别联合/CJK 守卫）→ scoped APPROVE。
+**不做**：后端错误文案本地化（仍中文，登记）；单位/函数语法；发布未授权。
