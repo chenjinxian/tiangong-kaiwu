@@ -304,7 +304,8 @@ shell `0 - #t`（内缩方向派生只读）、extrude 第二方向（blind-only
 （弧度载荷）。回归 `feature-expression-ui` 2、`variables-ui` 2、`hole` 5、`shell` 2
 （隔离窗口；合并批撞 429 后重跑绿）；`tutorial2-tools` **6 passed / 1 known-red**
 （竖直 15/16 单次点击丢失——2026-11-13 起登记的既有 count off-by-one，非本切片
-引入，未放宽断言）；`tutorial2` 全链 **2 passed（4.6 m，357.730 cm³ 不变）**。
+引入，未放宽断言；2026-11-18 取点硬化 1/4→3/4 后 spec **7 passed/5.1 m**，
+known-red 关闭）；`tutorial2` 全链 **2 passed（4.6 m，357.730 cm³ 不变）**。
 复核：后端 APPROVE WITH FIXES → 修复 → scoped
 APPROVE；web APPROVE WITH FIXES（P1 preview RPC 自激循环等）→ 修复 → scoped APPROVE。
 真栈暴露并修复 `VITE_EDITOR_AUTOSAVE=0` 被页面 `enabled` 覆盖的产品缺陷（20s 静默

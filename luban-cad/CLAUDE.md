@@ -364,7 +364,8 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   push+冷重开）、hole 孔径、shell 负值方向、extrude 第二方向 + revolve 角度；回归
   `feature-expression-ui` 2、`variables-ui` 2、`hole` 5、`shell` 2（隔离窗口）、
   `tutorial2` **2 passed（4.6 m，357.730 cm³ 不变）**、`tutorial2-tools` 6 passed /
-  1 既有 known-red（竖直 15/16 单次点击丢失，2026-11-13 起登记，非本切片引入）。
+  1 既有 known-red（竖直 15/16 单次点击丢失，2026-11-13 起登记，非本切片引入；
+  **2026-11-18 取点硬化 1/4→3/4 后 7 passed/5.1 m，known-red 关闭**）。
   **未发布**（shared→backend→web 同批待下一次）。残：chamfer values1/values2、
   孔 counterbore/countersink/tip、pattern 数值表达式未接；evaluator 求值错误消息
   仍中文直出；内联创建 blur 不清理 pending（面板取消/卸载清理）；Enter 提交为

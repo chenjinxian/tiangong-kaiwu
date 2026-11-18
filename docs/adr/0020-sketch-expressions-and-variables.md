@@ -450,8 +450,10 @@ registry 复验 + updateVariables 全键扫描/undo；web 三模式数值行复�
   合并窗口撞 429 后隔离重跑绿）；`tutorial2-tools` **6 passed / 1 known-red**
   ——「约束：重合/中点/相切/水平/竖直」竖直 15/16（单次点击丢失），为
   2026-11-13 起登记的既有 count off-by-one known-red（当时已用 `git stash`
-  未改代码复跑同值复现），非本切片引入，未放宽断言；`tutorial2` 全链
-  **2 passed（4.6 m，357.730 cm³ 不变）**。
+  未改代码复跑同值复现），非本切片引入，未放宽断言；**2026-11-18 取点硬化**
+  （竖直拾取 1/4→3/4 避开 origin 热区，产品行为/断言不变）后 spec 全量
+  **7 passed（5.1 m）**，known-red 关闭；`tutorial2` 全链 **2 passed（4.6 m，
+  357.730 cm³ 不变）**。
   复核：后端 opus APPROVE WITH FIXES → 修复（第二方向收紧 blind-only、测试
   自洽、错误前缀/注释、服务级零变更与角度传播测试）→ scoped APPROVE；web opus
   APPROVE WITH FIXES → 修复（P1 控制器不稳定导致 preview RPC 自激循环、无效态
