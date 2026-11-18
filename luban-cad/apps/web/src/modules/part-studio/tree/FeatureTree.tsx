@@ -679,12 +679,18 @@ export function FeatureTree({
   const handleRowContextMenu = React.useCallback(
     (node: TreeNode, event: React.MouseEvent) => {
       event.preventDefault();
+      // Onshape live 2026-11-19（probe w47）：草图编辑打开时右键**当前草图行**
+      // 不弹菜单（menu dump 为空）；其它草图行显示打开态短菜单变体。
+      // 显式要求 sketchActive：不只依赖 activeSketchId 的存储不变量（未来若用它
+      // 标记「选中草图」而非编辑态，不得让该行失去右键菜单）。
+      if (sketchActive && isSketchNode(node) && node.id === activeSketchId)
+        return;
       // 右键即选中（os-15：右键行先成选中态再弹菜单）。
       model.selectNodes([node.id]);
       setMenuShift({ dx: 0, dy: 0 });
       setMenu({ x: event.clientX, y: event.clientY, node });
     },
-    [model],
+    [activeSketchId, model, sketchActive],
   );
 
   // M6-a T7：编辑既有草图 = 进草图模式编辑该草图（enterSketch 真 id）。
@@ -880,6 +886,10 @@ export function FeatureTree({
   // 右键菜单当前行（窄化载体：分支内/闭包内一律用它，避免 menu.node 的
   // 联合型在回调中失去窄化——part 行守卫与特征项分别收敛到 PartNode/FeatureNode）。
   const menuNode = menu?.node;
+  // W45 S15（live probe w47）：草图编辑打开态的草图行短菜单变体（仅其它草图行；
+  // 当前草图行不弹菜单）。变体只渲染本产品已实现/诚实禁用的 7 项，顺序同 live：
+  // 重命名/隐藏其他草图/隐藏所有草图/剖视图…/抑制/动态抑制添加表达式…/添加评论。
+  const openSketchMenuVariant = sketchActive && menuNode !== undefined && isSketchNode(menuNode);
 
   return (
     <div className="part-studio-tree" data-testid="part-studio-tree">
@@ -1088,11 +1098,39 @@ export function FeatureTree({
               setEditingId(menuNode.id);
             }}
           >
-            <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEdit /></span>
+            {!openSketchMenuVariant && (
+              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEdit /></span>
+            )}
             {t('partStudio.tree.rename')}
           </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          {isSketchNode(menuNode) ? (
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
+          {openSketchMenuVariant && (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className="part-studio-tree-menu__item"
+                data-testid="tree-menu-hide-other-sketches"
+                disabled
+                title={t('partStudio.tree.unsupported')}
+              >
+                {t('partStudio.tree.menuHideOtherSketches')}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="part-studio-tree-menu__item"
+                data-testid="tree-menu-hide-all-sketches"
+                disabled
+                title={t('partStudio.tree.unsupported')}
+              >
+                {t('partStudio.tree.menuHideAllSketches')}
+              </button>
+            </>
+          )}
+          {!openSketchMenuVariant && (isSketchNode(menuNode) ? (
             <button
               type="button"
               role="menuitem"
@@ -1122,16 +1160,16 @@ export function FeatureTree({
               <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEditAll /></span>
               {t('partStudio.tree.edit')}
             </button>
-          )}
+          ))}
           {/* Onshape live 2026-11-18（W41 S10）：草图行「复制草图」——紧随
               「编辑草图…」，把整张草图曲线/内部约束复制到会话剪贴板（草图内
               「粘贴草图图元」消费）。W44 S13：live 菜单这两项**无图标**。
               live 2026-11-19（probe w46b）：「粘贴到草图中」把剪贴板图元直接
               写入目标草图（不打开草图）；剪贴板为空时本产品禁用（live 空剪贴板
-              启用态未采）。**残项**：live 在草图打开态显示的是另一变体树菜单
-              （无复制/粘贴项，w44 截图）；本产品仍显示两项，未做 sketchActive
-              变体门——登记为已知差异，见 CLAUDE W44 条目。 */}
-          {isSketchNode(menuNode) && (
+              启用态未采）。W45 S15（probe w47）：草图打开态是另一变体树菜单
+              （无复制/粘贴项）——本切片已按 `sketchActive` 门控这两项，仅在
+              关闭态全菜单渲染；见下方变体分支与 CLAUDE W45 S15 条目。 */}
+          {!openSketchMenuVariant && isSketchNode(menuNode) && (
             <button
               type="button"
               role="menuitem"
@@ -1149,7 +1187,7 @@ export function FeatureTree({
               {t('partStudio.sketch.blankMenuCopySketch')}
             </button>
           )}
-          {isSketchNode(menuNode) && (
+          {!openSketchMenuVariant && isSketchNode(menuNode) && (
             <button
               type="button"
               role="menuitem"
@@ -1172,17 +1210,21 @@ export function FeatureTree({
               {t('partStudio.sketch.treePasteIntoSketch')}
             </button>
           )}
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
-          >
-            {t('partStudio.tree.menuAddToFolder')}
-          </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
+          {!openSketchMenuVariant && (
+            <>
+              <div className="part-studio-tree-menu__separator" role="separator" />
+              <button
+                type="button"
+                role="menuitem"
+                className="part-studio-tree-menu__item"
+                disabled
+                title={t('partStudio.tree.unsupported')}
+              >
+                {t('partStudio.tree.menuAddToFolder')}
+              </button>
+              <div className="part-studio-tree-menu__separator" role="separator" />
+            </>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -1208,9 +1250,11 @@ export function FeatureTree({
               }
             }}
           >
-            <span className="part-studio-menu-item-icon" aria-hidden="true">
-              {menuNode.isSuppressed ? <SvgVisibilityShow /> : <SvgHideManuallySuppressed />}
-            </span>
+            {!openSketchMenuVariant && (
+              <span className="part-studio-menu-item-icon" aria-hidden="true">
+                {menuNode.isSuppressed ? <SvgVisibilityShow /> : <SvgHideManuallySuppressed />}
+              </span>
+            )}
             {menuNode.isSuppressed
               ? t('partStudio.tree.unsuppress')
               : t('partStudio.tree.suppress')}
@@ -1222,9 +1266,25 @@ export function FeatureTree({
             disabled
             title={t('partStudio.tree.unsupported')}
           >
-            {t('partStudio.tree.menuDynamicSuppress')}
+            {openSketchMenuVariant
+              ? t('partStudio.tree.menuDynamicSuppressAddExpression')
+              : t('partStudio.tree.menuDynamicSuppress')}
             <span className="part-studio-tree-menu__submenu" aria-hidden="true">›</span>
           </button>
+          {!openSketchMenuVariant && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              disabled
+              title={t('partStudio.tree.unsupported')}
+            >
+              {t('partStudio.tree.menuAddExpression')}
+            </button>
+          )}
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
           <button
             type="button"
             role="menuitem"
@@ -1232,20 +1292,16 @@ export function FeatureTree({
             disabled
             title={t('partStudio.tree.unsupported')}
           >
-            {t('partStudio.tree.menuAddExpression')}
-          </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
-          >
+            {/* live w47-04（关闭态）与 w47-03（打开态）均带评论图标。 */}
+            <span className="part-studio-menu-item-icon" aria-hidden="true">
+              <OnshapeIcon name="add-comment" size={16} />
+            </span>
             {t('partStudio.tree.menuAddComment')}
           </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          {(() => {
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
+          {!openSketchMenuVariant && (() => {
             const targetIds = zoomTargetForFeature(menuNode);
             return (
               <button
@@ -1263,72 +1319,92 @@ export function FeatureTree({
               </button>
             );
           })()}
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            onClick={() => {
-              setMenu(null);
-              clearTreeSelection();
-            }}
-          >
-            {t('partStudio.tree.menuClearSelection')}
-          </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
-          >
-            {t('partStudio.tree.menuShowDependencies')}
-          </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
-          >
-            {t('partStudio.tree.menuRollbackHere')}
-          </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
-          >
-            {t('partStudio.tree.menuAppearanceForSelection', { count: Math.max(1, model.selectedNodeIds.length) })}
-          </button>
-          <div className="part-studio-tree-menu__separator" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
-            disabled={!canEdit}
-            title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
-            onClick={() => {
-              if (!canEdit) return;
-              // Onshape live 2026-11-13：特征树删除草图/特征=直接删除（无确认框）；
-              // 删除仍走 deleteSketch/deleteFeature 标准事务，Ctrl+Z 可撤销（P0-10）。
-              setMenu(null);
-              if (onDelete) {
-                // B6 M-A3.2a：第二参=deleteFeature.targetBodyId（getBodies.sourceFeatureId
-                // 反查；无唯一源映射=undefined，N>1 由后端诚实拒收）。
-                onDelete(menuNode, deleteTargetBodyIdForFeature(bodies, menuNode.id));
-              } else {
-                console.warn(`[part-studio] 删除 ${menuNode.name}（onDelete 未接线）`);
-              }
-            }}
-          >
-            <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDelete /></span>
-            {t('partStudio.tree.delete')}
-          </button>
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
+          {!openSketchMenuVariant && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              onClick={() => {
+                setMenu(null);
+                clearTreeSelection();
+              }}
+            >
+              {t('partStudio.tree.menuClearSelection')}
+            </button>
+          )}
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
+          {!openSketchMenuVariant && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              disabled
+              title={t('partStudio.tree.unsupported')}
+            >
+              {t('partStudio.tree.menuShowDependencies')}
+            </button>
+          )}
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
+          {!openSketchMenuVariant && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              disabled
+              title={t('partStudio.tree.unsupported')}
+            >
+              {t('partStudio.tree.menuRollbackHere')}
+            </button>
+          )}
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
+          {!openSketchMenuVariant && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              disabled
+              title={t('partStudio.tree.unsupported')}
+            >
+              {t('partStudio.tree.menuAppearanceForSelection', { count: Math.max(1, model.selectedNodeIds.length) })}
+            </button>
+          )}
+          {!openSketchMenuVariant && (
+            <div className="part-studio-tree-menu__separator" role="separator" />
+          )}
+          {!openSketchMenuVariant && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item part-studio-tree-menu__item--danger"
+              disabled={!canEdit}
+              title={canEdit ? undefined : t('partStudio.tree.readonlyHint')}
+              onClick={() => {
+                if (!canEdit) return;
+                // Onshape live 2026-11-13：特征树删除草图/特征=直接删除（无确认框）；
+                // 删除仍走 deleteSketch/deleteFeature 标准事务，Ctrl+Z 可撤销（P0-10）。
+                setMenu(null);
+                if (onDelete) {
+                  // B6 M-A3.2a：第二参=deleteFeature.targetBodyId（getBodies.sourceFeatureId
+                  // 反查；无唯一源映射=undefined，N>1 由后端诚实拒收）。
+                  onDelete(menuNode, deleteTargetBodyIdForFeature(bodies, menuNode.id));
+                } else {
+                  console.warn(`[part-studio] 删除 ${menuNode.name}（onDelete 未接线）`);
+                }
+              }}
+            >
+              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDelete /></span>
+              {t('partStudio.tree.delete')}
+            </button>
+          )}
         </div>
       ) : (
         /* Onshape live（2026-11-12）：零件行菜单分组与顺序；隐藏/放大/属性/外观

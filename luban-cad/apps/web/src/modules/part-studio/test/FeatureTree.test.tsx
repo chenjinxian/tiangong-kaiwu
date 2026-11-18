@@ -1396,3 +1396,95 @@ describe('ADR-0020 S3b：Part Studio 变量段', () => {
     expect(onDeleteVariable).toHaveBeenCalledTimes(2);
   });
 });
+
+// ── W45 S15（Onshape live 2026-11-19 probe w47）：草图打开态树菜单变体 ──────
+// live：草图编辑打开时右键**当前草图行**不弹菜单；其它草图行=7 项短菜单
+// （重命名/隐藏其他草图/隐藏所有草图/剖视图…/抑制/动态抑制添加表达式…/添加评论），
+// 无编辑/复制/粘贴/删除等全菜单项。
+describe('W45 S15：草图打开态树菜单变体', () => {
+  function setSketchActive(id: string): void {
+    usePartStudioStore.setState((s) => ({
+      sketch: { ...s.sketch, isActive: true, activeSketchId: id },
+    }));
+  }
+
+  it('当前草图行右键不弹菜单（live w47-02 空 menu）', () => {
+    setSketchActive('sk2');
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk2'));
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('打开态其它草图行：7 项 live 顺序；未实现项诚实禁用；全菜单项缺席', () => {
+    setSketchActive('sk2');
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items.map((item) => (item.textContent ?? '').trim())).toEqual([
+      '重命名',
+      '隐藏其他草图',
+      '隐藏所有草图',
+      '剖视图…',
+      '抑制',
+      '动态抑制添加表达式…›',
+      '添加评论',
+    ]);
+    // 已实现项可用；未实现项（隐藏草图/剖视图/动态抑制/评论）诚实禁用。
+    expect((items[0] as HTMLButtonElement).disabled).toBe(false);
+    expect((items[1] as HTMLButtonElement).disabled).toBe(true);
+    expect((items[2] as HTMLButtonElement).disabled).toBe(true);
+    expect((items[3] as HTMLButtonElement).disabled).toBe(true);
+    expect((items[4] as HTMLButtonElement).disabled).toBe(false);
+    expect((items[5] as HTMLButtonElement).disabled).toBe(true);
+    expect((items[6] as HTMLButtonElement).disabled).toBe(true);
+    // 变体不含全菜单项（编辑/复制/粘贴/文件夹/删除/清除选择）。
+    expect(within(menu).queryByRole('menuitem', { name: '编辑草图…' })).toBeNull();
+    expect(within(menu).queryByTestId('tree-menu-copy-sketch')).toBeNull();
+    expect(within(menu).queryByTestId('tree-menu-paste-sketch')).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '删除' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '清除选择' })).toBeNull();
+  });
+
+  it('打开态非草图行（特征行）仍是全菜单（变体不外泄）', () => {
+    setSketchActive('sk2');
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex9'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).getByRole('menuitem', { name: '编辑…' })).toBeDefined();
+    expect(within(menu).getByRole('menuitem', { name: '删除' })).toBeDefined();
+    expect(within(menu).queryByTestId('tree-menu-hide-other-sketches')).toBeNull();
+  });
+
+  it('打开态变体：抑制回调仍生效（node + 翻转为 true）', async () => {
+    const user = userEvent.setup();
+    const onSuppress = vi.fn();
+    setSketchActive('sk2');
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} onSuppress={onSuppress} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    await user.click(within(menu).getByRole('menuitem', { name: '抑制' }));
+    expect(onSuppress).toHaveBeenCalledTimes(1);
+    expect(onSuppress.mock.calls[0]![1]).toBe(true);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('isActive=true 但 activeSketchId=null（创建中边界）：草图行仍显示变体且不早退', () => {
+    usePartStudioStore.setState((s) => ({
+      sketch: { ...s.sketch, isActive: true, activeSketchId: null },
+    }));
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).getByTestId('tree-menu-hide-other-sketches')).toBeDefined();
+  });
+
+  it('关闭草图后恢复全菜单（复制/删除在列，短菜单项缺席）', () => {
+    render(<FeatureTree entries={SKETCH_TREE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).getByTestId('tree-menu-copy-sketch')).toBeDefined();
+    expect(within(menu).getByRole('menuitem', { name: '删除' })).toBeDefined();
+    expect(within(menu).queryByTestId('tree-menu-hide-other-sketches')).toBeNull();
+  });
+});
