@@ -317,9 +317,11 @@ test.describe('Tutorial 2 草图工具逐项回归', () => {
     await addConstraint(page, hub, '水平', [midOf(lineAAfter)]);
     sk = await expectCounts(ctx, token, 8, 15, '水平');
 
-    // [5] 竖直：线 B（中点约束已把它中点移到 origin；用 1/4 处避让点拾取热区）。
+    // [5] 竖直：线 B（中点约束已把它中点移到 origin；用 3/4 处避让点与
+    // 草图原点的拾取热区——2026-11-18 复现 15/16 单次点击丢失即因 1/4 处
+    // 与相邻点热区重叠；3/4 处仍在该线上且远离 origin/矩形边）。
     const lineBAfter = lines(sk).find((l) => l.id === lineBId)!;
-    await addConstraint(page, hub, '竖直', [pointOnLine(lineBAfter, 0.25)]);
+    await addConstraint(page, hub, '竖直', [pointOnLine(lineBAfter, 0.75)]);
     sk = await expectCounts(ctx, token, 8, 16, '竖直');
 
     const histogram = sk.constraints.reduce<Record<string, number>>((acc, c) => {
