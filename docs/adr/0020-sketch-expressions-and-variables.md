@@ -1,11 +1,12 @@
 # ADR-0020 — Sketch expressions and Part Studio variables (v1)
 
-- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3 已实现；S4a
-  拉伸深度表达式 2026-11-17 recon 后按 §2.7 实施）**
+- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c 已实现；
+  S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施）**
 - 日期：2026-11-17
 - 关联：AIRR `docs/superpowers/specs/2026-11-17-expressions-variables-airr.md`；
   `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared `LubanFeatureRpcInterface`
-  1.70.0 → **1.71.0**）；`docs/architecture/EXCEPTIONS.md`（若批准后新增例外/债务登记）
+  1.70.0 → 1.71.0 → … → **1.74.0**）；`docs/architecture/EXCEPTIONS.md`（若批准后
+  新增例外/债务登记）
 - 影响仓：`luban-cad`（shared/web）；私有 `luban-backend`（schema/求值/测试）
 - 先例：ADR-0019（shared 载荷形状变更 + 私有后端同批）；P0-04/P0-06/P0-07/P0-10
 
@@ -256,12 +257,62 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
 7. **不做**：通用字段表达式映射、其他特征字段（孔深/圆角半径/抽壳厚度/阵列间距）、
    有序可见性、单位后缀解析（v1 固定 mm）。
 
-### 2.8 明确不做（v1 非目标）
+### 2.8 S4c 其他特征数值字段表达式（2026-11-18 recon）
+
+**Live 证据（脱敏）**：孔对话框 `Ø` 直径字段（`6.35 mm`）与圆角半径字段（`5 mm`）输入
+`#width`/`#height` 时字段有效，数量自动补全同时列出**既有变量行**
+（`#width 10 mm` / `#height 20 mm`）与 `新建变量…`（与编辑既有拉伸时只列
+`新建变量…` 不同——新特征位于所有既有变量之后，因而可见全部既有变量；这解释了
+S4a 的“晚于特征创建的变量不可见”是**位置顺序**语义）。字段组件与拉伸深度相同
+（`os-param-number dropdown-source` + quantity autocomplete）。本产品为单变量表，
+所有变量对所有字段可见（产品超集；有序可见性仍不做）。
+
+**S4c 首切片字段矩阵**（typed expression keys，shared 1.74.0 additive）：
+
+| 特征 | 键 | 契约目标字段 | 量纲/规则 |
+|---|---|---|---|
+| fillet | `radiusExpression?` | `radius` | length，>0 |
+| shell | `defaultDistanceExpression?` | `defaultDistance` | 有符号 length（允许 ≤0，内核语义） |
+| hole | `diameterExpression?` / `depthExpression?` | `diameterMm` / `depthMm` | length，>0（depth 仅 blind） |
+| extrude | `secondDirectionDistanceExpression?` / `startOffsetExpression?` / `thinThicknessExpression?` / `draftAngleExpression?`（连同已有 `distanceExpression`） | `secondDirection.distanceMm` / `startOffsetMm` / `thinThicknessMm` / `draftAngleDeg` | length/>0（startOffset 按现有 schema）；secondDirection 仅 **blind**（throughAll 的 distance 由内核重算，表达式显式拒收）；draft 为**度**（contract `draftAngleDeg`） |
+| revolve | `angleExpression?` | `angle`（弧度） | UI/表达式按**度**书写，求值后换算弧度；非 fullRevolve |
+
+**后端**：把 S4a 的 extrude 深度专用解析器泛化为 **field-spec 表**（featureType →
+`{expressionKey, targetField, kind: length|signedLength|angleDeg|angleRadFromDeg,
+valueRule}`）；写/预览边界对 specs 中出现的键求值并物化目标数值，再用既有 registry
+schema 复验跨字段关系（如 countersink diameter 等后续）；错误零变更、先求值后类型门、
+无表达式不读变量表。`updateVariables` 扫描任一 expression key（子串预过滤），逐特征
+重算/物化并沿用 `featureChanges` 快照 + 同事务 + 原生 undo 分组；无表达式特征零触碰。
+FeatureEngine/冷重建仍只消费物化数值。shared 1.73.0 → **1.74.0**；服务端 schema/
+formFields 补齐各键。S4a 的 `distanceExpression` 迁移到同一 field-spec 后**合法行逐字
+兼容**；但同样经过物化后的 registry schema 复验——历史上通过 S4a 写入、却已违反当前
+schema 的损坏行，在 `updateVariables` 传播时会被明确拒收（整 op 零变更），这是有意的
+行为收紧，登记于此。length 字段类型门接受 length/number/any；角度字段接受
+angle/number/any（与 S3 尺寸同口径）。
+
+**Shell 方向语义**：`defaultDistance` 是**有符号**距离（负=内缩、0=穿孔），
+`defaultDistanceExpression` 求值符号即方向。Web 在表达式在场时把方向下拉改为
+求值符号的派生只读态；用户改方向须先清除表达式回到数值态。禁止“UI 内缩、提交后
+外扩”的静默变向。
+
+**Web**：把 S4b 的深度表达式字段抽成可复用 `ExpressionNumberField`（聚焦表达式/
+失焦值+单位、`#` 补全/内联创建、类型门、无效禁用、preview 用求值数），接到
+FeatureDialog（fillet/extrude 附加/revolve）与 HoleDialog/ShellDialog 的对应
+数值行；提交按各键 `{目标数值, <key>: 原文}`，未触碰保留、纯数值/不适用模式删除。
+沿用页面持有的单变量 hook 与 inline-create host。
+
+**本切片不做**：chamfer `values1/values2`（随 mode 的 length/angle 双语义）、孔的
+counterbore/countersink/tip 表达式、pattern 的 count/spacing/angle、阵列/布尔/变换
+数值字段、有序变量可见性。
+
+### 2.9 明确不做（v1 非目标）
 
 - 文档单位切换（in/mm 全局单位设置）与单位后缀/换算函数；
 - 函数库（sin/cos、条件、字符串）、配置变量（Configurations）、FeatureScript；
-- 其他特征字段（孔深/圆角半径/抽壳厚度/阵列间距等）的表达式（S4a 仅拉伸盲孔
-  深度；后续切片复用同一求值器）；通用表达式映射与有序变量可见性另行立项；
+- chamfer 双值/角度表达式、孔的沉头/倒角/钻尖、阵列 count/spacing/angle 等
+  特征字段（S4c 已覆盖 fillet radius、shell defaultDistance、hole diameter/depth、
+  extrude 附加数值、revolve angle；其余后续切片复用同一 field-spec/求值器）；
+  通用表达式映射与有序变量可见性另行立项；
 - 变量作用域跨 Part Studio/跨文档；
 - 把表达式字符串存进 OpLog 之外的旁路存储。
 
@@ -327,6 +378,30 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
   `tutorial2` 2（357.730 cm³）。残：内联创建面板真栈未单独覆盖（单测覆盖）、
   类型门/evaluator 错误中文直出、布尔旧距离行不开放表达式（gating）、自动补全
   未做视口夹紧。
+- **S4c 实测（2026-11-18）**：shared **296/296**；私有后端 targeted **155/155**、
+  全量 **1051 passed / 1 expected fail / 8 skipped**、tsc 绿；web **2470/2470**
+  （158 files）、lint/tsc(src+e2e) 绿。真栈 `feature-expression-fields`
+  **5 passed（2.9 m）**：fillet 半径 `#r*2` → radius 2/表达式原文 → 卷边体积、
+  原生 Undo/Redo、变量 r 1→2→1 几何重算、无效 `#nope` ✓ 禁用 + aria-invalid、
+  数值编辑清除表达式、**再 undo 恢复 `#r*2`**、未触碰编辑保留、`#newr` 内联创建
+  （值预填/字段转有效）→ 提交、push+冷重开；hole 孔径 `#d*2` → mm 物化、数值
+  编辑清除、无效禁用；shell `0 - #t` 负值 → 内缩派生只读方向；extrude 第二方向
+  （仅 blind，throughAll 载清）+ revolve 角度（度求值→弧度载荷）。回归
+  `feature-expression-ui` 2、`variables-ui` 2、`hole` 5、`shell` 2（isolated；
+  合并窗口撞 429 后隔离重跑绿）；`tutorial2-tools` **6 passed / 1 known-red**
+  ——「约束：重合/中点/相切/水平/竖直」竖直 15/16（单次点击丢失），为
+  2026-11-13 起登记的既有 count off-by-one known-red（当时已用 `git stash`
+  未改代码复跑同值复现），非本切片引入，未放宽断言；`tutorial2` 全链
+  **2 passed（4.6 m，357.730 cm³ 不变）**。
+  复核：后端 opus APPROVE WITH FIXES → 修复（第二方向收紧 blind-only、测试
+  自洽、错误前缀/注释、服务级零变更与角度传播测试）→ scoped APPROVE；web opus
+  APPROVE WITH FIXES → 修复（P1 控制器不稳定导致 preview RPC 自激循环、无效态
+  红框/文案、`°→angle` 内联创建、英寸预填 mm、第二方向无效幽灵、hole 点草图
+  e2e）→ scoped APPROVE；仅余 P3（英寸表达式在场时预填旧单位、`deg` 映射）已修。
+  **真栈意外发现并修复产品缺陷**：`PartStudioPage` 以 `enabled: canEdit &&
+  !readonlyBlocked` 覆盖 `useAutoPush` 的环境缺省，`VITE_EDITOR_AUTOSAVE=0`
+  从未生效；20s 防抖静默 push 会清空原生 undo/redo 栈（S4c 数值编辑后 undo
+  偶发失效的真因）。新增 `resolveAutoPushEnabled` 总门与真栈回归测试。
 
 ## 5. 回滚
 

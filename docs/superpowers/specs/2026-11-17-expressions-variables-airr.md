@@ -263,3 +263,49 @@ preview）用变量表 + shared 求值器物化，错误零变更；`updateVaria
 - **残**：内联创建面板真栈未单独覆盖（单测覆盖）；evaluator/类型错误中文直出；
   布尔旧距离行不开放表达式（gating）；自动补全无视口夹紧；S4a 只支持拉伸盲孔深度。
 - **发布**：shared 1.73 → backend → web 同批；**未发布**（release/publish 未授权）。
+
+## 12. S4c 其他特征数值字段表达式（2026-11-18 recon）
+
+**Live 证据**：孔直径 `6.35 mm` 与圆角半径 `5 mm` 字段接受 `#width`/`#height`
+（输入期有效），数量自动补全列出既有变量 + `新建变量…`；新特征位于既有变量之后，
+因此可见全部既有变量（S4a 拉伸“晚于特征创建的变量不可见”是位置顺序语义）。字段
+组件与拉伸深度相同。本产品单变量表 → 所有变量对所有字段可见（登记为超集）。
+
+**设计**：shared 1.74.0 为 fillet `radiusExpression?`、shell
+`defaultDistanceExpression?`、hole `diameterExpression?/depthExpression?`、
+extrude `secondDirectionDistanceExpression?/startOffsetExpression?/
+thinThicknessExpression?/draftAngleExpression?`、revolve `angleExpression?` 增加
+additive 键；后端把 S4a 深度解析泛化为 field-spec 表（length/signedLength/angleDeg/
+angleRadFromDeg），写/预览物化 + 再校验 schema、updateVariables 全键扫描/`featureChanges`
+/undo；FeatureEngine 不改。extrude 第二方向深度表达式仅 **blind** 适用（throughAll
+由内核重算距离，表达式显式拒收）；shell 表达式为有符号距离，方向由求值符号决定，
+表达式在场时方向下拉为派生只读，改方向须先清除表达式。Web 抽
+`ExpressionNumberField` 复用到 FeatureDialog 与 HoleDialog/ShellDialog 的对应数值行
+（聚焦表达式/失焦值+单位、补全/内联创建、类型门、无效禁用、preview 用求值数、
+补全菜单视口夹紧）。
+
+**门**：
+- shared：各键类型/版本 1.74.0/op DSL 往返。
+- 后端：field-spec 矩阵（length/signed/angle 度/弧度）、跨字段 schema 复验、错误
+  优先级/零变更、insert/update/preview、updateVariables 多特征传播/undo/冷重开、
+  旧 payload 兼容、表单字段一致性。
+- web：各对话框表达式输入/载荷/未触碰保留/纯数值清除/无效禁用/内联创建；真栈
+  fillet radius、shell thickness、hole diameter、extrude second direction/draft、
+  revolve angle 至少一组体积/几何 + 变量变更重算 + 原生 undo + push/冷重开；回归
+  tutorial2 与对应特征 spec。
+- 未发布（release/publish 未授权）。
+
+**实测（2026-11-18）**：shared **296/296**；私有后端 targeted **155/155**、全量
+**1051 passed / 1 expected fail / 8 skipped**、tsc 绿；web **2470/2470**（158 files）、
+lint/tsc(src+e2e) 绿。真栈 `feature-expression-fields` **5 passed（2.9 m）**：fillet
+半径 `#r*2`（体积/原生 Undo/Redo/变量 r 1→2→1 重算/无效禁用/数值清除后 undo 恢复
+表达式/未触碰保留/`#newr` 内联创建/push+冷重开）、hole 孔径（mm 物化/清除/无效）、
+shell `0 - #t`（内缩方向派生只读）、extrude 第二方向（blind-only）+ revolve 角度
+（弧度载荷）。回归 `feature-expression-ui` 2、`variables-ui` 2、`hole` 5、`shell` 2
+（隔离窗口；合并批撞 429 后重跑绿）；`tutorial2-tools` **6 passed / 1 known-red**
+（竖直 15/16 单次点击丢失——2026-11-13 起登记的既有 count off-by-one，非本切片
+引入，未放宽断言）；`tutorial2` 全链 **2 passed（4.6 m，357.730 cm³ 不变）**。
+复核：后端 APPROVE WITH FIXES → 修复 → scoped
+APPROVE；web APPROVE WITH FIXES（P1 preview RPC 自激循环等）→ 修复 → scoped APPROVE。
+真栈暴露并修复 `VITE_EDITOR_AUTOSAVE=0` 被页面 `enabled` 覆盖的产品缺陷（20s 静默
+push 清原生 undo 栈），`resolveAutoPushEnabled` 总门 + 回归测试。

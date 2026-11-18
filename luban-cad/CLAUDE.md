@@ -342,6 +342,33 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （shared→backend→web 同批待下一次）。残：仅拉伸盲孔深度；内联创建面板真栈未单独
   覆盖（单测覆盖）；evaluator/类型错误中文直出；布尔旧距离行不开放表达式；自动
   补全无视口夹紧；live 有序变量可见性未匹配（本产品全变量可见，登记为超集）。
+- **W35 S4c 其他特征数值字段表达式（2026-11-18，shared 1.74 / 私有后端 / web；ADR-0020）**：
+  fillet `radiusExpression`；shell `defaultDistanceExpression`（有符号，方向=求值符号，
+  表达式在场方向下拉派生只读）；hole `diameterExpression`/`depthExpression`（孔深仅
+  blind，英寸显示投影/载荷恒 mm）；extrude `secondDirectionDistanceExpression`（仅
+  第二方向 blind，throughAll 显式拒收）/`startOffsetExpression`/
+  `thinThicknessExpression`/`draftAngleExpression`；revolve `angleExpression`（度求值
+  →弧度，仅非 fullRevolve）；数值目标保持必填物化快照。后端 field-spec 泛化
+  （length/signedLength/angleDeg/angleRadFromDeg）、适用性显式拒收、物化后 registry
+  schema 复验、错误零变更、`updateVariables` 全键扫描 + `featureChanges` + 原生
+  undo 分组（S4a 合法行兼容；schema-invalid 旧行改为物化拒收并登记）。web 抽
+  `ExpressionNumberField` 复用 S4b 聚焦/失焦、`#` 补全 + 内联创建（`°`/`deg`→angle；
+  英寸预填 mm）、按 kind 类型门、无效红态/文案/禁提、预览只用求值数、补全菜单视口
+  夹紧；S4b 深度迁移保留 `data-depth-*` 与 5 位失焦格式。**顺带修复产品缺陷**：
+  `VITE_EDITOR_AUTOSAVE=0` 被页面显式 `enabled` 覆盖而失效（20s 静默 push 清空原生
+  undo/redo 栈），新增 `resolveAutoPushEnabled` 总门 + 真栈回归。验证：shared
+  **296/296**；backend targeted **155/155**、全量 **1051 passed/1 expected fail/
+  8 skipped**、tsc 绿；web **2470/2470**（158 files）、lint/tsc(src+e2e) 绿；真栈
+  `feature-expression-fields` **5 passed（2.9 m）**：fillet 半径（体积/原生
+  Undo/Redo/变量改值重算/无效禁用/数值清除后 undo 恢复表达式/未触碰保留/内联创建/
+  push+冷重开）、hole 孔径、shell 负值方向、extrude 第二方向 + revolve 角度；回归
+  `feature-expression-ui` 2、`variables-ui` 2、`hole` 5、`shell` 2（隔离窗口）、
+  `tutorial2` **2 passed（4.6 m，357.730 cm³ 不变）**、`tutorial2-tools` 6 passed /
+  1 既有 known-red（竖直 15/16 单次点击丢失，2026-11-13 起登记，非本切片引入）。
+  **未发布**（shared→backend→web 同批待下一次）。残：chamfer values1/values2、
+  孔 counterbore/countersink/tip、pattern 数值表达式未接；evaluator 求值错误消息
+  仍中文直出；内联创建 blur 不清理 pending（面板取消/卸载清理）；Enter 提交为
+  新字段新增交互；有序变量可见性仍为产品超集。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
