@@ -4936,6 +4936,558 @@ describe('M6-b T6 fillet 通道（对话框驱动边拾取）', () => {
     expect((op.params as Record<string, unknown>).radiusExpression).toBeUndefined();
   });
 
+  // ── ADR-0020 S7：chamfer 值 1/值 2 表达式（shared 1.77）──────────────────
+  // 三模式各接表达式（equal 单字段双键同原文；twoDistances 两距离；
+  // distanceAngle 距离 + 角度（度书写→契约弧度））；数值编辑清除、切换
+  // 模式清除非适用表达式、无效禁提/无预览、类型门与编辑态回显推断。
+  const CHAMFER_W_VARIABLE: VariableDto = { id: 'vw', name: 'w', expression: '10', type: 'length' };
+  const CHAMFER_H_VARIABLE: VariableDto = { id: 'vh', name: 'h', expression: '20', type: 'length' };
+  const CHAMFER_ANGLE_VARIABLE: VariableDto = { id: 'va', name: 'ang', expression: '90', type: 'angle' };
+
+  async function chamferWithEdge(
+    props: Partial<Parameters<typeof FeatureDialog>[0]> = {},
+  ): Promise<{ user: ReturnType<typeof userEvent.setup>; applyOp: ReturnType<typeof makeApplyOp> }> {
+    return filletWithEdge({ featureType: 'chamfer', featureName: '倒角', ...props });
+  }
+
+  function chamferParamsOf(op: FeatureOp): Record<string, unknown> {
+    return (op as Extract<FeatureOp, { kind: 'insertFeature' | 'updateParams' }>)
+      .params as unknown as Record<string, unknown>;
+  }
+
+  it('S7 等距离：单字段 `#w` → values1=values2=10，两个表达式原文相同', async () => {
+    const { user, applyOp } = await chamferWithEdge({ variables: [CHAMFER_W_VARIABLE] });
+    const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    expect(distance.getAttribute('data-expression-field')).toBe('length');
+    await user.clear(distance);
+    await user.type(distance, '#w');
+    await user.tab();
+    expect(distance.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'insertFeature',
+      featureType: 'chamfer',
+      params: {
+        mode: 2,
+        propagateSmooth: true,
+        edges: [EDGE_1],
+        values1: 10,
+        values2: 10,
+        values1Expression: '#w',
+        values2Expression: '#w',
+      },
+    });
+  });
+
+  it('S7 两个距离：`#w` / `#h` → values1=10 / values2=20，各带表达式原文', async () => {
+    const { user, applyOp } = await chamferWithEdge({
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_H_VARIABLE],
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'twoDistances');
+    const distance1 = screen.getByRole('textbox', { name: '距离 1' }) as HTMLInputElement;
+    await user.clear(distance1);
+    await user.type(distance1, '#w');
+    await user.tab();
+    expect(distance1.value).toBe('10');
+    const distance2 = screen.getByRole('textbox', { name: '距离 2' }) as HTMLInputElement;
+    expect(distance2.getAttribute('data-expression-field')).toBe('length');
+    await user.clear(distance2);
+    await user.type(distance2, '#h');
+    await user.tab();
+    expect(distance2.value).toBe('20');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(chamferParamsOf(applyOp.mock.calls[0]![0])).toEqual({
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: 20,
+      values1Expression: '#w',
+      values2Expression: '#h',
+    });
+  });
+
+  it('S7 距离和角度：`#w` + `#ang`（度求值 → 契约弧度）→ values2=π/2 + 原文', async () => {
+    const { user, applyOp } = await chamferWithEdge({
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_ANGLE_VARIABLE],
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'distanceAngle');
+    const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    await user.clear(distance);
+    await user.type(distance, '#w');
+    await user.tab();
+    expect(distance.value).toBe('10');
+    const angle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    expect(angle.getAttribute('data-expression-field')).toBe('angleRadFromDeg');
+    await user.clear(angle);
+    await user.type(angle, '#ang');
+    await user.tab();
+    expect(angle.value).toBe('90');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const params = chamferParamsOf(applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({
+      mode: 3,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values1Expression: '#w',
+      values2Expression: '#ang',
+    });
+    expect(params.values2 as number).toBeCloseTo(Math.PI / 2, 10);
+  });
+
+  it('S7 编辑未触碰保留表达式；数值编辑清除对应键（等距离双键同删）', async () => {
+    const user = userEvent.setup();
+    const initialParams = {
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: 10,
+      values1Expression: '#w',
+      values2Expression: '#w',
+    };
+    const untouched = renderFilletDialog(makeApplyOp(), {
+      featureType: 'chamfer',
+      featureName: '倒角',
+      mode: 'edit',
+      featureId: 'f-chamfer',
+      variables: [CHAMFER_W_VARIABLE],
+      initialParams,
+    });
+    const untouchedInput = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    expect(untouchedInput.value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(untouched.applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-chamfer',
+      params: { ...initialParams },
+    });
+    untouched.unmount();
+
+    const edited = renderFilletDialog(makeApplyOp(), {
+      featureType: 'chamfer',
+      featureName: '倒角',
+      mode: 'edit',
+      featureId: 'f-chamfer',
+      variables: [CHAMFER_W_VARIABLE],
+      initialParams,
+    });
+    const input = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    await user.click(input);
+    expect(input.value).toBe('#w');
+    await user.clear(input);
+    await user.type(input, '3');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(chamferParamsOf(edited.applyOp.mock.calls[0]![0])).toEqual({
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 3,
+      values2: 3,
+    });
+  });
+
+  it('S7 切换倒角类型：第二字段表达式不跨模式携带（距离↔角度/回等距离均清除）', async () => {
+    const { user, applyOp } = await chamferWithEdge({
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_H_VARIABLE],
+    });
+    const type = screen.getByRole('combobox', { name: '倒角类型' });
+    await user.selectOptions(type, 'twoDistances');
+    const distance1 = screen.getByRole('textbox', { name: '距离 1' }) as HTMLInputElement;
+    await user.clear(distance1);
+    await user.type(distance1, '#w');
+    await user.tab();
+    const distance2 = screen.getByRole('textbox', { name: '距离 2' }) as HTMLInputElement;
+    await user.clear(distance2);
+    await user.type(distance2, '#h');
+    await user.tab();
+    expect(distance2.value).toBe('20');
+    // 切距离-角度：第二字段量纲变化 → 表达式清除，草稿回落到角度数值。
+    await user.selectOptions(type, 'distanceAngle');
+    const angle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    expect(angle.value).toBe('45');
+    await user.click(angle);
+    expect(angle.value).toBe('45'); // 非旧 `#h`
+    await user.tab();
+    // 切回两个距离：第二距离为数值草稿（旧表达式不复活）。
+    await user.selectOptions(type, 'twoDistances');
+    const distance2Again = screen.getByRole('textbox', { name: '距离 2' }) as HTMLInputElement;
+    expect(distance2Again.value).toBe('20');
+    await user.click(distance2Again);
+    expect(distance2Again.value).toBe('20');
+    await user.tab();
+    // 回等距离：单字段 `#w` 同时写两个键（等距离语义），第二字段表达式已清除。
+    await user.selectOptions(type, 'equal');
+    expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('10');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(chamferParamsOf(applyOp.mock.calls[0]![0])).toEqual({
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: 10,
+      values1Expression: '#w',
+      values2Expression: '#w',
+    });
+  });
+
+  it('S7 表达式无效 → ✓ 禁用且不再发预览 op（距离/角度两字段，互不串扰）', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({
+      ok: true,
+      affected: [],
+    }));
+    const { user, applyOp } = await chamferWithEdge({
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_ANGLE_VARIABLE],
+      previewOp,
+    });
+    await waitFor(() => expect(previewOp).toHaveBeenCalled(), { timeout: 3000 });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+    const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    const confirm = screen.getByRole('button', { name: '确认' }) as HTMLButtonElement;
+    // (a) 距离无效：✓ 禁用、零 op、无效距离不进入任何预览载荷。
+    await user.clear(distance);
+    await user.type(distance, '#nope');
+    await waitFor(() => expect(distance.getAttribute('aria-invalid')).toBe('true'));
+    expect(confirm.disabled).toBe(true);
+    await user.click(confirm);
+    expect(applyOp).not.toHaveBeenCalled();
+    expect(previewOp.mock.calls.every(([op]) => {
+      const params = chamferParamsOf(op);
+      return params.values1Expression !== '#nope'
+        && typeof params.values1 === 'number' && !Number.isNaN(params.values1);
+    })).toBe(true);
+
+    // (b) 恢复距离为有效数值；切距离-角度后角度默认 45° 有效 → 预览恢复。
+    await user.clear(distance);
+    await user.type(distance, '2');
+    await user.tab();
+    await waitFor(() => expect(distance.getAttribute('aria-invalid')).not.toBe('true'));
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'distanceAngle');
+    const angle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    await waitFor(() => expect(chamferParamsOf(previewOp.mock.calls.at(-1)![0])).toMatchObject({
+      mode: 3,
+      values1: 2,
+    }), { timeout: 3000 });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+    const validAngleCalls = previewOp.mock.calls.length;
+    expect(chamferParamsOf(previewOp.mock.calls.at(-1)![0]).values2 as number)
+      .toBeCloseTo(Math.PI / 4, 10);
+    // (c) 距离有效、仅角度无效 → ✓ 禁用且不再发预览（阻断只来自角度）。
+    await user.clear(angle);
+    await user.type(angle, '#nope2');
+    await waitFor(() => expect(angle.getAttribute('aria-invalid')).toBe('true'));
+    expect(confirm.disabled).toBe(true);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 500)); });
+    expect(previewOp.mock.calls.length).toBe(validAngleCalls);
+    expect(previewOp.mock.calls.every(([op]) => {
+      const params = chamferParamsOf(op);
+      return params.values2Expression !== '#nope2'
+        && typeof params.values2 === 'number' && !Number.isNaN(params.values2);
+    })).toBe(true);
+  });
+
+  it('S7 等距离预览载荷：last previewOp 用求值数 + 双键同原文', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({
+      ok: true, affected: [],
+    }));
+    const { user } = await chamferWithEdge({ variables: [CHAMFER_W_VARIABLE], previewOp });
+    const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    await user.clear(distance);
+    await user.type(distance, '#w');
+    await user.tab();
+    await waitFor(() => expect(previewOp.mock.calls.some(([op]) =>
+      chamferParamsOf(op).values1Expression === '#w')).toBe(true), { timeout: 3000 });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+    expect(chamferParamsOf(previewOp.mock.calls.at(-1)![0])).toEqual({
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: 10,
+      values1Expression: '#w',
+      values2Expression: '#w',
+    });
+  });
+
+  it('S7 两个距离预览载荷：last previewOp 两求值数 + 两原文', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({
+      ok: true, affected: [],
+    }));
+    const { user } = await chamferWithEdge({
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_H_VARIABLE],
+      previewOp,
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'twoDistances');
+    const distance1 = screen.getByRole('textbox', { name: '距离 1' }) as HTMLInputElement;
+    await user.clear(distance1);
+    await user.type(distance1, '#w');
+    await user.tab();
+    const distance2 = screen.getByRole('textbox', { name: '距离 2' }) as HTMLInputElement;
+    await user.clear(distance2);
+    await user.type(distance2, '#h');
+    await user.tab();
+    await waitFor(() => expect(previewOp.mock.calls.some(([op]) =>
+      chamferParamsOf(op).values2Expression === '#h')).toBe(true), { timeout: 3000 });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+    expect(chamferParamsOf(previewOp.mock.calls.at(-1)![0])).toEqual({
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: 20,
+      values1Expression: '#w',
+      values2Expression: '#h',
+    });
+  });
+
+  it('S7 距离和角度预览载荷：last previewOp values2 为度求值后的契约弧度', async () => {
+    const previewOp = vi.fn(async (_op: FeatureOp): Promise<PreviewResult> => ({
+      ok: true, affected: [],
+    }));
+    const { user } = await chamferWithEdge({
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_ANGLE_VARIABLE],
+      previewOp,
+    });
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'distanceAngle');
+    const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    await user.clear(distance);
+    await user.type(distance, '#w');
+    await user.tab();
+    const angle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    await user.clear(angle);
+    await user.type(angle, '#ang');
+    await user.tab();
+    await waitFor(() => expect(previewOp.mock.calls.some(([op]) =>
+      chamferParamsOf(op).values2Expression === '#ang')).toBe(true), { timeout: 3000 });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+    const params = chamferParamsOf(previewOp.mock.calls.at(-1)![0]);
+    expect(params).toMatchObject({
+      mode: 3,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values1Expression: '#w',
+      values2Expression: '#ang',
+    });
+    expect(params.values2 as number).toBeCloseTo(Math.PI / 2, 10);
+  });
+
+  it('S7 两个距离编辑：未触碰保留两表达式；改距离 2 数值仅清除其表达式', async () => {
+    const user = userEvent.setup();
+    const initialParams = {
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: 20,
+      values1Expression: '#w',
+      values2Expression: '#h',
+    };
+    const props = {
+      featureType: 'chamfer' as const,
+      featureName: '倒角',
+      mode: 'edit' as const,
+      featureId: 'f-chamfer2',
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_H_VARIABLE],
+      initialParams,
+    };
+    const untouched = renderFilletDialog(makeApplyOp(), props);
+    expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).value)
+      .toBe('twoDistances');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(untouched.applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-chamfer2',
+      params: { ...initialParams },
+    });
+    untouched.unmount();
+
+    const edited = renderFilletDialog(makeApplyOp(), props);
+    const distance2 = screen.getByRole('textbox', { name: '距离 2' }) as HTMLInputElement;
+    await user.click(distance2);
+    expect(distance2.value).toBe('#h');
+    await user.clear(distance2);
+    await user.type(distance2, '7');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(chamferParamsOf(edited.applyOp.mock.calls[0]![0])).toEqual({
+      mode: 2,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: 7,
+      values1Expression: '#w',
+    });
+  });
+
+  it('S7 距离和角度编辑：未触碰保留角度表达式；角度改数值按度→弧度且删原文', async () => {
+    const user = userEvent.setup();
+    const initialParams = {
+      mode: 3,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values2: Math.PI / 2,
+      values1Expression: '#w',
+      values2Expression: '#ang',
+    };
+    const props = {
+      featureType: 'chamfer' as const,
+      featureName: '倒角',
+      mode: 'edit' as const,
+      featureId: 'f-chamfer3',
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_ANGLE_VARIABLE],
+      initialParams,
+    };
+    const untouched = renderFilletDialog(makeApplyOp(), props);
+    expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).value)
+      .toBe('distanceAngle');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    expect(untouched.applyOp.mock.calls[0]![0]).toEqual({
+      kind: 'updateParams',
+      featureId: 'f-chamfer3',
+      params: { ...initialParams },
+    });
+    untouched.unmount();
+
+    const edited = renderFilletDialog(makeApplyOp(), props);
+    const angle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    expect(angle.value).toBe('90');
+    await user.click(angle);
+    expect(angle.value).toBe('#ang');
+    await user.clear(angle);
+    await user.type(angle, '30');
+    await user.tab();
+    expect(angle.value).toBe('30');
+    await user.click(screen.getByRole('button', { name: '确认' }));
+    const params = chamferParamsOf(edited.applyOp.mock.calls[0]![0]);
+    expect(params).toMatchObject({
+      mode: 3,
+      propagateSmooth: true,
+      edges: [EDGE_1],
+      values1: 10,
+      values1Expression: '#w',
+    });
+    expect(params.values2 as number).toBeCloseTo(Math.PI / 6, 10);
+    expect(params.values2Expression).toBeUndefined();
+  });
+
+  it('S7 角度字段内联创建请求单位 deg（宿主映射 angle，避免量纲门拒收）', async () => {
+    const onCreateVariable = vi.fn();
+    const { user } = await chamferWithEdge({ variables: [], onCreateVariable });
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'distanceAngle');
+    const angle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    await user.click(angle);
+    await user.clear(angle);
+    await user.type(angle, '#newang');
+    await user.keyboard('{Enter}');
+    expect(onCreateVariable).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'newang',
+      unit: 'deg',
+    }));
+  });
+
+  it('S7 变量类型门：angle 变量在距离字段拒收；length 变量在角度字段拒收', async () => {
+    const { user } = await chamferWithEdge({
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_ANGLE_VARIABLE],
+    });
+    const distance = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    await user.clear(distance);
+    await user.type(distance, '#ang');
+    const distanceError = await screen.findByTestId('expression-field-error');
+    expect(distanceError.textContent).toContain('变量 #ang 的类型 angle');
+    expect(distanceError.textContent).toContain('length/number/any');
+    expect(distanceError.textContent).toContain('倒角距离字段');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+
+    await user.clear(distance);
+    await user.type(distance, '2');
+    await user.tab();
+    await user.selectOptions(screen.getByRole('combobox', { name: '倒角类型' }), 'distanceAngle');
+    const angle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    await user.clear(angle);
+    await user.type(angle, '#w');
+    const angleError = await screen.findByTestId('expression-field-error');
+    expect(angleError.textContent).toContain('变量 #w 的类型 length');
+    expect(angleError.textContent).toContain('angle/number/any');
+    expect(angleError.textContent).toContain('倒角角度字段');
+    expect((screen.getByRole('button', { name: '确认' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('S7 编辑态回显推断：相等双表达式→等距离；不同→两个距离；mode 3→距离和角度；单侧表达式→两个距离', async () => {
+    const user = userEvent.setup();
+    const baseProps = {
+      featureType: 'chamfer' as const,
+      featureName: '倒角',
+      mode: 'edit' as const,
+      featureId: 'f-chamfer',
+      variables: [CHAMFER_W_VARIABLE, CHAMFER_H_VARIABLE, CHAMFER_ANGLE_VARIABLE],
+    };
+    const equal = renderFilletDialog(makeApplyOp(), {
+      ...baseProps,
+      initialParams: {
+        mode: 2, propagateSmooth: true, edges: [EDGE_1], values1: 10, values2: 10,
+        values1Expression: '#w', values2Expression: '#w',
+      },
+    });
+    expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).value)
+      .toBe('equal');
+    const equalInput = screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement;
+    expect(equalInput.value).toBe('10');
+    await user.click(equalInput);
+    expect(equalInput.value).toBe('#w');
+    equal.unmount();
+
+    const two = renderFilletDialog(makeApplyOp(), {
+      ...baseProps,
+      initialParams: {
+        mode: 2, propagateSmooth: true, edges: [EDGE_1], values1: 10, values2: 20,
+        values1Expression: '#w', values2Expression: '#h',
+      },
+    });
+    expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).value)
+      .toBe('twoDistances');
+    expect((screen.getByRole('textbox', { name: '距离 1' }) as HTMLInputElement).value).toBe('10');
+    const twoDistance2 = screen.getByRole('textbox', { name: '距离 2' }) as HTMLInputElement;
+    expect(twoDistance2.value).toBe('20');
+    await user.click(twoDistance2);
+    expect(twoDistance2.value).toBe('#h');
+    two.unmount();
+
+    const distanceAngle = renderFilletDialog(makeApplyOp(), {
+      ...baseProps,
+      initialParams: {
+        mode: 3, propagateSmooth: true, edges: [EDGE_1], values1: 10, values2: Math.PI / 2,
+        values1Expression: '#w', values2Expression: '#ang',
+      },
+    });
+    expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).value)
+      .toBe('distanceAngle');
+    expect((screen.getByRole('textbox', { name: '距离' }) as HTMLInputElement).value).toBe('10');
+    const storedAngle = screen.getByRole('textbox', { name: '角度' }) as HTMLInputElement;
+    expect(storedAngle.value).toBe('90');
+    await user.click(storedAngle);
+    expect(storedAngle.value).toBe('#ang');
+    distanceAngle.unmount();
+
+    const single = renderFilletDialog(makeApplyOp(), {
+      ...baseProps,
+      initialParams: {
+        mode: 2, propagateSmooth: true, edges: [EDGE_1], values1: 10, values2: 20,
+        values1Expression: '#w',
+      },
+    });
+    expect((screen.getByRole('combobox', { name: '倒角类型' }) as HTMLSelectElement).value)
+      .toBe('twoDistances');
+    const singleDistance2 = screen.getByRole('textbox', { name: '距离 2' }) as HTMLInputElement;
+    expect(singleDistance2.value).toBe('20');
+    await user.click(singleDistance2);
+    expect(singleDistance2.value).toBe('20'); // 单侧表达式：另一字段保持数值
+    single.unmount();
+  });
+
   it('chips 去重（边自身 id 单键）：同 id 重拾（布尔分裂片同 id 多持）→ 仍 1 chip', async () => {
     const user = userEvent.setup();
     renderFilletDialog(makeApplyOp());

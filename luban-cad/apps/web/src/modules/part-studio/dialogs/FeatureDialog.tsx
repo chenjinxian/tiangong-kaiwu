@@ -271,6 +271,7 @@ import {
   expressionFieldMessage,
   numericTextOr,
   readStoredExpression,
+  type ExpressionFieldKind,
 } from '../internal/feature-expression-field.js';
 import { formatDimensionPopupValue } from '../internal/sketch-dimension-value.js';
 import type { VariableCreateRequest } from '../internal/variables.js';
@@ -279,6 +280,11 @@ import {
   useExpressionField,
 } from '../components/ExpressionNumberField.js';
 import './FeatureDialog.css';
+
+/** 倒角角度字段领域校验（度；与既有数值输入同域 0 < deg < 180）。 */
+function isChamferAngleDegrees(value: number): boolean {
+  return value > 0 && value < 180;
+}
 
 /** 结果类型页签（os-31：实体|曲面|薄壁）。 */
 export type FeatureResultType = 'solid' | 'surface' | 'thinWall';
@@ -1509,14 +1515,43 @@ export function FeatureDialog({
   // 2026-11-05（Slice 1b）：chamfer 增加双距离/距离-角度模式；半径状态在
   // chamfer 编辑态回显 values1，而不是 fillet 的 radius。
   type ChamferVariant = 'equal' | 'twoDistances' | 'distanceAngle';
+  // ADR-0020 S7（shared 1.77）：倒角 values1/values2 表达式。编辑态回显推断
+  // 先读落库原文——两个相等原文→等距离；两个不同原文→两个距离；单侧表达式
+  // 不推断等距离（等距离由 Web 双键同原文落库）；mode 3/4 恒距离-角度。
+  const storedChamferValues1Expression = React.useMemo(
+    () => (featureType === 'chamfer'
+      ? readStoredExpression(editParams, 'values1Expression')
+      : undefined),
+    [featureType, editParams],
+  );
+  const storedChamferValues2Expression = React.useMemo(
+    () => (featureType === 'chamfer'
+      ? readStoredExpression(editParams, 'values2Expression')
+      : undefined),
+    [featureType, editParams],
+  );
   const [chamferVariant, setChamferVariant] = React.useState<ChamferVariant>(() => {
     if (featureType !== 'chamfer' || editParams === undefined) return 'equal';
     const storedMode = Number(editParams.mode);
+    // 已登记残留（S7 review P3，本切片不修）：mode 4（AngleDistance）现有回显
+    // 被重读为「距离和角度」（mode 3）——values1 实际是角度、values2 是距离，
+    // 字段语义互换。UI 从不产生 mode 4；shared 1.77 对 mode 4 携带
+    // values1Expression/values2Expression 显式拒收——编辑此类旧行若补表达式
+    // 会被后端零变更拒收（诚实失败，不会静默写错）。
     if (storedMode === 3 || storedMode === 4) return 'distanceAngle';
-    if (storedMode === 2
-      && typeof editParams.values1 === 'number'
-      && typeof editParams.values2 === 'number'
-      && editParams.values2 !== editParams.values1) return 'twoDistances';
+    if (storedMode === 2) {
+      if (storedChamferValues1Expression !== undefined
+        && storedChamferValues2Expression !== undefined) {
+        return storedChamferValues1Expression === storedChamferValues2Expression
+          ? 'equal'
+          : 'twoDistances';
+      }
+      if (storedChamferValues1Expression !== undefined
+        || storedChamferValues2Expression !== undefined) return 'twoDistances';
+      if (typeof editParams.values1 === 'number'
+        && typeof editParams.values2 === 'number'
+        && editParams.values2 !== editParams.values1) return 'twoDistances';
+    }
     return 'equal';
   });
   const [radius, setRadius] = React.useState(() =>
@@ -1533,6 +1568,18 @@ export function FeatureDialog({
     const raw = editParams?.radius;
     return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
   }, [editParams]);
+  // ADR-0020 S7：倒角值 1/2 表达式宿主控制器（与 fillet 半径同构，复用
+  // ExpressionNumberField 单一状态机；求值/补全/内联创建/本地化错误同源）。
+  const chamferValue1Field = useExpressionField(storedChamferValues1Expression);
+  const chamferValue2Field = useExpressionField(storedChamferValues2Expression);
+  const storedMaterializedChamferValue1 = React.useMemo<number | undefined>(() => {
+    const raw = editParams?.values1;
+    return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+  }, [editParams]);
+  const storedMaterializedChamferValue2 = React.useMemo<number | undefined>(() => {
+    const raw = editParams?.values2;
+    return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined;
+  }, [editParams]);
   const [chamferDistance2, setChamferDistance2] = React.useState(() => {
     if (chamferVariant !== 'twoDistances') return '5';
     return storedNumberString(editParams?.values2) ?? '5';
@@ -1544,6 +1591,69 @@ export function FeatureDialog({
       ? String(Number(((stored * 180) / Math.PI).toFixed(6)))
       : '45';
   });
+  // ADR-0020 S7：倒角表达式求值态（预览 / 载荷 / ✓ 门三处同源）。值 1 恒为
+  // length（mm）；值 2 随模式：两个距离→length，距离和角度→angleRadFromDeg
+  // （UI 书写度、求值返回契约弧度）；等距离只有单字段，载荷双键同原文。
+  const chamferValue2ExpressionKind: ExpressionFieldKind =
+    chamferVariant === 'distanceAngle' ? 'angleRadFromDeg' : 'length';
+  const chamferValue1ExpressionActive = chamferChannel
+    && chamferValue1Field.expression !== undefined;
+  const chamferValue2ExpressionApplicable = chamferChannel && chamferVariant !== 'equal';
+  const chamferValue2ExpressionActive = chamferValue2ExpressionApplicable
+    && chamferValue2Field.expression !== undefined;
+  const chamferValue1Number = chamferValue1ExpressionActive
+    && chamferValue1Field.evaluation?.ok
+    ? chamferValue1Field.evaluation.value
+    : Number(radius);
+  const chamferValue1Valid = !chamferChannel
+    || (chamferValue1ExpressionActive
+      ? chamferValue1Field.evaluation?.ok === true
+      : (radius.trim() !== ''
+        && Number.isFinite(chamferValue1Number)
+        && chamferValue1Number > 0));
+  const chamferAngleDegreesNumber = Number(chamferAngleDeg);
+  const chamferValue2Number = chamferVariant === 'distanceAngle'
+    ? (chamferValue2ExpressionActive && chamferValue2Field.evaluation?.ok
+      ? chamferValue2Field.evaluation.value
+      : (chamferAngleDegreesNumber * Math.PI) / 180)
+    : (chamferValue2ExpressionActive && chamferValue2Field.evaluation?.ok
+      ? chamferValue2Field.evaluation.value
+      : Number(chamferDistance2));
+  const chamferValue2Valid = !chamferValue2ExpressionApplicable
+    || (chamferValue2ExpressionActive
+      ? chamferValue2Field.evaluation?.ok === true
+      : chamferVariant === 'distanceAngle'
+        ? (chamferAngleDeg.trim() !== ''
+          && Number.isFinite(chamferAngleDegreesNumber)
+          && chamferAngleDegreesNumber > 0
+          && chamferAngleDegreesNumber < 180)
+        : (chamferDistance2.trim() !== ''
+          && Number.isFinite(chamferValue2Number)
+          && chamferValue2Number > 0));
+  const chamferValue1ExpressionSource = chamferValue1ExpressionActive
+    && chamferValue1Field.evaluation?.ok
+    ? chamferValue1Field.evaluation.expression
+    : undefined;
+  const chamferValue2ExpressionSource = chamferValue2ExpressionActive
+    && chamferValue2Field.evaluation?.ok
+    ? chamferValue2Field.evaluation.expression
+    : undefined;
+  // 切换倒角类型：第二字段在新模式不适用（等距离）或量纲改变（距离↔角度）
+  // 时清除其表达式并把草稿归位为可解析数值——非适用表达式不跨模式携带；
+  // 值 1 在三个模式语义一致（距离），保留用户表达式不静默覆盖。
+  const handleChamferVariantChange = React.useCallback((next: ChamferVariant): void => {
+    if (next === chamferVariant) return;
+    const previousKind: ExpressionFieldKind =
+      chamferVariant === 'distanceAngle' ? 'angleRadFromDeg' : 'length';
+    const nextKind: ExpressionFieldKind =
+      next === 'distanceAngle' ? 'angleRadFromDeg' : 'length';
+    if (next === 'equal' || previousKind !== nextKind) {
+      chamferValue2Field.setExpression(undefined);
+      setChamferDistance2((prev) => numericTextOr(prev, '5'));
+      setChamferAngleDeg((prev) => numericTextOr(prev, '45'));
+    }
+    setChamferVariant(next);
+  }, [chamferVariant, chamferValue2Field]);
   const [propagateSmooth, setPropagateSmooth] = React.useState(() => editParams?.propagateSmooth !== false);
   // 拾取态：picking 供渲染（按钮切换/✓禁用），ref 镜像供 Escape 分叉（监听
   // 终身一次挂载，不吃闭包旧态——与 onCancelRef 同纪律）；工具实例经 ref 持有
@@ -2015,6 +2125,8 @@ export function FeatureDialog({
   // ADR-0020 S4c：S4c 字段的无效表达式**直接禁用提交**（brief §3/§4）；
   // S4b 深度字段保持既有“点击确认后就地报错”手感（其校验在 handleConfirm 内）。
   const expressionFieldsInvalid = (radiusExpressionApplicable && radiusField.invalid)
+    || (chamferChannel && chamferValue1Field.invalid)
+    || (chamferValue2ExpressionApplicable && chamferValue2Field.invalid)
     || (secondDirectionExpressionApplicable && secondDirectionField.invalid)
     || (startOffsetExpressionApplicable && startOffsetField.invalid)
     || (thinWallActive && thinThicknessField.invalid)
@@ -2064,29 +2176,26 @@ export function FeatureDialog({
         setBackendPreview(undefined);
         return;
       }
-      // ADR-0020 S4c：fillet 半径表达式求值参与后端影子预览（无效 → 不出预览）。
+      // ADR-0020 S4c/S7：fillet 半径 / chamfer 两值表达式求值参与后端影子
+      // 预览（任一表达式无效 → 不出预览）；预览数与载荷同源。
       const radiusExpressionInUse = !chamferChannel && radiusField.expression !== undefined;
-      const parsedValue = radiusExpressionInUse
-        ? (radiusField.evaluation?.ok ? radiusField.evaluation.value : Number.NaN)
-        : Number(radius);
+      const parsedValue = chamferChannel
+        ? chamferValue1Number
+        : radiusExpressionInUse
+          ? (radiusField.evaluation?.ok ? radiusField.evaluation.value : Number.NaN)
+          : Number(radius);
       const radiusPreviewExpression = radiusExpressionInUse && radiusField.evaluation?.ok
         ? radiusField.evaluation.expression
         : undefined;
       let parsedValue2 = parsedValue;
-      let valuesValid = radiusExpressionInUse
-        ? radiusField.evaluation?.ok === true
-        : (radius.trim() !== '' && Number.isFinite(parsedValue) && parsedValue > 0);
-      if (chamferChannel) {
-        if (chamferVariant === 'twoDistances') {
-          parsedValue2 = Number(chamferDistance2);
-          valuesValid = valuesValid && chamferDistance2.trim() !== ''
-            && Number.isFinite(parsedValue2) && parsedValue2 > 0;
-        } else if (chamferVariant === 'distanceAngle') {
-          const degrees = Number(chamferAngleDeg);
-          valuesValid = valuesValid && chamferAngleDeg.trim() !== ''
-            && Number.isFinite(degrees) && degrees > 0 && degrees < 180;
-          parsedValue2 = (degrees * Math.PI) / 180;
-        }
+      let valuesValid = chamferChannel
+        ? chamferValue1Valid
+        : radiusExpressionInUse
+          ? radiusField.evaluation?.ok === true
+          : (radius.trim() !== '' && Number.isFinite(parsedValue) && parsedValue > 0);
+      if (chamferChannel && chamferVariant !== 'equal') {
+        parsedValue2 = chamferValue2Number;
+        valuesValid = valuesValid && chamferValue2Valid;
       }
       if (!valuesValid) {
         setBackendPreview(undefined);
@@ -2095,14 +2204,31 @@ export function FeatureDialog({
       const edges = filletEdges.map((edge) => ({ edge: edge.edge }));
       const storedExtra = mode === 'edit' ? (editParams ?? {}) : {};
       if (chamferChannel) {
-        previewParams = {
+        const chamferPreviewParams = {
           ...storedExtra,
           mode: chamferVariant === 'distanceAngle' ? 3 : 2,
           propagateSmooth,
           edges,
           values1: parsedValue,
           values2: parsedValue2,
-        } as FeatureParams;
+        } as FeatureParams & { values1Expression?: string; values2Expression?: string };
+        // 编辑态落库表达式不得在数值编辑后随 spread 静默残留（后端会按旧
+        // 表达式重新物化，等于覆盖用户输入）。
+        delete chamferPreviewParams.values1Expression;
+        delete chamferPreviewParams.values2Expression;
+        if (chamferVariant === 'equal') {
+          // 等距离：单字段语义 → 两个键原文相同（shared 1.77 契约）。
+          if (chamferValue1ExpressionSource !== undefined) {
+            chamferPreviewParams.values1Expression = chamferValue1ExpressionSource;
+            chamferPreviewParams.values2Expression = chamferValue1ExpressionSource;
+          }
+        } else {
+          if (chamferValue1ExpressionSource !== undefined)
+            chamferPreviewParams.values1Expression = chamferValue1ExpressionSource;
+          if (chamferValue2ExpressionSource !== undefined)
+            chamferPreviewParams.values2Expression = chamferValue2ExpressionSource;
+        }
+        previewParams = chamferPreviewParams;
       } else {
         const filletParams = {
           ...storedExtra,
@@ -2258,7 +2384,9 @@ export function FeatureDialog({
     booleanEffectiveToolKeys, booleanOperation, booleanKeepTools,
     targetSelectorVisible, effectiveTargetBodyKey,
     previewOp, filletEdges, radius, radiusField, chamferChannel, chamferVariant, chamferDistance2,
-    chamferAngleDeg, propagateSmooth, filletAutomaticTargetId, mode, featureId, editParams]);
+    chamferAngleDeg, chamferValue1Number, chamferValue1Valid, chamferValue2Number,
+    chamferValue2Valid, chamferValue1ExpressionSource, chamferValue2ExpressionSource,
+    propagateSmooth, filletAutomaticTargetId, mode, featureId, editParams]);
 
   // 快速拾取：画布选择集 → chips（按 id 去重；label 缺省回退 id）。
   const handleFastPick = React.useCallback(() => {
@@ -2461,10 +2589,25 @@ export function FeatureDialog({
     let parsedRadius = 0;
     let parsedRadiusExpression: string | undefined;
     let parsedChamferValue2 = 0;
+    let parsedChamferValue1Expression: string | undefined;
+    let parsedChamferValue2Expression: string | undefined;
     if (edgePickChannel) {
-      // ADR-0020 S4c：fillet 半径表达式（chamfer 不接）——求值数进 radius，
-      // 原文进 radiusExpression；无效表达式已由 ✓ 禁用前置拦截，这里防御兜底。
-      if (radiusExpressionApplicable && radiusField.expression !== undefined) {
+      // ADR-0020 S7：倒角值 1（三模式均为 length）表达式——求值数进 values1；
+      // 原文进 values1Expression（等距离同时写 values2Expression，原文相同）。
+      // 无效表达式已由 ✓ 禁用前置拦截，这里防御兜底。
+      if (chamferChannel && chamferValue1ExpressionActive) {
+        if (!chamferValue1Field.evaluation?.ok) {
+          setError(chamferValue1Field.evaluation === undefined
+            ? t('partStudio.featureDialog.chamferDistanceInvalid')
+            : expressionFieldMessage(chamferValue1Field.evaluation.error, 'length', t, {
+              variableTypeField: t('partStudio.featureDialog.chamferDistance1Field'),
+            }));
+          return;
+        }
+        parsedRadius = chamferValue1Field.evaluation.value;
+        parsedChamferValue1Expression = chamferValue1Field.evaluation.expression;
+      } else if (radiusExpressionApplicable && radiusField.expression !== undefined) {
+        // ADR-0020 S4c：fillet 半径表达式——求值数进 radius，原文进 radiusExpression。
         if (!radiusField.evaluation?.ok) {
           setError(radiusField.evaluation === undefined
             ? t('partStudio.featureDialog.radiusInvalid')
@@ -2483,26 +2626,52 @@ export function FeatureDialog({
         }
       }
       if (chamferChannel) {
-        if (chamferVariant === 'twoDistances') {
-          parsedChamferValue2 = Number(chamferDistance2);
-          if (chamferDistance2.trim() === ''
-            || !Number.isFinite(parsedChamferValue2)
-            || parsedChamferValue2 <= 0) {
-            setError(t('partStudio.featureDialog.chamferDistance2Invalid'));
-            return;
+        if (chamferVariant === 'twoDistances' || chamferVariant === 'distanceAngle') {
+          if (chamferValue2ExpressionActive) {
+            if (!chamferValue2Field.evaluation?.ok) {
+              const fallback = chamferVariant === 'distanceAngle'
+                ? t('partStudio.featureDialog.chamferAngleInvalid')
+                : t('partStudio.featureDialog.chamferDistance2Invalid');
+              setError(chamferValue2Field.evaluation === undefined
+                ? fallback
+                : expressionFieldMessage(
+                  chamferValue2Field.evaluation.error,
+                  chamferValue2ExpressionKind,
+                  t,
+                  {
+                    variableTypeField: t(chamferVariant === 'distanceAngle'
+                      ? 'partStudio.featureDialog.chamferAngleField'
+                      : 'partStudio.featureDialog.chamferDistance2Field'),
+                  },
+                ));
+              return;
+            }
+            // mode 2 → mm；mode 3 → 求值器已把度换算为契约弧度。
+            parsedChamferValue2 = chamferValue2Field.evaluation.value;
+            parsedChamferValue2Expression = chamferValue2Field.evaluation.expression;
+          } else if (chamferVariant === 'twoDistances') {
+            parsedChamferValue2 = Number(chamferDistance2);
+            if (chamferDistance2.trim() === ''
+              || !Number.isFinite(parsedChamferValue2)
+              || parsedChamferValue2 <= 0) {
+              setError(t('partStudio.featureDialog.chamferDistance2Invalid'));
+              return;
+            }
+          } else {
+            const degrees = Number(chamferAngleDeg);
+            if (chamferAngleDeg.trim() === ''
+              || !Number.isFinite(degrees)
+              || degrees <= 0
+              || degrees >= 180) {
+              setError(t('partStudio.featureDialog.chamferAngleInvalid'));
+              return;
+            }
+            parsedChamferValue2 = (degrees * Math.PI) / 180;
           }
-        } else if (chamferVariant === 'distanceAngle') {
-          const degrees = Number(chamferAngleDeg);
-          if (chamferAngleDeg.trim() === ''
-            || !Number.isFinite(degrees)
-            || degrees <= 0
-            || degrees >= 180) {
-            setError(t('partStudio.featureDialog.chamferAngleInvalid'));
-            return;
-          }
-          parsedChamferValue2 = (degrees * Math.PI) / 180;
         } else {
+          // 等距离：单字段语义——两个值求值相同，两个 expression 原文相同。
           parsedChamferValue2 = parsedRadius;
+          parsedChamferValue2Expression = parsedChamferValue1Expression;
         }
       }
     }
@@ -2686,6 +2855,14 @@ export function FeatureDialog({
                 edges: filletEdges.map((edge) => ({ edge: edge.edge })),
                 values1: parsedRadius,
                 values2: parsedChamferValue2,
+                // ADR-0020 S7：表达式设计意图（纯数值不携带本键；等距离由
+                // 上方把同一原文写入两个键）。
+                ...(parsedChamferValue1Expression !== undefined
+                  ? { values1Expression: parsedChamferValue1Expression }
+                  : {}),
+                ...(parsedChamferValue2Expression !== undefined
+                  ? { values2Expression: parsedChamferValue2Expression }
+                  : {}),
               }
             : filletChannel
             ? {
@@ -3070,6 +3247,12 @@ export function FeatureDialog({
     expressionFieldsInvalid,
     radiusExpressionApplicable,
     radiusField,
+    chamferChannel,
+    chamferValue1Field,
+    chamferValue1ExpressionActive,
+    chamferValue2Field,
+    chamferValue2ExpressionActive,
+    chamferValue2ExpressionKind,
     secondDirectionExpressionApplicable,
     secondDirectionField,
     startOffsetExpressionApplicable,
@@ -4790,7 +4973,7 @@ export function FeatureDialog({
                   className="part-studio-feature-dialog__select"
                   value={chamferVariant}
                   disabled={submitting}
-                  onChange={(event) => setChamferVariant(event.target.value as ChamferVariant)}
+                  onChange={(event) => handleChamferVariantChange(event.target.value as ChamferVariant)}
                 >
                   <option value="equal">{t('partStudio.featureDialog.chamferTypeEqual')}</option>
                   <option value="twoDistances">{t('partStudio.featureDialog.chamferTypeTwoDistances')}</option>
@@ -4808,11 +4991,13 @@ export function FeatureDialog({
                   : 'partStudio.featureDialog.radiusLabel')}
                 numberText={radius}
                 setNumberText={setRadius}
-                expression={radiusField.expression}
-                setExpression={radiusField.setExpression}
+                expression={chamferChannel ? chamferValue1Field.expression : radiusField.expression}
+                setExpression={chamferChannel
+                  ? chamferValue1Field.setExpression
+                  : radiusField.setExpression}
                 kind="length"
                 unitLabel="mm"
-                applicable={radiusExpressionApplicable}
+                applicable={chamferChannel || radiusExpressionApplicable}
                 disabled={submitting}
                 variables={depthVariableList}
                 variablesLoading={variablesLoading}
@@ -4820,14 +5005,25 @@ export function FeatureDialog({
                 variablesReady={variablesReady}
                 onCreateVariable={onCreateVariable}
                 variablesDialogActive={variablesDialogActive}
-                storedExpression={radiusExpressionApplicable ? storedRadiusExpression : undefined}
-                storedExpressionUntouchedValue={radiusExpressionApplicable
-                  ? storedMaterializedRadius
-                  : undefined}
-                onValidity={radiusField.onValidity}
+                storedExpression={chamferChannel
+                  ? storedChamferValues1Expression
+                  : (radiusExpressionApplicable ? storedRadiusExpression : undefined)}
+                storedExpressionUntouchedValue={chamferChannel
+                  ? storedMaterializedChamferValue1
+                  : (radiusExpressionApplicable ? storedMaterializedRadius : undefined)}
+                onValidity={chamferChannel
+                  ? chamferValue1Field.onValidity
+                  : radiusField.onValidity}
                 onEnter={handleConfirm}
-                expressionLabel={radiusExpressionApplicable
-                  ? t('partStudio.featureDialog.radiusExpressionLabel')
+                expressionLabel={chamferChannel
+                  ? t(chamferVariant === 'twoDistances'
+                    ? 'partStudio.featureDialog.chamferDistance1ExpressionLabel'
+                    : 'partStudio.featureDialog.chamferDistanceExpressionLabel')
+                  : (radiusExpressionApplicable
+                    ? t('partStudio.featureDialog.radiusExpressionLabel')
+                    : undefined)}
+                variableTypeField={chamferChannel
+                  ? t('partStudio.featureDialog.chamferDistance1Field')
                   : undefined}
               />
               {/* Onshape live（2026-11-15）：数值行右侧参数状态 ± 图标；本产品
@@ -4845,57 +5041,86 @@ export function FeatureDialog({
             </section>
             {chamferChannel && chamferVariant === 'twoDistances' && (
               <section className="part-studio-feature-dialog__distance" data-field="chamfer-distance2">
-                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-distance2">
-                  {t('partStudio.featureDialog.chamferDistance2Label')}
-                </label>
-                <input
+                <ExpressionNumberField
                   id="part-studio-feature-dialog-distance2"
-                  type="text"
-                  inputMode="decimal"
-                  aria-label={t('partStudio.featureDialog.chamferDistance2Label')}
-                  className="part-studio-feature-dialog__input"
-                  value={chamferDistance2}
+                  label={t('partStudio.featureDialog.chamferDistance2Label')}
+                  numberText={chamferDistance2}
+                  setNumberText={setChamferDistance2}
+                  expression={chamferValue2Field.expression}
+                  setExpression={chamferValue2Field.setExpression}
+                  kind="length"
+                  unitLabel="mm"
+                  applicable={chamferValue2ExpressionApplicable}
                   disabled={submitting}
-                  onChange={(event) => setChamferDistance2(event.target.value)}
+                  variables={depthVariableList}
+                  variablesLoading={variablesLoading}
+                  variablesError={variablesError}
+                  variablesReady={variablesReady}
+                  onCreateVariable={onCreateVariable}
+                  variablesDialogActive={variablesDialogActive}
+                  storedExpression={storedChamferValues2Expression}
+                  storedExpressionUntouchedValue={storedMaterializedChamferValue2}
+                  onValidity={chamferValue2Field.onValidity}
+                  onEnter={handleConfirm}
+                  expressionLabel={t('partStudio.featureDialog.chamferDistance2ExpressionLabel')}
+                  variableTypeField={t('partStudio.featureDialog.chamferDistance2Field')}
+                  trailing={(
+                    <button
+                      type="button"
+                      className="part-studio-feature-dialog__calculator part-studio-feature-dialog__parameter-state"
+                      data-testid="part-studio-feature-dialog-distance2-state"
+                      aria-label={t('partStudio.featureDialog.notImplemented')}
+                      disabled
+                      title={t('partStudio.featureDialog.notImplemented')}
+                    >
+                      <span aria-hidden="true">±</span>
+                    </button>
+                  )}
                 />
-                <span className="part-studio-feature-dialog__value-unit">mm</span>
-                <button
-                  type="button"
-                  className="part-studio-feature-dialog__calculator part-studio-feature-dialog__parameter-state"
-                  data-testid="part-studio-feature-dialog-distance2-state"
-                  aria-label={t('partStudio.featureDialog.notImplemented')}
-                  disabled
-                  title={t('partStudio.featureDialog.notImplemented')}
-                >
-                  <span aria-hidden="true">±</span>
-                </button>
               </section>
             )}
             {chamferChannel && chamferVariant === 'distanceAngle' && (
               <section className="part-studio-feature-dialog__angle" data-field="chamfer-angle">
-                <label className="part-studio-feature-dialog__distance-label" htmlFor="part-studio-feature-dialog-chamfer-angle">
-                  {t('partStudio.featureDialog.chamferAngleLabel')}
-                </label>
-                <input
+                <ExpressionNumberField
                   id="part-studio-feature-dialog-chamfer-angle"
-                  type="text"
-                  inputMode="decimal"
-                  aria-label={t('partStudio.featureDialog.chamferAngleLabel')}
-                  className="part-studio-feature-dialog__input"
-                  value={chamferAngleDeg}
+                  label={t('partStudio.featureDialog.chamferAngleLabel')}
+                  numberText={chamferAngleDeg}
+                  setNumberText={setChamferAngleDeg}
+                  expression={chamferValue2Field.expression}
+                  setExpression={chamferValue2Field.setExpression}
+                  kind="angleRadFromDeg"
+                  unitLabel=""
+                  // review P2：角度字段内联创建必须请求 deg（宿主映射 angle）；
+                  // 缺省 unitLabel='' 会建 length 变量并被角度量纲门立即拒收。
+                  inlineCreateUnit="deg"
+                  applicable={chamferValue2ExpressionApplicable}
                   disabled={submitting}
-                  onChange={(event) => setChamferAngleDeg(event.target.value)}
+                  validate={isChamferAngleDegrees}
+                  variables={depthVariableList}
+                  variablesLoading={variablesLoading}
+                  variablesError={variablesError}
+                  variablesReady={variablesReady}
+                  onCreateVariable={onCreateVariable}
+                  variablesDialogActive={variablesDialogActive}
+                  storedExpression={storedChamferValues2Expression}
+                  storedExpressionUntouchedValue={storedMaterializedChamferValue2}
+                  onValidity={chamferValue2Field.onValidity}
+                  onEnter={handleConfirm}
+                  expressionLabel={t('partStudio.featureDialog.chamferAngleExpressionLabel')}
+                  variableTypeField={t('partStudio.featureDialog.chamferAngleField')}
+                  trailing={(
+                    <button
+                      type="button"
+                      className="part-studio-feature-dialog__calculator part-studio-feature-dialog__parameter-state"
+                      data-testid="part-studio-feature-dialog-chamfer-angle-state"
+                      aria-label={t('partStudio.featureDialog.notImplemented')}
+                      disabled
+                      title={t('partStudio.featureDialog.notImplemented')}
+                    >
+                      <span aria-hidden="true">±</span>
+                    </button>
+                  )}
                 />
-                <button
-                  type="button"
-                  className="part-studio-feature-dialog__calculator part-studio-feature-dialog__parameter-state"
-                  data-testid="part-studio-feature-dialog-chamfer-angle-state"
-                  aria-label={t('partStudio.featureDialog.notImplemented')}
-                  disabled
-                  title={t('partStudio.featureDialog.notImplemented')}
-                >
-                  <span aria-hidden="true">±</span>
-                </button>
               </section>
             )}
             {chamferChannel && propagateSmoothRow}
