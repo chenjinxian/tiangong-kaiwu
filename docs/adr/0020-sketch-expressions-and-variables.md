@@ -588,7 +588,9 @@ registry/updateVariables 复用（角度类型门：length 变量拒收）；web
   闭合）→ 已修；web opus **APPROVE**（P3 三项已修：stored read 加 `patternChannel`
   门、报告措辞、真栈取消零写改判别式断言；另修 `feature-contracts` 定位器
   `exact: true`）→ scoped 复核 **APPROVE**。残：count 表达式不支持（live 失焦即
-  标红，契约决定）；FEATURE 阵列角度真栈 e2e 未单独覆盖（单测覆盖，登记）。
+  标红，契约决定）；FEATURE 阵列表达式真栈 e2e 已由 **W45 S14**
+  （`e2e/feature-pattern-expression-fields.spec.ts`：间距/第二方向/环形角度
+  `#var` → 树物化快照 → push+冷重开）补齐。
 
 ## 5. 回滚
 

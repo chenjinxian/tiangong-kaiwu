@@ -480,7 +480,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   2 passed（1.2 m）、`live-feature-pattern-circular` 2 passed（48.9 s，16320.000 mm³）；
   `feature-contracts` 首跑因 `阵列 1` 子串命中「环形阵列 1」失败，
   定位器 `exact: true` 后绿。**未发布**；
-  残：count 表达式不支持（live 明确失焦标红），FEATURE 阵列角度仅单测覆盖。
+  残：count 表达式不支持（live 明确失焦标红）；FEATURE 阵列角度真栈已由 W45 S14 覆盖。
 - **W44 S13 树级「粘贴到草图中」（2026-11-19，纯前端；live probe w46b）**：
   live 受控实验（新建草图 3 矩形 + 草图 4 空 → 树复制 3 → 树「粘贴到草图中」于
   4）：图元**直接写入目标草图、不打开草图**（无草图对话框；重开草图 4 可见复制
@@ -502,9 +502,21 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   恢复**、reload 持久）；回归 `context-menu-states` + `mouse-interaction`
   **6 passed（最终复核后复跑 2.4 m）**。复核 APPROVE WITH FIXES → P2 新鲜读面 +
   P3 全修（含 A 模式 scope 门 `sketchReadScopeArgs`、默认 RPC 分支单测）→ scoped
-  re-review。**未发布**；残：草图打开态树菜单 live 为另一变体（无复制/粘贴项，
-  本产品未做 sketchActive 门）、跨平面粘贴世界坐标变换未采、live 空剪贴板启用态
-  未采（本产品禁用）、`invalid-clipboard` 分支经复制 API 不可达（防御性保留）。
+  re-review。**未发布**；残：草图打开态树菜单已由 **W45 S15** 实现变体（仅已实现
+  子集）、跨平面粘贴世界坐标变换未采、live 空剪贴板启用态未采（本产品禁用）、
+  `invalid-clipboard` 分支经复制 API 不可达（防御性保留）。
+- **W45 S14 FEATURE 阵列表达式真栈 e2e（2026-11-19，纯测试；残项收口）**：
+  S6/S9/S12 的 FEATURE 通道此前仅单测。新增
+  `e2e/feature-pattern-expression-fields.spec.ts`（真栈 1 用例）：RPC 建 40×40×10
+  盒 + 4×4×5 凸台 + 变量 sp=9/sp2=12/ang=90（与落库 6/8/360 不同值，证明物化
+  取求值），featurePattern linear 3×2 → 16480 mm³；UI 双击树行 → 间距 `#sp`、
+  第二方向间距 `#sp2` → 确认，树 params `{spacing:9, spacingExpression:'#sp',
+  secondDirection:{spacing:12, spacingExpression:'#sp2'}}`；再开对话框切环形 +
+  角度 `#ang` → 树 `{kind:'circular', angle:90, angleExpression:'#ang'}` 且
+  linear 键（spacing/spacingExpression/secondDirection）全部清除；环形体积轮询
+  ≠16480（防「参数写环形、几何仍线性」假绿）且 <16480；push+冷重开保持。
+  验证：**2 passed（复核后复跑，用例 44.7 s）**、tsc(e2e)/eslint 绿；无产品/
+  契约改动。**未发布**。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
@@ -1275,3 +1287,18 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 - **SPA 返回项目页再开模型恒卡“正在解析 Part Studio…”**（2026-11-10 实测）：根因是 luban 把 IPC host 绑定到 React 路由——`useViewport` 卸载 → `releaseViewer` 计数归零 → `IpcApp/IModelApp.shutdown`，下一次启动复用死 WebSocket/漏 startup（`IModelApp.initialized=false`、`WebSocket is already in CLOSING or CLOSED state`）。已对齐 iTwin.js display-test-app：**LocalhostIpcApp/IpcApp/IModelApp 页面级持有，首次进入编辑器 startup 一次，路由/Viewport 卸载只关闭 BriefcaseConnection，releaseViewer 只减引用、不 shutdown**。页面刷新/关闭由浏览器断 WS，后端 connection close 清理；显式停止需整页刷新。**后端 MS 重启后** `IpcApp.isValid`/`IpcSession.active` 仍为真，`downloadBriefcase` 会向死 socket 永久悬挂——`useBriefcaseConnection` 打开前用官方 `appFunctionIpc.queryConcurrency('io')` 做 8s 存活探针，超时即出错误面（“建模服务连接已断开…请刷新页面”），刷新后新页面重建 host 恢复。**登出/切换账号**必须 `AuthSession.logout()` 后 `window.location.href='/login'` 整页导航，禁止 SPA 路由切登录页复用旧 WS 身份。viewer `web-initializer.test.ts` 14/14 + `use-briefcase-connection.test.ts` 14/14（含探针超时）、真栈 `catalog.spec.ts` 重入 5/5、`ipc-logout.spec.ts` 1/1、`ms-restart-recovery.spec.ts`（`IPC_RESTART_E2E=1`）1/1。不要再引入按路由 shutdown 或重置 `LocalhostIpcApp` 私有字段的补丁。
 
 *最后更新: 2026-11-11（D2 单线面切分 / Intro Part 5+6 严格绿；shared 1.67 `noOpEvidence`；Part 6 188,451.236 vs 188,451.236、8 步 status=0、冷重开一致；Handle Parts strict 绿、`/examples` 22 卡；此前 2026-11-10（发布闭口：`backend-20261110` / shared 1.64.0 已发布——精确 faceExtrude A1/A2/A3/A4 + S3；Bumper strict 16/16、636,731.650 vs 636,731.499（+0.000024%）；私有 `replicable-now` 18 / 公开 strict 19，私有 evidence 已固化；A1/A2 backend 随发布可复现；generic resolver 12 边仍为独立 blocked-kernel；新增公开 `/examples` 全部示例目录（2026-11-10 19 卡，追加 Intro Part 4；owner 过滤/搜索、按项目名+iModel 名解析打开；真栈 19 卡 + Bumper 直达 Part Studio canvas；web **1537/1537**）；iOS `EXAMPLE_RESET=1` 真栈 2 passed；此前 `backend-20261109` / shared 1.63.0：4 个公开镜像 + MS 产物、verify-stack 17/17；此前全 UI live 复核：文档中心/新建/登录/文档详情 + 220px 特征对话框统一皮肤；公开产品介绍页 `/showcase` + 4K WebP/1080p WebM；示例 iModel 12 个 + 分步演示；cPlane 基准面/平面点 + 草图落在自定义平面（shared 1.31.0，Intro to CAD + Handle 真栈）；chamfer UI 等距/双距离/距离-角度及编辑回显；Sample Assignment 真实 UI 链；SketchDialog 偏移平面编辑；FeatureDialog endBound 完全贯穿；官方 iTwin ViewCube 默认 + 相机/渲染菜单（`?viewcube=onshape` 回退；真栈 itwin/ui-parity/tutorial2 均绿）；图形首选项默认 AO 20%/线宽 2px；T3 抽壳 UI 真栈 1084.000 mm³ + 编辑/重开；T4 拉伸第二方向真栈 6000.000 mm³ + 旋转多面域 7853.981 mm³/Hand Brake 7125.270 mm³；T4b Handle 真栈逐体 38314.220/68563.590 vs 38314.765/68563.589；T5 mirror 真栈 8000.000 mm³；T6 point-on-line + 单点 H/V + CENTERLINE_DIMENSION 约束映射（缺口 143→6、47→0）；shared 1.32 倒角孔真栈 261.794 vs 261.799 mm³；验证基线 1389）*
+- **W45 S15 草图打开态树菜单变体（2026-11-19，纯前端；live probe w47）**：
+  live：草图编辑打开时右键**当前草图行不弹菜单**；其它草图行 = 7 项短菜单
+  （重命名/隐藏其他草图/隐藏所有草图/剖视图…/抑制/动态抑制添加表达式…/添加评论，
+  无编辑/复制/粘贴/文件夹/删除/放大/清除选择等全菜单项）；关闭草图恢复 21 项全菜单。
+  实现：`handleRowContextMenu` 对 activeSketchId 行早退（不弹菜单）；打开态草图行
+  渲染 7 项 live 顺序变体（重命名/抑制可用；隐藏其他草图/隐藏所有草图/剖视图…/
+  动态抑制添加表达式…/添加评论诚实禁用——对应子系统未实现）；全菜单项在该变体
+  隐藏；变体内重命名/抑制不显示图标（live），添加评论用 `add-comment` 图标，
+  动态抑制使用 live 合并文案；i18n 新增 `menuHideOtherSketches`/
+  `menuHideAllSketches`/`menuDynamicSuppressAddExpression` zh/en。验证：web
+  **2624/2624**（FeatureTree 83/83）、tsc(src+e2e)/eslint 绿；真栈
+  `sketch-tree-menu-variant` **2 passed（复核后复跑，用例 24.5 s）**（打开态当前
+  行无菜单/其它行 7 项与禁用态/关闭后全菜单恢复）。**未发布**；残：草图隐藏/剖视图/动态抑制表达式/评论未实现（诚实禁用）、
+  打开态非草图行菜单未采、剖视图 live 图标缺失、全菜单仍有若干 live 项未实现
+  （隐藏草图/工程图/DXF/显示尺寸等）。
