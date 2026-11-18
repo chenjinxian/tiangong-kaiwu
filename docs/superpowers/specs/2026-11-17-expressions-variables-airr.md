@@ -395,3 +395,23 @@ tsc 绿；web **2551/2551**（160 files）、tsc/eslint 绿；真栈
 变量 5→3、原生 undo/redo、push+冷重开）。复核：后端 APPROVE WITH FIXES（占位/
 存量合成/预览测试与 JSDoc）→ 修复；web APPROVE WITH FIXES（英寸模式样式切换
 单位回退、测试隔离/e2e 精确体积）→ 修复。
+
+## 17. S9 阵列第二方向间距表达式（2026-11-18）
+
+**Live 证据**：Part pattern 第二个方向「距离」字段接受 `#width`（有效 + 数量补全）。
+**设计**：shared 1.79.0 嵌套 `PatternSecondDirection.spacingExpression?` /
+`FeaturePatternSecondDirection.spacingExpression?`（目标 secondDirection.spacing，
+length，占位必需；与顶层第一方向同名键按路径区分；物化保留 count/centered/axis；
+updateVariables 同一预过滤键名命中两层、按路径分别物化）。后端 field-spec 以
+`expressionPath` 支持嵌套；web 两个阵列对话框第二方向间距行复用
+`ExpressionNumberField`（第二方向启用适用、未触碰保留、数值清除、禁用清除、
+无效禁提、preview 求值）。**不做**：circular angle/count、逐实例/数组表达式；
+发布未授权。
+
+**验证**：shared **320/320**（+3）含 test:types；private backend targeted
+**270/270（9 files）**、全量 **1124 passed/1 expected fail/8 skipped（112 files）**、
+tsc 绿；web **2568/2568**（160 files）、tsc/eslint 绿；真栈
+`pattern-second-spacing-expression` **2 passed（56.1 s）**（2×2 `#w` → 320 mm³/
+质心 9,9 → 变量 10→20 y=14 → 原生 undo/redo → push+冷重开）+ 回归
+`pattern-second-direction-ui` **2 passed（1.1 m）**。复核：后端 APPROVE（P3 补测已修）；
+web APPROVE WITH FIXES（P3 文案/测试 flake/全等/取消零写/circular）→ 修复。

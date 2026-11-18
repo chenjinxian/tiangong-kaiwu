@@ -1,9 +1,10 @@
 # ADR-0020 — Sketch expressions and Part Studio variables (v1)
 
-- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5/S6/S7/S8
+- 状态：**Accepted（S1 已由 Owner 于 2026-11-17 批准；S2/S3/S4a/S4b/S4c/S5/S6/S7/S8/S9
   已实现；S4c 其他特征数值字段表达式 2026-11-18 按 §2.8 实施；S5 表达式错误结构化与
   本地化按 §2.10 实施；S6 线性阵列间距表达式按 §2.11 实施；S7 倒角数值字段表达式按
-  §2.12 实施；S8 孔沉头/锥口字段表达式按 §2.13 实施）**
+  §2.12 实施；S8 孔沉头/锥口字段表达式按 §2.13 实施；S9 阵列第二方向间距表达式按
+  §2.14 实施）**
 - 日期：2026-11-17
 - 关联：AIRR `docs/superpowers/specs/2026-11-17-expressions-variables-airr.md`；
   `docs/architecture/INTERFACE-FREEZE-MATRIX.md`（shared `LubanFeatureRpcInterface`
@@ -392,6 +393,21 @@ field-spec + updateVariables 全键扫描/undo；web HoleDialog 四字段复用
 S5 本地化）。**不做**：tipAngle 表达式、钻孔尺寸表/合并范围/起始平面/终止条件
 表达式；发布未授权。
 
+### 2.14 S9 阵列第二方向间距表达式（2026-11-18 recon）
+
+**Live 证据（私有 `probe-20261118/w42-pattern-second*.png`）**：Part pattern 编辑
+对话框展开「第二个方向」后的「距离」字段接受 `#width`（有效 + 数量补全）。
+**契约 shared 1.78.0 → 1.79.0**：嵌套 `PatternSecondDirection.spacingExpression?` /
+`FeaturePatternSecondDirection.spacingExpression?`，目标 `secondDirection.spacing`
+（length >0）；仅 secondDirection 存在且 spacing 为数值占位时适用（不合成）；
+与顶层第一方向 `spacingExpression` 同名但按路径区分；物化保留
+count/centered/axis 并走 registry 复验（总实例 ≤1000 等）；`updateVariables` 同一
+预过滤键名同时命中两层，resolver 按路径分别物化。后端 field-spec 以
+`expressionPath` 支持嵌套；web 两个阵列对话框第二方向间距行复用
+`ExpressionNumberField`（第二方向启用适用、未触碰保留、数值清除、禁用清除、
+无效禁提、preview 用求值数）。**不做**：circular angle/count 表达式、逐实例/
+数组表达式；发布未授权。
+
 ## 3. 备选方案
 
 - **A. 全部前端求值，后端只收数值**：不新增契约；但重建/变量变更无法由后端权威
@@ -528,6 +544,16 @@ S5 本地化）。**不做**：tipAngle 表达式、钻孔尺寸表/合并范围
   （P2 英寸模式样式切换回退把 mm 默认当英寸 → 单位投影修复；测试隔离/兄弟表达式
   保留/e2e 精确体积与跨样式键）→ 修复。首跑 e2e 仅因测试体积常量半径笔误
   （r=2.5 vs 5）红，产品实测体积与正确公式一致，常量已修。
+- **S9 实测（2026-11-18）**：shared **320/320**（+3）含 test:types；private backend
+  targeted **270/270（9 files）**、全量 **1124 passed / 1 expected fail / 8 skipped
+  （112 files）**、tsc 绿；web **2568/2568**（160 files）、tsc/eslint 绿。真栈
+  `pattern-second-spacing-expression` **2 passed（56.1 s；setup + 1 用例）**：体线性
+  阵列第二方向 2×2 `#w` → 320 mm³/质心 9,9 → 变量 w 10→20 物化（y=14）→ 原生
+  undo/redo → push+冷重开；回归 `pattern-second-direction-ui` **2 passed（1.1 m）**。
+  复核：后端 opus **APPROVE**（P3 补测：服务级循环表零变更、beforeParams/undo 快照、
+  嵌套未知键、scoped 隔离）→ 已修；web opus APPROVE WITH FIXES（P3：re-enable 文案、
+  preview 计数 flake、payload 全等、e2e 取消零写、circular 清除单测）→ 修复。
+  FEATURE 阵列第二方向真栈 e2e 未单独覆盖（单测覆盖，登记）。
 
 ## 5. 回滚
 

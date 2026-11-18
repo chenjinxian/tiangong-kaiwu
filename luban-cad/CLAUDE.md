@@ -430,6 +430,22 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   → 单位投影修复；测试隔离/e2e 精确体积）→ 修复。首跑 e2e 仅测试体积常量半径笔误
   （r=2.5 vs 5）红，产品值正确。**未发布**；残：tipAngle/钻孔尺寸表/起始平面/
   终止条件表达式未接；跨字段违规仍仅禁用 ✓ 无字段文案（既有）。
+- **W40 S9 阵列第二方向间距表达式（2026-11-18，shared 1.79 / 私有后端 / web；ADR-0020 §2.14）**：
+  嵌套 `PatternSecondDirection.spacingExpression?` /
+  `FeaturePatternSecondDirection.spacingExpression?`（live：第二方向距离接受 `#width`；
+  目标 secondDirection.spacing，length，占位必需；与顶层第一方向同名键按路径区分；
+  物化保留 count/centered/axis；updateVariables 同一键名两层扫描按路径物化）。后端
+  `expressionPath` 嵌套 field-spec；web 两个阵列对话框第二方向间距行复用
+  `ExpressionNumberField`（启用适用、未触碰保留/数值清除/禁用清除、无效禁提、
+  preview 求值）。验证：shared **320/320**（+3）；backend targeted **270/270
+  （9 files）**、全量 **1124 passed/1 expected fail/8 skipped（112 files）**、tsc 绿；
+  web **2568/2568**（160 files）、tsc/eslint 绿；真栈
+  `pattern-second-spacing-expression` **2 passed（56.1 s：2×2 `#w` → **320 mm³**、
+  质心 9,9 → 变量 10→20（y=14）、原生 undo/redo、push+冷重开）**；回归
+  `pattern-second-direction-ui` **2 passed（1.1 m）**。复核：后端 APPROVE（P3 补测
+  已修）；web APPROVE WITH FIXES（P3 文案/测试 flake/payload 全等/e2e 取消零写/
+  circular 清除单测）→ 修复。**未发布**；残：circular angle/count 表达式、逐实例/
+  数组表达式未接；FEATURE 阵列第二方向真栈仅单测。
 - **live 复采 + 内联尺寸对话框 / 约束 chip / 阵列形态（2026-11-16 W10，纯前端+viewer；AIRR 同上 §10）**：
   S3a：双击尺寸=Onshape `dimension-dialog`（159×13 drag 条 + 159×34 白面板
   shadow 0 5px 10px rgba(0,0,0,.2) + 100×26 输入/inset 1px #1651b0 +
