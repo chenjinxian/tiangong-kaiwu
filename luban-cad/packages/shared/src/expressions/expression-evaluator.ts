@@ -25,6 +25,9 @@
  * - `collectVariableReferences`（S3）只做**词法级**引用收集（按首次出现序去重；词法错误 →
  *   `[]`）——需要错误详情的调用方走 `evaluateExpression`；类型校验不得把语法错误改写成
  *   另一种错误，故本 helper 不抛错、不重复做语法分析。
+ * - v1.75（ADR-0020 S5）：`ExpressionFailure` 增加结构化 `detail`/`attributedVariable`/
+ *   `referenceChain`（additive、locale-neutral）；`message`/`position` 语义逐字不变
+ *   （后端错误面与既有断言兼容）。`empty` 无 detail（无位置/数据，见类型注释）。
  */
 
 export interface ExpressionVariableRef { name: string; expression: string }
@@ -32,12 +35,45 @@ export interface ExpressionVariableRef { name: string; expression: string }
 export type ExpressionErrorCode =
   | "empty" | "syntax" | "unknownVariable" | "cycle" | "duplicateName" | "nonFinite";
 
+/**
+ * 结构化错误详情（ADR-0020 S5，v1.75）：additive、locale-neutral（字段只含
+ * 英文 kind 与数据）；web 按 kind 映射 zh/en 文案。`message` 文本仍逐字保持
+ * （后端错误面/既有断言兼容），本字段只做展示投影。
+ *
+ * 说明：`code:"empty"`（空表达式）没有对应 kind——该错误无字符位置/数据，
+ * 由消费方按 code 直接映射空表达式文案（`detail` 缺省）。
+ */
+export type ExpressionErrorDetail =
+  | { kind: "invalidNumber" }
+  | { kind: "invalidChar"; char: string }
+  | { kind: "invalidVariableRef" }
+  | { kind: "trailingCharacter"; token: string }
+  | { kind: "unexpectedToken"; token: string }
+  | { kind: "unexpectedEnd" }
+  | { kind: "missingRightParen" }
+  | { kind: "depthLimit"; limit: number }
+  | { kind: "lengthLimit"; limit: number }
+  | { kind: "invalidVariableName"; name: string }
+  | { kind: "duplicateName"; name: string }
+  | { kind: "unknownVariable"; name: string }
+  | { kind: "cycle"; chain: string[] }
+  | { kind: "divisionByZero" }
+  | { kind: "literalOutOfRange"; text: string }
+  | { kind: "resultNotFinite" }
+  | { kind: "variableNotFinite"; name: string };
+
 export interface ExpressionFailure {
   ok: false;
   code: ExpressionErrorCode;
   message: string;
   /** 出错字符下标（0 基；empty/cycle/duplicateName 可省略）。 */
   position?: number;
+  /** 结构化详情（每次失败都应带；`empty` 缺省——见 ExpressionErrorDetail 注）。 */
+  detail?: ExpressionErrorDetail;
+  /** 变量表求值时**实际失败**的变量名（已归因；无归因错误省略）。 */
+  attributedVariable?: string;
+  /** 归因引用链（visiting 顺序，名字不含 `#`；无归因错误省略）。 */
+  referenceChain?: string[];
 }
 
 export type ExpressionResult = { ok: true; value: number } | ExpressionFailure;
@@ -81,8 +117,14 @@ class ExpressionEvalError extends Error {
     public readonly code: ExpressionErrorCode,
     message: string,
     public readonly position?: number,
+    /** ADR-0020 S5：结构化详情（empty 缺省）。 */
+    public readonly detail?: ExpressionErrorDetail,
     /** true=已由实际失败的变量归因（含引用链），上层不再重复前缀。 */
     public readonly attributed = false,
+    /** 归因变量名（attributed=true 时在场；cycle 可空）。 */
+    public readonly attributedVariable?: string,
+    /** 归因引用链（visiting 顺序，名字不含 `#`）。 */
+    public readonly referenceChain?: string[],
   ) {
     super(message);
     this.name = "ExpressionEvalError";
@@ -129,11 +171,16 @@ function tokenize(expression: string): Token[] {
         }
       }
       if (!hasDigits)
-        throw new ExpressionEvalError("syntax", "非法数字字面量", start);
+        throw new ExpressionEvalError("syntax", "非法数字字面量", start, { kind: "invalidNumber" });
       const text = expression.slice(start, i);
       const value = Number(text);
       if (!Number.isFinite(value))
-        throw new ExpressionEvalError("nonFinite", `数字字面量超出有限数范围: ${text}`, start);
+        throw new ExpressionEvalError(
+          "nonFinite",
+          `数字字面量超出有限数范围: ${text}`,
+          start,
+          { kind: "literalOutOfRange", text },
+        );
       tokens.push({ kind: "number", text, start, value });
       continue;
     }
@@ -141,7 +188,7 @@ function tokenize(expression: string): Token[] {
       const start = i;
       i++;
       if (i >= expression.length || !isNameStart(expression[i]))
-        throw new ExpressionEvalError("syntax", "变量引用 # 后须为字母或下划线", start);
+        throw new ExpressionEvalError("syntax", "变量引用 # 后须为字母或下划线", start, { kind: "invalidVariableRef" });
       const nameStart = i;
       while (i < expression.length && isNamePart(expression[i]))
         i++;
@@ -153,7 +200,7 @@ function tokenize(expression: string): Token[] {
       i++;
       continue;
     }
-    throw new ExpressionEvalError("syntax", `非法字符 "${ch}"`, i);
+    throw new ExpressionEvalError("syntax", `非法字符 "${ch}"`, i, { kind: "invalidChar", char: ch });
   }
   tokens.push({ kind: "eof", text: "", start: expression.length });
   return tokens;
@@ -179,7 +226,12 @@ class ExpressionParser {
     const value = this.parseExpression();
     const token = this.peek();
     if (token.kind !== "eof")
-      throw new ExpressionEvalError("syntax", `多余的字符 "${token.text}"`, token.start);
+      throw new ExpressionEvalError(
+        "syntax",
+        `多余的字符 "${token.text}"`,
+        token.start,
+        { kind: "trailingCharacter", token: token.text },
+      );
     return value;
   }
 
@@ -197,7 +249,12 @@ class ExpressionParser {
   private enterDepth(position: number): void {
     this._depth++;
     if (this._depth > MAX_PARSE_DEPTH)
-      throw new ExpressionEvalError("syntax", `表达式嵌套超过 ${MAX_PARSE_DEPTH} 层`, position);
+      throw new ExpressionEvalError(
+        "syntax",
+        `表达式嵌套超过 ${MAX_PARSE_DEPTH} 层`,
+        position,
+        { kind: "depthLimit", limit: MAX_PARSE_DEPTH },
+      );
   }
 
   private leaveDepth(): void {
@@ -214,7 +271,12 @@ class ExpressionParser {
       const rhs = this.parseTerm();
       const next = token.text === "+" ? value + rhs : value - rhs;
       if (!Number.isFinite(next))
-        throw new ExpressionEvalError("nonFinite", "表达式结果不是有限数", token.start);
+        throw new ExpressionEvalError(
+          "nonFinite",
+          "表达式结果不是有限数",
+          token.start,
+          { kind: "resultNotFinite" },
+        );
       value = next;
     }
   }
@@ -228,10 +290,15 @@ class ExpressionParser {
       this.advance();
       const rhs = this.parseUnary();
       if (token.text === "/" && rhs === 0)
-        throw new ExpressionEvalError("nonFinite", "除数为零", token.start);
+        throw new ExpressionEvalError("nonFinite", "除数为零", token.start, { kind: "divisionByZero" });
       const next = token.text === "*" ? value * rhs : value / rhs;
       if (!Number.isFinite(next))
-        throw new ExpressionEvalError("nonFinite", "表达式结果不是有限数", token.start);
+        throw new ExpressionEvalError(
+          "nonFinite",
+          "表达式结果不是有限数",
+          token.start,
+          { kind: "resultNotFinite" },
+        );
       value = next;
     }
   }
@@ -261,9 +328,19 @@ class ExpressionParser {
       this.advance();
       const value = this._lookup(token.text, token.start);
       if (value === undefined)
-        throw new ExpressionEvalError("unknownVariable", `未知变量: #${token.text}`, token.start);
+        throw new ExpressionEvalError(
+          "unknownVariable",
+          `未知变量: #${token.text}`,
+          token.start,
+          { kind: "unknownVariable", name: token.text },
+        );
       if (!Number.isFinite(value))
-        throw new ExpressionEvalError("nonFinite", `变量 #${token.text} 的值不是有限数`, token.start);
+        throw new ExpressionEvalError(
+          "nonFinite",
+          `变量 #${token.text} 的值不是有限数`,
+          token.start,
+          { kind: "variableNotFinite", name: token.text },
+        );
       return value;
     }
     if (token.kind === "op" && token.text === "(") {
@@ -273,13 +350,18 @@ class ExpressionParser {
       this.leaveDepth();
       const close = this.peek();
       if (close.kind !== "op" || close.text !== ")")
-        throw new ExpressionEvalError("syntax", "缺少右括号", token.start);
+        throw new ExpressionEvalError("syntax", "缺少右括号", token.start, { kind: "missingRightParen" });
       this.advance();
       return value;
     }
     if (token.kind === "eof")
-      throw new ExpressionEvalError("syntax", "表达式意外结束（缺少操作数）", token.start);
-    throw new ExpressionEvalError("syntax", `意外的记号 "${token.text}"`, token.start);
+      throw new ExpressionEvalError("syntax", "表达式意外结束（缺少操作数）", token.start, { kind: "unexpectedEnd" });
+    throw new ExpressionEvalError(
+      "syntax",
+      `意外的记号 "${token.text}"`,
+      token.start,
+      { kind: "unexpectedToken", token: token.text },
+    );
   }
 }
 
@@ -287,8 +369,24 @@ class ExpressionParser {
 // 公开入口
 // =============================================================================
 
-function makeFailure(code: ExpressionErrorCode, message: string, position?: number): ExpressionFailure {
-  return position === undefined ? { ok: false, code, message } : { ok: false, code, message, position };
+function makeFailure(
+  code: ExpressionErrorCode,
+  message: string,
+  position?: number,
+  detail?: ExpressionErrorDetail,
+  attributedVariable?: string,
+  referenceChain?: string[],
+): ExpressionFailure {
+  const failure: ExpressionFailure = { ok: false, code, message };
+  if (position !== undefined)
+    failure.position = position;
+  if (detail !== undefined)
+    failure.detail = detail;
+  if (attributedVariable !== undefined)
+    failure.attributedVariable = attributedVariable;
+  if (referenceChain !== undefined)
+    failure.referenceChain = referenceChain;
+  return failure;
 }
 
 /**
@@ -299,10 +397,15 @@ function evaluateOrThrow(expression: string, lookup: VariableLookup): number {
   if (expression.trim() === "")
     throw new ExpressionEvalError("empty", "表达式为空");
   if (expression.length > MAX_EXPRESSION_LENGTH)
-    throw new ExpressionEvalError("syntax", `表达式超过 ${MAX_EXPRESSION_LENGTH} 字符上限`, MAX_EXPRESSION_LENGTH);
+    throw new ExpressionEvalError(
+      "syntax",
+      `表达式超过 ${MAX_EXPRESSION_LENGTH} 字符上限`,
+      MAX_EXPRESSION_LENGTH,
+      { kind: "lengthLimit", limit: MAX_EXPRESSION_LENGTH },
+    );
   const value = new ExpressionParser(tokenize(expression), lookup).parse();
   if (!Number.isFinite(value))
-    throw new ExpressionEvalError("nonFinite", "表达式结果不是有限数");
+    throw new ExpressionEvalError("nonFinite", "表达式结果不是有限数", undefined, { kind: "resultNotFinite" });
   return value;
 }
 
@@ -312,7 +415,14 @@ function evaluateWith(expression: string, lookup: VariableLookup): ExpressionRes
     return { ok: true, value: evaluateOrThrow(expression, lookup) };
   } catch (error) {
     if (error instanceof ExpressionEvalError)
-      return makeFailure(error.code, error.message, error.position);
+      return makeFailure(
+        error.code,
+        error.message,
+        error.position,
+        error.detail,
+        error.attributedVariable,
+        error.referenceChain,
+      );
     throw error;
   }
 }
@@ -366,9 +476,19 @@ export function evaluateVariableTable(variables: readonly ExpressionVariableRef[
   const definitions = new Map<string, string>();
   for (const variable of variables) {
     if (!isValidVariableName(variable.name))
-      return makeFailure("syntax", `非法变量名: "${variable.name}"`);
+      return makeFailure(
+        "syntax",
+        `非法变量名: "${variable.name}"`,
+        undefined,
+        { kind: "invalidVariableName", name: variable.name },
+      );
     if (definitions.has(variable.name))
-      return makeFailure("duplicateName", `变量名重复: "${variable.name}"`);
+      return makeFailure(
+        "duplicateName",
+        `变量名重复: "${variable.name}"`,
+        undefined,
+        { kind: "duplicateName", name: variable.name },
+      );
     definitions.set(variable.name, variable.expression);
   }
 
@@ -381,11 +501,22 @@ export function evaluateVariableTable(variables: readonly ExpressionVariableRef[
       return cached;
     const expression = definitions.get(name);
     if (expression === undefined)
-      throw new ExpressionEvalError("unknownVariable", `未知变量: #${name}`, position);
+      throw new ExpressionEvalError(
+        "unknownVariable",
+        `未知变量: #${name}`,
+        position,
+        { kind: "unknownVariable", name },
+      );
     const cycleStart = visiting.indexOf(name);
     if (cycleStart !== -1) {
-      const chain = [...visiting.slice(cycleStart), name].map((item) => `#${item}`).join(" → ");
-      throw new ExpressionEvalError("cycle", `变量循环引用: ${chain}`);
+      const cycleNames = [...visiting.slice(cycleStart), name];
+      const chain = cycleNames.map((item) => `#${item}`).join(" → ");
+      throw new ExpressionEvalError(
+        "cycle",
+        `变量循环引用: ${chain}`,
+        undefined,
+        { kind: "cycle", chain: cycleNames },
+      );
     }
     visiting.push(name);
     try {
@@ -398,12 +529,15 @@ export function evaluateVariableTable(variables: readonly ExpressionVariableRef[
       // cycle 消息已含完整环链；已归因的依赖失败保持原样——两种情况都不重复前缀。
       if (error.code === "cycle" || error.attributed)
         throw error;
-      const chain = visiting.join(" → ");
+      const chain = [...visiting];
       throw new ExpressionEvalError(
         error.code,
-        `变量 "${name}": ${error.message}（引用链：${chain}）`,
+        `变量 "${name}": ${error.message}（引用链：${chain.join(" → ")}）`,
         error.position,
+        error.detail,
         true,
+        name,
+        chain,
       );
     } finally {
       visiting.pop();
@@ -415,7 +549,14 @@ export function evaluateVariableTable(variables: readonly ExpressionVariableRef[
       resolve(variable.name, 0);
   } catch (error) {
     if (error instanceof ExpressionEvalError)
-      return makeFailure(error.code, error.message, error.position);
+      return makeFailure(
+        error.code,
+        error.message,
+        error.position,
+        error.detail,
+        error.attributedVariable,
+        error.referenceChain,
+      );
     throw error;
   }
   return { ok: true, values };

@@ -9,11 +9,13 @@
  *    unknownVariable/duplicateName/cycle（自引用与两变量环）/nonFinite（除零/溢出）；
  *  - 名称校验与纯函数性（不修改输入 map、结果确定性）。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   collectVariableReferences,
   evaluateExpression,
   evaluateVariableTable,
+  type ExpressionErrorDetail,
+  type ExpressionFailure,
   type ExpressionResult,
   type ExpressionVariableRef,
   isValidVariableName,
@@ -314,6 +316,210 @@ describe("变量引用收集（ADR-0020 S3 collectVariableReferences）", () => 
     const expression = "#a*2";
     collectVariableReferences(expression);
     expect(expression).toBe("#a*2");
+  });
+});
+
+describe("表达式求值器：结构化 detail（ADR-0020 S5，v1.75）", () => {
+  const failureOf = (result: { ok: boolean }): ExpressionFailure => {
+    expect(result.ok, JSON.stringify(result)).toBe(false);
+    return result as ExpressionFailure;
+  };
+
+  it("类型契约：detail/attributedVariable/referenceChain 为可选 additive 字段", () => {
+    expectTypeOf<ExpressionFailure["detail"]>().toEqualTypeOf<ExpressionErrorDetail | undefined>();
+    expectTypeOf<ExpressionFailure["attributedVariable"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ExpressionFailure["referenceChain"]>().toEqualTypeOf<string[] | undefined>();
+  });
+
+  it("empty：无 position、无 detail（空表达式没有可结构化的字符/数据）", () => {
+    const failure = failureOf(evaluateExpression("   "));
+    expect(failure.code).toBe("empty");
+    expect(failure.position).toBeUndefined();
+    expect(failure.detail).toBeUndefined();
+    expect(failure.attributedVariable).toBeUndefined();
+    expect(failure.referenceChain).toBeUndefined();
+  });
+
+  it("词法：invalidNumber / invalidChar{char} / invalidVariableRef", () => {
+    const invalidNumber = failureOf(evaluateExpression("."));
+    expect(invalidNumber).toMatchObject({ code: "syntax", position: 0, detail: { kind: "invalidNumber" } });
+
+    const invalidChar = failureOf(evaluateExpression("1 $ 2"));
+    expect(invalidChar).toMatchObject({
+      code: "syntax", position: 2, detail: { kind: "invalidChar", char: "$" },
+    });
+
+    const invalidRef = failureOf(evaluateExpression("#"));
+    expect(invalidRef).toMatchObject({ code: "syntax", position: 0, detail: { kind: "invalidVariableRef" } });
+    expect(failureOf(evaluateExpression("#1a")).detail).toEqual({ kind: "invalidVariableRef" });
+  });
+
+  it("语法：trailingCharacter{token} / unexpectedToken{token} / unexpectedEnd / missingRightParen", () => {
+    expect(failureOf(evaluateExpression("1 2")).detail)
+      .toEqual({ kind: "trailingCharacter", token: "2" });
+    expect(failureOf(evaluateExpression("1+2)")).detail)
+      .toEqual({ kind: "trailingCharacter", token: ")" });
+    expect(failureOf(evaluateExpression("*1")).detail)
+      .toEqual({ kind: "unexpectedToken", token: "*" });
+    expect(failureOf(evaluateExpression("()")).detail)
+      .toEqual({ kind: "unexpectedToken", token: ")" });
+    expect(failureOf(evaluateExpression("1+")).detail)
+      .toEqual({ kind: "unexpectedEnd" });
+    expect(failureOf(evaluateExpression("(1+2")).detail)
+      .toEqual({ kind: "missingRightParen" });
+  });
+
+  it("边界：depthLimit{limit} / lengthLimit{limit}", () => {
+    const nested = `${"(".repeat(65)}1${")".repeat(65)}`;
+    expect(failureOf(evaluateExpression(nested))).toMatchObject({
+      code: "syntax",
+      position: 64,
+      detail: { kind: "depthLimit", limit: 64 },
+    });
+    const long = "0".repeat(MAX_EXPRESSION_LENGTH + 1);
+    expect(failureOf(evaluateExpression(long))).toMatchObject({
+      code: "syntax",
+      position: MAX_EXPRESSION_LENGTH,
+      detail: { kind: "lengthLimit", limit: MAX_EXPRESSION_LENGTH },
+    });
+  });
+
+  it("数值：divisionByZero / literalOutOfRange{text} / resultNotFinite / variableNotFinite{name}", () => {
+    expect(failureOf(evaluateExpression("1/0"))).toMatchObject({
+      code: "nonFinite",
+      position: 1,
+      detail: { kind: "divisionByZero" },
+    });
+
+    const hugeText = "9".repeat(400);
+    expect(failureOf(evaluateExpression(hugeText))).toMatchObject({
+      code: "nonFinite",
+      position: 0,
+      detail: { kind: "literalOutOfRange", text: hugeText },
+    });
+
+    const overflow = `${"9".repeat(200)} * ${"9".repeat(200)}`;
+    expect(failureOf(evaluateExpression(overflow))).toMatchObject({
+      code: "nonFinite",
+      position: 201,
+      detail: { kind: "resultNotFinite" },
+    });
+
+    expect(failureOf(evaluateExpression("#a", new Map([["a", Number.NaN]])))).toMatchObject({
+      code: "nonFinite",
+      position: 0,
+      detail: { kind: "variableNotFinite", name: "a" },
+    });
+    expect(failureOf(evaluateExpression("#a", new Map([["a", Number.POSITIVE_INFINITY]]))).detail)
+      .toEqual({ kind: "variableNotFinite", name: "a" });
+  });
+
+  it("未知变量：unknownVariable{name}（position 指向 # 下标）", () => {
+    expect(failureOf(evaluateExpression("1 + #width"))).toMatchObject({
+      code: "unknownVariable",
+      position: 4,
+      detail: { kind: "unknownVariable", name: "width" },
+    });
+  });
+
+  it("变量表：invalidVariableName{name} / duplicateName{name}（无 position/归因）", () => {
+    const invalid = failureOf(evaluateVariableTable([{ name: "1a", expression: "1" }]));
+    expect(invalid).toMatchObject({
+      code: "syntax",
+      detail: { kind: "invalidVariableName", name: "1a" },
+    });
+    expect(invalid.position).toBeUndefined();
+    expect(invalid.attributedVariable).toBeUndefined();
+
+    const duplicate = failureOf(evaluateVariableTable([
+      { name: "a", expression: "1" },
+      { name: "a", expression: "2" },
+    ]));
+    expect(duplicate).toMatchObject({
+      code: "duplicateName",
+      detail: { kind: "duplicateName", name: "a" },
+    });
+    expect(duplicate.referenceChain).toBeUndefined();
+  });
+
+  it("cycle：detail.chain 为闭环名数组（不含 #），连续两次求值确定", () => {
+    const self = failureOf(evaluateVariableTable([{ name: "a", expression: "#a + 1" }]));
+    expect(self).toMatchObject({ code: "cycle", detail: { kind: "cycle", chain: ["a", "a"] } });
+    expect(self.attributedVariable).toBeUndefined();
+    expect(self.referenceChain).toBeUndefined();
+
+    const table: ExpressionVariableRef[] = [
+      { name: "a", expression: "#b + 1" },
+      { name: "b", expression: "#c + 1" },
+      { name: "c", expression: "#a + 1" },
+    ];
+    const first = failureOf(evaluateVariableTable(table));
+    const second = failureOf(evaluateVariableTable(table));
+    expect(first.detail).toEqual({ kind: "cycle", chain: ["a", "b", "c", "a"] });
+    expect(second.detail).toEqual(first.detail);
+    expect(first.message).toBe(second.message);
+  });
+
+  it("表级归因：保留 cause 的 detail，填 attributedVariable/referenceChain（visiting 顺序）", () => {
+    const unknown = failureOf(evaluateVariableTable([
+      { name: "a", expression: "#b + 1" },
+      { name: "b", expression: "2 + #missing" },
+    ]));
+    expect(unknown).toMatchObject({
+      code: "unknownVariable",
+      position: 4,
+      detail: { kind: "unknownVariable", name: "missing" },
+      attributedVariable: "b",
+      referenceChain: ["a", "b"],
+    });
+
+    const syntax = failureOf(evaluateVariableTable([
+      { name: "a", expression: "#b + 1" },
+      { name: "b", expression: "1 +" },
+    ]));
+    expect(syntax).toMatchObject({
+      code: "syntax",
+      position: 3,
+      detail: { kind: "unexpectedEnd" },
+      attributedVariable: "b",
+      referenceChain: ["a", "b"],
+    });
+
+    const nonFinite = failureOf(evaluateVariableTable([
+      { name: "a", expression: "#b + 1" },
+      { name: "b", expression: "1/0" },
+    ]));
+    expect(nonFinite).toMatchObject({
+      code: "nonFinite",
+      position: 1,
+      detail: { kind: "divisionByZero" },
+      attributedVariable: "b",
+      referenceChain: ["a", "b"],
+    });
+  });
+
+  it("message 逐字兼容（detail 为 additive，不改后端错误面）", () => {
+    const messageOf = (result: { ok: boolean }): string => failureOf(result).message;
+    expect(messageOf(evaluateExpression(""))).toBe("表达式为空");
+    expect(messageOf(evaluateExpression("."))).toBe("非法数字字面量");
+    expect(messageOf(evaluateExpression("$1"))).toBe('非法字符 "$"');
+    expect(messageOf(evaluateExpression("#"))).toBe("变量引用 # 后须为字母或下划线");
+    expect(messageOf(evaluateExpression("1 2"))).toBe('多余的字符 "2"');
+    expect(messageOf(evaluateExpression("*1"))).toBe('意外的记号 "*"');
+    expect(messageOf(evaluateExpression("1+"))).toBe("表达式意外结束（缺少操作数）");
+    expect(messageOf(evaluateExpression("(1"))).toBe("缺少右括号");
+    expect(messageOf(evaluateExpression("1/0"))).toBe("除数为零");
+    expect(messageOf(evaluateExpression("#x"))).toBe("未知变量: #x");
+    expect(messageOf(evaluateVariableTable([{ name: "1a", expression: "1" }]))).toBe('非法变量名: "1a"');
+    expect(messageOf(evaluateVariableTable([
+      { name: "a", expression: "1" }, { name: "a", expression: "2" },
+    ]))).toBe('变量名重复: "a"');
+    expect(messageOf(evaluateVariableTable([{ name: "a", expression: "#a + 1" }])))
+      .toBe("变量循环引用: #a → #a");
+    expect(messageOf(evaluateVariableTable([
+      { name: "a", expression: "#b + 1" },
+      { name: "b", expression: "1 +" },
+    ]))).toBe('变量 "b": 表达式意外结束（缺少操作数）（引用链：a → b）');
   });
 });
 

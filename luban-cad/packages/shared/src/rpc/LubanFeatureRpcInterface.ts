@@ -1165,7 +1165,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.74.0";
+  public static interfaceVersion = "1.75.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

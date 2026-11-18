@@ -274,6 +274,7 @@ export {
 export type {
   ExpressionVariableRef,
   ExpressionErrorCode,
+  ExpressionErrorDetail,
   ExpressionFailure,
   ExpressionResult,
   VariableTableResult,
