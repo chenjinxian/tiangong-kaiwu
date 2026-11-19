@@ -724,15 +724,18 @@ describe('M4-T8 D5：树右键菜单项左置图标（os-15 V20）', () => {
     const menu = screen.getByRole('menu', { name: '特征菜单' });
     const items = within(menu).getAllByRole('menuitem');
     expect(items.length).toBeGreaterThan(0);
-    // Onshape live（2026-11-12）：菜单混排图标/纯文本项——有图标者必须装饰性；
-    // 真实动作项（重命名/编辑/抑制/删除）带图标。
+    // live w48（2026-11-19）：图标仅出现在 添加评论/外观/删除；重命名/编辑/抑制
+    // 为纯文本。有图标者必须装饰性（aria-hidden）。
     for (const itemEl of items) {
       const icon = itemEl.querySelector('svg');
       if (icon)
         expect(icon.closest('[aria-hidden="true"]')).not.toBeNull();
     }
-    for (const name of ['重命名', '编辑…', '抑制', '删除']) {
+    for (const name of ['添加评论', '为特征添加外观…', '删除']) {
       expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).not.toBeNull();
+    }
+    for (const name of ['重命名', '编辑…', '抑制']) {
+      expect(within(menu).getByRole('menuitem', { name }).querySelector('svg')).toBeNull();
     }
   });
 });
@@ -1252,12 +1255,12 @@ describe('S2 Onshape tree parity：过滤计数与零件菜单动作', () => {
     expect(zoomToElements).toHaveBeenCalledWith(['0x15']);
   });
 
-  it('特征行 清除选定内容 → store.tree.selectedNodeIds 清空', async () => {
-    const user = userEvent.setup();
+  it('特征行无「清除选定内容」（live w48 菜单不含该项）', () => {
     render(<FeatureTree entries={ENTRIES} />);
     fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
-    await user.click(screen.getByRole('menuitem', { name: '清除选定内容' }));
-    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).queryByRole('menuitem', { name: '清除选定内容' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '清除选择' })).toBeNull();
   });
 });
 
@@ -1532,7 +1535,7 @@ describe('W46 S16：关闭态草图行全菜单对齐', () => {
     expect((items[15] as HTMLButtonElement).disabled).toBe(true);
     // 无 live 之外的「清除选择」/「添加表达式」；无旧「编辑草图…」文案。
     expect(within(menu).queryByRole('menuitem', { name: '清除选择' })).toBeNull();
-    expect(within(menu).queryByRole('menuitem', { name: '添加表达式' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '添加表达式…' })).toBeNull();
     expect(within(menu).queryByRole('menuitem', { name: '编辑草图…' })).toBeNull();
   });
 
@@ -1584,5 +1587,77 @@ describe('W46 S16：关闭态草图行全菜单对齐', () => {
     fireEventContextMenu(screen.getByTestId('tree-row-sk1'));
     const menu = screen.getByRole('menu', { name: '特征菜单' });
     expect((within(menu).getByTestId('tree-menu-zoom-sketch') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+// ── W47 S17（Onshape live 2026-11-19 probe w48）：关闭态特征行全菜单 ─────────
+// live 13 项：重命名/编辑…/编辑 <基础草图> [草图]…/显示尺寸/文件夹/抑制/
+// 动态抑制添加表达式…/添加评论/放大选定对象/显示依赖项…/滚动到此处/
+// 为特征添加外观…/删除；仅 添加评论/外观/删除 有图标。
+describe('W47 S17：关闭态特征行全菜单对齐', () => {
+  const FEATURE_ENTRIES: FeatureTreeEntry[] = [
+    { id: 's1', featureType: 'sketch', orderKey: 1, suppressed: false, status: 0, params: {} },
+    {
+      id: 'f1', featureType: 'extrude', orderKey: 2, suppressed: false, status: 0,
+      params: { sketchId: 's1' },
+    },
+  ];
+
+  it('特征行全菜单 = live 13 项顺序；基础草图编辑项可点击进草图模式', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={FEATURE_ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-f1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    const items = within(menu).getAllByRole('menuitem');
+    expect(items.map((item) => (item.textContent ?? '').trim())).toEqual([
+      '重命名',
+      '编辑…',
+      '编辑 草图 1 [草图]…',
+      '显示尺寸',
+      '将选定内容添加到文件夹…',
+      '抑制',
+      '动态抑制添加表达式…›',
+      '添加评论',
+      '放大选定对象',
+      '显示依赖项…',
+      '滚动到此处',
+      '为特征添加外观…',
+      '删除',
+    ]);
+    // 已实现：重命名/编辑…/编辑基础草图/抑制/删除；其余诚实禁用
+    //（无 viewport/body 时放大亦禁用）。
+    const enabled = new Set([0, 1, 2, 5, 12]);
+    items.forEach((item, index) => {
+      expect((item as HTMLButtonElement).disabled, `第 ${index} 项 ${item.textContent}`)
+        .toBe(!enabled.has(index));
+    });
+    // 无草图行的剖视图/隐藏项、无 live 之外的清除选择/添加表达式。
+    expect(within(menu).queryByRole('menuitem', { name: '剖视图…' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '清除选定内容' })).toBeNull();
+    expect(within(menu).queryByRole('menuitem', { name: '添加表达式…' })).toBeNull();
+    // 基础草图项：点击进入该草图编辑（store 断言）。
+    await user.click(within(menu).getByTestId('tree-menu-edit-profile-sketch'));
+    expect(usePartStudioStore.getState().sketch.isActive).toBe(true);
+    expect(usePartStudioStore.getState().sketch.activeSketchId).toBe('s1');
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('特征行无 params.sketchId：不渲染基础草图编辑项', () => {
+    render(<FeatureTree entries={ENTRIES} />);
+    fireEventContextMenu(screen.getByTestId('tree-row-ex1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).queryByTestId('tree-menu-edit-profile-sketch')).toBeNull();
+  });
+
+  it('过滤态：基础草图行被过滤掉时，特征行仍提供基础草图编辑项', async () => {
+    const user = userEvent.setup();
+    render(<FeatureTree entries={FEATURE_ENTRIES} />);
+    const input = screen.getByRole('textbox', { name: '按名称或类型筛选' });
+    await user.type(input, '拉伸');
+    // 草图行被过滤掉，只留拉伸行。
+    expect(screen.queryByTestId('tree-row-s1')).toBeNull();
+    fireEventContextMenu(screen.getByTestId('tree-row-f1'));
+    const menu = screen.getByRole('menu', { name: '特征菜单' });
+    expect(within(menu).getByTestId('tree-menu-edit-profile-sketch')).toBeDefined();
   });
 });

@@ -37,7 +37,8 @@
  *   §视口交互最小通道；后续特征灰显挂账）；
  * - 行（TreeRow）：名称 + 错误红显 + 抑制斜体 + 隐藏淡显；行点击选中（树→画布
  *   emphasize 联动的数据源），行右键菜单（os-15 子集：重命名/编辑…/抑制/
- *   删除（直接执行，可 Ctrl+Z），每项左置图标——os-15 V20，M4-T8 D5 收口）；
+ *   删除（直接执行，可 Ctrl+Z）；图标按 live w47-04/w48：仅评论/外观/删除带
+ *   图标，名称类项纯文本（M4-T8 D5 旧「每项左置图标」口径已被 live 修订））；
  * - 特征段头三工具钮（os-11 段头形态；M4-T8 D3 收口）：插入元素/暂停重建/
  *   特征历史——完整 UI 面铁律（照常渲染可点），均无后端面，登记 gated →
  *   能力引导对话框（capabilities.ts 单一真源；full 翻转后接真实路由）；
@@ -62,10 +63,6 @@ import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
 import type { BodyInfo, FeatureTreeEntry, SketchEntityDto, SketchPlaneDto, VariableDto } from '@luban-cad/shared';
 import {
   SvgDelete,
-  SvgEdit,
-  SvgEditAll,
-  SvgHideManuallySuppressed,
-  SvgVisibilityShow,
 } from '@itwin/itwinui-icons-react';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import type { OnshapeIconName } from '../icons/onshape-icons.js';
@@ -594,10 +591,7 @@ export function FeatureTree({
       return;
     orientCameraToSketchPlane(targetViewport, params?.plane);
   }, [viewport]);
-  // Onshape live：树选中右键菜单可在原清空选择；part 行「属性…」只读对话框。
-  const clearTreeSelection = React.useCallback(() => {
-    model.selectNodes([]);
-  }, [model]);
+  // part 行「属性…」只读对话框。
   const [propertiesNode, setPropertiesNode] = React.useState<PartNode | null>(null);
   // 2026-11-13：零件「使之透明…」会话滑块（Onshape 同一工具面板的简化切片；
   // 仅逐 body 透明度，展开/零部件控制等未做——如实登记）。
@@ -926,6 +920,18 @@ export function FeatureTree({
   const sketchZoomReady = sketchWorldRange(sketchMenuPlane, sketchMenuEntities) !== undefined;
   // 与 handlers 相同的视口回退：真实视口缺省时取 IModelApp 选中视图。
   const sketchCameraViewport = viewport ?? IModelApp.viewManager?.selectedView;
+  // W47 S17（live w48）：特征行「编辑 <基础草图> [草图]…」——params.sketchId 反查
+  // 树内草图行（首切片仅单 sketchId；loft 多草图/lift 未采不猜）。
+  const profileSketchNode = menuNode !== undefined && isFeatureNode(menuNode) && !isSketchNode(menuNode)
+    ? (() => {
+      const params = menuNode.params as { sketchId?: unknown } | undefined;
+      const sketchId = typeof params?.sketchId === 'string' ? params.sketchId : undefined;
+      return sketchId === undefined
+        ? undefined
+        // 用未过滤全量行解析：搜索过滤只影响可见行，不得改变可见行的菜单动作。
+        : model.allFeatureRows.find((row) => row.id === sketchId && row.type === 'sketch');
+    })()
+    : undefined;
 
   return (
     <div className="part-studio-tree" data-testid="part-studio-tree">
@@ -1134,10 +1140,7 @@ export function FeatureTree({
               setEditingId(menuNode.id);
             }}
           >
-            {/* live w47-04：草图行「重命名」无图标；特征行未采，保留原图标。 */}
-            {!openSketchMenuVariant && !isSketchNode(menuNode) && (
-              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEdit /></span>
-            )}
+            {/* live w47-04/w48：名称类项（重命名/编辑…/抑制/复制/粘贴）无图标。 */}
             {t('partStudio.tree.rename')}
           </button>
           {!openSketchMenuVariant && (
@@ -1194,10 +1197,25 @@ export function FeatureTree({
                 }
               }}
             >
-              <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgEditAll /></span>
               {t('partStudio.tree.edit')}
             </button>
           ))}
+          {/* W47 S17（live w48）：特征行「编辑 <基础草图> [草图]…」——打开该特征
+              引用的草图（首切片仅 params.sketchId；无可解析草图时不渲染）。 */}
+          {!openSketchMenuVariant && !isSketchNode(menuNode) && profileSketchNode && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              data-testid="tree-menu-edit-profile-sketch"
+              onClick={() => {
+                setMenu(null);
+                handleEditSketch(profileSketchNode);
+              }}
+            >
+              {t('partStudio.tree.menuEditProfileSketch', { name: profileSketchNode.name })}
+            </button>
+          )}
           {/* Onshape live 2026-11-18（W41 S10）：草图行「复制草图」——紧随
               「编辑…」，把整张草图曲线/内部约束复制到会话剪贴板（草图内
               「粘贴草图图元」消费）。W44 S13：live 菜单这两项**无图标**。
@@ -1247,9 +1265,9 @@ export function FeatureTree({
               {t('partStudio.sketch.treePasteIntoSketch')}
             </button>
           )}
-          {/* live w47-04：草图行「显示尺寸」紧随粘贴，未实现（关闭态尺寸渲染）→
-              诚实禁用。特征行未采，不渲染。 */}
-          {!openSketchMenuVariant && isSketchNode(menuNode) && (
+          {/* live w47-04/w48：草图行与特征行均有「显示尺寸」（关闭态尺寸渲染
+              未实现）→ 诚实禁用。 */}
+          {!openSketchMenuVariant && (
             <button
               type="button"
               role="menuitem"
@@ -1277,7 +1295,7 @@ export function FeatureTree({
             </>
           )}
           {/* live w47-04：草图行隐藏/隐藏其他/隐藏所有/工程图/DXF（未实现子系统）
-              → 按 live 顺序诚实禁用；特征行未采，不渲染。 */}
+              → 按 live 顺序诚实禁用；特征行 live w48 确认不含该族，不渲染。 */}
           {!openSketchMenuVariant && isSketchNode(menuNode) && (
             <>
               <button
@@ -1332,15 +1350,18 @@ export function FeatureTree({
               </button>
             </>
           )}
-          <button
-            type="button"
-            role="menuitem"
-            className="part-studio-tree-menu__item"
-            disabled
-            title={t('partStudio.tree.unsupported')}
-          >
-            {t('partStudio.tree.menuSectionView')}
-          </button>
+          {/* live w48：特征行无「剖视图…」（仅草图行有）。 */}
+          {isSketchNode(menuNode) && (
+            <button
+              type="button"
+              role="menuitem"
+              className="part-studio-tree-menu__item"
+              disabled
+              title={t('partStudio.tree.unsupported')}
+            >
+              {t('partStudio.tree.menuSectionView')}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -1357,12 +1378,7 @@ export function FeatureTree({
               }
             }}
           >
-            {/* live w47-04：草图行「抑制」无图标；特征行未采，保留原图标。 */}
-            {!openSketchMenuVariant && !isSketchNode(menuNode) && (
-              <span className="part-studio-menu-item-icon" aria-hidden="true">
-                {menuNode.isSuppressed ? <SvgVisibilityShow /> : <SvgHideManuallySuppressed />}
-              </span>
-            )}
+            {/* live w47-04/w48：抑制无图标。 */}
             {menuNode.isSuppressed
               ? t('partStudio.tree.unsuppress')
               : t('partStudio.tree.suppress')}
@@ -1374,22 +1390,10 @@ export function FeatureTree({
             disabled
             title={t('partStudio.tree.unsupported')}
           >
-            {openSketchMenuVariant || isSketchNode(menuNode)
-              ? t('partStudio.tree.menuDynamicSuppressAddExpression')
-              : t('partStudio.tree.menuDynamicSuppress')}
+            {/* live w47-04/w48：草图行与特征行均为合并文案。 */}
+            {t('partStudio.tree.menuDynamicSuppressAddExpression')}
             <span className="part-studio-tree-menu__submenu" aria-hidden="true">›</span>
           </button>
-          {!openSketchMenuVariant && !isSketchNode(menuNode) && (
-            <button
-              type="button"
-              role="menuitem"
-              className="part-studio-tree-menu__item"
-              disabled
-              title={t('partStudio.tree.unsupported')}
-            >
-              {t('partStudio.tree.menuAddExpression')}
-            </button>
-          )}
           {!openSketchMenuVariant && (
             <div className="part-studio-tree-menu__separator" role="separator" />
           )}
@@ -1467,23 +1471,7 @@ export function FeatureTree({
           {!openSketchMenuVariant && (
             <div className="part-studio-tree-menu__separator" role="separator" />
           )}
-          {/* live w47-04：草图行无「清除选择」；特征行未采，保留既有项。 */}
-          {!openSketchMenuVariant && !isSketchNode(menuNode) && (
-            <button
-              type="button"
-              role="menuitem"
-              className="part-studio-tree-menu__item"
-              onClick={() => {
-                setMenu(null);
-                clearTreeSelection();
-              }}
-            >
-              {t('partStudio.tree.menuClearSelection')}
-            </button>
-          )}
-          {!openSketchMenuVariant && !isSketchNode(menuNode) && (
-            <div className="part-studio-tree-menu__separator" role="separator" />
-          )}
+          {/* live w47-04/w48：草图行与特征行均无「清除选择」。 */}
           {!openSketchMenuVariant && (
             <button
               type="button"
@@ -1520,9 +1508,14 @@ export function FeatureTree({
               disabled
               title={t('partStudio.tree.unsupported')}
             >
+              {/* live w47-04/w48：草图行「编辑草图外观…」、特征行「为特征添加外观…」，
+                  均带外观图标。 */}
+              <span className="part-studio-menu-item-icon" aria-hidden="true">
+                <OnshapeIcon name="appearances-button" size={16} />
+              </span>
               {isSketchNode(menuNode)
                 ? t('partStudio.tree.menuEditSketchAppearance')
-                : t('partStudio.tree.menuAppearanceForSelection', { count: Math.max(1, model.selectedNodeIds.length) })}
+                : t('partStudio.tree.menuAppearanceForFeature')}
             </button>
           )}
           {!openSketchMenuVariant && (
@@ -1549,7 +1542,7 @@ export function FeatureTree({
                 }
               }}
             >
-              {/* live w47-04：草图行「删除」无图标；特征行未采，保留原图标。 */}
+              {/* live w47-04/w48：草图行「删除」无图标；特征行删除带图标（w48）。 */}
               {!isSketchNode(menuNode) && (
                 <span className="part-studio-menu-item-icon" aria-hidden="true"><SvgDelete /></span>
               )}

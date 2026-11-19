@@ -46,6 +46,11 @@ export interface UseFeatureTreeOptions {
 export interface FeatureTreeModel {
   /** 特征段行（已映射 + 已叠加隐藏集 + 已过滤）。 */
   featureRows: readonly FeatureNode[];
+  /**
+   * 未过滤的全量特征行（同映射/隐藏集）——菜单动作解析（如特征行的基础草图）
+   * 不得受搜索过滤影响。
+   */
+  allFeatureRows: readonly FeatureNode[];
   /** 零件段行（同口径）。 */
   partRows: readonly PartNode[];
   /** 段头计数（os-11「特征 (17)」；过滤后行数）。 */
@@ -122,10 +127,14 @@ export function useFeatureTree({ entries, parts, filter }: UseFeatureTreeOptions
     [hiddenSet],
   );
 
-  const featureRows = React.useMemo(() => {
-    const rows = mapFeatureEntries(entries ?? [], typeLabel).map(applyHidden);
-    return filter ? rows.filter((node) => matchFeature(node, filter)) : rows;
-  }, [entries, typeLabel, hiddenSet, filter, applyHidden]);
+  const allFeatureRows = React.useMemo(
+    () => mapFeatureEntries(entries ?? [], typeLabel).map(applyHidden),
+    [entries, typeLabel, hiddenSet, applyHidden],
+  );
+  const featureRows = React.useMemo(
+    () => (filter ? allFeatureRows.filter((node) => matchFeature(node, filter)) : allFeatureRows),
+    [allFeatureRows, filter],
+  );
 
   const partRows = React.useMemo(() => {
     const rows = (parts ?? []).map(applyHidden);
@@ -134,6 +143,7 @@ export function useFeatureTree({ entries, parts, filter }: UseFeatureTreeOptions
 
   return {
     featureRows,
+    allFeatureRows,
     partRows,
     featureCount: featureRows.length,
     partCount: partRows.length,

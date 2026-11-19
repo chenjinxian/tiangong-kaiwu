@@ -3,7 +3,7 @@
  *
  * 覆盖：过滤态计数「匹配/总数」；零件行右键菜单分组（属性…/编辑外观…/隐藏/
  * 放大选定对象；特征变异项禁用）；属性只读对话框；放大选定对象改变相机；
- * 特征行右键「清除选定内容」清空树选择。
+ * 特征行右键菜单不含 live 之外的「清除选定内容」，且含基础草图编辑入口。
  */
 import { expect, test } from '@playwright/test';
 import type { FeatureOp, SketchConstraintDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
@@ -79,7 +79,7 @@ async function readTreeSelection(page: import('@playwright/test').Page): Promise
 }
 
 test.describe('特征树交互对拍（S2）', () => {
-  test('过滤计数 / 零件菜单 / 属性 / 放大 / 清除选择', async ({ page, request }) => {
+  test('过滤计数 / 零件菜单 / 属性 / 放大 / 特征行菜单', async ({ page, request }) => {
     test.setTimeout(300_000);
     const token = await getApiToken();
     const seed = await resetBModelSeed(request, token);
@@ -165,12 +165,16 @@ test.describe('特征树交互对拍（S2）', () => {
     await menu.getByTestId('tree-menu-edit-appearance').click();
     await expect(page.getByTestId('part-studio-appearances')).toBeVisible({ timeout: 10_000 });
 
-    // ---- 6. 特征行右键「清除选定内容」→ 树选择清空 ----
+    // ---- 6. 特征行右键：live w48 菜单无「清除选定内容」，含基础草图编辑 ----
     await page.getByTestId(`tree-row-${extrudeId}`).click();
     await expect.poll(async () => (await readTreeSelection(page)).length, { timeout: 10_000 }).toBe(1);
     await page.getByTestId(`tree-row-${extrudeId}`).click({ button: 'right' });
     await expect(menu).toBeVisible();
-    await menu.getByRole('menuitem', { name: '清除选定内容' }).click();
-    await expect.poll(async () => (await readTreeSelection(page)).length, { timeout: 10_000 }).toBe(0);
+    await expect(menu.getByRole('menuitem', { name: '清除选定内容' })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: '清除选择' })).toHaveCount(0);
+    await expect(menu.getByTestId('tree-menu-edit-profile-sketch')).toBeVisible();
+    // 右键不改选中（既有语义）。
+    expect((await readTreeSelection(page)).length).toBe(1);
+    await page.keyboard.press('Escape');
   });
 });

@@ -8,6 +8,8 @@
  * - 关闭草图后恢复全菜单；W46 S16 起按 live w47-04 的 21 项顺序对齐（本 spec
  *   逐项断言文案与启用/禁用态）。
  *
+ * W47 S17（live w48）：特征行（Extrude）13 项菜单顺序与「编辑 <基础草图> [草图]…」。
+ *
  * 本 spec（RPC 建两草图 + 真实树菜单）：
  *   1) RPC 建草图 A（矩形）与 B（空）；
  *   2) 双击 A 进入草图编辑；
@@ -190,5 +192,67 @@ test.describe('W45 S15：草图打开态树菜单变体', () => {
     // 视图垂直于：菜单收合、真实相机动作不抛异常（草图 A 在 Front 平面）。
     await fullItems.nth(16).click();
     await expect(fullMenu).toHaveCount(0);
+  });
+
+});
+
+// ── W47 S17（live w48）：关闭态特征行菜单 ──────────────────────────────────
+test.describe('W47 S17：关闭态特征行菜单', () => {
+  test('特征行菜单 13 项（live w48）；编辑基础草图项打开该草图', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+
+    const rectangle = rectangleSketch(40, 20);
+    const lease = await borrowWriteLease(ctx, token, 's17-feature-row-menu');
+    const createdSketch = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: rectangle.entities,
+      constraints: rectangle.constraints,
+      plane: FRONT,
+    }, lease, token);
+    assertFeatureOpOk(createdSketch, '基础草图');
+    const sketchId = createdSketch.featureId!;
+    const createdExtrude = await applyFeatureOpRpc(ctx, {
+      kind: 'insertFeature',
+      featureType: 'extrude',
+      params: { profile: [], distance: 10, sketchId, regions: [0], operation: 'new' },
+    }, lease, token);
+    assertFeatureOpOk(createdExtrude, '拉伸');
+    const extrudeId = createdExtrude.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const featureRow = page.getByTestId(`tree-row-${extrudeId}`);
+    await expect(featureRow).toBeVisible({ timeout: 60_000 });
+
+    await featureRow.click({ button: 'right' });
+    const menu = page.getByRole('menu', { name: '特征菜单' });
+    await expect(menu).toBeVisible();
+    const items = menu.getByRole('menuitem');
+    await expect(items).toHaveCount(13);
+    expect((await items.allTextContents()).map((text) => text.trim())).toEqual([
+      '重命名',
+      '编辑…',
+      '编辑 草图 1 [草图]…',
+      '显示尺寸',
+      '将选定内容添加到文件夹…',
+      '抑制',
+      '动态抑制添加表达式…›',
+      '添加评论',
+      '放大选定对象',
+      '显示依赖项…',
+      '滚动到此处',
+      '为特征添加外观…',
+      '删除',
+    ]);
+    await expect(menu.getByRole('menuitem', { name: '剖视图…' })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: '清除选定内容' })).toHaveCount(0);
+    await expect(menu.getByTestId('tree-menu-edit-profile-sketch')).toBeVisible();
+    await menu.getByTestId('tree-menu-edit-profile-sketch').click();
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
   });
 });
