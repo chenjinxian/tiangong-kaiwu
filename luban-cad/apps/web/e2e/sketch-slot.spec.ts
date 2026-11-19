@@ -33,15 +33,6 @@ import {
 type LineEntity = Extract<SketchEntityDto, { kind: 'line' }>;
 type ArcEntity = Extract<SketchEntityDto, { kind: 'arc' }>;
 
-async function latestSketch(ctx: Awaited<ReturnType<typeof openSeedImodelEditor>>, token: string): Promise<SketchDto> {
-  const tree = await getFeatureTreeRpc(ctx, token);
-  const id = tree.filter((row) => row.featureType === 'sketch').at(-1)?.id;
-  expect(id, '树内应有 sketch 行').toBeTruthy();
-  const sketch = await getSketchRpc(ctx, id!, token);
-  expect(sketch).toBeDefined();
-  return sketch!;
-}
-
 const pointOf = (ref: LineEntity['p1']): { x: number; y: number } => {
   if (typeof ref !== 'object') throw new Error('期望内联端点');
   return ref;
@@ -167,12 +158,26 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     await setStandardView(page, 4, { low: { x: -100, y: -100, z: -100 }, high: { x: 100, y: 100, z: 100 } });
     await disableSnap(page);
 
+    // MS 限流纪律（100 req/15min）：草图 id 只取一次，后续轮询直读 getSketch，
+    // 并用大间隔轮询（默认高频轮询会触发 429）。
+    let sketchId: string | undefined;
+    const readSketch = async (): Promise<SketchDto> => {
+      if (!sketchId) {
+        const tree = await getFeatureTreeRpc(ctx, token);
+        sketchId = tree.filter((row) => row.featureType === 'sketch').at(-1)?.id;
+        expect(sketchId, '树内应有 sketch 行').toBeTruthy();
+      }
+      const sketch = await getSketchRpc(ctx, sketchId!, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+
     // 单条 100 mm 水平线（Front 草图局部 y=0）。
     await activate(page, '线');
     await clickWorld(page, hub, P(-50, 0));
     await clickWorld(page, hub, P(50, 0));
     await page.waitForTimeout(800);
-    const before = await latestSketch(ctx, token);
+    const before = await readSketch();
     expect(before.entities.filter((e) => e.kind === 'line')).toHaveLength(1);
 
     // 偏移 ▾ → 槽 → 点线 → Enter 提交。
@@ -182,37 +187,42 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     await page.waitForTimeout(700);
     await page.keyboard.press('Enter');
 
-    await expect.poll(async () => (await latestSketch(ctx, token)).entities.filter((e) => e.kind === 'arc').length, {
-      timeout: 20_000,
+    await expect.poll(async () => (await readSketch()).entities.filter((e) => e.kind === 'arc').length, {
+      timeout: 20_000, intervals: [500, 1000, 2000],
     }).toBe(2);
-    const created = await latestSketch(ctx, token);
+    const created = await readSketch();
     assertSlotGeometry(created, 10);
 
     // Ø 20 → 30：后端 updateSketchConstraint 重解算，边界/帽半径参数化。
-    const sketchId = (await getFeatureTreeRpc(ctx, token)).filter((row) => row.featureType === 'sketch').at(-1)!.id;
     const diameter = created.constraints.find((c) => c.kind === 'diameter')!;
     const widen = await applyFeatureOpRpc(ctx, {
-      kind: 'updateSketchConstraint', sketchId, constraintId: diameter.id, value: 30,
+      kind: 'updateSketchConstraint', sketchId: sketchId!, constraintId: diameter.id, value: 30,
     }, lease, token);
     expect(widen.ok, widen.ok ? '' : widen.error).toBe(true);
-    await expect.poll(async () => (await latestSketch(ctx, token)).entities
-      .filter((e): e is ArcEntity => e.kind === 'arc')[0]?.radius, { timeout: 15_000 }).toBeCloseTo(15, 3);
-    assertSlotGeometry(await latestSketch(ctx, token), 15);
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')[0]?.radius, {
+      timeout: 20_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(15, 3);
+    assertSlotGeometry(await readSketch(), 15);
 
     // 原生 UI undo/redo：宽度回 20（r10）→ 再回 30（r15）。
     // reminder：FeatureOp undo 只支持参数修改/变量表；草图约束值走原生事务 Undo。
     await page.getByRole('button', { name: '撤消', exact: true }).click();
-    await expect.poll(async () => (await latestSketch(ctx, token)).entities
-      .filter((e): e is ArcEntity => e.kind === 'arc')[0]?.radius, { timeout: 15_000 }).toBeCloseTo(10, 3);
-    assertSlotGeometry(await latestSketch(ctx, token), 10);
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')[0]?.radius, {
+      timeout: 20_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(10, 3);
+    assertSlotGeometry(await readSketch(), 10);
     await page.getByRole('button', { name: '重做', exact: true }).click();
-    await expect.poll(async () => (await latestSketch(ctx, token)).entities
-      .filter((e): e is ArcEntity => e.kind === 'arc')[0]?.radius, { timeout: 15_000 }).toBeCloseTo(15, 3);
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')[0]?.radius, {
+      timeout: 20_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(15, 3);
 
     await finishSketch(page);
     await page.reload();
     ctx = await openSeedImodelEditor(page, seed);
-    const persisted = await latestSketch(ctx, token);
+    const persisted = await readSketch();
     assertSlotGeometry(persisted, 15);
   });
 
