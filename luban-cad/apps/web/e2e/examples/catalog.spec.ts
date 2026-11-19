@@ -3,15 +3,20 @@
  *
  * 只读页面：不创建/修改示例 iModel；登录态用 e2e 固定测试账号，按名解析
  * 已存在的示例项目。22 卡必须全部来自 catalog，不允许用空壳占位。
+ *
+ * W0 2026-11-19 重审后这些条目为旧演示（approx，publicEligible=0）；页面必须
+ * 显示 legacy 横幅并且不得标 strict。
  */
 import { expect, test } from '@playwright/test';
 import { loginWithSession } from '../helpers.js';
 
 test.describe('/examples 全部示例目录', () => {
-  test('公开可读：22 张卡片 + 未登录动作', async ({ page }) => {
+  test('公开可读：22 张旧演示卡片 + legacy 横幅 + 未登录动作', async ({ page }) => {
     await page.goto('/examples');
     await expect(page.getByTestId('example-card')).toHaveCount(22);
     await expect(page.getByRole('heading', { name: '全部示例' })).toBeVisible();
+    await expect(page.getByTestId('examples-legacy-note')).toContainText('publicEligible=0');
+    await expect(page.getByTestId('example-card').first()).toContainText('旧演示 · approx（重审中）');
     await expect(page.getByTestId('example-card').first()).toContainText('登录后打开');
     await expect(page.getByRole('link', { name: '全部示例', exact: true })).toBeVisible();
   });

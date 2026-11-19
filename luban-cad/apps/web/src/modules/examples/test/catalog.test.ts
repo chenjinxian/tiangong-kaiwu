@@ -3,13 +3,18 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   EXAMPLE_CATALOG,
+  EXAMPLE_CATALOG_LEGACY,
   EXAMPLE_OWNERS,
   formatExampleVolume,
 } from '../catalog.js';
 
 const PUBLIC_ROOT = path.resolve(__dirname, '../../../../public');
 
-describe('全部示例 catalog（22 个 replicable-now 的公共投影）', () => {
+describe('全部示例 catalog（22 条旧演示的公共投影，W0 重审后 legacy）', () => {
+  it('W0 重审标记：legacy=true（旧 22 条已降 approx，不计 strict）', () => {
+    expect(EXAMPLE_CATALOG_LEGACY).toBe(true);
+  });
+
   it('恰好 22 个、16 个文档、4 个 owner，id 唯一', () => {
     expect(EXAMPLE_CATALOG).toHaveLength(22);
     expect(new Set(EXAMPLE_CATALOG.map((entry) => entry.document)).size).toBe(16);
@@ -34,10 +39,11 @@ describe('全部示例 catalog（22 个 replicable-now 的公共投影）', () =
     }
   });
 
-  it('Bumper 明确标为 strict oracle 轨，不把 generic resolver 说成已修复', () => {
+  it('Bumper 保留 oracle 证据字段；公共投影仍标记 legacy，不宣称 strict', () => {
     const bumper = EXAMPLE_CATALOG.find((entry) => entry.id === 'bumper-block');
     expect(bumper?.strictness).toBe('strict-oracle');
     expect(bumper?.note).toContain('generic resolver');
+    expect(EXAMPLE_CATALOG_LEGACY).toBe(true);
   });
 
   it('目标体积按 mm³ 展示，极小体积保留 3 位小数', () => {

@@ -1,16 +1,23 @@
 /**
  * 全部 Onshape 示例目录（public, 只读投影）。
  *
- * 数据来源：私有 `onshape-parity-data/manifest/example-index.json` 的 22 个
- * `replicable-now` 条目；本文件只保留公开可展示的聚合字段（owner/名称/目标
- * 体积/封面/精确 iModel 名）。不包含原始 features、坐标、elementId/docId、
- * 私有路径或 UI 证据——私有 index 仍是唯一事实源，更新时同步本投影并跑
- * catalogue 单测。
+ * GENERATED FILE — do not edit. Source: docs/parity/public-catalog.input.json
+ * （脱敏投影；不含 doc/element id、原始 features、坐标、证据路径或私有仓路径）。
+ * 重新生成：node scripts/parity/build-public-catalog.mjs
+ * 校验：node scripts/parity/verify-public-catalog.mjs
+ *
+ * ⚠️ 状态口径（W0 2026-11-19 重审）：旧 22 条公共示例已全部降级为 approx
+ * （publicEligible=0）；`EXAMPLE_CATALOG_LEGACY=true` 是本投影的机器可读标记。
+ * 本文件仅供旧演示导航；strict 目录待 W6 重审晋级后重新生成，页面不得把本投影
+ * 宣称为 strict。
  *
  * `projectName + imodelName` 用于运行时按名解析真实 iModel；不硬编码 UUID。
  */
 
 export type ExampleStrictness = 'strict' | 'strict-oracle';
+
+/** W0 重审后的旧投影标记：true = 本目录条目均为旧演示（approx，不计 strict）。 */
+export const EXAMPLE_CATALOG_LEGACY = true;
 
 export interface ExampleCatalogEntry {
   /** 稳定 slug（同私有 index 的 source 组合）。 */

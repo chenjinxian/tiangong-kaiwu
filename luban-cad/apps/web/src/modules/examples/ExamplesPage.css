@@ -325,6 +325,22 @@
   font-size: 13px;
 }
 
+.examples-legacy-note {
+  max-inline-size: 1400px;
+  margin: 0 auto 18px;
+  padding: 12px 16px;
+  border: 1px solid #e6c98a;
+  border-radius: 8px;
+  background: #fff8e8;
+  color: #6b4c12;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.examples-legacy-note strong {
+  color: #4a340b;
+}
+
 .examples-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

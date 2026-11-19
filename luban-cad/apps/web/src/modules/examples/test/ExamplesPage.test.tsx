@@ -29,12 +29,16 @@ beforeEach(() => {
 });
 
 describe('ExamplesPage 全部示例目录', () => {
-  it('公开渲染 22 张卡片和统计', () => {
+  it('公开渲染 22 张旧演示卡片、legacy 横幅与统计（0 strict）', () => {
     renderPage();
     expect(screen.getAllByTestId('example-card')).toHaveLength(22);
     expect(screen.getByRole('heading', { name: '全部示例' })).toBeDefined();
+    expect(screen.getByTestId('examples-legacy-note').textContent).toContain('publicEligible=0');
     expect(screen.getAllByText('22', { selector: '.examples-hero__facts strong' }).length).toBeGreaterThan(0);
+    expect(screen.getByText(/个旧演示（approx）/)).toBeDefined();
     expect(screen.getByText(/个严格示例/)).toBeDefined();
+    expect(screen.getAllByText('0', { selector: '.examples-hero__facts strong' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('旧演示 · approx（重审中）').length).toBe(22);
     expect(screen.getAllByText('登录后打开')).toHaveLength(22);
     expect(screen.getAllByRole('img', { name: /真实栈截图/ })).toHaveLength(22);
   });
@@ -53,12 +57,13 @@ describe('ExamplesPage 全部示例目录', () => {
     expect(screen.getAllByTestId('example-card')).toHaveLength(22);
   });
 
-  it('搜索命中单个示例并显示 Bumper strict oracle 状态', () => {
+  it('搜索命中单个示例；Bumper 在公共投影中显示旧演示 approx（不标 strict）', () => {
     renderPage();
     fireEvent.change(screen.getByTestId('example-search'), { target: { value: 'Bumper' } });
     expect(screen.getAllByTestId('example-card')).toHaveLength(1);
     expect(screen.getByText('Dumper Trailer / Bumper Block')).toBeDefined();
-    expect(screen.getByText('strict · oracle 16/16')).toBeDefined();
+    expect(screen.getByText('旧演示 · approx（重审中）')).toBeDefined();
+    expect(screen.queryByText('strict · oracle 16/16')).toBeNull();
   });
 
   it('已登录且唯一解析到 iModel：主动作直达 Part Studio', () => {

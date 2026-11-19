@@ -9,6 +9,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   EXAMPLE_CATALOG,
+  EXAMPLE_CATALOG_LEGACY,
   EXAMPLE_OWNERS,
   formatExampleVolume,
   type ExampleCatalogEntry,
@@ -31,6 +32,9 @@ function matchesQuery(entry: ExampleCatalogEntry, query: string): boolean {
 }
 
 function statusLabel(entry: ExampleCatalogEntry): string {
+  // W0 2026-11-19 重审：旧 22 条全部降 approx（publicEligible=0）。generator 以
+  // EXAMPLE_CATALOG_LEGACY 把该口径带进公共投影；页面不得再把这些条目标为 strict。
+  if (EXAMPLE_CATALOG_LEGACY) return '旧演示 · approx（重审中）';
   return entry.strictness === 'strict-oracle' ? 'strict · oracle 16/16' : 'strict';
 }
 
@@ -71,18 +75,37 @@ export function ExamplesPage(): React.JSX.Element {
       <main>
         <section className="examples-hero">
           <div className="examples-hero__copy">
-            <span className="examples-kicker">ONSHAPE PARITY · REPLICABLE NOW</span>
-            <h1>{EXAMPLE_CATALOG.length} 个 Onshape 示例，<br />逐个体积对拍。</h1>
+            <span className="examples-kicker">
+              {EXAMPLE_CATALOG_LEGACY ? 'ONSHAPE PARITY · LEGACY DEMOS (APPROX)' : 'ONSHAPE PARITY · REPLICABLE NOW'}
+            </span>
+            <h1>
+              {EXAMPLE_CATALOG_LEGACY
+                ? <>{EXAMPLE_CATALOG.length} 个旧版 Onshape 演示，<br />重审中（非 strict）。</>
+                : <>{EXAMPLE_CATALOG.length} 个 Onshape 示例，<br />逐个体积对拍。</>}
+            </h1>
             <p>
-              全部来自真实 iModel、真实 FeatureOp 与标准事务。封面是真实栈运行截图；
-              目标体积来自 Onshape 采集证据。打开入口按当前账号可见的示例 iModel
-              精确解析，未定位时如实回退，不伪造链接。
+              {EXAMPLE_CATALOG_LEGACY ? (
+                <>
+                  2026-11-19 W0 重审把旧 22 条公共示例全部降级为 approx
+                  （publicEligible=0）：它们缺少逐 body 质心、约束 oracle、树名称/顺序
+                  与 undo/redo 证据。本页仅保留旧演示投影用于浏览与直达演示 iModel；
+                  完成重审晋级前，不得把这些条目标为 strict。strict 目录将由 W6 重新生成。
+                </>
+              ) : (
+                <>
+                  全部来自真实 iModel、真实 FeatureOp 与标准事务。封面是真实栈运行截图；
+                  目标体积来自 Onshape 采集证据。打开入口按当前账号可见的示例 iModel
+                  精确解析，未定位时如实回退，不伪造链接。
+                </>
+              )}
             </p>
             <ul className="examples-hero__facts" aria-label="示例统计">
-              <li><strong>{EXAMPLE_CATALOG.length}</strong> 个严格示例</li>
+              {EXAMPLE_CATALOG_LEGACY
+                ? <li><strong>{EXAMPLE_CATALOG.length}</strong> 个旧演示（approx）</li>
+                : <li><strong>{EXAMPLE_CATALOG.length}</strong> 个严格示例</li>}
+              <li><strong>{EXAMPLE_CATALOG_LEGACY ? 0 : EXAMPLE_CATALOG.length}</strong> 个严格示例</li>
               <li><strong>{documentCount}</strong> 个文档</li>
               <li><strong>{EXAMPLE_OWNERS.length}</strong> 个 owner</li>
-              <li><strong>{EXAMPLE_CATALOG.length}</strong> 个体积对拍</li>
             </ul>
             <div className="examples-hero__actions">
               <a className="examples-button examples-button--primary" href="#catalog">浏览全部示例</a>
@@ -93,19 +116,34 @@ export function ExamplesPage(): React.JSX.Element {
           </div>
           <div className="examples-hero__panel" aria-hidden="true">
             <span className="examples-hero__panel-label">CATALOG</span>
-            <div className="examples-hero__panel-row"><span>{EXAMPLE_CATALOG.length}</span><small>replicable-now</small></div>
+            <div className="examples-hero__panel-row"><span>{EXAMPLE_CATALOG.length}</span><small>{EXAMPLE_CATALOG_LEGACY ? 'legacy demos' : 'replicable-now'}</small></div>
             <div className="examples-hero__panel-row"><span>{documentCount}</span><small>Onshape 文档</small></div>
-            <div className="examples-hero__panel-row"><span>0.00%</span><small>代表示例体积误差</small></div>
-            <div className="examples-hero__panel-note">真实 BRep · 标准事务 · 冷重开验证</div>
+            <div className="examples-hero__panel-row"><span>{EXAMPLE_CATALOG_LEGACY ? '—' : '0.00%'}</span><small>{EXAMPLE_CATALOG_LEGACY ? 'strict 待重审晋级' : '代表示例体积误差'}</small></div>
+            <div className="examples-hero__panel-note">
+              {EXAMPLE_CATALOG_LEGACY ? '旧投影 · approx · 不计 strict' : '真实 BRep · 标准事务 · 冷重开验证'}
+            </div>
           </div>
         </section>
+
+        {EXAMPLE_CATALOG_LEGACY && (
+          <div className="examples-legacy-note" role="note" data-testid="examples-legacy-note">
+            <strong>状态口径：</strong>
+            本页为 W0 重审前的旧演示投影；旧 22 条已全部降级 approx（publicEligible=0），
+            不计入严格示例。strict 目录待 W6 按逐 body 质心 / 约束 oracle / 树 / undo
+            证据重新生成后发布。
+          </div>
+        )}
 
         <section className="examples-catalog" id="catalog" aria-labelledby="examples-catalog-title">
           <div className="examples-catalog__head">
             <div>
               <span className="examples-kicker">CATALOG</span>
               <h2 id="examples-catalog-title">全部示例</h2>
-              <p>按 owner 过滤或搜索文档、Part Studio。Bumper Block 走 strict oracle 轨。</p>
+              <p>
+                {EXAMPLE_CATALOG_LEGACY
+                  ? '旧演示（approx，重审中）：仅用于浏览与直达演示 iModel，不代表 strict 验收。'
+                  : '按 owner 过滤或搜索文档、Part Studio。Bumper Block 走 strict oracle 轨。'}
+              </p>
             </div>
             <div className="examples-catalog__controls">
               <label className="examples-search">
@@ -166,7 +204,7 @@ export function ExamplesPage(): React.JSX.Element {
                 <article className="examples-card" key={entry.id} data-testid="example-card">
                   <div className="examples-card__cover">
                     <img src={entry.cover} alt={`${entry.title} 真实栈截图`} loading="lazy" />
-                    <span className={entry.strictness === 'strict-oracle'
+                    <span className={!EXAMPLE_CATALOG_LEGACY && entry.strictness === 'strict-oracle'
                       ? 'examples-badge examples-badge--oracle'
                       : 'examples-badge'}
                     >

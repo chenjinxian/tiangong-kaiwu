@@ -37,10 +37,19 @@
 node scripts/parity/build-capability-ledger.mjs
 node scripts/parity/verify-capability-ledger.mjs
 
-# 公共示例目录：只从 strict && publicEligible 生成
+# 公共示例目录：输入 = docs/parity/public-catalog.input.json（脱敏投影）
+# legacy=true 时页面必须显示“旧演示 approx（重审中）”，不得宣称 strict；
+# strict 重审晋级后把 legacy 置 false 并重新生成。
 node scripts/parity/build-public-catalog.mjs
 node scripts/parity/verify-public-catalog.mjs
+
+# Corpus 批处理（真栈）：ONSHAPE_BATCH_FILE -> e2e/examples/corpus/batch.spec.ts
+node scripts/parity/run-batch.mjs --batch <batch.json> [--out <report.jsonl>] [--grep <regex>]
 ```
+
+批处理文件逐条跑独立 iModel，复用 scenario-file 管线（建链 → tree/status/逐 body
+体积 → push + 冷重开）；条目携带 `expectedBodies`（含 centroid）时额外按质心一对一
+配对复核，禁止用总体积替代。
 
 私有仓命令见 `onshape-parity-data` 的 README；公共仓不复制其数据。
 
@@ -56,8 +65,12 @@ node scripts/parity/verify-public-catalog.mjs
   （1,685 行；local 1,505 + API-only 180；approx 50 / blocked 1,508 / excluded 127）。
   旧 22 条 strict 已按新四维门重审：**22/22 降级 approx、publicEligible=0**
   （缺逐 body centroid、约束 oracle、树名称/顺序、undo/redo；3 个 WARNING LABEL
-  场景还缺 decal/mateConnector）。公共 catalog 暂保持旧投影，W6 由 strict 重新生成；
-  在完成晋级前不得再宣称这些示例为 strict。
+  场景还缺 decal/mateConnector）。公共 catalog 由 `public-catalog.input.json`
+  生成，当前 `legacy=true`：`/examples` 只作旧演示导航、显示 approx 横幅且明确
+  0 个 strict；strict 目录待 W6 按四维门重审晋级后置 `legacy=false` 重新生成。
+- 公共仓已具备：能力账本生成/校验、catalog 生成/校验（含严格输入校验与私有
+  标记扫描）、corpus batch spec（逐 body 质心配对 + JSONL 报告）。私有数据仍
+  只留在私有仓。
 - 结论：在能力账本、内核探针矩阵、三态 registry 建立前，任何“全绿”结论
   均不可信；三份事实源建立后，所有进度以账本/registry 为准。
 

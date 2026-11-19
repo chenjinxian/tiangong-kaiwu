@@ -98,6 +98,10 @@ export async function runScenarioFile(
   approximateSteps: number;
   /** push + 冷重开后的特征树（供调用方复核落库参数；严格门已在下方断言）。 */
   reopenedTree: FeatureTreeEntry[];
+  /** 冷重开后的逐 body 质量属性（供 corpus 批处理按质心配对复核）。 */
+  reopenedMass: Array<{ bodyKey: string; volume: number; centroid: { x: number; y: number; z: number } }>;
+  /** 执行上下文（批处理需要在同一 iModel/scope 上追加只读查询）。 */
+  ctx: BSeedEditorContext;
 }> {
   const file = resolveScenarioFile(options.scenario);
   const scenario = JSON.parse(readFileSync(file, 'utf8')) as ParityScenario;
@@ -255,7 +259,8 @@ export async function runScenarioFile(
       }))),
     ).toBe(true);
   }
-  const reopened = (await getMassPropertiesRpc(ctx, token)).map((item) => item.volume).sort((a, b) => a - b);
+  const reopenedMass = await getMassPropertiesRpc(ctx, token);
+  const reopened = reopenedMass.map((item) => item.volume).sort((a, b) => a - b);
   console.log(`[scenario-file] reopened volumes=${JSON.stringify(reopened)}`);
   expect(reopened.length).toBe(expected.length);
   const reference = volumePolicy === 'record' ? volumes : expected;
@@ -268,5 +273,7 @@ export async function runScenarioFile(
     expected,
     approximateSteps: built.approximateSteps,
     reopenedTree,
+    reopenedMass,
+    ctx,
   };
 }
