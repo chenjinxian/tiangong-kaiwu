@@ -2,15 +2,15 @@
 
 - 标题：Sketch entity, constraint, solver and external-reference expansion
 - 日期：2026-11-19
-- Owner：待 Owner 批准
+- Owner：**已批准（2026-11-19）：S1 对称约束 + S2 槽工具**；其余切片仍待批准
 - 关联需求：`docs/superpowers/plans/2026-11-19-onshape-full-parity.md` W1–W2；
   `docs/parity/capability-ledger.json` 的 sketch/constraint/entity 行
 - 预计影响仓：`luban-cad`（shared/web/viewer tests）、私有 `luban-backend`（solver/registry）
 - 是否需要 ADR：**是**（新增约束 kind/实体类型/外部引用异步读路径属于契约级变更；
   按 P0-04 先 ADR，再按切片实现）
 
-> **状态：Proposed（未批准前不写实现代码）**。本 AIRR 只定义路线、复用矩阵、
-> 切片与验收；每个切片仍需独立 ADR/契约版本。
+> **状态：Approved（S1/S2，2026-11-19）；S3–S6 仍 Proposed**。S1/S2 按
+> ADR-0022 实施；其余切片未批准前不写实现代码。
 
 ## 1. 目标与验收
 
@@ -115,8 +115,8 @@
 - 跨仓影响明确：是
 - P0 例外：无（如采用近似椭圆，需登记例外并降级 approx）
 - ADR：需要（每个切片一个；S1/S2 可合并）
-- Owner 签字：待批准
-- 结论：**待批准**
+- Owner 签字：2026-11-19 批准 S1 对称约束 + S2 槽工具
+- 结论：**S1/S2 批准；S3–S6 待批准**
 
 ## 10. 建议首批切片
 

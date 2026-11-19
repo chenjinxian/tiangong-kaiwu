@@ -31,7 +31,8 @@ import {
  * updateWorkspace/workspaceProperties（共 20）
  * + M4-T8 D3 特征段头三钮（os-11 段头形态）登记 insertElement/pauseRebuild/
  * featureHistory（共 23）+ B5 曲线阵列 curvePattern（无工具/后端面，共 24）
- * + W26 面混合 faceBlend（圆角族变体无工具/后端通道，共 55）。
+ * + W26 面混合 faceBlend（圆角族变体无工具/后端通道，共 55）；v1.81 对称约束翻
+ * full 后共 54。
  * ADR-0006 切片 A：孔 hole 翻 full（后端 hole op + HoleDialog）。 */
 const EXPECTED_GATED_IDS = [
   'draft', // 拔模
@@ -79,7 +80,6 @@ const EXPECTED_GATED_IDS = [
   // 2026-11-13 工具栏 live 全量对拍：约束飞菜单补全 14 变体（六项 gated）。
   'sketchNormal',
   'sketchPierce',
-  'sketchSymmetric',
   'sketchCurvature',
   'sketchFlow',
   // 平面▾ 飞菜单的装配/参考工具。
@@ -96,7 +96,7 @@ const EXPECTED_GATED_IDS = [
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单七变体（倒角已翻 full）+ 2026-11-13 live 工具栏 10 项（同心/中点线已翻 full） + moveFace/transform/splitPart 已翻 full + 右键菜单三项（选择过滤/创建选定内容/选择其他）+ W26 面混合（共 55，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单七变体（倒角已翻 full）+ 2026-11-13 live 工具栏 10 项（同心/中点线已翻 full） + moveFace/transform/splitPart 已翻 full + 右键菜单三项（选择过滤/创建选定内容/选择其他）+ W26 面混合（v1.81 对称翻 full 后共 54，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

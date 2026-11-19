@@ -289,6 +289,14 @@ export class ConcentricAddTool extends SketchAddConstraintTool {
   protected createInstance(): SketchAddConstraintTool { return new ConcentricAddTool(); }
 }
 
+/** 对称：两个同型 point/line/arc/spline + 一条轴线（v1.81 / ADR-0022 S1）。 */
+export class SymmetricAddTool extends SketchAddConstraintTool {
+  public static override toolId = 'Sketch.Constraint.Symmetric';
+  public static override iconSpec = 'icon-constraint-symmetric';
+  protected readonly constraintKind = 'symmetric';
+  protected createInstance(): SketchAddConstraintTool { return new SymmetricAddTool(); }
+}
+
 /** 固定：1 point（锁参数；origin 归一化也走此路径）。 */
 export class FixedAddTool extends SketchAddConstraintTool {
   public static override toolId = 'Sketch.Constraint.Fixed';
@@ -298,7 +306,7 @@ export class FixedAddTool extends SketchAddConstraintTool {
 }
 
 /**
- * 注册草图约束 9 工具（M6-b T5；幂等——模块级 flag）。注册点=PartStudioPage
+ * 注册草图约束 11 工具（M6-b T5；v1.81 增 symmetric；幂等——模块级 flag）。注册点=PartStudioPage
  * 工具注册编排（registerSketchTools 之后同 try 块）；懒引与幂等语义见
  * registerSketchTools（SketchCreateTool.ts）。
  */
@@ -315,5 +323,6 @@ export function registerSketchConstraintTools(): void {
   IModelApp.tools.register(TangentAddTool);
   IModelApp.tools.register(FixedAddTool);
   IModelApp.tools.register(ConcentricAddTool);
+  IModelApp.tools.register(SymmetricAddTool);
   constraintToolsRegistered = true;
 }

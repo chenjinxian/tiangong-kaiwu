@@ -1294,7 +1294,10 @@
         "tangentSecond": "Tangent constraint: click the other curve",
         "fixedFirst": "Fixed constraint: click a point",
         "concentricFirst": "Select the first circle",
-        "concentricSecond": "Select the second circle (its center will coincide)"
+        "concentricSecond": "Select the second circle (its center will coincide)",
+        "symmetricFirst": "Symmetric: select the first point or entity",
+        "symmetricSecond": "Symmetric: select the second point or entity of the same type",
+        "symmetricThird": "Symmetric: select the symmetry axis"
       },
       "reject": {
         "coincidentNeedsPoint": "The coincident constraint accepts points or a point and a circle (got {{actual}})",
@@ -1307,7 +1310,8 @@
         "midpointNeedsPointLine": "The midpoint constraint needs a point and a line, or three points (got {{actual}})",
         "tangentNeedsCurveLine": "The tangent constraint needs an arc/circle/spline and a line (got {{actual}})",
         "fixedNeedsPoint": "The fixed constraint only accepts a point (got {{actual}})",
-        "concentricNeedsCircle": "{{label}} needs two circles (got {{actual}})"
+        "concentricNeedsCircle": "{{label}} needs two circles (got {{actual}})",
+        "symmetricNeedsPairLine": "Symmetric needs two points/lines/arcs/splines of the same type plus an axis line (got {{actual}})"
       }
     },
     "dimension": {
@@ -1468,7 +1472,8 @@
         "midpoint": "Midpoint",
         "tangent": "Tangent",
         "fixed": "Fixed",
-        "concentric": "Concentric"
+        "concentric": "Concentric",
+        "symmetric": "Symmetric"
       },
       "dimensionKinds": {
         "distance": "Distance",

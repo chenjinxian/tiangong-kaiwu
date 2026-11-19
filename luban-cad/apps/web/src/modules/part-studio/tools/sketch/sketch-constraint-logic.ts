@@ -33,7 +33,8 @@ export type SketchConstraintKind =
   | 'midpoint'
   | 'tangent'
   | 'fixed'
-  | 'concentric';
+  | 'concentric'
+  | 'symmetric';
 
 export type SketchEntityKind = SketchEntityDto['kind'];
 
@@ -81,6 +82,14 @@ export const CONSTRAINT_SLOT_SHAPES: Record<
   // 只解析 point/line/circle（arc 无独立解算体），因此先收 circle+circle；
   // arc/混合组合待解析器扩展（诚实提示两个圆）。
   concentric: [['circle', 'circle']],
+  // 对称（v1.81 / ADR-0022 S1）：两个同型实体 + 轴线；求解方程与 mirror 相同。
+  // v1 就近分辨支持 point/line/arc/spline；整圆对称待求解器映射扩展。
+  symmetric: [
+    ['point', 'point', 'line'],
+    ['line', 'line', 'line'],
+    ['arc', 'arc', 'line'],
+    ['spline', 'spline', 'line'],
+  ],
 };
 
 /** 拒收文案键（按种类回退通用键；槽位态专键在 acceptPick 内定位）。 */
@@ -95,6 +104,7 @@ const REJECT_KEYS: Record<SketchConstraintKind, string> = {
   tangent: 'partStudio.sketch.constraint.reject.tangentNeedsCurveLine',
   fixed: 'partStudio.sketch.constraint.reject.fixedNeedsPoint',
   concentric: 'partStudio.sketch.constraint.reject.concentricNeedsCircle',
+  symmetric: 'partStudio.sketch.constraint.reject.symmetricNeedsPairLine',
 };
 
 /**
@@ -167,6 +177,12 @@ export function pickPrompt(kind: SketchConstraintKind, picked: SketchPickKind[])
       return picked.length === 0
         ? { key: 'partStudio.sketch.constraint.prompts.concentricFirst', params: { label } }
         : { key: 'partStudio.sketch.constraint.prompts.concentricSecond', params: { label } };
+    case 'symmetric':
+      return picked.length === 0
+        ? { key: 'partStudio.sketch.constraint.prompts.symmetricFirst', params: { label } }
+        : picked.length === 1
+          ? { key: 'partStudio.sketch.constraint.prompts.symmetricSecond', params: { label } }
+          : { key: 'partStudio.sketch.constraint.prompts.symmetricThird', params: { label } };
   }
 }
 

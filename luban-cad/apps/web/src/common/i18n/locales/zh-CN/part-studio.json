@@ -1294,7 +1294,10 @@
         "tangentSecond": "相切约束：点击另一条曲线",
         "fixedFirst": "固定约束：点击一个点",
         "concentricFirst": "选择第一个圆以同心",
-        "concentricSecond": "选择第二个圆（圆心将与第一个重合）"
+        "concentricSecond": "选择第二个圆（圆心将与第一个重合）",
+        "symmetricFirst": "对称约束：点击第一个点或实体",
+        "symmetricSecond": "对称约束：点击第二个同类型点或实体",
+        "symmetricThird": "对称约束：点击对称轴线"
       },
       "reject": {
         "coincidentNeedsPoint": "重合约束接受点+点或点+整圆（当前为{{actual}}）",
@@ -1307,7 +1310,8 @@
         "midpointNeedsPointLine": "中点约束需要点+线或三个点（当前为{{actual}}）",
         "tangentNeedsCurveLine": "相切约束需要弧/整圆/样条与线（当前为{{actual}}）",
         "fixedNeedsPoint": "固定约束只能拾取点（当前为{{actual}}）",
-        "concentricNeedsCircle": "{{label}} 需要两个圆（当前为 {{actual}}）"
+        "concentricNeedsCircle": "{{label}} 需要两个圆（当前为 {{actual}}）",
+        "symmetricNeedsPairLine": "对称约束需要两个同类型点/线/弧/样条加一条轴线（当前为 {{actual}}）"
       }
     },
     "dimension": {
@@ -1468,7 +1472,8 @@
         "midpoint": "中点",
         "tangent": "相切",
         "fixed": "固定",
-        "concentric": "同心"
+        "concentric": "同心",
+        "symmetric": "对称"
       },
       "dimensionKinds": {
         "distance": "距离",

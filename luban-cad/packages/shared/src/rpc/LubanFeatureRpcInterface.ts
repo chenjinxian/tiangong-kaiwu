@@ -206,6 +206,9 @@
  * （保持必填物化快照）；写/预览载荷须在 `secondDirection` 内携带数值 `spacing` 占位；
  * 物化保留 `count`/`centered`/`axis` 并复验两方向总实例数 ≤1000；`secondDirection`
  * 不存在不合成（无表达式即无该键）。变量变更时两层分别物化、互不覆盖。
+ * v1.81（ADR-0022 S1）：草图约束 kind 增加 `"symmetric"`——refs 恰 3：[实体A, 实体B,
+ * 轴线(line)]；A/B 同型 point/line/arc/spline，与 `mirror` 同槽形，不携带 value。
+ * 后端复用 `SLVS_C_SYMMETRIC_LINE`；旧后端遇到未知 kind 必须明确拒收且零变更。
  * v1.80（ADR-0020 S12）：圆周阵列**总角度**表达式——`PatternParams.angleExpression?` 与
  * `FeaturePatternParams.angleExpression?`。目标 `angle`（**度**，契约字段本就是度制；
  * `kind=angleDeg` 度值直接物化，不做弧度换算）；仅 `kind="circular"` 适用，linear 携带
@@ -1259,7 +1262,7 @@ export type SketchEntityDto =
 export interface SketchConstraintDto {
   /** v1.25（ADR-0004）：angle=两线夹角（value 弧度，direction-vector 语义）；diameter/concentric；
    * driven=参考尺寸（不送求解器）。 */
-  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "angle" | "length" | "midpoint" | "tangent" | "offset" | "fixed" | "mirror";
+  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "angle" | "length" | "midpoint" | "tangent" | "offset" | "fixed" | "mirror" | "symmetric";
   id: number; refs: SketchRef[]; value?: number; driven?: boolean;
   /** v1.71（ADR-0020）：表达式（设计意图）；存在时后端求值并覆盖 value（求解输入）。
    * 仅可编辑尺寸种类 length/distance/radius/diameter/angle 允许；旧载荷无此键。 */
@@ -1312,7 +1315,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.80.0";
+  public static interfaceVersion = "1.81.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

@@ -65,6 +65,7 @@ import {
   ParallelAddTool,
   PerpendicularAddTool,
   registerSketchConstraintTools,
+  SymmetricAddTool,
   VerticalAddTool,
 } from '../tools/sketch/SketchAddConstraintTool.js';
 
@@ -99,6 +100,13 @@ describe('M6-b T5：槽位定义表（SolverTypes 冻结契约逐字）', () => 
     expect(CONSTRAINT_SLOT_SHAPES.tangent).toContainEqual(['line', 'circle']);
     // 2026-11-13 同心：v1 就近分辨只解析圆（arc/混合待解析器扩展）。
     expect(CONSTRAINT_SLOT_SHAPES.concentric).toEqual([['circle', 'circle']]);
+    // v1.81 对称：两个同型 point/line/arc/spline + 轴线。
+    expect(CONSTRAINT_SLOT_SHAPES.symmetric).toEqual([
+      ['point', 'point', 'line'],
+      ['line', 'line', 'line'],
+      ['arc', 'arc', 'line'],
+      ['spline', 'spline', 'line'],
+    ]);
   });
 });
 
@@ -117,6 +125,17 @@ describe('M6-b T5：acceptPick 槽位接收判定', () => {
     expect(acceptPick('concentric', [], 'line').ok).toBe(false);
     expect(acceptPick('concentric', ['circle'], 'line').ok).toBe(false);
     expect(acceptPick('concentric', ['circle'], 'circle').message).toBeUndefined();
+  });
+
+  it('symmetric：点+点+轴线满槽；第二槽不同型/第三槽非线拒收', () => {
+    expect(acceptPick('symmetric', [], 'point')).toEqual({ ok: true, complete: false });
+    expect(acceptPick('symmetric', ['point'], 'point')).toEqual({ ok: true, complete: false });
+    expect(acceptPick('symmetric', ['point', 'point'], 'line')).toEqual({ ok: true, complete: true });
+    expect(acceptPick('symmetric', ['point'], 'line').ok).toBe(false);
+    expect(acceptPick('symmetric', ['point', 'point'], 'point').ok).toBe(false);
+    expect(acceptPick('symmetric', [], 'line').ok).toBe(true);
+    expect(acceptPick('symmetric', ['line'], 'line')).toEqual({ ok: true, complete: false });
+    expect(acceptPick('symmetric', ['line', 'line'], 'line')).toEqual({ ok: true, complete: true });
   });
 
   it('horizontal/vertical：单线即满槽；点对式两槽', () => {
@@ -225,9 +244,10 @@ describe('M6-b T5：约束 6 工具 toolId 与注册接线', () => {
     expect(PerpendicularAddTool.toolId).toBe('Sketch.Constraint.Perpendicular');
     expect(EqualAddTool.toolId).toBe('Sketch.Constraint.Equal');
     expect(ConcentricAddTool.toolId).toBe('Sketch.Constraint.Concentric');
+    expect(SymmetricAddTool.toolId).toBe('Sketch.Constraint.Symmetric');
   });
 
-  it('registerSketchConstraintTools 幂等：10 工具按序各注册一次（二次调用 no-op）', () => {
+  it('registerSketchConstraintTools 幂等：11 工具按序各注册一次（二次调用 no-op）', () => {
     const before = registerMock.mock.calls.length;
     registerSketchConstraintTools();
     registerSketchConstraintTools(); // 幂等：模块 flag 置位后 no-op
@@ -243,6 +263,7 @@ describe('M6-b T5：约束 6 工具 toolId 与注册接线', () => {
       'Sketch.Constraint.Tangent',
       'Sketch.Constraint.Fixed',
       'Sketch.Constraint.Concentric',
+      'Sketch.Constraint.Symmetric',
     ]);
   });
 });

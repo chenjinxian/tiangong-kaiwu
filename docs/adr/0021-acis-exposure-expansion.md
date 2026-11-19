@@ -1,6 +1,6 @@
 # ADR-0021 — ACIS 暴露面扩展与内核边界
 
-- 状态：**Proposed（草案，2026-11-19；未批准前不新增 PSBRep op/editor IPC/backend evaluator）**
+- 状态：**Accepted（2026-11-19 Owner 批准 TaperFaces 切片；其余 op 仍按本协议逐项批准）**
 - 日期：2026-11-19
 - 关联：`docs/superpowers/plans/2026-11-19-onshape-full-parity.md`（W4）；
   `docs/parity/KERNEL-BOUNDARIES.md`；私有 `imodel-native/docs/audit/ACIS-EXPOSURE-MATRIX.md`；

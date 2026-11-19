@@ -84,7 +84,7 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sketchConcentric: 'full', // 同心（2026-11-13：两圆拾取工具接通；arc/混合待解析器）
   sketchNormal: 'gated', // 法向
   sketchPierce: 'gated', // 穿透
-  sketchSymmetric: 'gated', // 对称
+  sketchSymmetric: 'full', // 对称（2026-11-19 ADR-0022 S1：point/line/arc/spline 对 + 轴线，SLVS_C_SYMMETRIC_LINE；整圆对称待扩展）
   sketchCurvature: 'gated', // 曲率
   sketchFlow: 'gated', // 草图流
   // 平面▾ 飞菜单里的装配/参考工具（live 同列）：
@@ -217,7 +217,6 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   // 2026-11-13 工具栏 live 全量对拍新增 gated。
   sketchNormal: guidanceFor('sketchNormal'),
   sketchPierce: guidanceFor('sketchPierce'),
-  sketchSymmetric: guidanceFor('sketchSymmetric'),
   sketchCurvature: guidanceFor('sketchCurvature'),
   sketchFlow: guidanceFor('sketchFlow'),
   mateConnector: guidanceFor('mateConnector'),
