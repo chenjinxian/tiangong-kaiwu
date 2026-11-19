@@ -4,41 +4,42 @@
 > [`STATUS-DEFINITIONS.md`](./STATUS-DEFINITIONS.md)。修改来源或
 > `capability-overrides.json` 后重新生成并运行 verify。
 
-- shared 接口版本：`1.81.0`
+- shared 接口版本：`1.82.0`
 - 生成日期：2026-11-19
-- 行数：119
-- 状态分布：gated=54，partial=65
+- 行数：120
+- 状态分布：gated=54，partial=66
 
 | ID | Family | Status | Wave | Scope / Missing | UI | Contract | Backend | Kernel | Evidence |
 |---|---|---|---|---|---|---|---|---|---|
-| `constraint.angle` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.coincident` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.concentric` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.diameter` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.distance` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.equal` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.fixed` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.horizontal` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.length` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.midpoint` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.mirror` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.offset` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.parallel` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.perpendicular` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.radius` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.symmetric` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.tangent` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `constraint.vertical` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1265 | — | — | — |
-| `entity.arc` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1257 | — | — | — |
-| `entity.circle` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1256 | — | — | — |
-| `entity.line` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1255 | — | — | — |
-| `entity.point` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1254 | — | — | — |
-| `entity.spline` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1261 | — | — | — |
+| `constraint.angle` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.coincident` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.concentric` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.diameter` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.distance` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.equal` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.fixed` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.horizontal` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.length` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.midpoint` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.mirror` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.offset` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.parallel` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.perpendicular` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.radius` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.symmetric` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.tangent` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `constraint.vertical` | constraint | partial | W1 | 契约存在；实体组合/求解器覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282 | — | — | — |
+| `entity.arc` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1274 | — | — | — |
+| `entity.circle` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1273 | — | — | — |
+| `entity.line` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1272 | — | — | — |
+| `entity.point` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1271 | — | — | — |
+| `entity.spline` | entity | partial | W1 | 契约存在；创建/编辑/面域/渲染/拾取覆盖未审计；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1278 | — | — | — |
 | `feature.booleanAdd` | feature | partial | W3 | LubanFeatureType=booleanAdd；映射 UI 工具 boolean；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.booleanBodies` | feature | partial | W3 | LubanFeatureType=booleanBodies；映射 UI 工具 boolean；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.booleanSubtract` | feature | partial | W3 | LubanFeatureType=booleanSubtract；映射 UI 工具 boolean；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.chamfer` | feature | partial | W3 | LubanFeatureType=chamfer；映射 UI 工具 chamfer；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:53 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.cPlane` | feature | partial | W3 | LubanFeatureType=cPlane；映射 UI 工具 cPlane；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:110 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
+| `feature.draft` | feature | partial | W3 | LubanFeatureType=draft；无直接 UI 映射；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.extrude` | feature | partial | W3 | LubanFeatureType=extrude；映射 UI 工具 extrude；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.faceExtrude` | feature | partial | W3 | LubanFeatureType=faceExtrude；映射 UI 工具 extrude；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.featureMirror` | feature | partial | W3 | LubanFeatureType=featureMirror；映射 UI 工具 mirror；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:63 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |

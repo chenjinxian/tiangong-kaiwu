@@ -11,7 +11,7 @@ import { BentleyStatus, CompressedId64Set, DbResult, Id64, Id64Arg, Id64String, 
 import { Matrix3d, Matrix3dProps, Point3d, Range3d, Range3dProps, Transform, TransformProps, Vector3d, XYZProps, YawPitchRollAngles } from "@itwin/core-geometry";
 import { _nativeDb, GeometricElement, GeometricElement3d, IModelDb } from "@itwin/core-backend";
 import { BRepEntity, BRepGeometryInfo, BRepGeometryOperation, ColorDefProps, DynamicGraphicsRequest3dProps, EcefLocationProps, ElementGeometry, ElementGeometryBuilderParams, ElementGeometryDataEntry, ElementGeometryFunction, ElementGeometryInfo, ElementGeometryOpcode, ElementGeometryRequest, FilePropertyProps, GeometricElement3dProps, GeometricElementProps, GeometryPartProps, IModelError, Placement3dProps } from "@itwin/core-common";
-import { AUTHORED_BODY_DELETE_BLOCKED_MESSAGE, BasicManipulationCommandIpc, BlendEdgesProps, BooleanOperationProps, BRepEntityType, ChamferEdgesProps, ConnectedSubEntityProps, CutProps, DeleteSubEntityProps, EdgeParameterRangeProps, editorBuiltInCmdIds, ElementGeometryCacheFilter, ElementGeometryResultOptions, ElementGeometryResultProps, EmbossProps, EvaluatedEdgeProps, EvaluatedFaceProps, EvaluatedVertexProps, FaceParameterRangeProps, FlatBufferGeometryFilter, HollowFacesProps, ImprintProps, isAuthoredBodyProps, LocateSubEntityProps, LoftProps, OffsetEdgesProps, OffsetFacesProps, PointInsideResultProps, SewSheetProps, SolidModelingCommandIpc, SpinFacesProps, SubEntityAppearanceProps, SubEntityGeometryProps, SubEntityLocationProps, SubEntityProps, SubEntityType, SweepFacesProps, SweepPathProps, ThickenSheetProps, TransformSubEntityProps } from "@itwin/editor-common";
+import { AUTHORED_BODY_DELETE_BLOCKED_MESSAGE, BasicManipulationCommandIpc, BlendEdgesProps, BooleanOperationProps, BRepEntityType, ChamferEdgesProps, ConnectedSubEntityProps, CutProps, DeleteSubEntityProps, EdgeParameterRangeProps, editorBuiltInCmdIds, ElementGeometryCacheFilter, ElementGeometryResultOptions, ElementGeometryResultProps, EmbossProps, EvaluatedEdgeProps, EvaluatedFaceProps, EvaluatedVertexProps, FaceParameterRangeProps, FlatBufferGeometryFilter, HollowFacesProps, ImprintProps, isAuthoredBodyProps, LocateSubEntityProps, LoftProps, OffsetEdgesProps, OffsetFacesProps, PointInsideResultProps, SewSheetProps, SolidModelingCommandIpc, SpinFacesProps, SubEntityAppearanceProps, SubEntityGeometryProps, SubEntityLocationProps, SubEntityProps, SubEntityType, SweepFacesProps, SweepPathProps, TaperFacesProps, ThickenSheetProps, TransformSubEntityProps } from "@itwin/editor-common";
 import { EditCommand } from "./EditCommand";
 
 // ---------------------------------------------------------------------------
@@ -669,6 +669,7 @@ enum OperationType {
   AllTopologyIds = 34,
   ValidateBody = 35,
   EdgesFromOwnId = 36,
+  TaperFaces = 37,
 }
 
 interface ElementGeometryCacheOperationRequestProps {
@@ -677,7 +678,7 @@ interface ElementGeometryCacheOperationRequestProps {
   /** Requested operation */
   op: OperationType;
   /** Parameters for operation */
-  params?: GeometrySummaryRequestProps | SubEntityGeometryRequestProps | SubEntityParameterRangeRequestProps | SubEntityEvaluateRequestProps | QuerySubEntityRequestProps | QueryBodyRequestProps | BodySubEntitiesRequestProps | ConnectedSubEntityRequestProps | LocateSubEntityRequestProps | LocateFaceRequestProps | ClosestSubEntityRequestProps | ClosestPointRequestProps | PointInsideRequestProps | TopologyIdFromSubEntityRequestProps | FacesFromIdRequestProps | EdgesFromIdRequestProps | EdgesFromOwnIdRequestProps | AllTopologyIdsRequestProps | ValidateBodyRequestProps | BooleanOperationProps | SewSheetProps | ThickenSheetProps | CutProps | EmbossProps | ImprintProps | SweepPathProps | LoftProps | OffsetFacesProps | OffsetEdgesProps | HollowFacesProps | SweepFacesProps | SpinFacesProps | DeleteSubEntityProps | TransformSubEntityProps | BlendEdgesProps | ChamferEdgesProps;
+  params?: GeometrySummaryRequestProps | SubEntityGeometryRequestProps | SubEntityParameterRangeRequestProps | SubEntityEvaluateRequestProps | QuerySubEntityRequestProps | QueryBodyRequestProps | BodySubEntitiesRequestProps | ConnectedSubEntityRequestProps | LocateSubEntityRequestProps | LocateFaceRequestProps | ClosestSubEntityRequestProps | ClosestPointRequestProps | PointInsideRequestProps | TopologyIdFromSubEntityRequestProps | FacesFromIdRequestProps | EdgesFromIdRequestProps | EdgesFromOwnIdRequestProps | AllTopologyIdsRequestProps | ValidateBodyRequestProps | BooleanOperationProps | SewSheetProps | ThickenSheetProps | CutProps | EmbossProps | ImprintProps | SweepPathProps | LoftProps | OffsetFacesProps | OffsetEdgesProps | HollowFacesProps | SweepFacesProps | SpinFacesProps | DeleteSubEntityProps | TransformSubEntityProps | TaperFacesProps | BlendEdgesProps | ChamferEdgesProps;
   /** Callback for result when element's geometry stream is requested in flatbuffer or graphic formats */
   onGeometry?: ElementGeometryFunction;
 }
@@ -1163,6 +1164,11 @@ export class SolidModelingCommand extends BasicManipulationCommand implements So
 
   public async transformSubEntities(id: Id64String, params: TransformSubEntityProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined> {
     const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.TransformSubEntity, params };
+    return this.doElementGeometryOperation(props, opts);
+  }
+
+  public async taperFaces(id: Id64String, params: TaperFacesProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined> {
+    const props: ElementGeometryCacheOperationRequestProps = { id, op: OperationType.TaperFaces, params };
     return this.doElementGeometryOperation(props, opts);
   }
 

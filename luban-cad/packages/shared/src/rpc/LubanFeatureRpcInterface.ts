@@ -226,7 +226,7 @@ import {
 /** 特征类型（M1：拉伸 + 布尔；M3-a 增 fillet；RW2-T6 增 chamfer；RW2-T7 增 shell；M6-b T2 增 revolve；
  * B2 v1.11 增 loft；B3 v1.12 增 sweep；B4 v1.13 增 mirror；B5 v1.14 增 pattern；
  * B6 M-A4.1 v1.16 增 booleanBodies（body boolean）） */
-export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace";
+export type LubanFeatureType = "extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft";
 
 /** 拉伸/布尔共用参数：XY 平面闭合多边形轮廓 + Z 向距离。
  * `sketchId`（M2 T4.5）：轮廓改由草图元素几何流供给（已解算轮廓）；存在时 `profile` 须为空数组
@@ -849,6 +849,23 @@ export interface SplitPartParams {
  *   首版单一距离广播到全部选中面，逐面不同距离留切片 2。
  * 非平面面/封闭实体/内核拒绝等由内核裁决，失败诚实转 status=1（不假成功）。
  */
+/**
+ * v1.82（ADR-0021 / AX-01）：独立拔模特征（TaperFaces）。
+ *
+ * 面集相对 `neutralFace` 沿 `pullDirection` 轴拔模 `angleDeg` 度；中性面必须
+ * 是上游目标体上的平面面。`faces`/`neutralFace` 为持久拓扑 id；`bodyId` 用于
+ * 作用域校验。角度域 0<|angle|<89（ACIS -90°..+90° 契约）；`addStep` 缺省 true。
+ * 失败（失效面/非平面中性面/零角度/内核无回包）status=1 且零变更。
+ */
+export interface DraftParams {
+  bodyId: string;
+  faces: LubanTopologyId[];
+  neutralFace: LubanTopologyId;
+  pullDirection: "X" | "Y" | "Z";
+  angleDeg: number;
+  addStep?: boolean;
+}
+
 export interface MoveFaceParams {
   faces: LubanTopologyId[];
   /** 单一距离广播到全部选中面（与 distancesMm 互斥）。 */
@@ -1087,7 +1104,7 @@ export interface CPlaneParams {
   ];
 }
 
-export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | TransformParams | SplitPartParams | MoveFaceParams | FeatureMirrorParams;
+export type FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | TransformParams | SplitPartParams | MoveFaceParams | FeatureMirrorParams | DraftParams;
 
 /** v1.72（ADR-0020 S3）：变量类型（Onshape 变量对话框四类型）。
  * 缺省（旧变量/旧载荷无 `type`）= `length`；后端按消费尺寸量纲校验兼容性：
@@ -1315,7 +1332,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.81.0";
+  public static interfaceVersion = "1.82.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

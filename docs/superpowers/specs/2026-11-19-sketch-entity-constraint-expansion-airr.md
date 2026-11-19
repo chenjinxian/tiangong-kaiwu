@@ -122,7 +122,9 @@
 
 1. **S1 对称约束**：`symmetric` kind，refs=[点/实体A, 点/实体B, 轴线]；
    `SLVS_C_SYMMETRIC_LINE`；UI 三槽位；真栈两线与两点用例。
-2. **S2 槽工具**：中心-中心/总长/三点等 live 变体，组合现有 line/arc；不新增实体。
+2. **S2 槽工具（live 修正）**：Onshape 槽位于「偏移」下拉，语义=沿连续草图链
+   生成槽轮廓（tooltip 实证），非 center-to-center/overall 两点式；先补齐
+   链选择/宽度预览/确认/undo 的 live 证据，再按 ADR-0022 实施；证据不足时保持 gated。
 3. **S3 约束组合补全**：先审计 17 种约束的实体组合与 UI 槽位，补缺口与冲突测试。
 4. **S4 外部引用**：模型边/面投影与 PIERCE 前置；按 ADR-0009 异步路径。
 5. 椭圆/conic/text/N 点样条：先出求解策略 ADR，不在首批编码。

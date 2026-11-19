@@ -48,6 +48,7 @@ import type {
   // B4 v1.13
   MirrorParams,
   MoveFaceParams,
+  DraftParams,
   MirrorPlaneLine,
   // B5 v1.14
   PatternParams,
@@ -81,7 +82,7 @@ import type {
 describe("LubanFeatureRpcInterface", () => {
   it("接口名与版本固定（干净标识符：云端 RPC URL 按 - 与 / 切分，名字含 / - 无法寻址）", () => {
     expect(LubanFeatureRpcInterface.interfaceName).toBe("LubanFeatureRpcInterface");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 
   it("提供 getClient 静态入口（同 LubanRpcInterface 模式）", () => {
@@ -93,7 +94,7 @@ describe("M3-a v1.1 类型契约", () => {
   it("fillet 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "fillet";
     expect(t).toBe("fillet");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft">();
   });
 
   it("FilletParams：边自身 id 单引用（M6-d v1.9 纯换；LubanTopologyId/FilletEdgeRef 形状）", () => {
@@ -110,7 +111,7 @@ describe("M3-a v1.1 类型契约", () => {
   });
 
   it("FeatureParams = ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams；新 FeatureOp 变体可构造", () => {
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | FeatureMirrorParams | TransformParams | SplitPartParams | MoveFaceParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | FeatureMirrorParams | TransformParams | SplitPartParams | MoveFaceParams | DraftParams>();
     const insertFillet: FeatureOp = { kind: "insertFeature", featureType: "fillet", params: { radius: 1, propagateSmooth: false, edges: [] } };
     const insertChamfer: FeatureOp = { kind: "insertFeature", featureType: "chamfer", params: { mode: 1, propagateSmooth: true, edges: [], values1: 0.1 } };
     const insertShell: FeatureOp = { kind: "insertFeature", featureType: "shell", params: { defaultDistance: 0.1, faces: [{ nodeId: 1, entityId: 2 }], distances: 0 } };
@@ -378,7 +379,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
   it("revolve 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "revolve";
     expect(t).toBe("revolve");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft">();
   });
 
   it("RevolveParams：全周（angle 忽略）与部分角度（angle 必填形态）均可构造；regions 多面域与旧 regionIndex 兼容", () => {
@@ -413,7 +414,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
     const update: FeatureOp = { kind: "updateParams", featureId: "f1", params: { sketchId: "sk-1", axis: { sketchEntityId: 11 }, fullRevolve: false, angle: Math.PI / 2 } };
     expect(insert.featureType).toBe("revolve");
     expect(update.kind).toBe("updateParams");
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | FeatureMirrorParams | TransformParams | SplitPartParams | MoveFaceParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | FeatureMirrorParams | TransformParams | SplitPartParams | MoveFaceParams | DraftParams>();
   });
 });
 
@@ -421,7 +422,7 @@ describe("B2 v1.11 契约（loft 多截面放样——LoftParams）", () => {
   it("loft 已入特征类型联合 + LoftParams 形状（sketchIds 二元组 / sections 可选 / bodyType SOLID）", () => {
     const t: LubanFeatureType = "loft";
     expect(t).toBe("loft");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft">();
     const minimal: LoftParams = { sketchIds: ["sk-1", "sk-2"], bodyType: "SOLID" };
     const withSections: LoftParams = { sketchIds: ["sk-1", "sk-2"], sections: 2, bodyType: "SOLID" };
     expect(minimal.sketchIds).toEqual(["sk-1", "sk-2"]);
@@ -452,7 +453,7 @@ describe("B3 v1.12 契约（sweep 轮廓沿路径——SweepParams）", () => {
   it("sweep 已入特征类型联合 + SweepParams 形状（轮廓草图/路径草图 + bodyType SOLID）", () => {
     const t: LubanFeatureType = "sweep";
     expect(t).toBe("sweep");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft">();
     const params: SweepParams = { profileSketchId: "sk-profile", pathSketchId: "sk-path", bodyType: "SOLID" };
     expect(params.profileSketchId).toBe("sk-profile");
     expect(params.pathSketchId).toBe("sk-path");
@@ -480,7 +481,7 @@ describe("B4 v1.13 契约（mirror 平面镜像——MirrorParams）", () => {
   it("mirror 已入特征类型联合 + MirrorParams 形状（世界平面三选一 + keepOriginal 字面量 true）", () => {
     const t: LubanFeatureType = "mirror";
     expect(t).toBe("mirror");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft">();
     const params: MirrorParams = { plane: "XZ", keepOriginal: true };
     expect(params.plane).toBe("XZ");
     expect(params.keepOriginal).toBe(true);
@@ -528,7 +529,7 @@ describe("B5 v1.14 契约（pattern PART 级阵列——PatternParams）", () =>
   it("pattern 已入特征类型联合 + PatternParams 形状（kind/count/spacing?/angle?/axis）", () => {
     const t: LubanFeatureType = "pattern";
     expect(t).toBe("pattern");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft">();
     // 线性：count 含原件、spacing 沿 axis（世界 X/Y/Z）
     const linear: PatternParams = { kind: "linear", count: 3, spacing: 10, axis: "X" };
     expect(linear.kind).toBe("linear");
@@ -595,7 +596,7 @@ describe("B5 v1.14 契约（pattern PART 级阵列——PatternParams）", () =>
     // 旧载荷无新键：序列化不出现（旧 backend 逐字兼容）
     const legacy: PatternParams = { kind: "linear", count: 2, spacing: 5, axis: "Y" };
     expect("spacingExpression" in JSON.parse(JSON.stringify(legacy))).toBe(false);
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 
   it("insertFeature/updateParams op 携带 pattern params 可构造（FeatureParams 联合扩展回归锁）", () => {
@@ -697,7 +698,7 @@ describe("B6 M-A3.1 v1.15 契约（NEW-body / body 读面 / 显式目标）", ()
     expect(JSON.parse(JSON.stringify(legacy))).toEqual(legacy);
     // 版本不因本字段变化（M-A3.1 已升 1.15，M-A3.2 不二次升版；B-model v1.17 为 scope 参数升版，
     // P2.2 v1.18 为注册表升版）。
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 
   it("insertFeature 与 deleteFeature 的 targetBodyId 同锚（FeatureOp 类型面可达；无私有扩展需求）", () => {
@@ -783,7 +784,7 @@ describe("B6 M-A4.1 v1.16 契约（body boolean——BooleanBodiesParams）", ()
   it("booleanBodies 已入特征类型联合（编译期逐字断言）", () => {
     const t: LubanFeatureType = "booleanBodies";
     expect(t).toBe("booleanBodies");
-    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace">();
+    expectTypeOf<LubanFeatureType>().toEqualTypeOf<"extrude" | "booleanAdd" | "booleanSubtract" | "fillet" | "chamfer" | "shell" | "revolve" | "loft" | "sweep" | "mirror" | "pattern" | "featurePattern" | "featureMirror" | "booleanBodies" | "hole" | "cPlane" | "faceExtrude" | "transform" | "splitPart" | "moveFace" | "draft">();
   });
 
   it("BooleanBodiesParams：targets/tools BodyRef 数组 + operation 三值（v1 服务端拒 intersect）+ keepTools 精确形状", () => {
@@ -822,7 +823,7 @@ describe("B6 M-A4.1 v1.16 契约（body boolean——BooleanBodiesParams）", ()
     expect(insert.featureType).toBe("booleanBodies");
     expect((insert.params as BooleanBodiesParams).targets[0].bodyKey).toBe("0x15");
     expect((update.params as BooleanBodiesParams).keepTools).toBe(true);
-    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | FeatureMirrorParams | TransformParams | SplitPartParams | MoveFaceParams>();
+    expectTypeOf<FeatureParams>().toEqualTypeOf<ExtrudeParams | FilletParams | ChamferParams | ShellParams | RevolveParams | BooleanParams | LoftParams | SweepParams | MirrorParams | PatternParams | BooleanBodiesParams | HoleParams | CPlaneParams | FaceExtrudeParams | FeaturePatternParams | FeatureMirrorParams | TransformParams | SplitPartParams | MoveFaceParams | DraftParams>();
   });
 });
 
@@ -871,7 +872,7 @@ describe("B-model P1 spike v1.17 契约（可选 Part Studio scope 参数）", (
   });
 
   it("版本 1.30.0（revolve 多面域；cPlane 基准面 + SketchPlaneDto.sourceFeatureId；hole 沉头孔；面域有序环 + fillet 预览几何；v1.17 可选 scope 参数保持旧调用兼容）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -935,7 +936,7 @@ describe("B-model P2.2 v1.18 契约（Part Studio 注册表 RPC）", () => {
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1");
     expectTypeOf<LubanFeatureRpcInterface["applyFeatureOp"]>().toBeCallableWith("conn-1", { kind: "undo" }, "sess-1", "ps-1");
     expectTypeOf<LubanFeatureRpcInterface["getBodies"]>().toBeCallableWith("conn-1", "ps-1");
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -1143,7 +1144,7 @@ describe("v1.30 契约（revolve 多面域）", () => {
   });
 
   it("版本 1.30.0（revolve regions 多面域；旧 regionIndex 简写保留一版）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -1393,7 +1394,7 @@ describe("v1.64 契约（faceExtrude startOffset + draft；ADR-0016 切片 A1）
   });
 
   it("接口版本 1.80.0（ADR-0020 S12：圆周阵列角度表达式 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -1422,7 +1423,7 @@ describe("v1.72 契约（ADR-0020 S3：VariableDto.type?/description?）", () =>
   });
 
   it("接口版本 1.80.0（S12 圆周阵列角度表达式 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -1531,7 +1532,7 @@ describe("v1.71 契约（ADR-0020：SketchConstraintDto.expression + VariableDto
     type GetVariablesFn = LubanFeatureRpcInterface["getVariables"];
     expectTypeOf<Parameters<GetVariablesFn>[1]>().toEqualTypeOf<string | undefined>();
     expectTypeOf<ReturnType<GetVariablesFn>>().toEqualTypeOf<Promise<VariableDto[]>>();
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -1649,7 +1650,7 @@ describe("v1.74 契约（ADR-0020 S4c：其他特征数值字段表达式）", (
   });
 
   it("接口版本 1.80.0（S12 圆周阵列角度表达式 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -1783,7 +1784,7 @@ describe("v1.78 契约（ADR-0020 S8：HoleParams 沉头/锥口字段表达式�
   });
 
   it("接口版本 1.80.0（ADR-0020 S12 additive bump）", () => {
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });
 
@@ -1802,7 +1803,7 @@ describe("v1.79 契约（ADR-0020 S9：阵列第二方向间距表达式）", ()
     // 旧载荷（v1.62 第二方向无表达式键）：序列化不出现新键。
     const legacy: PatternSecondDirection = { count: 2, spacing: 10, axis: "Y" };
     expect(Object.keys(JSON.parse(JSON.stringify(legacy)))).toEqual(["count", "spacing", "axis"]);
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 
   it("两层同名键区分：顶层 spacingExpression（第一方向）与 secondDirection.spacingExpression（第二方向）可共存", () => {
@@ -1887,7 +1888,7 @@ describe("v1.80 契约（ADR-0020 S12：圆周阵列总角度表达式）", () =
     // 旧载荷（v1.79 及更早圆周阵列无新键）：序列化不出现新键。
     const legacy: PatternParams = { kind: "circular", count: 4, angle: 360, axis: "Z" };
     expect("angleExpression" in JSON.parse(JSON.stringify(legacy))).toBe(false);
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 
   it("FeaturePatternParams.angleExpression：与 PART 阵列同口径；随 insertFeature/updateParams op 往返", () => {
@@ -1943,6 +1944,26 @@ describe("v1.81 契约（ADR-0022 S1：草图对称约束）", () => {
     expect(constraint.kind).toBe("symmetric");
     expect(constraint.value).toBeUndefined();
     expect(JSON.parse(JSON.stringify(constraint))).toEqual(constraint);
-    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.81.0");
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
+  });
+});
+
+describe("v1.82 契约（ADR-0021 AX-01：独立拔模特征）", () => {
+  it("LubanFeatureType 含 draft；DraftParams 形状 + JSON 往返", () => {
+    const type: LubanFeatureType = "draft";
+    expect(type).toBe("draft");
+    const params: DraftParams = {
+      bodyId: "0x2000000000a",
+      faces: [{ nodeId: 1, entityId: 2 }, { nodeId: 1, entityId: 3 }],
+      neutralFace: { nodeId: 1, entityId: 4 },
+      pullDirection: "Z",
+      angleDeg: 15,
+    };
+    expect(params.angleDeg).toBe(15);
+    expect(params.pullDirection).toBe("Z");
+    expect(JSON.parse(JSON.stringify(params))).toEqual(params);
+    const insert: FeatureOp = { kind: "insertFeature", featureType: "draft", params };
+    expect(JSON.parse(JSON.stringify(insert))).toEqual(insert);
+    expect(LubanFeatureRpcInterface.interfaceVersion).toBe("1.82.0");
   });
 });

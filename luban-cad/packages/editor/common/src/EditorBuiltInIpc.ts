@@ -381,6 +381,22 @@ export interface OffsetEdgesProps {
   propagateSmooth: boolean;
 }
 
+/** Taper selected faces about reference edges/faces (ADR-0021 / op 37).
+ * @alpha
+ */
+export interface TaperFacesProps {
+  /** The faces to taper. */
+  faces: SubEntityProps | SubEntityProps[];
+  /** Reference edges/faces that retain their geometry (one per face, or one shared). */
+  refs: SubEntityProps | SubEntityProps[];
+  /** The taper pull direction. */
+  direction: XYZProps;
+  /** Taper angle(s) in radians; one value is broadcast to all faces. */
+  angles: number | number[];
+  /** Add step faces where needed. Defaults to true. */
+  addStep?: boolean;
+}
+
 /** When shelling, a positive offset goes outwards (in the direction of the surface normal),
  * a negative offset is inwards, and a face with zero offset will be pierced/removed.
  * @alpha
@@ -678,6 +694,8 @@ export interface SolidModelingCommandIpc extends EditCommandIpc {
   deleteSubEntities(id: Id64String, params: DeleteSubEntityProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined>;
   /** Modify the target solid or sheet body by transforming selected faces, edges, or vertices. */
   transformSubEntities(id: Id64String, params: TransformSubEntityProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined>;
+  /** Modify the target body by tapering selected faces about reference edges/faces. */
+  taperFaces(id: Id64String, params: TaperFacesProps, opts: ElementGeometryResultOptions): Promise<ElementGeometryResultProps | undefined>;
   /** Query the cache sub-entity ids of the face identified by its persistent topology id.
    * Returns more than one id when the face has been split into pieces. */
   facesFromId(id: Id64String, nodeId: number, entityId: number): Promise<string[] | undefined>;

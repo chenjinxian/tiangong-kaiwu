@@ -258,6 +258,7 @@ export type {
   TransformParams,
   SplitPartParams,
   MoveFaceParams,
+  DraftParams,
   FeatureMirrorParams,
 } from './rpc/LubanFeatureRpcInterface.js';
 

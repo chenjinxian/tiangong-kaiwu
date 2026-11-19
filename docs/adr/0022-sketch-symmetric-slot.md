@@ -38,14 +38,19 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
 4. **证据**：shared 单测、backend solver/normalizer 单测、web 槽位单测、
    真栈 e2e（两 off-axis 点 + 固定轴线/首点 → 第二点反射落库；完成/重开）。
 
-### 2.2 S2 槽工具
+### 2.2 S2 槽工具（live 证据修正，2026-11-19）
 
-- 不新增实体类型。槽 = 两条平行 line + 两个 arc（半圆）+ 约束（端点
-  coincident、切线/相等/平行按 live 形态）；工具一次 `updateSketch` 写入
-  多实体与约束，可撤销。
-- 首批只做 **中心-中心（center-to-center）** 与 **总长（overall）** 两形态；
-  其余 live 变体（三点、中心点等）在能力账本登记 `partial`，不得假装 full。
-- 槽工具 UI 需 live 证据逐项对拍；无证据的形态保持 gated。
+- **live 入口**：槽不是独立顶栏按钮，而是「偏移」工具组下拉的第二项
+  （`偏移 o` / `槽`）；tooltip = 「槽在连续草图图元周围创建槽。」
+  （私有证据 `ui-evidence/slot-probe-20261119-*`）。
+- **交互**：选择一条连续草图链（line/arc 相连），再以光标/宽度确定槽宽并
+  提交；未观察到首击即弹对话框。该语义是**沿连续链生成槽轮廓**，不是
+  早期假设的 center-to-center/overall 两点式。
+- **决策**：S2 按「链式槽偏移」实现，不新增实体类型；工具一次
+  `updateSketch` 写入 line/arc 链 + 槽轮廓，可撤销。必须先补齐
+  live 交互证据（链选择、宽度预览/输入、确认、失败/取消、undo），否则
+  `sketchSlot` 保持 gated，不得用近似两点槽冒充 full。
+- 早期 center-to-center/overall 设计作废；AIRR §10 同步修正。
 
 ## 3. 数据/事务
 
@@ -62,7 +67,8 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
 - web：槽位纯逻辑（三槽、错型拒收）、工具注册/能力 full、i18n。
 - 真栈：`sketch-symmetric.spec.ts` 两 off-axis 点 + 固定轴线/首点 → 第二点
   反射；完成草图/重开仍存在；撤销。
-- S2：`sketch-slot.spec.ts` 中心-中心形态；实体数/约束数/面积/undo。
+- S2：待 live 交互补齐后新增 `sketch-slot.spec.ts`：连续链选择、宽度预览/输入、
+  提交后的实体/约束/面积、取消不落库、undo、冷重开。
 
 ## 5. 回滚
 
