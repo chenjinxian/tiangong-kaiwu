@@ -123,9 +123,16 @@ export function useOnshapeSelection(
 
     const removeToolListener = admin.activeToolChanged.addListener((tool) => {
       if (pausedRef.current) {
-        // 与 paused effect 同口径：dialog/草图期间任何工具激活都清空选择
-        //（store + 树 + selectionSet），防止新装工具重新写入旧 body 选择。
-        clearCanvasSelection(connection);
+        // dialog/草图期间工具激活：清 body/树/selectionSet，防止新装工具重新
+        // 写入旧 body 选择；但**保留 sketchEntity 选择**——草图会话内的实体
+        // 预选是草图工具的合法输入（live 2026-11-19：框选相连段 → 偏移 ▾ →
+        // 槽，工具以预选链生成槽；进入草图时 paused effect 已清过旧 body 选择）。
+        const keepSketch = usePartStudioStore.getState().canvas.selection
+          .filter((entry) => entry.kind === 'sketchEntity');
+        if (keepSketch.length > 0)
+          applyCanvasSelection(connection, keepSketch, { clearTree: true });
+        else
+          clearCanvasSelection(connection);
         if (tool instanceof OnshapeSelectTool)
           void tool.pause(true);
         return;

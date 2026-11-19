@@ -18,7 +18,7 @@
       "partial": 68
     }
   },
-  "sourceHash": "6ae6dd158bc84b13ea5c6485e23a19d18327a3137f4dcb016767486b4e334693",
+  "sourceHash": "b68c0532cc732caaf2ccecc2cf72916cd16d09492c203cc2ba37292d6cba86e4",
   "rows": [
     {
       "id": "constraint.angle",
@@ -1907,12 +1907,12 @@
       "family": "tooling",
       "onshapeEntry": "sketchSlot",
       "status": "partial",
-      "scopeNote": "偏移 ▾ 第二项「槽」：单条直线中线槽（两平行边界 + 两半圆帽、默认 Ø20、Ø 尺寸参数化、原中线保留、一次 updateSketch + 原生 undo/redo）；真栈 sketch-slot.spec.ts 2 passed",
+      "scopeNote": "偏移 ▾ 第二项「槽」：单条直线中线槽 + 预选相连折线链槽（live DXF 同构：外侧圆角弧/内侧斜接/原中线保留/单 Ø 驱动、默认 Ø20、一次 updateSketch + 原生 undo/redo）；真栈 sketch-slot.spec.ts 3 passed（含链槽）",
       "missing": [
-        "多段连续链槽（拐角连接未采证）",
-        "圆弧/整圆中线槽",
+        "圆弧/整圆中线链槽",
         "闭合轮廓环槽",
-        "多条独立曲线联动的等宽槽",
+        "分支链槽",
+        "多条互不相连曲线联动的等宽槽",
         "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）"
       ],
       "contractRef": null,

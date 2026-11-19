@@ -272,6 +272,33 @@ describe('useOnshapeSelection', () => {
     expect(pause).toHaveBeenCalledTimes(1);
   });
 
+  it('暂停（草图/对话）期间激活工具保留 sketchEntity 预选；body/树/SelectionSet 仍清空', () => {
+    const { activeToolChanged } = stubToolAdmin();
+    vi.spyOn(IModelApp.tools, 'register').mockImplementation(() => undefined);
+    const conn = makeConnection(['0x201']);
+    renderHook(() => useOnshapeSelection(conn as unknown as BriefcaseConnection, viewport, true));
+
+    const sketchSelection = {
+      kind: 'sketchEntity' as const,
+      id: '0x20000000006:11',
+      sketchId: '0x20000000006',
+      entityId: 11,
+      sketchPart: 'curve' as const,
+    };
+    usePartStudioStore.setState({
+      canvas: { selection: [sketchSelection], hiddenIds: [] },
+      tree: { activeTab: 'features', selectedNodeIds: ['0xB'], expandedNodeIds: [] },
+    });
+    conn.selectionSet.emptyAll.mockClear();
+    conn.selectionSet.elements.add('0x201');
+
+    // live 2026-11-19：草图内框选链后启动「槽」等草图工具——预选必须保留。
+    activeToolChanged.raiseEvent({ toolId: 'Sketch.Slot' });
+    expect(usePartStudioStore.getState().canvas.selection).toEqual([sketchSelection]);
+    expect(usePartStudioStore.getState().tree.selectedNodeIds).toEqual([]);
+    expect(conn.selectionSet.emptyAll).toHaveBeenCalledTimes(1);
+  });
+
   it('启动在卸载后才完成：退出已装上的 Onshape 工具且不再写选择', async () => {
     const { admin } = stubToolAdmin();
     let resolveStart!: () => void;

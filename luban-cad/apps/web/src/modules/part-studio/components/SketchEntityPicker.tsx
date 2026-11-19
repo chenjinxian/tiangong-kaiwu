@@ -296,6 +296,16 @@ export function SketchEntityPicker({
       const rect = canvas.getBoundingClientRect();
       return point.x >= 0 && point.y >= 0 && point.x <= rect.width && point.y <= rect.height;
     };
+    /**
+     * 起点必须真正落在视口画布上：ribbon 飞菜单/对话框浮层可能叠在画布矩形
+     * 区域内，若只按坐标判断会被当成空白点击**清空草图预选**（2026-11-19
+     * 真栈：框选 3 段 → 点「偏移 ▾ → 槽」，menu item 点击把选择清成 0，
+     * 槽工具拿不到预选链）。之后 move/up 不按 target 过滤，允许框选拖出画布。
+     */
+    const startsOnCanvas = (event: PointerEvent): boolean => {
+      const target = event.target;
+      return target !== null && (target === canvas || canvas.contains(target as Node));
+    };
     const project = (world: Point3d): ScreenPoint2 => {
       const v = viewport.worldToView(world);
       return { x: v.x, y: v.y };
@@ -314,6 +324,8 @@ export function SketchEntityPicker({
     };
     const onDown = (event: PointerEvent): void => {
       if (!interactiveRef.current || event.button !== 0 || menuOpenRef.current)
+        return;
+      if (!startsOnCanvas(event))
         return;
       down = local(event);
       if (!inCanvas(down)) {
