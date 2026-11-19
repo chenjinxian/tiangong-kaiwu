@@ -6,10 +6,17 @@
  * - 相连折线链（2026-11-19 链探针 `chain-slot.dxf`）：沿整条链生成**一个**槽；
  *   每个内顶点外侧为 r=Ø/2 的圆角弧（弧心=顶点），内侧为两条偏移线尖角相交；
  *   两端半圆帽；原中线全部保留；仍只有一个 Ø 驱动尺寸（所有弧等半径）。
+ * - 圆弧中线（2026-11-20 live `arc-slot.dxf`）：两条同心偏移弧（R±Ø/2）+ 两个
+ *   半圆帽（圆心=弧端点、帽半径=Ø/2）；帽与两条偏移弧相切；单个 Ø 驱动；
+ *   原中线保留。帽的扫角方向随中线 sweep 符号确定（开放弧，允许负扫角）。
  * - 宽度是直径/Ø 驱动尺寸；提交后一次 updateSketch 事务（可撤销）。
  *
- * 尚未实现（诚实拒收）：圆弧/整圆中线、闭合环槽、分支链、多条互不相连曲线的
- * 联动等宽槽（live 已见两独立槽共享一个 Ø，但选择/尺寸联动语义待补）。
+ * 尚未实现（诚实拒收）：
+ * - **整圆中线**：live 2026-11-20 实测为两条同心圆 R±w/2、无帽，宽度是**线性**
+ *   尺寸（不是 Ø）。当前 solver-neutral 无「同心圆径向宽度」原语（offset 仅 line/
+ *   arc），不能用单一尺寸精确驱动两圆 → blocked-design，不近似。
+ * - 闭合环槽、分支链、多条互不相连曲线的联动等宽槽（live 已见两独立槽共享一个
+ *   Ø，但选择/尺寸联动语义待补）、live 宽度光标拖拽。
  */
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import type { OffsetChain, OffsetJunction } from './sketch-offset-logic.js';
@@ -26,7 +33,9 @@ export type SlotBuildError =
   | 'unsupportedChain'
   | 'unsupportedKind'
   | 'zeroWidth'
-  | 'unsolvedLine';
+  | 'unsolvedLine'
+  | 'unsolvedCurve'
+  | 'degenerateRadius';
 
 export interface SlotDraft {
   entities: SketchEntityDto[];
@@ -522,6 +531,143 @@ export function buildLineChainSlotDraft(input: {
       boundaryLineIds: [...leftLines, ...rightLines],
       diameterConstraintId,
       cornerArcIds,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 圆弧中线槽（2026-11-20 live `arc-slot.dxf`）
+// ---------------------------------------------------------------------------
+
+interface SolvedArc {
+  center: SolvedPoint;
+  radius: number;
+  startAngle: number;
+  sweepAngle: number;
+  start: SolvedPoint;
+  end: SolvedPoint;
+}
+
+function resolveArcGeometry(
+  arc: SketchEntityDto & { kind: 'arc' },
+  points: Map<number, SolvedPoint>,
+): SolvedArc | undefined {
+  const center = resolvePoint(arc.center, points);
+  if (!center || arc.radius === undefined || arc.startAngle === undefined || arc.sweepAngle === undefined)
+    return undefined;
+  if (![arc.radius, arc.startAngle, arc.sweepAngle].every(Number.isFinite)) return undefined;
+  const endAngle = arc.startAngle + arc.sweepAngle;
+  return {
+    center,
+    radius: arc.radius,
+    startAngle: arc.startAngle,
+    sweepAngle: arc.sweepAngle,
+    start: {
+      u: center.u + arc.radius * Math.cos(arc.startAngle),
+      v: center.v + arc.radius * Math.sin(arc.startAngle),
+    },
+    end: {
+      u: center.u + arc.radius * Math.cos(endAngle),
+      v: center.v + arc.radius * Math.sin(endAngle),
+    },
+  };
+}
+
+/**
+ * 圆弧中线槽草稿（与 live `arc-slot.dxf` 同构）：
+ *  - 两条同心偏移弧 R±Ø/2（与源弧同 center/startAngle/sweepAngle）；
+ *  - 两个半圆帽（圆心=源弧端点、半径=Ø/2）；帽与两条偏移弧相切，
+ *    由几何关系自然得到偏移半径，单个 Ø 驱动（无 offset 数值约束）；
+ *  - 帽扫角方向随源弧 sweep 符号确定：起点帽始终从外侧点绕到内侧点；
+ *    终点帽始终从外侧点绕到内侧点（负扫角时取 -π）。
+ *  - 原中线保留；源弧半径不足以容纳半宽 → degenerateRadius；整圆弧
+ *    （|sweep|≈2π）属于整圆槽语义，当前 blocked-design → unsupportedKind。
+ *
+ * 返回实体 = 2 帽心 point + 2 偏移弧 + 2 帽弧；约束 14 条。
+ */
+export function buildArcSlotDraft(input: {
+  arc: SketchEntityDto & { kind: 'arc' };
+  entities: SketchEntityDto[];
+  width: number;
+  startId: number;
+}): { ok: true; draft: SlotDraft } | { ok: false; error: SlotBuildError } {
+  const { arc, entities, width } = input;
+  if (!(width > SLOT_TOL)) return { ok: false, error: 'zeroWidth' };
+  const points = indexPoints(entities);
+  const g = resolveArcGeometry(arc, points);
+  if (!g) return { ok: false, error: 'unsolvedCurve' };
+  if (!(g.radius > SLOT_TOL) || !(Math.abs(g.sweepAngle) > SLOT_TOL))
+    return { ok: false, error: 'unsolvedCurve' };
+  if (Math.abs(Math.abs(g.sweepAngle) - 2 * Math.PI) <= 1e-6)
+    return { ok: false, error: 'unsupportedKind' }; // 整圆弧 → 整圆槽语义（尚未支持）
+  const half = width / 2;
+  if (!(g.radius - half > SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+
+  const sign = g.sweepAngle > 0 ? 1 : -1;
+  const endAngle = g.startAngle + g.sweepAngle;
+  let nextId = input.startId;
+  const alloc = (): number => nextId++;
+  const newEntities: SketchEntityDto[] = [];
+  const newConstraints: SketchConstraintDto[] = [];
+  const add = (constraint: Omit<SketchConstraintDto, 'id'>): number => {
+    const id = alloc();
+    newConstraints.push({ ...constraint, id });
+    return id;
+  };
+
+  const capStartCenter = alloc();
+  const capEndCenter = alloc();
+  newEntities.push({ kind: 'point', id: capStartCenter, x: g.start.u, y: g.start.v });
+  newEntities.push({ kind: 'point', id: capEndCenter, x: g.end.u, y: g.end.v });
+  const outerArc = alloc();
+  const innerArc = alloc();
+  newEntities.push({
+    kind: 'arc', id: outerArc, center: arc.center, radius: g.radius + half,
+    startAngle: g.startAngle, sweepAngle: g.sweepAngle,
+  });
+  newEntities.push({
+    kind: 'arc', id: innerArc, center: arc.center, radius: g.radius - half,
+    startAngle: g.startAngle, sweepAngle: g.sweepAngle,
+  });
+  const capStartArc = alloc();
+  const capEndArc = alloc();
+  newEntities.push({
+    kind: 'arc', id: capStartArc, center: capStartCenter, radius: half,
+    startAngle: g.startAngle,
+    // 起点帽：外侧点（a1）→ 内侧点（a1±π），扫角方向与源弧相反。
+    sweepAngle: -sign * Math.PI,
+  });
+  newEntities.push({
+    kind: 'arc', id: capEndArc, center: capEndCenter, radius: half,
+    startAngle: endAngle,
+    // 终点帽：外侧点（a2）→ 内侧点（a2±π），扫角方向与源弧相同。
+    sweepAngle: sign * Math.PI,
+  });
+
+  add({ kind: 'coincident', refs: [capStartCenter, { entity: arc.id, part: 'start' }] });
+  add({ kind: 'coincident', refs: [capEndCenter, { entity: arc.id, part: 'end' }] });
+  add({ kind: 'coincident', refs: [{ entity: outerArc, part: 'start' }, { entity: capStartArc, part: 'start' }] });
+  add({ kind: 'coincident', refs: [{ entity: innerArc, part: 'start' }, { entity: capStartArc, part: 'end' }] });
+  add({ kind: 'coincident', refs: [{ entity: outerArc, part: 'end' }, { entity: capEndArc, part: 'start' }] });
+  add({ kind: 'coincident', refs: [{ entity: innerArc, part: 'end' }, { entity: capEndArc, part: 'end' }] });
+  add({ kind: 'concentric', refs: [arc.id, outerArc] });
+  add({ kind: 'concentric', refs: [arc.id, innerArc] });
+  add({ kind: 'tangent', refs: [capStartArc, outerArc] });
+  add({ kind: 'tangent', refs: [capStartArc, innerArc] });
+  add({ kind: 'tangent', refs: [capEndArc, outerArc] });
+  add({ kind: 'tangent', refs: [capEndArc, innerArc] });
+  const diameterConstraintId = add({ kind: 'diameter', refs: [capStartArc], value: width });
+  add({ kind: 'equal', refs: [capStartArc, capEndArc] });
+
+  return {
+    ok: true,
+    draft: {
+      entities: newEntities,
+      constraints: newConstraints,
+      nextId,
+      capArcIds: [capStartArc, capEndArc],
+      boundaryLineIds: [],
+      diameterConstraintId,
     },
   };
 }

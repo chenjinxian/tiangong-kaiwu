@@ -9,14 +9,16 @@
  * - finish + reload 重开后几何/约束保持。
  */
 import { expect, test } from '@playwright/test';
-import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
+import type { SketchDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc,
+  assertFeatureOpOk,
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
   getSketchRpc,
   openSeedImodelEditor,
+  releaseWriteLease,
 } from './helpers.js';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import {
@@ -32,6 +34,12 @@ import {
 
 type LineEntity = Extract<SketchEntityDto, { kind: 'line' }>;
 type ArcEntity = Extract<SketchEntityDto, { kind: 'arc' }>;
+
+const XY_PLANE: SketchPlaneDto = {
+  origin: { x: 0, y: 0, z: 0 },
+  normal: { x: 0, y: 0, z: 1 },
+  xDir: { x: 1, y: 0, z: 0 },
+};
 
 const pointOf = (ref: LineEntity['p1']): { x: number; y: number } => {
   if (typeof ref !== 'object') throw new Error('期望内联端点');
@@ -136,6 +144,34 @@ function assertChainSlotGeometry(sketch: SketchDto, centerlineIds: readonly numb
     });
     expect(hits, '边界线到对应中线段的垂距 = Ø/2').toHaveLength(1);
   }
+}
+
+/**
+ * 圆弧槽验收（live 2026-11-20 `arc-slot.dxf`）：源弧 R50 + 同心偏移弧 R±Ø/2
+ * + 两半圆帽（r=Ø/2，圆心=源弧端点）；原中线保留；新增约束 6 coincident +
+ * 2 concentric + 4 tangent + 1 diameter + 1 equal。
+ */
+function assertArcSlotGeometry(sketch: SketchDto, width: number, initialConstraintIds: ReadonlySet<number>): void {
+  const arcs = sketch.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+  expect(arcs).toHaveLength(5);
+  const half = width / 2;
+  const withRadius = (r: number): ArcEntity[] => arcs.filter((a) => Math.abs((a.radius ?? NaN) - r) < 1e-3);
+  expect(withRadius(50), '源弧保留').toHaveLength(1);
+  expect(withRadius(50 + half), '外侧偏移弧').toHaveLength(1);
+  expect(withRadius(50 - half), '内侧偏移弧').toHaveLength(1);
+  expect(withRadius(half), '两半圆帽').toHaveLength(2);
+  for (const arc of [...withRadius(50 + half), ...withRadius(50 - half)]) {
+    expect(dist2d(resolvePointRef(arc.center, sketch.entities), { x: 0, y: 0 }), '偏移弧同心').toBeLessThan(0.2);
+  }
+  const capCenters = withRadius(half).map((arc) => resolvePointRef(arc.center, sketch.entities));
+  expect(capCenters.some((center) => dist2d(center, { x: 50, y: 0 }) < 0.2), '起点帽心=源弧起点').toBe(true);
+  expect(capCenters.some((center) => dist2d(center, { x: 0, y: 50 }) < 0.2), '终点帽心=源弧终点').toBe(true);
+  const added = sketch.constraints.filter((c) => !initialConstraintIds.has(c.id));
+  expect(added.filter((c) => c.kind === 'coincident')).toHaveLength(6);
+  expect(added.filter((c) => c.kind === 'concentric')).toHaveLength(2);
+  expect(added.filter((c) => c.kind === 'tangent')).toHaveLength(4);
+  expect(added.filter((c) => c.kind === 'diameter')).toHaveLength(1);
+  expect(added.filter((c) => c.kind === 'equal')).toHaveLength(1);
 }
 
 test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => {
@@ -336,5 +372,87 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     ctx = await openSeedImodelEditor(page, seed);
     const persisted = await readSketch();
     assertChainSlotGeometry(persisted, centerlineIds, 15);
+  });
+
+  test('圆弧中线 → 槽（单击拾取）→ Ø20 → Ø30 → reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-arc');
+
+    // 四分之一圆弧 R50（起点 (50,0) 由固定点钉住；XY 平面 = Top 视图）。
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'arc', id: 2, center: 1, radius: 50, startAngle: 0, sweepAngle: Math.PI / 2 },
+        { kind: 'point', id: 3, x: 50, y: 0 },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'radius', id: 101, refs: [2], value: 50 },
+        { kind: 'fixed', id: 102, refs: [3] },
+        { kind: 'coincident', id: 103, refs: [3, { entity: 2, part: 'start' }] },
+      ],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '圆弧草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -20, y: -20, z: -20 }, high: { x: 80, y: 80, z: 20 } });
+    await disableSnap(page);
+
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+
+    // 单击弧中点（45°）→ 槽预览 → Enter 提交。
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await clickWorld(page, hub, { x: 35.35533905932738, y: 35.35533905932738, z: 0 });
+    await page.waitForTimeout(700);
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'arc').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(5);
+    const initialConstraintIds = new Set([100, 101, 102, 103]);
+    assertArcSlotGeometry(await readSketch(), 20, initialConstraintIds);
+
+    // Ø 20 → 30：偏移弧 r35/r65、帽 r15。
+    const before = await readSketch();
+    const diameter = before.constraints.find((c) => c.kind === 'diameter')!;
+    const widenLease = await borrowWriteLease(ctx, token, 'sketch-slot-arc-widen');
+    const widen = await applyFeatureOpRpc(ctx, {
+      kind: 'updateSketchConstraint', sketchId, constraintId: diameter.id, value: 30,
+    }, widenLease, token);
+    expect(widen.ok, widen.ok ? '' : widen.error).toBe(true);
+    await releaseWriteLease(ctx, widenLease, token);
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')
+      .some((arc) => Math.abs((arc.radius ?? 0) - 15) < 1e-3), {
+      timeout: 20_000, intervals: [1000, 2000, 5000],
+    }).toBe(true);
+    assertArcSlotGeometry(await readSketch(), 30, initialConstraintIds);
+
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    assertArcSlotGeometry(await readSketch(), 30, initialConstraintIds);
   });
 });

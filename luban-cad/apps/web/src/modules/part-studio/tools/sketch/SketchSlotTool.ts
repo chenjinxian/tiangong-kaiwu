@@ -1,15 +1,19 @@
 /**
  * 草图槽（toolId `Sketch.Slot`，ADR-0022 S2 首切片，2026-11-19 live 探针）。
  *
- * live 交互（私有 `ui-evidence/slot-probe-20261119/` + `slot-chain-20261119/`）：
+ * live 交互（私有 `ui-evidence/slot-probe-20261119/`、`slot-chain-20261119/`、
+ * `slot-variants-20261120/`）：
  * - 入口在「偏移 ▾」第二项「槽」。
- * - 无预选：直接点击一条直线 → 体育场槽预览；Enter 或再次点击提交。
- * - 有预选（框选/Ctrl 叠加）：相连直线链 → 工具激活即沿整链预览；Enter 提交。
+ * - 无预选：直接点击一条直线或圆弧 → 槽预览；Enter 或再次点击提交。
+ * - 有预选（框选/Ctrl 叠加）：单条直线/圆弧，或相连直线链 → 工具激活即预览。
  * - 默认宽 Ø20（mm 文档）；原中线保留；宽度尺寸可在提交后双击 Ø 标签修改。
  *
- * 范围（S2 单线 + S2b 链，ADR-0022 §2.3/§2.4）：**单条直线** 与 **开放、无分支、
- * 直线成员的相连链**。链槽外顶点为圆角弧（弧心=顶点）、内顶点为斜接；圆弧/整圆
- * 中线、闭合环槽、分支链、多条独立曲线联动槽尚未采证 → 诚实拒收，不近似冒充。
+ * 范围（S2 单线 + S2b 链 + S2c 圆弧，ADR-0022 §2.3–§2.5）：**单条直线**、
+ * **单条开放圆弧**（同心偏移弧 + 半圆帽 + 单 Ø 驱动）与 **开放、无分支、直线
+ * 成员的相连链**。链槽外顶点为圆角弧、内顶点为斜接。
+ * **整圆中线**：live 2026-11-20 实测为两条同心圆 + **线性**宽度尺寸；当前
+ * solver-neutral 无同心圆径向宽度原语 → blocked-design，工具诚实拒收。
+ * 闭合环槽、分支链、多条独立曲线联动槽同样暂不支持。
  *
  * 基建复用 SketchOffsetTool：AccuSnap 取点 + 草图平面架 + Dynamics 预览 +
  * applyUpdate 乐观整体覆写 + id 播种/回滚 + 分阶段提示。
@@ -36,6 +40,7 @@ import { resolveNearestOffsetSeedId } from './sketch-offset-logic.js';
 import {
   DEFAULT_SLOT_WIDTH,
   SLOT_TOL,
+  buildArcSlotDraft,
   buildLineChainSlotDraft,
   buildLineSlotDraft,
   lineChainFromSelection,
@@ -53,7 +58,7 @@ export class SketchSlotTool extends PrimitiveTool {
   private _phase: 'pick' | 'preview' = 'pick';
   private _draft?: SlotDraft;
   /** 预览/提交共用的选中直线 id（单线或相连链；提交时按同一集合重建）。 */
-  private _lineIds?: number[];
+  private _selectedIds?: number[];
   private _plane!: SketchPlaneFrame;
   private _nextId = 1;
   private _cursorView?: { x: number; y: number };
@@ -66,9 +71,9 @@ export class SketchSlotTool extends PrimitiveTool {
     this._plane = resolveSketchPlaneFrame();
     this.initLocateElements(false, true);
     this.beginDynamics();
-    // live 2026-11-19：多段链槽由**预选**驱动（先框选/叠加相连线段，再打开
-    // 「偏移 ▾ → 槽」，预览直接沿整条链生成）；无预选时进入单击拾取。
-    if (!this._tryPreselectedLines())
+    // live 2026-11-19/20：链槽/圆弧槽由**预选**驱动（先框选/叠加曲线，再打开
+    // 「偏移 ▾ → 槽」，预览直接生成）；无预选时进入单击拾取。
+    if (!this._tryPreselection())
       this._outputPrompt('pickCurve');
   }
 
@@ -76,7 +81,7 @@ export class SketchSlotTool extends PrimitiveTool {
     if (this.isDynamicsStarted) this.endDynamics();
     clearSketchToolFeedback(this.toolId);
     this._draft = undefined;
-    this._lineIds = undefined;
+    this._selectedIds = undefined;
     await super.onCleanup();
   }
 
@@ -104,9 +109,9 @@ export class SketchSlotTool extends PrimitiveTool {
       this._notify(i18next.t('partStudio.sketch.toasts.noSolvedCoords'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
-    if (seed.kind !== 'line') {
-      // 单击路径只建单线槽；相连链经**预选**进入（live 2026-11-19）。
-      // 圆弧/整圆中线/闭合环/分支链尚未采证 → 明确拒收。
+    if (seed.kind !== 'line' && seed.kind !== 'arc') {
+      // 单击路径支持单条直线/单条圆弧；整圆中线（线性宽度原语缺失）与其它
+      // 类型诚实拒收。相连直线链经**预选**进入（live 2026-11-19/20）。
       this._notify(i18next.t('partStudio.sketch.slot.toasts.unsupportedKind'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
@@ -117,7 +122,7 @@ export class SketchSlotTool extends PrimitiveTool {
       return EventHandled.Yes;
     }
     this._draft = built.draft;
-    this._lineIds = built.lineIds;
+    this._selectedIds = built.selectedIds;
     this._phase = 'preview';
     this._outputPrompt('confirm');
     return EventHandled.Yes;
@@ -137,11 +142,11 @@ export class SketchSlotTool extends PrimitiveTool {
   private async _commit(): Promise<EventHandled> {
     const sketchSystem = getSketchSystem();
     const sketch = sketchSystem?.activeSketch;
-    if (!sketchSystem || !sketch || !this._draft || !this._lineIds) {
+    if (!sketchSystem || !sketch || !this._draft || !this._selectedIds) {
       this._notify(i18next.t('partStudio.sketch.create.toasts.systemNotReady'), OutputMessagePriority.Error);
       return EventHandled.Yes;
     }
-    const built = this._buildDraft(sketch, this._lineIds);
+    const built = this._buildDraft(sketch, this._selectedIds);
     if (!built.ok) {
       this._notify(i18next.t(this._buildErrorToastKey(built.error)), OutputMessagePriority.Info);
       return EventHandled.Yes;
@@ -194,7 +199,7 @@ export class SketchSlotTool extends PrimitiveTool {
     if (this._phase === 'preview') {
       this._phase = 'pick';
       this._draft = undefined;
-      this._lineIds = undefined;
+      this._selectedIds = undefined;
       this._outputPrompt('pickCurve');
     }
     // 右键=画布菜单（首项「退出 <工具>」）；Esc 退出由基类处理。
@@ -207,10 +212,10 @@ export class SketchSlotTool extends PrimitiveTool {
   }
 
   /**
-   * 从当前画布选择读取预选直线（live 2026-11-19：链槽由预选驱动）。
+   * 从当前画布选择读取预选曲线（live 2026-11-19/20：链槽/圆弧槽由预选驱动）。
    * 只认活动草图的曲线选择；无预选返回 false（进入单击拾取）。
    */
-  private _tryPreselectedLines(): boolean {
+  private _tryPreselection(): boolean {
     const sketch = getSketchSystem()?.activeSketch;
     if (!sketch) return false;
     const selection = usePartStudioStore.getState().canvas.selection;
@@ -228,33 +233,45 @@ export class SketchSlotTool extends PrimitiveTool {
       return false;
     }
     this._draft = built.draft;
-    this._lineIds = built.lineIds;
+    this._selectedIds = built.selectedIds;
     this._phase = 'preview';
     this._outputPrompt('confirm');
     return true;
   }
 
-  /** 单线/相连链共用构建入口（预览与提交同源；id 从当前草图最大值重播）。 */
+  /** 单线/单弧/相连直线链共用构建入口（预览与提交同源；id 从当前草图最大值重播）。 */
   private _buildDraft(
     sketch: SketchDto,
-    lineIds: readonly number[],
-  ): { ok: true; draft: SlotDraft; lineIds: number[] } | { ok: false; error: SlotBuildError } {
+    selectedIds: readonly number[],
+  ): { ok: true; draft: SlotDraft; selectedIds: number[] } | { ok: false; error: SlotBuildError } {
     this._seedNextId();
-    const ids = [...new Set(lineIds)];
+    const ids = [...new Set(selectedIds)];
     if (ids.length === 1) {
       const seed = sketch.entities.find((e) => e.id === ids[0]);
-      if (!seed || seed.kind !== 'line') return { ok: false, error: 'unsupportedKind' };
-      const built = buildLineSlotDraft({
-        line: seed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
-      });
-      return built.ok ? { ok: true, draft: built.draft, lineIds: ids } : built;
+      if (!seed) return { ok: false, error: 'unsupportedKind' };
+      if (seed.kind === 'line') {
+        const built = buildLineSlotDraft({
+          line: seed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        });
+        return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+      }
+      if (seed.kind === 'arc') {
+        const built = buildArcSlotDraft({
+          arc: seed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        });
+        return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+      }
+      return { ok: false, error: 'unsupportedKind' }; // 整圆槽 blocked-design
     }
+    const members = ids.map((id) => sketch.entities.find((e) => e.id === id));
+    if (members.some((e) => e === undefined || e.kind !== 'line'))
+      return { ok: false, error: 'unsupportedKind' }; // 链只支持直线成员（live 链证据）
     const chain = lineChainFromSelection(sketch.entities, ids);
     if (!chain) return { ok: false, error: 'unsupportedKind' };
     const built = buildLineChainSlotDraft({
       chain, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
     });
-    return built.ok ? { ok: true, draft: built.draft, lineIds: ids } : built;
+    return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
   }
 
   private _buildErrorToastKey(error: SlotBuildError): string {
@@ -267,6 +284,10 @@ export class SketchSlotTool extends PrimitiveTool {
         return 'partStudio.sketch.slot.toasts.zeroWidth';
       case 'unsolvedLine':
         return 'partStudio.sketch.slot.toasts.unsolvedLine';
+      case 'unsolvedCurve':
+        return 'partStudio.sketch.slot.toasts.unsolvedCurve';
+      case 'degenerateRadius':
+        return 'partStudio.sketch.slot.toasts.degenerateRadius';
     }
   }
 

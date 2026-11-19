@@ -109,6 +109,42 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   `partial`，缺弧/圆中线链、闭合环槽、分支链、独立多曲线联动槽、live 宽度
   光标拖拽（本切片宽度=默认 Ø20 + 尺寸编辑）。
 
+### 2.5 S2c 圆弧中线槽落地 + 整圆中线 blocked-design（2026-11-20 live）
+
+- **live 证据**（私有 `ui-evidence/slot-variants-20261120/`，截图 +
+  `circle-slot.dxf` / `arc-slot.dxf`）：
+  - **整圆中线**：选圆 → 槽 → 预览为两条**同心圆** R±w/2，无端帽；宽度为
+    **线性 20**（两圆之间的径向宽度，不是 Ø）；原中心圆保留。DXF 实测
+    R=21.1263 → 内 11.1263 / 外 31.1263（差恰 10）。
+  - **圆弧中线**：选开放弧 → 槽 → 预览为两条同心偏移弧（R±Ø/2，同
+    start/sweep）+ 两个**半圆帽**（半径 Ø/2、圆心=弧端点）；宽度为 **Ø20**
+    （半圆帽直径）；原中线保留。DXF 实测 R=32.1728 → 22.1728 / 42.1728，
+    两帽 r=10，帽心=源弧两端点，帽扫 180°。
+- **S2c 实现（圆弧槽，`buildArcSlotDraft`）**：
+  - 仅开放圆弧（|sweep|<2π；整圆弧按整圆语义拒收）；源弧半径 ≤ 半宽 →
+    `degenerateRadius`；未解算 → `unsolvedCurve`。
+  - 实体：2 帽心 point + 2 偏移弧 + 2 帽弧（共 6）；约束：帽心↔源弧端点
+    coincident ×2、偏移弧↔帽端点 coincident ×4、源弧↔两偏移弧 concentric ×2、
+    帽↔两偏移弧 tangent ×4、capStart diameter=w、两帽 equal（共 14 条）。
+  - **宽度参数化不需要 offset 数值约束**：concentric + coincident + tangent 的
+    几何关系把偏移弧半径强制为 R±帽半径；单个 Ø 改值同时驱动两偏移弧与两帽。
+  - 帽扫角方向随源弧 sweep 符号确定：起点帽始终从外侧点绕到内侧点
+    （sweep=-sign·π），终点帽始终从外侧点绕到内侧点（sweep=+sign·π）。
+- **整圆槽 blocked-design**：live 宽度是两同心圆之间的**线性距离**；当前
+  solver-neutral 只有 line/line、arc/arc 的 `offset`，无「同心圆径向宽度」原语。
+  用两个独立 radius 尺寸可出几何但不符合 live 的单一线性宽度语义；故
+  `sketchSlot` 对整圆中线**诚实拒收**，不近似冒充。后续若要 full，需按 P0-04
+  先出「radial gap / 同心圆宽度」约束的 AIRR/ADR（shared 契约 + 后端方程 + UI）。
+- **验证**：web 纯逻辑 `sketch-slot-logic` **13/13**（单线 4 + 链 5 + 圆弧 4，
+  含负扫角镜像与坍缩/整圆弧/未解算拒收）；私有后端 `ArcSlotSolver` **2/2**
+  （Ø20 → r40/60/10；Ø30 → r35/65/15）；全量后端 slot 相关 **6/6**；
+  真栈 `e2e/sketch-slot.spec.ts` **4 passed（2.0 min，含单线/链/圆弧三用例）**；
+  全量 web **2651/2651**（首跑 1 例 flake、复跑全绿，未复现）、tsc(src/e2e)/
+  eslint 绿。圆弧 e2e 走真实 ribbon「偏移 ▾ → 槽」+ 画布单击弧中点 + Enter，
+  断言 5 弧/14 新约束/Ø30/reload。
+- **状态口径**：`ui.sketchSlot` 仍 partial；整圆中线 = blocked-design，闭合环/
+  分支/独立多曲线联动/宽度拖拽仍缺证据或设计。
+
 ## 3. 数据/事务
 
 - 事实源：草图 params（实体+约束）；求解结果派生。

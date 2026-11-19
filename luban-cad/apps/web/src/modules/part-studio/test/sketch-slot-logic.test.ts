@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { SketchEntityDto } from '@luban-cad/shared';
 import {
   DEFAULT_SLOT_WIDTH,
+  buildArcSlotDraft,
   buildLineChainSlotDraft,
   buildLineSlotDraft,
   lineChainFromSelection,
@@ -235,5 +236,119 @@ describe('buildLineChainSlotDraft（S2b 相连折线链槽）', () => {
     const branchChain = lineChainFromSelection(branch, [4, 5, 7]);
     if (!branchChain) throw new Error('branch chain missing');
     expect(orderLineChain(branchChain, branch)).toEqual({ ok: false, error: 'unsupportedChain' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S2c 圆弧中线槽（live 2026-11-20 `arc-slot.dxf` 同构：同心偏移弧 + 两半圆帽）
+// ---------------------------------------------------------------------------
+
+type ArcEntity = Extract<SketchEntityDto, { kind: 'arc' }>;
+
+function arcSketch(startAngle: number, sweepAngle: number, radius = 50): SketchEntityDto[] {
+  return [
+    { kind: 'point', id: 1, x: 0, y: 0 },
+    { kind: 'arc', id: 2, center: 1, radius, startAngle, sweepAngle },
+  ];
+}
+
+function arcOf(entities: SketchEntityDto[], id: number): ArcEntity {
+  const found = entities.find((e) => e.id === id);
+  if (!found || found.kind !== 'arc') throw new Error(`arc ${id} missing`);
+  return found;
+}
+
+function capPoint(entities: SketchEntityDto[], arc: ArcEntity, t: number): { x: number; y: number } {
+  const center = entities.find((e) => e.id === arc.center);
+  if (!center || center.kind !== 'point' || center.x === undefined || center.y === undefined)
+    throw new Error('cap center missing');
+  const angle = (arc.startAngle ?? 0) + t * (arc.sweepAngle ?? 0);
+  return {
+    x: center.x + (arc.radius ?? 0) * Math.cos(angle),
+    y: center.y + (arc.radius ?? 0) * Math.sin(angle),
+  };
+}
+
+describe('buildArcSlotDraft（S2c 圆弧槽）', () => {
+  it('四分之一圆弧 Ø20：偏移弧 r40/r60 同心、帽 r10，帽从外侧点绕到内侧点', () => {
+    const entities = arcSketch(0, Math.PI / 2);
+    const built = buildArcSlotDraft({
+      arc: arcOf(entities, 2), entities, width: 20, startId: 10,
+    });
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    const points = draft.entities.filter((e) => e.kind === 'point');
+    const rounded = (v: number | undefined): number => Math.round((v ?? 0) * 1e9) / 1e9;
+    expect(points.map((p) => (p.kind === 'point' ? [p.id, rounded(p.x), rounded(p.y)] : []))).toEqual([
+      [10, 50, 0], [11, 0, 50],
+    ]);
+    const outer = arcOf(draft.entities, 12);
+    const inner = arcOf(draft.entities, 13);
+    expect(outer).toMatchObject({ center: 1, radius: 60, startAngle: 0, sweepAngle: Math.PI / 2 });
+    expect(inner).toMatchObject({ center: 1, radius: 40, startAngle: 0, sweepAngle: Math.PI / 2 });
+    const capStart = arcOf(draft.entities, 14);
+    const capEnd = arcOf(draft.entities, 15);
+    expect(capStart).toMatchObject({ center: 10, radius: 10, startAngle: 0, sweepAngle: -Math.PI });
+    expect(capEnd).toMatchObject({ center: 11, radius: 10, startAngle: Math.PI / 2, sweepAngle: Math.PI });
+    // 帽端点与偏移弧端点重合：起点帽 (60,0)→(40,0)，终点帽 (0,60)→(0,40)。
+    const close = (a: { x: number; y: number }, x: number, y: number): void => {
+      expect(a.x).toBeCloseTo(x, 6);
+      expect(a.y).toBeCloseTo(y, 6);
+    };
+    close(capPoint(draft.entities, capStart, 0), 60, 0);
+    close(capPoint(draft.entities, capStart, 1), 40, 0);
+    close(capPoint(draft.entities, capEnd, 0), 0, 60);
+    close(capPoint(draft.entities, capEnd, 1), 0, 40);
+    expect(draft.entities.some((e) => e.id === 2)).toBe(false); // 原中线保留
+    expect(draft.capArcIds).toEqual([14, 15]);
+    expect(draft.boundaryLineIds).toEqual([]);
+  });
+
+  it('约束集：6 coincident + 2 concentric + 4 tangent + 1 diameter + 1 equal', () => {
+    const entities = arcSketch(0, Math.PI / 2);
+    const built = buildArcSlotDraft({ arc: arcOf(entities, 2), entities, width: DEFAULT_SLOT_WIDTH, startId: 10 });
+    if (!built.ok) throw new Error(built.error);
+    const kinds = built.draft.constraints.map((c) => c.kind);
+    expect(kinds.filter((k) => k === 'coincident')).toHaveLength(6);
+    expect(kinds.filter((k) => k === 'concentric')).toHaveLength(2);
+    expect(kinds.filter((k) => k === 'tangent')).toHaveLength(4);
+    expect(kinds.filter((k) => k === 'diameter')).toHaveLength(1);
+    expect(kinds.filter((k) => k === 'equal')).toHaveLength(1);
+    const diameter = built.draft.constraints.find((c) => c.kind === 'diameter');
+    expect(diameter?.value).toBe(20);
+  });
+
+  it('负扫角（顺时针）中线：帽扫角方向镜像，端点仍从外侧绕到内侧', () => {
+    const entities = arcSketch(Math.PI / 2, -Math.PI / 2);
+    const built = buildArcSlotDraft({ arc: arcOf(entities, 2), entities, width: 20, startId: 10 });
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    const capStart = arcOf(draft.entities, 14);
+    const capEnd = arcOf(draft.entities, 15);
+    expect(capStart).toMatchObject({ startAngle: Math.PI / 2, sweepAngle: Math.PI });
+    expect(capEnd).toMatchObject({ startAngle: 0, sweepAngle: -Math.PI });
+    const close = (a: { x: number; y: number }, x: number, y: number): void => {
+      expect(a.x).toBeCloseTo(x, 6);
+      expect(a.y).toBeCloseTo(y, 6);
+    };
+    close(capPoint(draft.entities, capStart, 0), 0, 60);
+    close(capPoint(draft.entities, capStart, 1), 0, 40);
+    close(capPoint(draft.entities, capEnd, 0), 60, 0);
+    close(capPoint(draft.entities, capEnd, 1), 40, 0);
+  });
+
+  it('错误：宽度超过半径 → degenerateRadius；整圆弧 → unsupportedKind；未解算/零宽', () => {
+    const thin = arcSketch(0, Math.PI / 2, 10);
+    expect(buildArcSlotDraft({ arc: arcOf(thin, 2), entities: thin, width: 20, startId: 10 }))
+      .toEqual({ ok: false, error: 'degenerateRadius' });
+    const full = arcSketch(0, 2 * Math.PI);
+    expect(buildArcSlotDraft({ arc: arcOf(full, 2), entities: full, width: 20, startId: 10 }))
+      .toEqual({ ok: false, error: 'unsupportedKind' });
+    const unresolved: SketchEntityDto[] = [{ kind: 'arc', id: 2, center: 99, radius: 50, startAngle: 0, sweepAngle: 1 }];
+    expect(buildArcSlotDraft({ arc: arcOf(unresolved, 2), entities: unresolved, width: 20, startId: 10 }))
+      .toEqual({ ok: false, error: 'unsolvedCurve' });
+    const normal = arcSketch(0, 1);
+    expect(buildArcSlotDraft({ arc: arcOf(normal, 2), entities: normal, width: 0, startId: 10 }))
+      .toEqual({ ok: false, error: 'zeroWidth' });
   });
 });

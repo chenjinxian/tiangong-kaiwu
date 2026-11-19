@@ -1351,14 +1351,16 @@
     },
     "slot": {
       "prompts": {
-        "pickCurve": "Slot: click a line (this slice supports a single straight centerline)",
+        "pickCurve": "Slot: click a line or an arc (or box-select a connected line chain)",
         "confirm": "Slot: preview ready (default Ø20); press Enter or click again to confirm"
       },
       "toasts": {
-        "unsupportedKind": "Slot currently supports a straight centerline only (arcs/circles/multi-segment chains pending)",
-        "unsupportedChain": "Slot currently supports one straight line only (multi-segment chains pending)",
+        "unsupportedKind": "Slot supports straight or open-arc centerlines only (full circles and branched chains are pending)",
+        "unsupportedChain": "Connected chains support open line chains only (branches/closed loops/arc chains are pending)",
         "zeroWidth": "Slot width must be greater than zero",
-        "unsolvedLine": "The selected line has no solved coordinates; cannot build the slot"
+        "unsolvedLine": "The selected line has no solved coordinates; cannot build the slot",
+        "unsolvedCurve": "The selected curve has no solved coordinates; cannot build the slot",
+        "degenerateRadius": "Slot width exceeds the arc radius; the offset arc would collapse"
       }
     },
     "tangentArc": {

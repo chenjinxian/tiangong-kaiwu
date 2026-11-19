@@ -1351,14 +1351,16 @@
     },
     "slot": {
       "prompts": {
-        "pickCurve": "槽：点击选择一条直线（首切片仅支持单条直线）",
+        "pickCurve": "槽：点击选择一条直线或圆弧（或框选相连直线链）",
         "confirm": "槽：预览已生成（默认 Ø20）；按 Enter 或再次点击确认"
       },
       "toasts": {
-        "unsupportedKind": "槽首切片仅支持直线中线（圆弧/圆/多段链尚未支持）",
-        "unsupportedChain": "槽首切片仅支持单条直线（多段连续链尚未支持）",
+        "unsupportedKind": "槽仅支持直线/开放圆弧中线（整圆、分支链尚未支持）",
+        "unsupportedChain": "相连链仅支持开放直线链（分支/闭环/弧链尚未支持）",
         "zeroWidth": "槽宽必须大于零",
-        "unsolvedLine": "所选直线无解算坐标，无法生成槽"
+        "unsolvedLine": "所选直线无解算坐标，无法生成槽",
+        "unsolvedCurve": "所选曲线无解算坐标，无法生成槽",
+        "degenerateRadius": "槽宽超过圆弧半径，偏移弧会坍缩"
       }
     },
     "tangentArc": {
