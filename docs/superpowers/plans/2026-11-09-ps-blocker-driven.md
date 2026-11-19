@@ -1,5 +1,9 @@
 # PS blocker 驱动的示例转绿实施计划（2026-11-09）
 
+> **⛔ 已被取代（2026-11-19）**：主线并入
+> [`2026-11-19-onshape-full-parity.md`](./2026-11-19-onshape-full-parity.md)。
+> 本计划的历史证据与已完成切片仍有效，但不再作为开工依据。
+
 > **执行方式**：本计划是 2026-11-06 连续台账的**优先级重排**，不推翻既有 AIRR/ADR。
 > 每个切片仍按 P0-04 先 AIRR/ADR、再 shared/backend/web 同批、最后真栈证据；
 > 遇到 `blocked-capability` / `blocked-kernel` 登记证据后立即转下一项。

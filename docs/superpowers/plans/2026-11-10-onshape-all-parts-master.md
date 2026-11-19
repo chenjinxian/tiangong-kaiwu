@@ -1,5 +1,10 @@
 # Onshape 全量 Part 复刻总计划
 
+> **⛔ 已被取代（2026-11-19）**：全量严格复刻主线见
+> [`2026-11-19-onshape-full-parity.md`](./2026-11-19-onshape-full-parity.md)
+> （全量语料三态 registry + 能力账本 + ACIS 暴露审计）。本计划的阶段成果与
+> 证据仍有效，但不再作为开工依据。
+
 > **2026-11-11 策略切换**：features API 限流窗口以月/年计，且离线 PROJECTED
 > 约束无 queryString 映射。主线改为**公开文档创建副本 + 实时 UI 分析**，按
 > `docs/superpowers/plans/2026-11-11-live-onshape-ui-replication.md` 执行；

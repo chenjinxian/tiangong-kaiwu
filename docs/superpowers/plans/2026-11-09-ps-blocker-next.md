@@ -1,5 +1,9 @@
 # PS blocker 下一阶段实施计划（2026-11-09）
 
+> **⛔ 已被取代（2026-11-19）**：主线并入
+> [`2026-11-19-onshape-full-parity.md`](./2026-11-19-onshape-full-parity.md)。
+> 本计划的历史证据与已完成切片仍有效，但不再作为开工依据。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 > Steps use checkbox (`- [ ]`) syntax for tracking.

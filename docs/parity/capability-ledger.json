@@ -1,0 +1,2148 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-19",
+  "sources": {
+    "sharedInterfaceVersion": "1.80.0",
+    "sharedFile": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts",
+    "uiFile": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts",
+    "overridesFile": "docs/parity/capability-overrides.json",
+    "uiCapabilities": 76,
+    "featureTypes": 20,
+    "constraintKinds": 17,
+    "entityKinds": 5
+  },
+  "counts": {
+    "total": 118,
+    "byStatus": {
+      "gated": 55,
+      "partial": 63
+    }
+  },
+  "sourceHash": "fdba0493d51f78e91173c6e253ae09c4263f290af69164384a19a0f4e6c29346",
+  "rows": [
+    {
+      "id": "constraint.angle",
+      "family": "constraint",
+      "onshapeEntry": "angle",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.coincident",
+      "family": "constraint",
+      "onshapeEntry": "coincident",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.concentric",
+      "family": "constraint",
+      "onshapeEntry": "concentric",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.diameter",
+      "family": "constraint",
+      "onshapeEntry": "diameter",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.distance",
+      "family": "constraint",
+      "onshapeEntry": "distance",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.equal",
+      "family": "constraint",
+      "onshapeEntry": "equal",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.fixed",
+      "family": "constraint",
+      "onshapeEntry": "fixed",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.horizontal",
+      "family": "constraint",
+      "onshapeEntry": "horizontal",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.length",
+      "family": "constraint",
+      "onshapeEntry": "length",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.midpoint",
+      "family": "constraint",
+      "onshapeEntry": "midpoint",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.mirror",
+      "family": "constraint",
+      "onshapeEntry": "mirror",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.offset",
+      "family": "constraint",
+      "onshapeEntry": "offset",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.parallel",
+      "family": "constraint",
+      "onshapeEntry": "parallel",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.perpendicular",
+      "family": "constraint",
+      "onshapeEntry": "perpendicular",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.radius",
+      "family": "constraint",
+      "onshapeEntry": "radius",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.tangent",
+      "family": "constraint",
+      "onshapeEntry": "tangent",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "constraint.vertical",
+      "family": "constraint",
+      "onshapeEntry": "vertical",
+      "status": "partial",
+      "scopeNote": "契约存在；实体组合/求解器覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1262",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "entity.arc",
+      "family": "entity",
+      "onshapeEntry": "arc",
+      "status": "partial",
+      "scopeNote": "契约存在；创建/编辑/面域/渲染/拾取覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1254",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "entity.circle",
+      "family": "entity",
+      "onshapeEntry": "circle",
+      "status": "partial",
+      "scopeNote": "契约存在；创建/编辑/面域/渲染/拾取覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1253",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "entity.line",
+      "family": "entity",
+      "onshapeEntry": "line",
+      "status": "partial",
+      "scopeNote": "契约存在；创建/编辑/面域/渲染/拾取覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1252",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "entity.point",
+      "family": "entity",
+      "onshapeEntry": "point",
+      "status": "partial",
+      "scopeNote": "契约存在；创建/编辑/面域/渲染/拾取覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1251",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "entity.spline",
+      "family": "entity",
+      "onshapeEntry": "spline",
+      "status": "partial",
+      "scopeNote": "契约存在；创建/编辑/面域/渲染/拾取覆盖未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1258",
+      "uiRef": null,
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W1",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.booleanAdd",
+      "family": "feature",
+      "onshapeEntry": "booleanAdd",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=booleanAdd；映射 UI 工具 boolean",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.booleanBodies",
+      "family": "feature",
+      "onshapeEntry": "booleanBodies",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=booleanBodies；映射 UI 工具 boolean",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.booleanSubtract",
+      "family": "feature",
+      "onshapeEntry": "booleanSubtract",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=booleanSubtract；映射 UI 工具 boolean",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.chamfer",
+      "family": "feature",
+      "onshapeEntry": "chamfer",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=chamfer；映射 UI 工具 chamfer",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:53",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.cPlane",
+      "family": "feature",
+      "onshapeEntry": "cPlane",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=cPlane；映射 UI 工具 cPlane",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:110",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.extrude",
+      "family": "feature",
+      "onshapeEntry": "extrude",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=extrude；映射 UI 工具 extrude",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.faceExtrude",
+      "family": "feature",
+      "onshapeEntry": "faceExtrude",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=faceExtrude；映射 UI 工具 extrude",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.featureMirror",
+      "family": "feature",
+      "onshapeEntry": "featureMirror",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=featureMirror；映射 UI 工具 mirror",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:63",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.featurePattern",
+      "family": "feature",
+      "onshapeEntry": "featurePattern",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=featurePattern；映射 UI 工具 linearPattern",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:60",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.fillet",
+      "family": "feature",
+      "onshapeEntry": "fillet",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=fillet；映射 UI 工具 fillet",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:49",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.hole",
+      "family": "feature",
+      "onshapeEntry": "hole",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=hole；映射 UI 工具 hole",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:59",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.loft",
+      "family": "feature",
+      "onshapeEntry": "loft",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=loft；映射 UI 工具 loft",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:56",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.mirror",
+      "family": "feature",
+      "onshapeEntry": "mirror",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=mirror；映射 UI 工具 mirror",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:63",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.moveFace",
+      "family": "feature",
+      "onshapeEntry": "moveFace",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=moveFace；映射 UI 工具 moveFace",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:105",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.pattern",
+      "family": "feature",
+      "onshapeEntry": "pattern",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=pattern；映射 UI 工具 linearPattern",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:60",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.revolve",
+      "family": "feature",
+      "onshapeEntry": "revolve",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=revolve；映射 UI 工具 revolve",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:54",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.shell",
+      "family": "feature",
+      "onshapeEntry": "shell",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=shell；映射 UI 工具 shell",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:116",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.splitPart",
+      "family": "feature",
+      "onshapeEntry": "splitPart",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=splitPart；映射 UI 工具 splitPart",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:65",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.sweep",
+      "family": "feature",
+      "onshapeEntry": "sweep",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=sweep；映射 UI 工具 sweep",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:55",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "feature.transform",
+      "family": "feature",
+      "onshapeEntry": "transform",
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=transform；映射 UI 工具 transform",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:226",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:66",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W3",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.appearance",
+      "family": "tooling",
+      "onshapeEntry": "appearance",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:125",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.assemblyEdit",
+      "family": "tooling",
+      "onshapeEntry": "assemblyEdit",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:128",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.boolean",
+      "family": "tooling",
+      "onshapeEntry": "boolean",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.chamfer",
+      "family": "tooling",
+      "onshapeEntry": "chamfer",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:53",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.circularPattern",
+      "family": "tooling",
+      "onshapeEntry": "circularPattern",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:61",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.compositePart",
+      "family": "tooling",
+      "onshapeEntry": "compositePart",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:95",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.copyWorkspace",
+      "family": "tooling",
+      "onshapeEntry": "copyWorkspace",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:137",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.cPlane",
+      "family": "tooling",
+      "onshapeEntry": "cPlane",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:110",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.createSelection",
+      "family": "tooling",
+      "onshapeEntry": "createSelection",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:100",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.curvePattern",
+      "family": "tooling",
+      "onshapeEntry": "curvePattern",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:62",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.curves",
+      "family": "tooling",
+      "onshapeEntry": "curves",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:121",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.decal",
+      "family": "tooling",
+      "onshapeEntry": "decal",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:68",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.deleteBodies",
+      "family": "tooling",
+      "onshapeEntry": "deleteBodies",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:102",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.deleteFace",
+      "family": "tooling",
+      "onshapeEntry": "deleteFace",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:104",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.dependencies",
+      "family": "tooling",
+      "onshapeEntry": "dependencies",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:131",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.derived",
+      "family": "tooling",
+      "onshapeEntry": "derived",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:92",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.draft",
+      "family": "tooling",
+      "onshapeEntry": "draft",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:114",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.drawing",
+      "family": "tooling",
+      "onshapeEntry": "drawing",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:123",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.extrude",
+      "family": "tooling",
+      "onshapeEntry": "extrude",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.faceBlend",
+      "family": "tooling",
+      "onshapeEntry": "faceBlend",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:52",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.featureHistory",
+      "family": "tooling",
+      "onshapeEntry": "featureHistory",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:145",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.fillet",
+      "family": "tooling",
+      "onshapeEntry": "fillet",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:49",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.frames",
+      "family": "tooling",
+      "onshapeEntry": "frames",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:119",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.hole",
+      "family": "tooling",
+      "onshapeEntry": "hole",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:59",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.insertElement",
+      "family": "tooling",
+      "onshapeEntry": "insertElement",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:143",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.linearPattern",
+      "family": "tooling",
+      "onshapeEntry": "linearPattern",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:60",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.loft",
+      "family": "tooling",
+      "onshapeEntry": "loft",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:56",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.mateConnector",
+      "family": "tooling",
+      "onshapeEntry": "mateConnector",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:91",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.material",
+      "family": "tooling",
+      "onshapeEntry": "material",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:124",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.mirror",
+      "family": "tooling",
+      "onshapeEntry": "mirror",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:63",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.modifyFillet",
+      "family": "tooling",
+      "onshapeEntry": "modifyFillet",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:103",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.moveDocument",
+      "family": "tooling",
+      "onshapeEntry": "moveDocument",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:135",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.moveFace",
+      "family": "tooling",
+      "onshapeEntry": "moveFace",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:105",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.notifications",
+      "family": "tooling",
+      "onshapeEntry": "notifications",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:126",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.pauseRebuild",
+      "family": "tooling",
+      "onshapeEntry": "pauseRebuild",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:144",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.print",
+      "family": "tooling",
+      "onshapeEntry": "print",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:127",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.queryVariable",
+      "family": "tooling",
+      "onshapeEntry": "queryVariable",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:94",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.render",
+      "family": "tooling",
+      "onshapeEntry": "render",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:122",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.replaceFace",
+      "family": "tooling",
+      "onshapeEntry": "replaceFace",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:106",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.restoreWorkspace",
+      "family": "tooling",
+      "onshapeEntry": "restoreWorkspace",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:136",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.revolve",
+      "family": "tooling",
+      "onshapeEntry": "revolve",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:54",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.rib",
+      "family": "tooling",
+      "onshapeEntry": "rib",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:115",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.selection",
+      "family": "tooling",
+      "onshapeEntry": "selection",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:46",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.selectionFilters",
+      "family": "tooling",
+      "onshapeEntry": "selectionFilters",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:99",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.selectOther",
+      "family": "tooling",
+      "onshapeEntry": "selectOther",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:101",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sheetMetal",
+      "family": "tooling",
+      "onshapeEntry": "sheetMetal",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:118",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.shell",
+      "family": "tooling",
+      "onshapeEntry": "shell",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:116",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketch",
+      "family": "tooling",
+      "onshapeEntry": "sketch",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:47",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchChamfer",
+      "family": "tooling",
+      "onshapeEntry": "sketchChamfer",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:80",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchConcentric",
+      "family": "tooling",
+      "onshapeEntry": "sketchConcentric",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:84",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchConic",
+      "family": "tooling",
+      "onshapeEntry": "sketchConic",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:72",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchCurvature",
+      "family": "tooling",
+      "onshapeEntry": "sketchCurvature",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:88",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchEllipse",
+      "family": "tooling",
+      "onshapeEntry": "sketchEllipse",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:75",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchEllipseArc",
+      "family": "tooling",
+      "onshapeEntry": "sketchEllipseArc",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:76",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchFlow",
+      "family": "tooling",
+      "onshapeEntry": "sketchFlow",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:89",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchInsertImage",
+      "family": "tooling",
+      "onshapeEntry": "sketchInsertImage",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:81",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchIntersection",
+      "family": "tooling",
+      "onshapeEntry": "sketchIntersection",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:78",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchMidline",
+      "family": "tooling",
+      "onshapeEntry": "sketchMidline",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:74",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchNormal",
+      "family": "tooling",
+      "onshapeEntry": "sketchNormal",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:85",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchPierce",
+      "family": "tooling",
+      "onshapeEntry": "sketchPierce",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:86",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchSlot",
+      "family": "tooling",
+      "onshapeEntry": "sketchSlot",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:79",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchSplineControlPoints",
+      "family": "tooling",
+      "onshapeEntry": "sketchSplineControlPoints",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:77",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchSymmetric",
+      "family": "tooling",
+      "onshapeEntry": "sketchSymmetric",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:87",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sketchText",
+      "family": "tooling",
+      "onshapeEntry": "sketchText",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:71",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.splitPart",
+      "family": "tooling",
+      "onshapeEntry": "splitPart",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:65",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.surfaces",
+      "family": "tooling",
+      "onshapeEntry": "surfaces",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:120",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.sweep",
+      "family": "tooling",
+      "onshapeEntry": "sweep",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:55",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.tag",
+      "family": "tooling",
+      "onshapeEntry": "tag",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:96",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.thicken",
+      "family": "tooling",
+      "onshapeEntry": "thicken",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:57",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.thread",
+      "family": "tooling",
+      "onshapeEntry": "thread",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:117",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.transform",
+      "family": "tooling",
+      "onshapeEntry": "transform",
+      "status": "partial",
+      "scopeNote": "UI 入口可用；全量七维证据未审计",
+      "missing": [
+        "未按七维 full 门审计（W0 基线）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:66",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.updateWorkspace",
+      "family": "tooling",
+      "onshapeEntry": "updateWorkspace",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:138",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.userFeatures",
+      "family": "tooling",
+      "onshapeEntry": "userFeatures",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:111",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.variable",
+      "family": "tooling",
+      "onshapeEntry": "variable",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:93",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.workspaceProperties",
+      "family": "tooling",
+      "onshapeEntry": "workspaceProperties",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:139",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W5",
+      "owner": "parity-program",
+      "lastUpdated": null
+    },
+    {
+      "id": "ui.wrap",
+      "family": "tooling",
+      "onshapeEntry": "wrap",
+      "status": "gated",
+      "scopeNote": "UI 入口 gated（能力引导）",
+      "missing": [
+        "未实现（诚实 gated）"
+      ],
+      "contractRef": null,
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:67",
+      "backendRef": null,
+      "kernelRef": null,
+      "evidence": [],
+      "wave": "W4",
+      "owner": "parity-program",
+      "lastUpdated": null
+    }
+  ]
+}
