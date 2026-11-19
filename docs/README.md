@@ -78,6 +78,8 @@
 | [parity/README.md](./parity/README.md) | Parity 程序公共索引：能力账本、内核边界、三态 registry 的生成/校验命令与公私边界 |
 | [parity/STATUS-DEFINITIONS.md](./parity/STATUS-DEFINITIONS.md) | **状态判定单一权威**：`full/partial/gated/blocked-*/excluded`、`strict/approx/blocked`、几何容差、blocker 编码、升降级与 fail-closed 不变量 |
 | [parity/public-catalog-downgrade-20261119.md](./parity/public-catalog-downgrade-20261119.md) | 旧 22 条公共 strict 按四维门重审结果：全部降级 approx、publicEligible=0；W6 由 strict 重新生成 catalog |
+| [parity/feature-depth-matrix.md](./parity/feature-depth-matrix.md) | 20 个既有 FeatureType 的逐分支盘点（v0）：已证据分支、缺口、partial 状态与 W3/W4 推进顺序 |
+| [superpowers/specs/2026-11-19-sketch-entity-constraint-expansion-airr.md](./superpowers/specs/2026-11-19-sketch-entity-constraint-expansion-airr.md) | AIRR（Proposed，2026-11-19）：草图实体/约束/求解器/外部引用扩展——复用矩阵、libslvs 能力边界、S1 对称约束/S2 槽工具/S3 组合补全/S4 外部引用切片；未批准前不编码 |
 | [superpowers/plans/2026-11-10-onshape-all-parts-master.md](./superpowers/plans/2026-11-10-onshape-all-parts-master.md) | ⛔ **已被 2026-11-19 全量计划取代**（历史全量总计划 2026-11-10）：526 文档 / 1685 API PS 全量分类与复刻；阶段成果与证据仍有效 |
 | [superpowers/plans/2026-11-09-ps-blocker-driven.md](./superpowers/plans/2026-11-09-ps-blocker-driven.md) | **历史优先级计划**（2026-11-09）：按真实 PS blocker 排名转绿——imprint 精确语义 → selector → CONCENTRIC/converter → 多体 → 外部草图引用 → 数据/长尾；并行 BRepCore 审计 |
 | [superpowers/plans/2026-11-11-live-onshape-ui-replication.md](./superpowers/plans/2026-11-11-live-onshape-ui-replication.md) | ⛔ **已被 2026-11-19 全量计划取代**：live 副本采集保留为证据手段；历史计划为公开文档创建副本 + UI 特征树/对话框/草图/体面属性采集 |
