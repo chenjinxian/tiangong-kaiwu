@@ -145,6 +145,31 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
 - **状态口径**：`ui.sketchSlot` 仍 partial；整圆中线 = blocked-design，闭合环/
   分支/独立多曲线联动/宽度拖拽仍缺证据或设计。
 
+### 2.6 S2d 闭合环槽证据 + blocked-design（2026-11-20 live）
+
+- **live 证据**（私有 `ui-evidence/slot-variants-20261120/ring-slot.dxf` +
+  state-31..43）：框选闭合矩形 4 边 →「槽」→ 预览由**外侧圆角矩形**（外扩
+  Ø/2，四角为 r=Ø/2 的圆角弧、弧心=顶点）与**内侧尖角矩形**（内缩 Ø/2、
+  斜接）组成；**无端帽**；单 Ø20；原 4 条中线保留。DXF = 12 LINE + 4 ARC：
+  外边界 4 线（顶点法向平移，不被圆角缩短）+ 4 角弧；内边界 4 线裁到斜接点。
+- **实现尝试与失败根因（原型已回退，未发布任何半成品）**：
+  - 闭合链排序/环槽几何（外圆角+内斜接）可生成与 DXF 同构的 16 实体/40 约束；
+  - 但把约束集交给后端求解器后：**内环没有被宽度尺寸驱动**——闭合环没有
+    端帽，内侧边界只与中线平行、彼此斜接，法向距离是自由 DOF。实测 Ø20→30
+    时外边界/角弧移动到 ±15，内边界仍停在 10，status=underconstrained（dof=4）。
+  - 用逐侧 distance/offset 约束补内环会引入 live 不存在的额外尺寸，且其数值
+    无法与 Ø 保持单一驱动关系（无算术链接）。因此**不能**用现有原语严格实现
+    闭合环槽的宽度参数化。
+- **决策**：闭合环槽 = **blocked-design**；`Sketch.Slot` 继续对闭合链诚实
+  拒收（`unsupportedChain`），不提供静态/近似环槽。整圆中线槽是同类阻塞
+  （同心圆径向宽度原语缺失）。
+- **后续路径**：`docs/superpowers/specs/2026-11-20-slot-width-constraint-airr.md`
+  （Proposed，待 Owner 批准）提出 solver-neutral `slotWidth` 约束，用一个可见
+  宽度同时驱动闭合环内外边界与整圆槽两同心圆；批准前不写实现代码（P0-04）。
+- **验证**：仅证据与设计结论；无新增产品代码。私有 DXF/截图与设计记录已归档。
+- **状态口径**：`ui.sketchSlot` 仍 partial；closed ring / full circle 均列为
+  blocked-design 子域。
+
 ## 3. 数据/事务
 
 - 事实源：草图 params（实体+约束）；求解结果派生。
