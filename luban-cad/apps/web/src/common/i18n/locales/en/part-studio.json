@@ -1681,7 +1681,8 @@
       "featurePattern": "Feature pattern",
       "featureMirror": "Feature mirror",
       "transform": "Transform",
-      "splitPart": "Split"
+      "splitPart": "Split",
+      "draft": "Draft"
     }
   },
   "featureSystem": {
@@ -2102,6 +2103,19 @@
     "perFaceReadOnly": "This feature uses per-face distances (distancesMm); this dialog is read-only. Edit via RPC/parameter panel",
     "submitSuccess": "{{name}} created",
     "removeFace": "Remove face"
+  },
+  "draftDialog": {
+    "facesLabel": "Faces to draft",
+    "facesEmpty": "Select faces on the canvas, then open Draft",
+    "neutralLabel": "Neutral face",
+    "neutralPlaceholder": "Choose a neutral face from the selection",
+    "direction": "Pull direction",
+    "angle": "Draft angle",
+    "addStep": "Add step faces",
+    "angleInvalid": "Draft angle must satisfy 0<|angle|<89",
+    "crossBody": "Selected faces belong to multiple bodies; Draft requires one body",
+    "missingSelection": "Select at least one draft face and a neutral face",
+    "submitSuccess": "{{name}} created"
   },
   "featurePatternDialog": {
     "sourceLabel": "Features to pattern",

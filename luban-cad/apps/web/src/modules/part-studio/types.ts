@@ -38,6 +38,7 @@ export const BODY_PRODUCING_FEATURE_TYPES: readonly LubanFeatureType[] = [
   'faceExtrude',
   'transform',
   'splitPart',
+  'draft',
 ];
 
 /**

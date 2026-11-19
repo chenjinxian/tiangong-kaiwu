@@ -64,6 +64,7 @@ import type { FeatureDialogFeatureOption, FeatureDialogSketchOption } from '../d
 import { HoleDialog } from '../dialogs/HoleDialog.js';
 import { ShellDialog } from '../dialogs/ShellDialog.js';
 import { MoveFaceDialog } from '../dialogs/MoveFaceDialog.js';
+import { DraftDialog } from '../dialogs/DraftDialog.js';
 import { FeaturePatternDialog } from '../dialogs/FeaturePatternDialog.js';
 import { TransformDialog } from '../dialogs/TransformDialog.js';
 import { SplitPartDialog } from '../dialogs/SplitPartDialog.js';
@@ -1590,6 +1591,22 @@ export function PartStudioCanvas({
         <MoveFaceDialog
           key={dialog.mode === 'edit' ? dialog.featureId : 'new-moveFace'}
           featureName={dialog.mode === 'edit' ? dialog.featureName : newFeatureName('moveFace')}
+          featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
+          initialParams={dialog.mode === 'edit' ? featureParams : undefined}
+          applyOp={applyOp}
+          previewOp={previewOp}
+          connection={connection}
+          viewport={viewport}
+          bodies={bodies}
+          initialFaces={dialog.mode === 'new' ? dialog.inputFaces : undefined}
+          canEdit={canEdit}
+          onConfirm={closeDialog}
+          onCancel={closeDialog}
+        />
+      ) : dialog.featureType === 'draft' ? (
+        <DraftDialog
+          key={dialog.mode === 'edit' ? dialog.featureId : 'new-draft'}
+          featureName={dialog.mode === 'edit' ? dialog.featureName : newFeatureName('draft')}
           featureId={dialog.mode === 'edit' ? dialog.featureId : undefined}
           initialParams={dialog.mode === 'edit' ? featureParams : undefined}
           applyOp={applyOp}

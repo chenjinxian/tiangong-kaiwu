@@ -6,7 +6,7 @@
 //     工具」勾选（默认勾选）；输入过滤工具名；回车激活首匹配（走
 //     IModelApp.tools.run）；Escape 关闭；alt+/ 全局热键开面板；
 //     查询词回写 store（ribbon 亮显数据源）；
-//  2) gated 路由：搜索命中 gated 工具（拔模）回车——不触发 tools.run，
+//  2) gated 路由：搜索命中 gated 工具（筋）回车——不触发 tools.run，
 //     开能力引导对话框（CAPABILITY_GUIDANCE 文案），确认后关闭；
 //  3) Ribbon 结构冒烟（brief 钉死测试文件仅两枚，渲染冒烟顺带挂本文件）：
 //     27 工具主钮 + 8 下拉箭头 + 1 搜索触发钮；下拉飞菜单展开子项并可激活；
@@ -122,18 +122,18 @@ describe('CommandPalette 激活路由', () => {
     expect(usePartStudioStore.getState().commandPalette.isOpen).toBe(false);
   });
 
-  it('gated 工具（拔模）回车：不触发 tools.run，开能力引导对话框', async () => {
+  it('gated 工具（筋）回车：不触发 tools.run，开能力引导对话框', async () => {
     const user = userEvent.setup();
     usePartStudioStore.setState({ commandPalette: { isOpen: true, query: '', highlightEnabled: true } });
     renderPalette();
-    await user.type(screen.getByRole('textbox'), '拔模{Enter}');
+    await user.type(screen.getByRole('textbox'), '筋{Enter}');
     expect(mocks.toolsRun).not.toHaveBeenCalled();
-    // 引导对话框：标题/正文取 capabilities.draft.* 词库文案。
-    const dialog = screen.getByRole('dialog', { name: '拔模（规划中）' });
-    // 正文取 capabilities.draft.message 词库文案（标题已由 aria-label 钉住）。
+    // 引导对话框：标题/正文取 capabilities.rib.* 词库文案。
+    const dialog = screen.getByRole('dialog', { name: '筋（规划中）' });
+    // 正文取 capabilities.rib.message 词库文案（标题已由 aria-label 钉住）。
     expect(within(dialog).getByText(/路线图中登记/)).toBeDefined();
     await user.click(within(dialog).getByRole('button', { name: '知道了' }));
-    expect(screen.queryByRole('dialog', { name: '拔模（规划中）' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '筋（规划中）' })).toBeNull();
   });
 
   it('点击结果激活：圆角 → 改道 new/fillet 对话框（M6-b T6，tools.run 不调用）', async () => {
@@ -198,12 +198,12 @@ describe('Ribbon 结构冒烟（27 工具 + 8 下拉 + 搜索触发钮）', () =
     expect(within(ribbon).getByRole('button', { name: /搜索工具/ })).toBeDefined();
   });
 
-  it('gated 工具（拔模）点击开引导对话框，不触发 tools.run', async () => {
+  it('gated 工具（筋）点击开引导对话框，不触发 tools.run', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
-    await user.click(screen.getByRole('button', { name: '拔模' }));
+    await user.click(screen.getByRole('button', { name: '筋' }));
     expect(mocks.toolsRun).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: '筋（规划中）' })).toBeDefined();
   });
 
   it('倒角点击 → 开 new/chamfer 特征对话框，不投 tools.run（拉伸/旋转/圆角/扫掠/放样/倒角同姿态）', async () => {

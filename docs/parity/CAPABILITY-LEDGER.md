@@ -7,7 +7,7 @@
 - shared 接口版本：`1.82.0`
 - 生成日期：2026-11-19
 - 行数：120
-- 状态分布：gated=54，partial=66
+- 状态分布：gated=53，partial=67
 
 | ID | Family | Status | Wave | Scope / Missing | UI | Contract | Backend | Kernel | Evidence |
 |---|---|---|---|---|---|---|---|---|---|
@@ -39,7 +39,7 @@
 | `feature.booleanSubtract` | feature | partial | W3 | LubanFeatureType=booleanSubtract；映射 UI 工具 boolean；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.chamfer` | feature | partial | W3 | LubanFeatureType=chamfer；映射 UI 工具 chamfer；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:53 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.cPlane` | feature | partial | W3 | LubanFeatureType=cPlane；映射 UI 工具 cPlane；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:110 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
-| `feature.draft` | feature | partial | W3 | LubanFeatureType=draft；无直接 UI 映射；未按七维 full 门审计（W0 基线） | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
+| `feature.draft` | feature | partial | W4 | LubanFeatureType=draft（shared 1.82.0）；映射 UI 工具 draft；TaperFaces 已按 ADR-0021 AX-01 接线，单 body 侧面+中性面 15° 真栈 3732.051 mm³、30° 3422.648 mm³；多 body 形态与跨 body 中性面策略；线性/中面/分型线等其余拔模模式；受影响 Onshape 示例 strict 晋升（当前无 strict 示例依赖 draft） | luban-cad/apps/web/src/modules/part-studio/dialogs/DraftDialog.tsx:104 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | 私有后端：draft registry schema + evaluator（W4 审计；证据留在私有仓） | docs/parity/KERNEL-BOUNDARIES.md#2-操作边界2026-11-19-v0（TaperFaces） | luban-cad/apps/web/e2e/draft-ui.spec.ts<br>luban-cad/apps/web/src/modules/part-studio/test/DraftDialog.test.tsx |
 | `feature.extrude` | feature | partial | W3 | LubanFeatureType=extrude；映射 UI 工具 extrude；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.faceExtrude` | feature | partial | W3 | LubanFeatureType=faceExtrude；映射 UI 工具 extrude；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
 | `feature.featureMirror` | feature | partial | W3 | LubanFeatureType=featureMirror；映射 UI 工具 mirror；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:63 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229 | — | — | — |
@@ -71,7 +71,7 @@
 | `ui.deleteFace` | tooling | gated | W4 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:104 | — | — | — | — |
 | `ui.dependencies` | tooling | gated | W5 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:131 | — | — | — | — |
 | `ui.derived` | tooling | gated | W2 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:92 | — | — | — | — |
-| `ui.draft` | tooling | gated | W4 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:114 | — | — | — | — |
+| `ui.draft` | tooling | partial | W4 | 入口可用：DraftDialog（目标面/中性面同选集、X/Y/Z、角度、添加台阶面、实时预览、insert/updateParams）+ 标准 targetBodyId；真栈 3732.051 mm³ push+冷重开；live Onshape 拔模对话框逐项证据（字段顺序/默认值/独立中性面拾取交互）；线性/中面等其余拔模模式；多 body 形态与逐 body 拔模 | luban-cad/apps/web/src/modules/part-studio/dialogs/DraftDialog.tsx:104 | — | 私有后端：draft registry schema + evaluator（W4 审计；证据留在私有仓） | docs/parity/KERNEL-BOUNDARIES.md#2-操作边界2026-11-19-v0（TaperFaces） | luban-cad/apps/web/e2e/draft-ui.spec.ts<br>luban-cad/apps/web/src/modules/part-studio/test/DraftDialog.test.tsx |
 | `ui.drawing` | tooling | gated | W5 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:123 | — | — | — | — |
 | `ui.extrude` | tooling | partial | W2 | UI 入口可用；全量七维证据未审计；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48 | — | — | — | — |
 | `ui.faceBlend` | tooling | gated | W4 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:52 | — | — | — | — |

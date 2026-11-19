@@ -306,6 +306,17 @@ export function useToolActivation(canEdit = true): ToolActivation {
       });
       return;
     }
+    if (id === 'DraftFaces' || id === 'bodyDraft') {
+      // ADR-0021 AX-01：独立拔模对话框。所选面在路由时快照；对话框内指定中性面。
+      const inputFaces = usePartStudioStore.getState().canvas.selection
+        .filter((entry) => entry.kind === 'face' && entry.topologyId !== undefined);
+      openFeatureDialog({
+        mode: 'new',
+        featureType: 'draft',
+        ...(inputFaces.length > 0 ? { inputFaces } : {}),
+      });
+      return;
+    }
     if (id === 'sketchConstruction') {
       // v1.23（ADR-0004）：构造模式开关——不是 iTwin 工具；切换后新绘曲线带
       // construction=true，后端面域生成过滤构造曲线。

@@ -14,11 +14,11 @@
   "counts": {
     "total": 120,
     "byStatus": {
-      "gated": 54,
-      "partial": 66
+      "gated": 53,
+      "partial": 67
     }
   },
-  "sourceHash": "cfbdb88166ff20b7b6b82fba51d878f57f199d0ed7b0c494653804a74d094f85",
+  "sourceHash": "f02fbe490c55b2df1e0261ad614303c81d1fcea0fe593fb8f0ccfa2aaf7a2535",
   "rows": [
     {
       "id": "constraint.angle",
@@ -529,18 +529,23 @@
       "family": "feature",
       "onshapeEntry": "draft",
       "status": "partial",
-      "scopeNote": "LubanFeatureType=draft；无直接 UI 映射",
+      "scopeNote": "LubanFeatureType=draft（shared 1.82.0）；映射 UI 工具 draft；TaperFaces 已按 ADR-0021 AX-01 接线，单 body 侧面+中性面 15° 真栈 3732.051 mm³、30° 3422.648 mm³",
       "missing": [
-        "未按七维 full 门审计（W0 基线）"
+        "多 body 形态与跨 body 中性面策略",
+        "线性/中面/分型线等其余拔模模式",
+        "受影响 Onshape 示例 strict 晋升（当前无 strict 示例依赖 draft）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:229",
-      "uiRef": null,
-      "backendRef": null,
-      "kernelRef": null,
-      "evidence": [],
-      "wave": "W3",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/dialogs/DraftDialog.tsx:104",
+      "backendRef": "私有后端：draft registry schema + evaluator（W4 审计；证据留在私有仓）",
+      "kernelRef": "docs/parity/KERNEL-BOUNDARIES.md#2-操作边界2026-11-19-v0（TaperFaces）",
+      "evidence": [
+        "luban-cad/apps/web/e2e/draft-ui.spec.ts",
+        "luban-cad/apps/web/src/modules/part-studio/test/DraftDialog.test.tsx"
+      ],
+      "wave": "W4",
       "owner": "parity-program",
-      "lastUpdated": null
+      "lastUpdated": "2026-11-19"
     },
     {
       "id": "feature.extrude",
@@ -1104,19 +1109,24 @@
       "id": "ui.draft",
       "family": "tooling",
       "onshapeEntry": "draft",
-      "status": "gated",
-      "scopeNote": "UI 入口 gated（能力引导）",
+      "status": "partial",
+      "scopeNote": "入口可用：DraftDialog（目标面/中性面同选集、X/Y/Z、角度、添加台阶面、实时预览、insert/updateParams）+ 标准 targetBodyId；真栈 3732.051 mm³ push+冷重开",
       "missing": [
-        "未实现（诚实 gated）"
+        "live Onshape 拔模对话框逐项证据（字段顺序/默认值/独立中性面拾取交互）",
+        "线性/中面等其余拔模模式",
+        "多 body 形态与逐 body 拔模"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:114",
-      "backendRef": null,
-      "kernelRef": null,
-      "evidence": [],
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/dialogs/DraftDialog.tsx:104",
+      "backendRef": "私有后端：draft registry schema + evaluator（W4 审计；证据留在私有仓）",
+      "kernelRef": "docs/parity/KERNEL-BOUNDARIES.md#2-操作边界2026-11-19-v0（TaperFaces）",
+      "evidence": [
+        "luban-cad/apps/web/e2e/draft-ui.spec.ts",
+        "luban-cad/apps/web/src/modules/part-studio/test/DraftDialog.test.tsx"
+      ],
       "wave": "W4",
       "owner": "parity-program",
-      "lastUpdated": null
+      "lastUpdated": "2026-11-19"
     },
     {
       "id": "ui.drawing",

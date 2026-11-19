@@ -1,4 +1,41 @@
 {
   "schemaVersion": 1,
-  "overrides": {}
+  "overrides": {
+    "ui.draft": {
+      "status": "partial",
+      "scopeNote": "入口可用：DraftDialog（目标面/中性面同选集、X/Y/Z、角度、添加台阶面、实时预览、insert/updateParams）+ 标准 targetBodyId；真栈 3732.051 mm³ push+冷重开",
+      "missing": [
+        "live Onshape 拔模对话框逐项证据（字段顺序/默认值/独立中性面拾取交互）",
+        "线性/中面等其余拔模模式",
+        "多 body 形态与逐 body 拔模"
+      ],
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/dialogs/DraftDialog.tsx:104",
+      "backendRef": "私有后端：draft registry schema + evaluator（W4 审计；证据留在私有仓）",
+      "kernelRef": "docs/parity/KERNEL-BOUNDARIES.md#2-操作边界2026-11-19-v0（TaperFaces）",
+      "evidence": [
+        "luban-cad/apps/web/e2e/draft-ui.spec.ts",
+        "luban-cad/apps/web/src/modules/part-studio/test/DraftDialog.test.tsx"
+      ],
+      "wave": "W4",
+      "lastUpdated": "2026-11-19"
+    },
+    "feature.draft": {
+      "status": "partial",
+      "scopeNote": "LubanFeatureType=draft（shared 1.82.0）；映射 UI 工具 draft；TaperFaces 已按 ADR-0021 AX-01 接线，单 body 侧面+中性面 15° 真栈 3732.051 mm³、30° 3422.648 mm³",
+      "missing": [
+        "多 body 形态与跨 body 中性面策略",
+        "线性/中面/分型线等其余拔模模式",
+        "受影响 Onshape 示例 strict 晋升（当前无 strict 示例依赖 draft）"
+      ],
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/dialogs/DraftDialog.tsx:104",
+      "backendRef": "私有后端：draft registry schema + evaluator（W4 审计；证据留在私有仓）",
+      "kernelRef": "docs/parity/KERNEL-BOUNDARIES.md#2-操作边界2026-11-19-v0（TaperFaces）",
+      "evidence": [
+        "luban-cad/apps/web/e2e/draft-ui.spec.ts",
+        "luban-cad/apps/web/src/modules/part-studio/test/DraftDialog.test.tsx"
+      ],
+      "wave": "W4",
+      "lastUpdated": "2026-11-19"
+    }
+  }
 }

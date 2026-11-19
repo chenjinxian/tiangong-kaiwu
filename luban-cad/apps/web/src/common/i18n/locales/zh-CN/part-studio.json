@@ -1681,7 +1681,8 @@
       "featurePattern": "特征阵列",
       "featureMirror": "特征镜像",
       "transform": "变换",
-      "splitPart": "分割"
+      "splitPart": "分割",
+      "draft": "拔模"
     }
   },
   "featureSystem": {
@@ -2102,6 +2103,19 @@
     "perFaceReadOnly": "该特征使用逐面距离（distancesMm），当前对话框只读；请用 RPC/参数面板编辑",
     "submitSuccess": "{{name}} 已创建",
     "removeFace": "移除面"
+  },
+  "draftDialog": {
+    "facesLabel": "拔模面",
+    "facesEmpty": "先在画布中选择面，再打开拔模",
+    "neutralLabel": "中性面",
+    "neutralPlaceholder": "从所选面中选择中性面",
+    "direction": "拔模方向",
+    "angle": "拔模角",
+    "addStep": "添加台阶面",
+    "angleInvalid": "拔模角须满足 0<|角度|<89",
+    "crossBody": "所选面属于多个实体；拔模要求同一实体",
+    "missingSelection": "至少选择一个拔模面和一个中性面",
+    "submitSuccess": "{{name}} 已创建"
   },
   "featurePatternDialog": {
     "sourceLabel": "要阵列化的特征",

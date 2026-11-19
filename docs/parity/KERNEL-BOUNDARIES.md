@@ -22,7 +22,7 @@
 | Hollow/OffsetFaces/OffsetBody | Modeler | Hollow/OffsetFaces 已用；OffsetBody 待暴露 | OffsetBody 原生 smoke 已通过 |
 | Imprint / Sew / Disjoin / ConvertSolidToSheet | Modeler | Imprint/Sew 已用；Disjoin/Convert 待暴露 | Disjoin/Convert 有原生 smoke 证据 |
 | DeleteFaces/DeleteEdges | Modeler | 删除面 `blocked-kernel`；删除边待探针 | 普通盒面删除无法补洞，需共面分裂种子；删除边未验证 |
-| TaperFaces（拔模） | Modeler | 待暴露 | 原生实现完整，缺 PSBRep/editor/backend 通道 |
+| TaperFaces（拔模） | Modeler | 已用（AX-01，2026-11-19） | 原生 ctest + PSBRep op 37 + editor IPC + backend evaluator + DraftDialog 真栈 3732.051 mm³；独立中性面拾取等 live UI 深度待补 |
 | SweepFaces | Modeler | 待暴露（先补测试） | 面扫掠产品化可用于筋/曲面族 |
 | OffsetEdges | Modeler | 待暴露（先补测试） | 边偏移传播语义未验证 |
 | Emboss | Modeler | 待暴露（先补测试） | 包覆/浮雕候选，禁止用近似算法替代 |
@@ -51,4 +51,4 @@ backend evaluator / 产品 UI 全链；**批准前不接线**。
    示例批次。
 4. 能力账本中的 `kernelRef` 只引用本表结论；原始证据留在私有仓。
 
-*最后更新：2026-11-19（v0；TaperFaces 等“待暴露”项尚未接线）*
+*最后更新：2026-11-19（v0；TaperFaces 已于 AX-01 接线，其余“待暴露”项尚未接线）*

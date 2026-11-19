@@ -48,7 +48,7 @@ const EXPECTED_TOOL_IDS = [
   'thicken', // 加厚 ▾
   'RoundEdges', // 圆角 (shift+f)（旧应用真实 toolId）▾
   'ChamferEdges', // 倒角（旧应用真实 toolId）
-  'DraftFaces', // 拔模（X-01 起 gated 引导）▾
+  'DraftFaces', // 拔模（AX-01 翻 full：DraftDialog + TaperFaces）▾
   'rib', // 筋（2026-11-02 live 工具栏补齐）
   'HollowFaces', // 抽壳（旧应用真实 toolId）
   'CreateHole', // 孔（X-01 起 gated 引导）
@@ -118,7 +118,6 @@ const EXPECTED_SHORTCUTS: Record<string, string> = {
 
 /** spec §5 初始 gated 集合在 ribbon 上的家族键（capability 维度）。 */
 const GATED_CAPABILITIES = [
-  'draft', // 拔模
   'thread', // 外部螺纹
   'frames', // 框架系
   'sheetMetal', // 钣金系
@@ -260,8 +259,9 @@ describe('能力校准（T2 挂账收口：capability 键全量入册）', () =>
 
   it('gated 家族工具/子项经 isGated 路由能力引导', () => {
     const gatedTools = RIBBON_TOOLS.filter((tool) => isGated(tool.capability));
+    // AX-01：DraftFaces 已翻 full（DraftDialog + TaperFaces），不再走能力引导。
     expect(gatedTools.map((tool) => tool.id).sort()).toEqual([
-      'DraftFaces', 'USER_FEATURES', 'deleteBodies', 'deleteFace', 'externalThread', 'frame',
+      'USER_FEATURES', 'deleteBodies', 'deleteFace', 'externalThread', 'frame',
       'modifyFillet', 'replaceFace', 'rib', 'sheetMetalStart', 'thicken',
     ].sort());
     for (const capability of GATED_CAPABILITIES) {

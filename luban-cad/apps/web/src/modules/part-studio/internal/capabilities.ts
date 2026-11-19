@@ -111,7 +111,7 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   userFeatures: 'gated', // 添加自定义特征（FeatureScript 自定义特征不在本版本——W1.2b 续审计）
 
   // —— 初始 gated 集合（spec §5；材料/外观、曲面/曲线各拆两条）——
-  draft: 'gated', // 拔模
+  draft: 'full', // 拔模（2026-11-19 ADR-0021 AX-01：DraftDialog + TaperFaces；中性面从所选面指定，独立拾取 UX 待后续）
   rib: 'gated', // 筋（Onshape 工具栏补齐；无后端面，能力引导）
   shell: 'full', // 抽壳（T3 参数化 ShellDialog：移除面 + 壁厚 + 方向；Hollow 未支持）
   thread: 'gated', // 外部螺纹
@@ -167,7 +167,6 @@ function guidanceFor(toolId: string): CapabilityGuidance {
  * 翻转 gated→full 时同步删/改本表条目。
  */
 export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
-  draft: guidanceFor('draft'),
   rib: guidanceFor('rib'),
   thread: guidanceFor('thread'),
   sheetMetal: guidanceFor('sheetMetal'),

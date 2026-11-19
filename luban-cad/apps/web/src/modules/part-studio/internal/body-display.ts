@@ -17,7 +17,7 @@ import type { FeatureTreeEntry } from '@luban-cad/shared';
 const BODY_PRODUCING_TYPES: ReadonlySet<string> = new Set([
   'extrude', 'revolve', 'booleanAdd', 'booleanSubtract', 'booleanBodies',
   'loft', 'sweep', 'faceExtrude', 'splitPart', 'pattern', 'mirror', 'transform',
-  'cPlane', 'hole', 'shell', 'fillet', 'chamfer', 'moveFace',
+  'cPlane', 'hole', 'shell', 'fillet', 'chamfer', 'moveFace', 'draft',
 ]);
 
 /** 树内是否存在可能产出/编辑实体的特征（与页面 BODY_PRODUCING_FEATURE_TYPES 同口径子集）。 */

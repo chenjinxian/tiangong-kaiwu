@@ -31,6 +31,7 @@ export const NEW_FEATURE_LABEL_KEYS: Readonly<Record<string, string>> = {
   chamfer: 'partStudio.tree.featureTypes.chamfer',
   shell: 'partStudio.tree.featureTypes.shell',
   moveFace: 'partStudio.tree.featureTypes.moveFace',
+  draft: 'partStudio.tree.featureTypes.draft',
   splitPart: 'partStudio.tree.featureTypes.splitPart',
   transform: 'partStudio.tree.featureTypes.transform',
   booleanBodies: 'partStudio.tree.featureTypes.booleanBodies',

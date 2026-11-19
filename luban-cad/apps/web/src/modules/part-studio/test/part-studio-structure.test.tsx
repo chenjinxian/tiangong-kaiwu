@@ -582,11 +582,11 @@ describe('工具 ribbon（Onshape live：28 工具 + 9 下拉 + 搜索触发钮�
     await user.click(
       within(within(document.body).getByTestId('part-studio-feature-dialog')).getByRole('button', { name: '取消' }),
     );
-    // gated：拔模 → 能力引导对话框（不投 tools.run）。
+    // gated：筋 → 能力引导对话框（不投 tools.run）；拔模已翻 full 改开 DraftDialog。
     mocks.toolsRun.mockClear();
-    await user.click(within(ribbon).getByRole('button', { name: '拔模' }));
+    await user.click(within(ribbon).getByRole('button', { name: '筋' }));
     expect(mocks.toolsRun).not.toHaveBeenCalled();
-    expect(await screen.findByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
+    expect(await screen.findByRole('dialog', { name: '筋（规划中）' })).toBeDefined();
   });
 
   it('命令搜索触发钮在场（搜索工具… alt+/）', () => {

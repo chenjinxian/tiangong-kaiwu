@@ -7,7 +7,7 @@
 //     姿态：对话框流程非 PrimitiveTool 激活）；
 //  2) 其余 full 工具不回归：扫掠点击仍投 tools.run + 写激活态（旋转/圆角已
 //     同姿态改道对话框——M6-b T4/T6）；
-//  3) gated 工具（拔模）不回归：开能力引导对话框。
+//  3) gated 工具（筋）不回归：开能力引导对话框（拔模 AX-01 翻 full 改开 DraftDialog）。
 //
 // 定位：激活路由验收层（此前 ribbon 结构/激活冒烟挂 CommandPalette.test.tsx，
 // 本任务拉伸特例路由新增独立文件）。@itwin/core-frontend 模块级 mock，真实
@@ -237,12 +237,12 @@ describe('ribbon 拉伸特例路由（M4-T6 拉伸闭环入口）', () => {
     });
   });
 
-  it('gated 工具不回归：拔模点击开能力引导对话框', async () => {
+  it('gated 工具不回归：筋点击开能力引导对话框', async () => {
     const user = userEvent.setup();
     render(<Ribbon />);
-    await user.click(screen.getByRole('button', { name: '拔模' }));
+    await user.click(screen.getByRole('button', { name: '筋' }));
     expect(mocks.toolsRun).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
+    expect(screen.getByRole('dialog', { name: '筋（规划中）' })).toBeDefined();
   });
 
   it('草图文本/圆锥曲线：占位改 gated——点击开真实原因引导，不静默 no-op', async () => {
@@ -267,9 +267,9 @@ describe('P2.4 只读总门（canEdit=false）', () => {
     render(<Ribbon canEdit={false} />);
     const extrude = screen.getByRole('button', { name: '拉伸' }) as HTMLButtonElement;
     expect(extrude.disabled || extrude.getAttribute('aria-disabled') === 'true').toBe(true);
-    // gated 拔模仍可开能力引导（信息面）。
-    await user.click(screen.getByRole('button', { name: '拔模' }));
-    expect(screen.getByRole('dialog', { name: '拔模（规划中）' })).toBeDefined();
+    // gated 筋仍可开能力引导（信息面）。
+    await user.click(screen.getByRole('button', { name: '筋' }));
+    expect(screen.getByRole('dialog', { name: '筋（规划中）' })).toBeDefined();
     expect(mocks.toolsRun).not.toHaveBeenCalled();
   });
 

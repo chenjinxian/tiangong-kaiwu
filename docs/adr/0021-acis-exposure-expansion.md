@@ -95,3 +95,19 @@ emboss、split/trim 等特征；当前缺口不是“没有几何代码”，而
 - 本 ADR 需 Owner 明确批准后，才可修改 native opcode/editor IPC/backend evaluator。
 - 批准前允许的只有：静态审计、ctest 探针、文档与能力账本更新（不接产品线）。
 - 首个实施切片建议：TaperFaces + draft 特征（示例影响最大、API 已实现、许可内）。
+
+## 6. 实施记录
+
+### AX-01 TaperFaces / draft（2026-11-19）
+
+- native：TaperFaces ctest（侧面 + 底面中性、15° 体积/0° 零变更/回滚）通过；
+  PSBRep op 37 与 editor IPC `taperFaces` 接线完成。
+- shared：`LubanFeatureType=draft` 与 `DraftParams`（1.82.0，additive）。
+- 私有后端：registry schema/evaluator（失败零变更）+ preview（HITL 预览→确认）；
+  单测含 3732.051 mm³（15°）与 3422.648 mm³（30°）解析对拍。
+- 公共 UI：`DraftDialog`（目标面/中性面来自同一选择集、X/Y/Z、角度、添加台阶面、
+  实时预览、插入/编辑 updateParams），能力入口可用；插入载荷带标准 `targetBodyId`。
+- 真栈：`e2e/draft-ui.spec.ts` 2 passed——盒 20×20×10 侧面 + 底面中性 15°/Z →
+  **3732.051 mm³**（解析同值），树 `sketch/extrude/draft` 全 status=0，push + 冷重开一致。
+- 状态：能力账本 `feature.draft`/`ui.draft` 保持 `partial`；缺 live 对话框逐项证据
+  （独立中性面拾取交互、线性/中面拔模、多 body 形态）。不以“已接线”冒充 `full`。
