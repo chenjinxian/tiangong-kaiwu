@@ -36,6 +36,27 @@
       ],
       "wave": "W4",
       "lastUpdated": "2026-11-19"
+    },
+    "ui.sketchSlot": {
+      "status": "partial",
+      "scopeNote": "偏移 ▾ 第二项「槽」：单条直线中线槽（两平行边界 + 两半圆帽、默认 Ø20、Ø 尺寸参数化、原中线保留、一次 updateSketch + 原生 undo/redo）；真栈 sketch-slot.spec.ts 2 passed",
+      "missing": [
+        "多段连续链槽（拐角连接未采证）",
+        "圆弧/整圆中线槽",
+        "闭合轮廓环槽",
+        "多条独立曲线联动的等宽槽",
+        "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）"
+      ],
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/tools/sketch/SketchSlotTool.ts:1",
+      "backendRef": "none（复用 sketch 求解/updateSketchConstraint；无新契约）",
+      "kernelRef": "none",
+      "evidence": [
+        "luban-cad/apps/web/e2e/sketch-slot.spec.ts",
+        "luban-cad/apps/web/src/modules/part-studio/test/sketch-slot-logic.test.ts",
+        "luban-cad/apps/web/src/modules/part-studio/test/SketchSlotTool.test.ts"
+      ],
+      "wave": "W1",
+      "lastUpdated": "2026-11-19"
     }
   }
 }

@@ -1349,6 +1349,18 @@
         "zeroDistance": "偏移距离为零，请点击实体以外位置确认偏移"
       }
     },
+    "slot": {
+      "prompts": {
+        "pickCurve": "槽：点击选择一条直线（首切片仅支持单条直线）",
+        "confirm": "槽：预览已生成（默认 Ø20）；按 Enter 或再次点击确认"
+      },
+      "toasts": {
+        "unsupportedKind": "槽首切片仅支持直线中线（圆弧/圆/多段链尚未支持）",
+        "unsupportedChain": "槽首切片仅支持单条直线（多段连续链尚未支持）",
+        "zeroWidth": "槽宽必须大于零",
+        "unsolvedLine": "所选直线无解算坐标，无法生成槽"
+      }
+    },
     "tangentArc": {
       "prompts": {
         "start": "相切圆弧：点击一条草图直线的端点作为起点",
@@ -1961,6 +1973,10 @@
       "cPlane": {
         "available": "基准面（Top/Front/Right）、偏移距离、反转法线；平面点 = 世界原点",
         "notImplemented": "线角度/线点/三点平面定义仅只读回显（删除后重建）；任意面/边/点参考未实现"
+      },
+      "sketchSlot": {
+        "available": "单条直线中线的槽轮廓（两条平行边界 + 两端半圆帽），默认 Ø20、Ø 尺寸驱动宽度、原中线保留、一次 updateSketch 可撤销",
+        "notImplemented": "多段连续链、圆弧/整圆中线、闭合环槽、多条独立曲线联动等宽槽（尚未采到 live 交互证据，工具内诚实拒收）"
       }
     }
   },

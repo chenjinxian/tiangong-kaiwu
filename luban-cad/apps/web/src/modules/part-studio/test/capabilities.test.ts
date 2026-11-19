@@ -32,7 +32,7 @@ import {
  * + M4-T8 D3 特征段头三钮（os-11 段头形态）登记 insertElement/pauseRebuild/
  * featureHistory（共 23）+ B5 曲线阵列 curvePattern（无工具/后端面，共 24）
  * + W26 面混合 faceBlend（圆角族变体无工具/后端通道，共 55）；v1.81 对称约束翻
- * full、AX-01 拔模翻 full 后共 53。
+ * full、AX-01 拔模翻 full、ADR-0022 S2 槽翻 full 后共 52。
  * ADR-0006 切片 A：孔 hole 翻 full（后端 hole op + HoleDialog）。 */
 const EXPECTED_GATED_IDS = [
   'rib', // 筋（2026-11-02 Onshape 工具栏补齐）
@@ -74,7 +74,6 @@ const EXPECTED_GATED_IDS = [
   'sketchEllipseArc',
   'sketchSplineControlPoints',
   'sketchIntersection',
-  'sketchSlot',
   'sketchInsertImage',
   // 2026-11-13 工具栏 live 全量对拍：约束飞菜单补全 14 变体（六项 gated）。
   'sketchNormal',

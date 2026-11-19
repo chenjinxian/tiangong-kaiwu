@@ -52,6 +52,26 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   `sketchSlot` 保持 gated，不得用近似两点槽冒充 full。
 - 早期 center-to-center/overall 设计作废；AIRR §10 同步修正。
 
+### 2.3 S2 首切片落地（2026-11-19，单条直线）
+
+- **live 证据**（私有 2026-11-19 槽探针：截图 + DXF）：选一条
+  边 → 工具立即预览“体育场”槽（两平行边界 + 两端半圆帽），默认 **Ø20**；光标移动
+  不改宽；`Enter` 提交；**原中线保留**；双击 Ø20 尺寸可改（改 30 后边界/帽半径联动）。
+  DXF 实测（中线 (90,25)→(-90,25)、w=20）：边界 y=15/35、两帽 r10（右帽 270→90、
+  左帽 90→270）。多段连续链/弧中线/闭合环槽/联动等宽槽的 live 交互**未采到**。
+- **实现范围**：`Sketch.Slot`（偏移 ▾ 第二项）首切片只支持**单条直线中线**；其余
+  拾取（弧/圆/多段链/闭合轮廓）在工具内 toast 明确拒收，不近似冒充。
+- **几何/约束**：原中线保留；新增两条 ±Ø/2 平行边界线 + 两个半圆帽弧（帽心与中线
+  端点 coincident）；4 个 tangent、2 个 parallel、1 个 diameter（=宽度）与 1 个
+  equal（两帽等半径）；宽度由 Ø 尺寸参数化驱动。
+- **事务**：一次 `updateSketch` 提交（既有实体/约束原样，槽追加）；失败零变更；
+  宽度修改走既有 `updateSketchConstraint`，真栈原生 UI Undo/Redo 可逆。
+- **验证**：私有后端 solver conformance `SlotSolver` 2/2（Ø20→±10/r10，Ø30→±15/r15）；
+  web 纯逻辑 4/4、工具接线 2/2；真栈 `e2e/sketch-slot.spec.ts` **2 passed**（真实
+  ribbon/画布 → 槽创建 → Ø30 参数化 → UI undo/redo → finish+reload 持久）。
+- **状态口径**：入口能力 `sketchSlot` 为 full（入口可用），能力账本 `ui.sketchSlot`
+  保持 `partial` 并列出未采证子域（多段链/弧圆/环槽/联动槽）。
+
 ## 3. 数据/事务
 
 - 事实源：草图 params（实体+约束）；求解结果派生。

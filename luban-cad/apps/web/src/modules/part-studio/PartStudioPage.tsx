@@ -1004,6 +1004,10 @@ function PartStudioSession({
         // M6-c T4：偏移工具（Sketch.Offset）——同款懒引+幂等（编辑组真 toolId）。
         const { registerSketchOffsetTools } = await import('./tools/sketch/SketchOffsetTool.js');
         registerSketchOffsetTools();
+        // ADR-0022 S2 首切片：草图槽（Sketch.Slot，偏移 ▾ 第二项；单条直线，
+        // 默认 Ø20 + Ø 尺寸参数化；多段链/弧/圆待 live 证据）。
+        const { registerSketchSlotTools } = await import('./tools/sketch/SketchSlotTool.js');
+        registerSketchSlotTools();
         // 2026-11-09：草图镜像（Sketch.Mirror）——官方帮助证据两相流程；同款懒引+幂等。
         const { registerSketchMirrorTools } = await import('./tools/sketch/SketchMirrorTool.js');
         registerSketchMirrorTools();

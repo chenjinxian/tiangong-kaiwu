@@ -114,6 +114,15 @@ export function useToolActivation(canEdit = true): ToolActivation {
       );
       return;
     }
+    if (id === 'sketchSlot') {
+      // ADR-0022 S2 首切片：槽（偏移 ▾ 第二项；toolId Sketch.Slot）。
+      // reminder：入口键 sketchSlot 同时是 capability 键，真实工具 id 用点号族名。
+      setActiveTool('sketchSlot');
+      const started = await IModelApp.tools.run('Sketch.Slot');
+      if (!started)
+        console.warn('[part-studio] Sketch.Slot 未启动');
+      return;
+    }
     if (id === 'sketchTrim') {
       // 2026-11-12：草图修剪——Onshape「修剪」工具（toolId Sketch.Trim，真实
       // PrimitiveTool）。reminder：ribbon 命令 id=sketchTrim 只是入口键，

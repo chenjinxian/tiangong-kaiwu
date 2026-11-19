@@ -1349,6 +1349,18 @@
         "zeroDistance": "Offset distance is zero; click away from the entity to set the offset"
       }
     },
+    "slot": {
+      "prompts": {
+        "pickCurve": "Slot: click a line (this slice supports a single straight centerline)",
+        "confirm": "Slot: preview ready (default Ø20); press Enter or click again to confirm"
+      },
+      "toasts": {
+        "unsupportedKind": "Slot currently supports a straight centerline only (arcs/circles/multi-segment chains pending)",
+        "unsupportedChain": "Slot currently supports one straight line only (multi-segment chains pending)",
+        "zeroWidth": "Slot width must be greater than zero",
+        "unsolvedLine": "The selected line has no solved coordinates; cannot build the slot"
+      }
+    },
     "tangentArc": {
       "prompts": {
         "start": "Tangent arc: click a sketch line endpoint as the start",
@@ -1961,6 +1973,10 @@
       "cPlane": {
         "available": "Datum planes (Top/Front/Right), offset distance, flip normal; plane point = world origin",
         "notImplemented": "Line-angle/line-point/three-point plane definitions are read-only (delete and recreate); arbitrary face/edge/point references are not implemented"
+      },
+      "sketchSlot": {
+        "available": "Slot outline around a single straight centerline (two parallel walls + semicircular caps), default Ø20 driven by the Ø dimension, centerline kept, one undoable updateSketch",
+        "notImplemented": "Multi-segment chains, arc/circle centerlines, closed-profile ring slots and linked equal-width slots (no live interaction evidence yet; the tool rejects them explicitly)"
       }
     }
   },

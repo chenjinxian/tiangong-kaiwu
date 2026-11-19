@@ -76,7 +76,10 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   sketchEllipseArc: 'gated', // 椭圆弧（同上）
   sketchSplineControlPoints: 'gated', // 样条控制点（控制点创建模式未实现）
   sketchIntersection: 'gated', // 交点（点-弧约束/交点工具未实现）
-  sketchSlot: 'gated', // 槽（工具未实现）
+  // ADR-0022 S2 首切片（2026-11-19 live）：偏移 ▾ 第二项，单条直线槽 + 默认
+  // Ø20/Ø 尺寸参数化；多段连续链、圆弧/整圆中线、闭合环槽尚未采到交互证据，
+  // 工具内诚实拒收（见 CAPABILITY_SCOPE_NOTES.sketchSlot）。
+  sketchSlot: 'full',
   sketchChamfer: 'full', // 草图倒角（2026-11-13 首切片：角点点击 + 距离尺寸，真栈绿）
   sketchInsertImage: 'gated', // 插入图像（图像实体/渲染未实现）
   // 2026-11-13 工具栏 live 全量对拍：草图约束飞菜单补齐 live 全 14 变体；
@@ -211,7 +214,6 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   sketchEllipseArc: guidanceFor('sketchEllipseArc'),
   sketchSplineControlPoints: guidanceFor('sketchSplineControlPoints'),
   sketchIntersection: guidanceFor('sketchIntersection'),
-  sketchSlot: guidanceFor('sketchSlot'),
   sketchInsertImage: guidanceFor('sketchInsertImage'),
   // 2026-11-13 工具栏 live 全量对拍新增 gated。
   sketchNormal: guidanceFor('sketchNormal'),
@@ -240,6 +242,12 @@ export const CAPABILITY_SCOPE_NOTES: Record<string, CapabilityScopeNote> = {
   cPlane: {
     availableKey: 'partStudio.capabilities.scope.cPlane.available',
     notImplementedKey: 'partStudio.capabilities.scope.cPlane.notImplemented',
+  },
+  // ADR-0022 S2 首切片：入口/单直线槽可用；多段链、弧/圆中线、闭合环槽未采证。
+  // 工具内对不支持的拾取 toast 明确原因（不是静默 no-op）。
+  sketchSlot: {
+    availableKey: 'partStudio.capabilities.scope.sketchSlot.available',
+    notImplementedKey: 'partStudio.capabilities.scope.sketchSlot.notImplemented',
   },
 };
 
