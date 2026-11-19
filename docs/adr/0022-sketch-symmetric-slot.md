@@ -101,9 +101,10 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   `useOnshapeSelection` **14/14**（新增保留预选用例）；私有后端
   `SlotChainSolver` **2/2**（Ø20 → 内斜接 (90,10)/外边界 x=110/全部 r10；
   Ø30 → 外移 5 mm、r15）；全量 web **2647/2647**、tsc(src/e2e)/eslint 绿；
-  真栈 `e2e/sketch-slot.spec.ts` **3 passed（2.9 min，含链用例）**——真实
-  画布连续绘制 3 段 → 框选 3 段 → 偏移 ▾ → 槽（Enter 一键提交，14 实体/
-  34 约束）→ Ø30 参数化 → finish + reload 持久。
+  真栈 `e2e/sketch-slot.spec.ts` **3 passed（限流优化后 1.2 min；首跑 2.9 min
+  含 429 重试，含链用例）**——真实画布连续绘制 3 段 → 框选 3 段 → 偏移 ▾ →
+  槽（Enter 一键提交，14 实体/34 约束）→ Ø30 参数化 → finish + reload 持久。
+  e2e 已缓存 sketchId 并以 1–5 s 间隔轮询 `getSketch`，不绕过 MS 限流。
 - **状态口径**：入口能力 `sketchSlot` 仍 full；能力账本 `ui.sketchSlot` 保持
   `partial`，缺弧/圆中线链、闭合环槽、分支链、独立多曲线联动槽、live 宽度
   光标拖拽（本切片宽度=默认 Ø20 + 尺寸编辑）。
