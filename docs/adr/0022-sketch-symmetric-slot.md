@@ -282,7 +282,7 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   单 Ø20 → `updateSketchConstraint` 改 30（新取写租约）→ 偏移 35/65、帽/转角
   r15 → finish+reload 持久。
 - **状态口径**：`ui.sketchSlot` 仍 partial；「圆弧参与的相连链槽」已从 missing
-  移除；剩分支链、自交环、闭合混合链（含弧）、live 宽度拖拽/表达式。
+  移除；剩分支链（未采证据；2026-11-20 探针未建成）、自交环、闭合混合链（含弧；2026-11-20 探针 DXF 端点/帽/角弧解释不唯一，按纪律不实现）、live 宽度拖拽/表达式。
 
 ## 3. 数据/事务
 

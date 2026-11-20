@@ -18,7 +18,7 @@
       "partial": 69
     }
   },
-  "sourceHash": "bea219b4dfb9f4b9f9c4e8f5686f97f6352f558bb593f66d4c03e8cdcf7880b8",
+  "sourceHash": "9137c4a7afff11594d5447388d36ef0001f517513f0806f0ba7630166a321e0c",
   "rows": [
     {
       "id": "constraint.angle",
@@ -1936,7 +1936,7 @@
         "分支链槽",
         "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）",
         "自交闭合环（无 live 证据）",
-        "闭合混合链（含弧；无 live 证据）"
+        "闭合混合链（含弧；2026-11-20 探针 DXF 解释存疑，不实现）"
       ],
       "contractRef": null,
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/tools/sketch/SketchSlotTool.ts:1",

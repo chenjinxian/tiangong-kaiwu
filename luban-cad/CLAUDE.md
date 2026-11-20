@@ -198,7 +198,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   undo/redo/reload + 闭合凸环标签改宽/reload + 凹 L 环 6 角弧 r10/12 边界/单 slotWidth 改 30 两端 15/finish+reload +
   多独立线；窗口 B 按 429 retryAfter 210 s 等待后 闭合环+多独立线 2 passed；新增混合链单独窗口 1 passed 43.8 s：
   3 线/6 弧/单 Ø20 → 改 30 → 偏移 35/65、帽/转角 r15 → finish+reload；一次性连跑超 MS 100 req/15min）。**未发布**；
-  残：分支链、闭合混合链（含弧）、自交环、混合部分连通、live 宽度拖拽、slotWidth 表达式未接；`ui.sketchSlot` 仍 partial。
+  残：分支链、闭合混合链（含弧；探针 DXF 解释存疑，不实现）、自交环、混合部分连通、live 宽度拖拽、slotWidth 表达式未接；`ui.sketchSlot` 仍 partial。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
