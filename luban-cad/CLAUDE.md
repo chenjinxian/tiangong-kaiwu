@@ -235,7 +235,8 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   预览期手柄拖拽；`ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
   **S2u/S2u2/S2u3 弧混合树（2026-11-20）**：live 1 弧+2 线单毂树 → 6 LINE+7 ARC
   （同心弧边界内 r−10 裁剪到 122.127°/外全扫；毂弧 11.9619°）；live 2 弧+1 线 →
-  3 LINE+10 ARC（两对同心弧、内弧裁 68.718°/11.596°、**弧-弧宽缺口毂弧 7.139°**、
+  3 LINE+10 ARC（两对同心弧、边界弧扫角 11.596°/14.25°/79.888°/68.718° 仅
+  R1+10=11.596°、R2−10=68.718° 裁剪、**弧-弧宽缺口毂弧 7.139°**、
   圆-圆/线-圆斜接）；live 3 弧无直线 → 13 ARC（6 同心弧裁角、毂弧 4.73°）。
   新 `sketch-slot-curve-tree-logic.ts`（≥1 弧臂、线/圆/圆圆交点、弧只裁剪不外延、
   parallel/concentric/单 Ø），单测 **6/6**、真栈 **3 passed（42.7 s / 41.6 s /

@@ -194,7 +194,8 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
   气泡本身不打开编辑器；双击数值重新打开编辑器时输入框预填 `(5*2) mm` 且全选
   （数值尺寸打开时为 `20 mm`，单位在输入文本内）。产品已实现气泡（viewer
   装饰器绘制 + web 投影 `expressionText`，角度用 `deg`）；编辑器预填保持
-  「表达式原文 + 视觉单位后缀」（W17 既有姿态，差异登记为残项）。
+  「表达式原文 + 视觉单位后缀」（W17 既有姿态，差异登记为残项；S2w 已改为内联单位
+  `20 mm`/`(5*2) mm` 并实现失焦归一化，残项关闭，见本文 S2w 与 §4 实测）。
 - **D2（尺寸对话框变体）**：`angle` 采用 live 159 宽无展开器/状态键变体；其余可编辑
   kind 保持 W17 209×47。放置/拖拽/钳位纯函数带宽度参数。
 - **D3（表达式输入与提交）**：字段文本含运算符/括号/`#` 即按表达式求值；有效时 ✓
@@ -518,8 +519,9 @@ registry/updateVariables 复用（角度类型门：length 变量拒收）；web
   新增 `inlineUnit`/`onValueBlur`（放置弹层保持只读后缀）；失焦回调把可求值
   文本归一化为 `<求值> <单位>`，无效文本保持原文；步进按去单位文本计算并回写
   单位。验证：`SketchDimensionEditor` **52/52**、`sketch-dimension-value`
-  新增 4 例；真栈 `sketch-slot` 表达式用例（含重开 `(5*2) mm` / 失焦
-  `10 mm` / Escape 不进模型）与 `sketch-angle-dimension`/`sketch-driven-dimension`/
+  新增 4 例；真栈 `sketch-slot.spec.ts --grep 整圆槽宽度表达式` **2 passed
+  （1.3 m）**（S2w 后复跑，含重开 `(5*2) mm` / 失焦 `10 mm` / Escape 不进模型；
+  原 39.7 s 为 S2u4 时点），`sketch-angle-dimension`/`sketch-driven-dimension`/
   `sketch-dimension-edit`/`sketch-expression-ui` 全绿。
 - **S4a 后端实测（2026-11-18）**：shared **286/286**；backend targeted **106/106**、
   全量 **1024 passed/1 expected fail/8 skipped**；tsc 绿。覆盖：schema blind-only、

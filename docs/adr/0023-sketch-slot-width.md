@@ -150,7 +150,8 @@ interface SketchSlotWidthConstraint {
   → 勾选 `ƒ 10` → reload 持久。**S2u4 补采（2026-11-20，同批）**：`(5*2) mm`
   是数值上方的 canvas 表达式气泡（非编辑器闭合态）；已实现（viewer 气泡 +
   web `expressionText`），真栈表达式用例 **39.7 s** 含气泡开/关断言（见
-  ADR-0020 S2u4）。
+  ADR-0020 S2u4）。**S2w 后复跑 2 passed（1.3 m）**（含重开 `(5*2) mm` / 失焦
+  `10 mm` / Escape）；原 39.7 s 为 S2u4 时点。
 
 ## 5. 已知边界 / 后续
 
