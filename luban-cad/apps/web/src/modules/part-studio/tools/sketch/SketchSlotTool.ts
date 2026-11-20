@@ -8,15 +8,16 @@
  * - 有预选（框选/Ctrl 叠加）：单条直线/圆弧，或相连直线链 → 工具激活即预览。
  * - 默认宽 Ø20（mm 文档）；原中线保留；宽度尺寸可在提交后双击 Ø 标签修改。
  *
- * 范围（S2 单线 + S2b 链 + S2c 圆弧 + S2e/f 整圆/闭合环 + S2i 多独立线，
- * ADR-0022 §2.3–§2.8、ADR-0023）：**单条直线**、**单条开放圆弧**（同心偏移弧 +
- * 半圆帽 + 单 Ø）、**开放/闭合、无分支、直线成员的相连链**（开放=端帽+外侧
- * 圆角+内侧斜接；闭合=无端帽、外侧圆角/内侧斜接、单一 Ø）、**整圆中线**
- * （同心圆 R±w/2、无帽、**线性**宽度尺寸）以及**多条互不相连直线**（每条线一个
- * 槽，全部帽共享同一个 Ø）。整圆/闭合环走 `slotWidth`（concentric/ring），
- * 其余槽走单个 diameter；改宽度会同时驱动所有受控轮廓。
- * 分支链、凹角闭合环、混合「部分连通+部分独立」、圆弧参与的独立多曲线暂不支持
- * （诚实拒收）。
+ * 范围（S2 单线 + S2b 链 + S2c 圆弧 + S2e/f 整圆/闭合环 + S2i 多独立线 +
+ * S2h 线/弧混合链 + S2j 凹环，ADR-0022 §2.3–§2.9、ADR-0023）：**单条直线**、
+ * **单条开放圆弧**（同心偏移弧 + 半圆帽 + 单 Ø）、**开放/闭合、无分支的
+ * line 链与 line+arc 混合开放链**（开放=端帽+外侧圆角+内侧交点/斜接；混合链
+ * 按接缝逐角判定；闭合=无端帽、外侧圆角/内侧斜接、凸/凹多边形均支持、单一 Ø）、
+ * **整圆中线**（同心圆 R±w/2、无帽、**线性**宽度尺寸）以及**多条互不相连直线**
+ * （每条线一个槽，全部帽共享同一个 Ø）。整圆/闭合环走 `slotWidth`
+ * （concentric/ring），其余槽走单个 diameter；改宽度会同时驱动所有受控轮廓。
+ * 分支链、自交闭合环、混合「部分连通+部分独立」、圆弧参与的独立多曲线、
+ * 闭合混合链（含弧）暂不支持（诚实拒收）。
  *
  * 基建复用 SketchOffsetTool：AccuSnap 取点 + 草图平面架 + Dynamics 预览 +
  * applyUpdate 乐观整体覆写 + id 播种/回滚 + 分阶段提示。
@@ -50,6 +51,7 @@ import {
   buildMultiLineSlotDraft,
   lineChainFromSelection,
 } from './sketch-slot-logic.js';
+import { buildMixedChainSlotDraft, mixedChainFromSelection } from './sketch-slot-mixed-logic.js';
 import type { SlotBuildError, SlotDraft } from './sketch-slot-logic.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 
@@ -287,8 +289,17 @@ export class SketchSlotTool extends PrimitiveTool {
       return { ok: false, error: 'unsupportedKind' };
     }
     const members = ids.map((id) => sketch.entities.find((e) => e.id === id));
-    if (members.some((e) => e === undefined || e.kind !== 'line'))
-      return { ok: false, error: 'unsupportedKind' }; // 链只支持直线成员（live 链证据）
+    if (members.some((e) => e === undefined || (e.kind !== 'line' && e.kind !== 'arc')))
+      return { ok: false, error: 'unsupportedKind' };
+    // 含圆弧的开放连通链（live 2026-11-20 `mixed-slot.dxf`）：line/arc 混合槽。
+    if (members.some((e) => e!.kind === 'arc')) {
+      const mixed = mixedChainFromSelection(sketch.entities, ids);
+      if (!mixed) return { ok: false, error: 'unsupportedChain' };
+      const built = buildMixedChainSlotDraft({
+        chain: mixed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+      });
+      return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+    }
     const chain = lineChainFromSelection(sketch.entities, ids);
     if (!chain) return { ok: false, error: 'unsupportedKind' };
     if (chain.junctions.length === 0) {

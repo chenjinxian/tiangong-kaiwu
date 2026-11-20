@@ -39,12 +39,12 @@
     },
     "ui.sketchSlot": {
       "status": "partial",
-      "scopeNote": "偏移 ▾ 第二项「槽」：单条直线、单条开放圆弧、预选相连/闭合直线链（live DXF 同构：圆弧槽=R±Ø/2 同心弧+两半圆帽；开放链=端帽+外侧圆角/内侧斜接；闭合环=外侧圆角/内侧斜接、无端帽）、整圆中线（两同心整圆 R±w/2）与多条互不相连直线（每条线一个槽、全部帽共享同一个 Ø）。宽度驱动：单线/链/弧=Ø 直径约束；整圆/闭合环=shared 1.83 `slotWidth`（concentric/ring）单一尺寸同时驱动两侧（环槽 live 显示 Ø、整圆槽为线性宽度）；默认 Ø20、一次 updateSketch/updateSketchConstraint + 原生 undo/redo；真栈 sketch-slot.spec.ts 5 passed（单线/链/圆弧/整圆/闭合环，整圆与闭合环含视口尺寸标签双击改宽与 finish+reload）",
+      "scopeNote": "偏移 ▾ 第二项「槽」：单条直线、单条开放圆弧、预选相连/闭合直线链（live DXF 同构：圆弧槽=R±Ø/2 同心弧+两半圆帽；开放链=端帽+外侧圆角/内侧斜接；闭合环=外侧圆角/内侧斜接、无端帽）、整圆中线（两同心整圆 R±w/2）、多条互不相连直线（每条线一个槽、全部帽共享同一个 Ø）与 line+arc 混合开放链（接缝外侧 r=w/2 转角弧/内侧偏移交点裁剪）。宽度驱动：单线/链/弧=Ø 直径约束；整圆/闭合环=shared 1.83 `slotWidth`（concentric/ring）单一尺寸同时驱动两侧（环槽 live 显示 Ø、整圆槽为线性宽度）；默认 Ø20、一次 updateSketch/updateSketchConstraint + 原生 undo/redo；真栈 sketch-slot.spec.ts 5 passed（单线/链/圆弧/整圆/闭合环，整圆与闭合环含视口尺寸标签双击改宽与 finish+reload）",
       "missing": [
-        "圆弧参与的相连链槽",
         "分支链槽",
         "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）",
-        "自交闭合环（无 live 证据）"
+        "自交闭合环（无 live 证据）",
+        "闭合混合链（含弧；无 live 证据）"
       ],
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/tools/sketch/SketchSlotTool.ts:1",
       "backendRef": "私有后端：solver-neutral `slotWidth`（SolverTypes/SketchWireNormalizer/SlvsSolver；ring=2N 条内部 parallel+有符号垂距 ±w/2，concentric=2 圆心重合+8 条隐藏径向构造）+ `updateSketchConstraint` 白名单",
