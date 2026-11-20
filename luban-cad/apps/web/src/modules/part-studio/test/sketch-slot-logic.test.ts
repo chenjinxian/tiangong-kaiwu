@@ -10,6 +10,7 @@ import {
   buildClosedRingSlotDraft,
   buildLineChainSlotDraft,
   buildLineSlotDraft,
+  buildMultiLineSlotDraft,
   lineChainFromSelection,
   orderLineChain,
 } from '../tools/sketch/sketch-slot-logic.js';
@@ -503,5 +504,105 @@ describe('buildClosedRingSlotDraft（S2e 闭合环槽）', () => {
     if (!chain) throw new Error('chain missing');
     expect(buildClosedRingSlotDraft({ chain, entities, width: 20, startId: 10 }))
       .toEqual({ ok: false, error: 'unsupportedChain' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S2i 多条互不相连直线 → 每条线一个体育场槽 + 单个 Ø（live 2026-11-20
+// `slot-variants-20261120/state-54..57`：两条独立线各得一槽，草图中仅一个 Ø20）
+// ---------------------------------------------------------------------------
+
+function twoDisjointLines(): SketchEntityDto[] {
+  return [
+    { kind: 'point', id: 1, x: 0, y: 100 },
+    { kind: 'point', id: 2, x: 100, y: 100 },
+    { kind: 'line', id: 3, p1: 1, p2: 2 },
+    { kind: 'point', id: 4, x: 0, y: 0 },
+    { kind: 'point', id: 5, x: 100, y: 0 },
+    { kind: 'line', id: 6, p1: 4, p2: 5 },
+  ];
+}
+
+const lineById = (entities: SketchEntityDto[], id: number): SketchEntityDto & { kind: 'line' } => {
+  const found = entities.find((e) => e.id === id);
+  if (!found || found.kind !== 'line') throw new Error(`line ${id} missing`);
+  return found;
+};
+
+describe('buildMultiLineSlotDraft（S2i 多独立线共享单 Ø）', () => {
+  it('两条独立线 Ø20：12 实体 / 28 约束 / 单 diameter + 3 equal（全部帽弧连通）', () => {
+    const entities = twoDisjointLines();
+    const built = buildMultiLineSlotDraft({
+      lines: [lineById(entities, 3), lineById(entities, 6)], entities, width: 20, startId: 10,
+    });
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    expect(draft.entities).toHaveLength(12);
+    expect(draft.capArcIds).toEqual([14, 15, 34, 35]);
+    expect(draft.boundaryLineIds).toEqual([12, 13, 32, 33]);
+    expect(draft.nextId).toBe(51);
+    const kinds = draft.constraints.map((c) => c.kind);
+    expect(kinds.filter((k) => k === 'diameter')).toHaveLength(1);
+    expect(kinds.filter((k) => k === 'equal')).toHaveLength(3);
+    expect(kinds.filter((k) => k === 'parallel')).toHaveLength(4);
+    expect(kinds.filter((k) => k === 'tangent')).toHaveLength(8);
+    expect(kinds.filter((k) => k === 'coincident')).toHaveLength(12);
+    expect(draft.constraints).toHaveLength(28);
+    // 槽 1 实体 10..15，约束 16..29（diameter 是第 13 条 → 28，equal 29）；
+    // 槽 2 实体 30..35，约束 36..49；跨槽 equal 50。
+    const diameter = draft.constraints.find((c) => c.kind === 'diameter')!;
+    expect(diameter.id).toBe(28);
+    expect(diameter.value).toBe(20);
+    expect(diameter.refs).toEqual([14]);
+    expect(draft.diameterConstraintId).toBe(28);
+    expect(draft.constraints.filter((c) => c.kind === 'equal').map((c) => c.id)).toEqual([29, 49, 50]);
+    // equal 图：14(锚) ↔ 15（槽1）；34 ↔ 35（槽2）；14 ↔ 34（跨槽）。
+    const reachable = new Set<number>([14]);
+    const equals = draft.constraints.filter((c) => c.kind === 'equal');
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const equal of equals) {
+        const [a, b] = equal.refs as number[];
+        if (reachable.has(a!) && !reachable.has(b!)) { reachable.add(b!); changed = true; }
+        if (reachable.has(b!) && !reachable.has(a!)) { reachable.add(a!); changed = true; }
+      }
+    }
+    for (const cap of draft.capArcIds) expect(reachable.has(cap), `cap ${cap} 应连到锚`).toBe(true);
+    // 原中线不进入草稿（追加语义）。
+    expect(draft.entities.some((e) => e.id === 3 || e.id === 6)).toBe(false);
+  });
+
+  it('几何：两个槽各自 ±10 边界、帽心=各自线端点、全部弧 r=10', () => {
+    const entities = twoDisjointLines();
+    const built = buildMultiLineSlotDraft({
+      lines: [lineById(entities, 3), lineById(entities, 6)], entities, width: 20, startId: 10,
+    });
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    expect(lineCoords(draft.entities)).toEqual(expect.arrayContaining([
+      [0, 110, 100, 110], [0, 90, 100, 90],
+      [0, 10, 100, 10], [0, -10, 100, -10],
+    ]));
+    const arcs = draft.entities.filter((e) => e.kind === 'arc');
+    expect(arcs.map((a) => (a.kind === 'arc' ? [a.center, a.radius] : []))).toEqual([
+      [10, 10], [11, 10], [30, 10], [31, 10],
+    ]);
+    const points = draft.entities.filter((e) => e.kind === 'point').map((p) => (p.kind === 'point' ? [p.x, p.y] : []));
+    expect(points).toEqual([[0, 100], [100, 100], [0, 0], [100, 0]]);
+  });
+
+  it('错误：少于 2 条线 → unsupportedChain；零宽 → zeroWidth；未解算 → unsolvedLine', () => {
+    const entities = twoDisjointLines();
+    expect(buildMultiLineSlotDraft({ lines: [lineById(entities, 3)], entities, width: 20, startId: 10 }))
+      .toEqual({ ok: false, error: 'unsupportedChain' });
+    expect(buildMultiLineSlotDraft({ lines: [lineById(entities, 3), lineById(entities, 6)], entities, width: 0, startId: 10 }))
+      .toEqual({ ok: false, error: 'zeroWidth' });
+    const unresolved: SketchEntityDto[] = [
+      { kind: 'line', id: 7, p1: 99, p2: { x: 10, y: 10 } },
+      { kind: 'line', id: 8, p1: { x: 0, y: 20 }, p2: { x: 10, y: 20 } },
+    ];
+    expect(buildMultiLineSlotDraft({
+      lines: [lineById(unresolved, 7), lineById(unresolved, 8)], entities: unresolved, width: 20, startId: 10,
+    })).toEqual({ ok: false, error: 'unsolvedLine' });
   });
 });

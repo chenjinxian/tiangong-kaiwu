@@ -8,13 +8,15 @@
  * - 有预选（框选/Ctrl 叠加）：单条直线/圆弧，或相连直线链 → 工具激活即预览。
  * - 默认宽 Ø20（mm 文档）；原中线保留；宽度尺寸可在提交后双击 Ø 标签修改。
  *
- * 范围（S2 单线 + S2b 链 + S2c 圆弧 + S2e/f 整圆/闭合环，ADR-0022 §2.3–§2.6、
- * ADR-0023）：**单条直线**、**单条开放圆弧**（同心偏移弧 + 半圆帽 + 单 Ø）、
- * **开放/闭合、无分支、直线成员的相连链**（开放=端帽+外侧圆角+内侧斜接；
- * 闭合=无端帽、外侧圆角/内侧斜接、单一 Ø）以及**整圆中线**（同心圆 R±w/2、
- * 无帽、**线性**宽度尺寸）。整圆与闭合环的单一宽度走 `slotWidth` 约束
- * （concentric/ring 模式），提交后双击尺寸标签改宽度会同时驱动两侧。
- * 分支链、凹角闭合环、多条独立曲线联动槽暂不支持（诚实拒收）。
+ * 范围（S2 单线 + S2b 链 + S2c 圆弧 + S2e/f 整圆/闭合环 + S2i 多独立线，
+ * ADR-0022 §2.3–§2.8、ADR-0023）：**单条直线**、**单条开放圆弧**（同心偏移弧 +
+ * 半圆帽 + 单 Ø）、**开放/闭合、无分支、直线成员的相连链**（开放=端帽+外侧
+ * 圆角+内侧斜接；闭合=无端帽、外侧圆角/内侧斜接、单一 Ø）、**整圆中线**
+ * （同心圆 R±w/2、无帽、**线性**宽度尺寸）以及**多条互不相连直线**（每条线一个
+ * 槽，全部帽共享同一个 Ø）。整圆/闭合环走 `slotWidth`（concentric/ring），
+ * 其余槽走单个 diameter；改宽度会同时驱动所有受控轮廓。
+ * 分支链、凹角闭合环、混合「部分连通+部分独立」、圆弧参与的独立多曲线暂不支持
+ * （诚实拒收）。
  *
  * 基建复用 SketchOffsetTool：AccuSnap 取点 + 草图平面架 + Dynamics 预览 +
  * applyUpdate 乐观整体覆写 + id 播种/回滚 + 分阶段提示。
@@ -31,7 +33,7 @@ import {
 } from '@itwin/core-frontend';
 import { AngleSweep, Arc3d, Point3d } from '@itwin/core-geometry';
 import { ColorDef, LinePixels } from '@itwin/core-common';
-import type { SketchDto } from '@luban-cad/shared';
+import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import i18next from 'i18next';
 import { getSketchSystem } from '../../hooks/useSketchSystem.js';
 import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
@@ -45,6 +47,7 @@ import {
   buildCircleSlotDraft,
   buildLineChainSlotDraft,
   buildLineSlotDraft,
+  buildMultiLineSlotDraft,
   lineChainFromSelection,
 } from './sketch-slot-logic.js';
 import type { SlotBuildError, SlotDraft } from './sketch-slot-logic.js';
@@ -288,6 +291,17 @@ export class SketchSlotTool extends PrimitiveTool {
       return { ok: false, error: 'unsupportedKind' }; // 链只支持直线成员（live 链证据）
     const chain = lineChainFromSelection(sketch.entities, ids);
     if (!chain) return { ok: false, error: 'unsupportedKind' };
+    if (chain.junctions.length === 0) {
+      // 两两不相连 → 每条线一个槽、共享单 Ø（live 2026-11-20 S2e）。
+      const built = buildMultiLineSlotDraft({
+        lines: members as Array<SketchEntityDto & { kind: 'line' }>,
+        entities: sketch.entities,
+        width: DEFAULT_SLOT_WIDTH,
+        startId: this._nextId,
+      });
+      return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+    }
+    // 部分连通 + 部分独立（junctions>0 但不是单链）由链构建器诚实拒收。
     const built = buildLineChainSlotDraft({
       chain, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
     });

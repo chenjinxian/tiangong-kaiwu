@@ -800,3 +800,165 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     assertRingSlotGeometry(await readSketch(), centerlineIds, 30);
   });
 });
+
+// ---------------------------------------------------------------------------
+// S2i（2026-11-20 live `slot-variants-20261120/state-54..57`）：多条互不相连
+// 直线 → 每条线一个槽 + 单个 Ø（全部帽共享同一宽度）。
+// ---------------------------------------------------------------------------
+
+/**
+ * 多独立线槽验收：n 条中线 + 2n 边界 + 2n 帽弧；每个边界到其所属中线垂距 =
+ * halfWidth；单 diameter + (2n-1) 个 equal（全部帽连到同一锚）。
+ */
+function assertMultiSlotGeometry(
+  sketch: SketchDto,
+  centerlineIds: readonly number[],
+  halfWidth: number,
+  initialConstraintIds: ReadonlySet<number>,
+): void {
+  const n = centerlineIds.length;
+  const lines = sketch.entities.filter((e): e is LineEntity => e.kind === 'line');
+  const arcs = sketch.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+  expect(lines).toHaveLength(n + 2 * n);
+  expect(arcs).toHaveLength(2 * n);
+  for (const arc of arcs)
+    expect(arc.radius, '帽半径 = Ø/2').toBeCloseTo(halfWidth, 3);
+  const centerlines = centerlineIds.map((id) => byIdOf(sketch, id));
+  const endpoints = centerlines.flatMap((line) => [
+    resolvePointRef(line.p1, sketch.entities),
+    resolvePointRef(line.p2, sketch.entities),
+  ]);
+  const centers = arcs.map((arc) => resolvePointRef(arc.center, sketch.entities));
+  for (const endpoint of endpoints) {
+    expect(centers.filter((center) => dist2d(center, endpoint) < 0.2), '帽心=线端点').toHaveLength(1);
+  }
+  // 每个边界线与某条中线的垂距 = halfWidth，且投影落在线段范围内。
+  const segments = centerlines.map((line) => [
+    resolvePointRef(line.p1, sketch.entities),
+    resolvePointRef(line.p2, sketch.entities),
+  ] as const);
+  const centerlineSet = new Set(centerlineIds);
+  for (const line of lines.filter((entry) => !centerlineSet.has(entry.id))) {
+    const mid = midOfLine(line, sketch.entities);
+    const hits = segments.filter(([a, b]) => {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-9) return false;
+      const distance = Math.abs(dx * (mid.y - a.y) - dy * (mid.x - a.x)) / len;
+      const t = ((mid.x - a.x) * dx + (mid.y - a.y) * dy) / (len * len);
+      return Math.abs(distance - halfWidth) < 0.1 && t > -0.05 && t < 1.05;
+    });
+    expect(hits, '边界线到对应中线垂距 = Ø/2').toHaveLength(1);
+  }
+  const added = sketch.constraints.filter((c) => !initialConstraintIds.has(c.id));
+  expect(added.filter((c) => c.kind === 'diameter')).toHaveLength(1);
+  expect(added.filter((c) => c.kind === 'equal')).toHaveLength(2 * n - 1);
+  const diameter = added.find((c) => c.kind === 'diameter')!;
+  expect(diameter.value).toBeCloseTo(halfWidth * 2, 3);
+}
+
+test.describe('草图槽工具：多独立线共享单 Ø（ADR-0022 §2.8）', () => {
+  test('两条互不相连线 → 槽（预选）→ 单 Ø20 → 改 30 两槽同步 → finish+reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-multi');
+
+    await page.getByRole('button', { name: '草图', exact: true }).click();
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
+    await chooseSketchPlaneInViewport(page, 'front');
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 4, { low: { x: -100, y: -100, z: -100 }, high: { x: 100, y: 100, z: 100 } });
+    await disableSnap(page);
+
+    let sketchId: string | undefined;
+    const readSketch = async (): Promise<SketchDto> => {
+      if (!sketchId) {
+        const tree = await getFeatureTreeRpc(ctx, token);
+        sketchId = tree.filter((row) => row.featureType === 'sketch').at(-1)?.id;
+        expect(sketchId, '树内应有 sketch 行').toBeTruthy();
+      }
+      const sketch = await getSketchRpc(ctx, sketchId!, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+    const activeToolId = async (): Promise<string | undefined> => page.evaluate(() => {
+      const im = (window as any).__lubanE2E?.coreFrontend?.IModelApp;
+      const admin = im?._toolAdmin ?? im?.toolAdmin;
+      return admin?.primitiveTool?.toolId as string | undefined;
+    });
+
+    // 两条互不相连的水平线（上/下各一条；Esc 结束连续绘制后再画第二条）。
+    await activate(page, '线');
+    await clickWorld(page, hub, P(-50, 50));
+    await clickWorld(page, hub, P(50, 50));
+    await page.waitForTimeout(800);
+    await page.keyboard.press('Escape');
+    await expect.poll(activeToolId, { timeout: 15_000, intervals: [200, 400, 800] }).not.toBe('Sketch.Line');
+    await activate(page, '线');
+    await clickWorld(page, hub, P(-50, -50));
+    await clickWorld(page, hub, P(50, -50));
+    await page.waitForTimeout(800);
+    await page.keyboard.press('Escape');
+    await expect.poll(activeToolId, { timeout: 15_000, intervals: [200, 400, 800] }).not.toBe('Sketch.Line');
+
+    const before = await readSketch();
+    const centerlineIds = before.entities.filter((e) => e.kind === 'line').map((e) => e.id);
+    expect(centerlineIds).toHaveLength(2);
+    const beforeConstraintIds = new Set(before.constraints.map((c) => c.id));
+
+    // 框选两条线（两条互不相连；窗口选择）。
+    const projected = await projectWorld(page, hub, [P(-70, -70), P(70, 70)]);
+    const from = projected[0];
+    const to = projected[1];
+    if (!from || !to) throw new Error('框选角点投影失败');
+    await page.mouse.move(from.x, from.y);
+    await page.waitForTimeout(120);
+    await page.mouse.down();
+    await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 8 });
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const picker = page.getByTestId('sketch-entity-picker');
+    const selectedIds = async (): Promise<number[]> =>
+      JSON.parse((await picker.getAttribute('data-selected')) ?? '[]') as number[];
+    await expect.poll(async () => (await selectedIds()).length, { timeout: 10_000 }).toBe(2);
+
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await page.waitForTimeout(700);
+    expect((await selectedIds()).length, '启动工具不得清掉草图预选').toBe(2);
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'arc').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(4);
+    const created = await readSketch();
+    assertMultiSlotGeometry(created, centerlineIds, 10, beforeConstraintIds);
+
+    // 单个 Ø 20 → 30：两个槽的帽/边界同步（equal 传递）。
+    const diameter = created.constraints.find((c) => c.kind === 'diameter')!;
+    const widen = await applyFeatureOpRpc(ctx, {
+      kind: 'updateSketchConstraint', sketchId: sketchId!, constraintId: diameter.id, value: 30,
+    }, lease, token);
+    expect(widen.ok, widen.ok ? '' : widen.error).toBe(true);
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')
+      .map((arc) => arc.radius ?? NaN)
+      .every((radius) => Math.abs(radius - 15) < 1e-3), {
+      timeout: 20_000, intervals: [1000, 2000, 5000],
+    }).toBe(true);
+    assertMultiSlotGeometry(await readSketch(), centerlineIds, 15, beforeConstraintIds);
+
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    assertMultiSlotGeometry(await readSketch(), centerlineIds, 15, beforeConstraintIds);
+  });
+});

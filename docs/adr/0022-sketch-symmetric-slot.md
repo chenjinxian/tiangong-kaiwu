@@ -201,6 +201,30 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   独立多曲线联动、live 宽度拖拽未覆盖）；整圆/闭合环不再是 blocked-design。
   台账新增 `constraint.slotWidth` partial 行。
 
+### 2.8 S2i 多条互不相连直线的联动等宽槽（2026-11-20 live）
+
+- **live 证据**（私有 `ui-evidence/slot-variants-20261120/state-54..57` +
+  `docs/SLOT-S2E-MULTI-LIVE-20261120.md`）：两条互不相连水平线一起框选 →
+  槽工具为**每条线各生成一个完整体育场槽**（不是当成一条链）；草图中只有
+  **一个 Ø20**，引线跨两个槽的帽弧；原两条中线均保留。
+  **证据缺口（如实登记）**：该多槽情况下 Ø 的直接编辑联动在本次会话未复现
+  （页面持续 "Poor connection…"，标签双击/尺寸工具点击均未打开编辑器）；
+  单槽改宽已在 S2 实测（`live-state-29/30`）。本切片按「唯一宽度尺寸 +
+  全部帽等半径」的实测结构建模，不宣称已直接观察到双槽同步改宽。
+- **实现**：`buildMultiLineSlotDraft` 逐线复用 `buildLineSlotDraft`；仅保留首槽
+  的 diameter，去掉其余槽的 diameter（各槽 capA↔capB equal 保留），再以首槽
+  起帽为锚补跨槽 equal（首槽起帽 ↔ 各槽起帽）——单个 Ø 改值经 equal 传递
+  同步全部帽。工具在预选直线两两不相连（junction=0）时走该构建器；混合
+  「部分连通 + 部分独立」、圆弧、分支链继续诚实拒收。
+- **验证**：web 纯逻辑 `sketch-slot-logic` **23/23**（多独立线 3 用例：
+  12 实体 / 28 约束 / 单 diameter + 3 equal 全帽连通 / 两槽几何 / 失败矩阵）；
+  全量 web **2665/2665**、tsc(src+e2e)/eslint 绿；真栈 `sketch-slot.spec.ts`
+  **7 passed（5.1 min）**——两条互不相连线 → 框选 → 槽 → 4 帽弧 r10 / 6 线 /
+  单 Ø20 → `updateSketchConstraint` 改 30 → 两槽全部半径 15、边界垂距 15 →
+  finish+reload 持久；既有单线/链/圆弧/整圆/闭合环用例回归绿。
+- **状态口径**：`ui.sketchSlot` 仍 partial；「多条互不相连曲线联动的等宽槽」
+  已从 missing 移除；弧/样条链、分支链、凹/自交环、live 宽度拖拽仍缺。
+
 ## 3. 数据/事务
 
 - 事实源：草图 params（实体+约束）；求解结果派生。

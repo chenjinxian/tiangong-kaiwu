@@ -17,11 +17,13 @@
  * - **闭合直线环**（2026-11-20 live `ring-slot.dxf`）：外侧处处 r=Ø/2 圆角弧、
  *   内侧斜接尖角、**无端帽**；单一 Ø 驱动内外两侧。由 ADR-0023 `slotWidth`
  *   （ring：refs=[N 中线,N 外,N 内]）单一尺寸驱动，替代 S2d 的 blocked-design。
+ * - **多条互不相连直线**（2026-11-20 live `multi-slot` 探针）：每条线各得一个
+ *   完整槽，草图中只有**一个 Ø20**（引线跨两个槽的帽弧）——全部帽共用同一
+ *   宽度尺寸（`buildMultiLineSlotDraft`：首槽 diameter + 跨槽 equal）。
  *
  * 尚未实现（诚实拒收）：
- * - 凹多边形/自交闭合环（圆角外侧语义未采证据）、分支链、多条互不相连曲线的
- *   联动等宽槽（live 已见两独立槽共享一个 Ø，但选择/尺寸联动语义待补）、
- *   live 宽度光标拖拽。
+ * - 凹多边形/自交闭合环（圆角外侧语义未采证据）、分支链、混合「部分连通 +
+ *   部分独立」选择、圆弧参与的独立多曲线联动槽、live 宽度光标拖拽。
  */
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import type { OffsetChain, OffsetJunction } from './sketch-offset-logic.js';
@@ -971,6 +973,82 @@ export function buildClosedRingSlotDraft(input: {
       boundaryLineIds: [...outsideLines, ...insideLines],
       slotWidthConstraintId,
       cornerArcIds,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 多条互不相连直线的联动等宽槽（2026-11-20 live `multi-slot` 探针，ADR-0022 §2.8）
+// ---------------------------------------------------------------------------
+
+/**
+ * 多条互不相连直线 → 每条线一个体育场槽，**全部帽弧共享一个 Ø**。
+ *
+ * live 2026-11-20（私有 `ui-evidence/slot-variants-20261120/state-54..57`）：
+ * 两条独立水平线一起框选 → 槽工具为每条线各生成一个完整槽，草图中只出现
+ * 一个 `Ø20` 尺寸（引线跨两个槽的帽弧）。实测未直接观察到双槽改宽联动
+ * （会话 Poor connection，标签编辑未复现）；本实现按「唯一宽度尺寸 + 全部帽
+ * 等半径」的实测结构建模，改值后由 equal 传递同步所有槽。
+ *
+ * 实现：逐线复用 `buildLineSlotDraft`；仅保留首槽的 diameter，去掉后续槽的
+ * diameter（其 equal 保留），再以首槽起帽为锚补齐跨槽 equal。
+ * 仅接受两两不相连的直线集合；混合连通/独立、圆弧、分支链由调用方拒收。
+ */
+export function buildMultiLineSlotDraft(input: {
+  lines: Array<SketchEntityDto & { kind: 'line' }>;
+  entities: SketchEntityDto[];
+  width: number;
+  startId: number;
+}): { ok: true; draft: SlotDraft } | { ok: false; error: SlotBuildError } {
+  const { lines, entities, width } = input;
+  if (lines.length < 2) return { ok: false, error: 'unsupportedChain' };
+  if (!(width > SLOT_TOL)) return { ok: false, error: 'zeroWidth' };
+
+  const outEntities: SketchEntityDto[] = [];
+  const outConstraints: SketchConstraintDto[] = [];
+  const capArcIds: number[] = [];
+  const boundaryLineIds: number[] = [];
+  const capAIds: number[] = [];
+  let diameterConstraintId: number | undefined;
+  let anchorCapId: number | undefined;
+  let cursor = input.startId;
+  for (let i = 0; i < lines.length; i++) {
+    const built = buildLineSlotDraft({ line: lines[i]!, entities, width, startId: cursor });
+    if (!built.ok) return built;
+    const { draft } = built;
+    outEntities.push(...draft.entities);
+    for (const constraint of draft.constraints) {
+      if (constraint.kind === 'diameter') {
+        // 单一 Ø：仅首槽保留 diameter；其余槽由跨槽 equal 传递宽度。
+        if (i === 0) {
+          outConstraints.push(constraint);
+          diameterConstraintId = constraint.id;
+          anchorCapId = constraint.refs[0] as number;
+        }
+        continue;
+      }
+      outConstraints.push(constraint);
+    }
+    capArcIds.push(...draft.capArcIds);
+    boundaryLineIds.push(...draft.boundaryLineIds);
+    capAIds.push(draft.capArcIds[0]!);
+    cursor = draft.nextId;
+  }
+  // 各槽内 capA↔capB 的 equal 已存在；补首槽起帽 ↔ 其它槽起帽。
+  let nextId = cursor;
+  for (let i = 1; i < capAIds.length; i++) {
+    if (anchorCapId === undefined) return { ok: false, error: 'unsupportedChain' };
+    outConstraints.push({ kind: 'equal', id: nextId++, refs: [anchorCapId, capAIds[i]!] });
+  }
+  return {
+    ok: true,
+    draft: {
+      entities: outEntities,
+      constraints: outConstraints,
+      nextId,
+      capArcIds,
+      boundaryLineIds,
+      ...(diameterConstraintId !== undefined ? { diameterConstraintId } : {}),
     },
   };
 }
