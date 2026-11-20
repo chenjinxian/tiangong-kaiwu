@@ -9,8 +9,8 @@
  * 2026-11-16：输入失焦后对话框仍活动，窗口级 Enter/Escape 继续生效）。标签
  * 命中区由 viewer 布局纯函数给出（与绘制同源，不复制堆叠避让逻辑）。
  *
- * 仅 distance/radius/diameter/length/angle 可改值（后端 updateSketchConstraint 白名单）；
- * 角度在界面上显示度数、提交时换算回弧度（shared 契约为弧度）。
+ * 仅 distance/radius/diameter/length/angle/slotWidth 可改值（后端 updateSketchConstraint
+ * 白名单）；角度在界面上显示度数、提交时换算回弧度（shared 契约为弧度）。
  *
  * 2026-11-12（Onshape 约束 glyph 对拍）：非尺寸约束 glyph（⊥/∥/=/—/|/中点/
  * 重合/镜像…）同样可单击选中、Delete 删除——命中区由 viewer 同一布局纯函数

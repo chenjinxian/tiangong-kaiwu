@@ -674,6 +674,96 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     assertCircleSlotGeometry(await readSketch(), 30, 30, 2);
   });
 
+  test('整圆槽宽度表达式 `5*2`（S2r）→ 宽度 10（25/35）→ 标签 ƒ 10 → 显示表达式开关 → reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-expr');
+
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'circle', id: 2, center: 1, radius: 30 },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'radius', id: 101, refs: [2], value: 30 },
+      ],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '整圆草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -45, y: -45, z: -20 }, high: { x: 45, y: 45, z: 20 } });
+    await disableSnap(page);
+
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await clickWorld(page, hub, { x: 30, y: 0, z: 0 });
+    await page.waitForTimeout(700);
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'circle').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(3);
+    const afterInsert = await readSketch();
+    assertCircleSlotGeometry(afterInsert, 30, 20, 2);
+    const slot = afterInsert.constraints.find((c) => c.kind === 'slotWidth')!;
+    const label = page.locator(`[data-testid="sketch-dimension-label"][data-constraint-id="${slot.id}"]`);
+    await expect(label).toHaveAttribute('data-text', '20', { timeout: 30_000 });
+
+    // 标签双击 → 表达式 `5*2` → 后端物化宽度 10（内/外 25/35），标签 `ƒ 10`。
+    const labelAt = await dimensionLabelCenter(page, box, slot.id);
+    await page.mouse.dblclick(labelAt.x, labelAt.y);
+    const input = page.getByTestId('sketch-dimension-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('5*2');
+    await page.getByTestId('sketch-dimension-confirm').click();
+    await expect.poll(async () => {
+      const value = (await readSketch()).constraints.find((c) => c.kind === 'slotWidth')?.value ?? NaN;
+      return Math.abs(value - 10);
+    }, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBeLessThan(0.01);
+    const applied = await readSketch();
+    assertCircleSlotGeometry(applied, 30, 10, 2);
+    const appliedSlot = applied.constraints.find((c) => c.kind === 'slotWidth')!;
+    expect(appliedSlot.expression).toBe('5*2');
+    // live 2026-11-20 S2o state-183：勾选「显示表达式」→ `ƒ` + 求值；关闭 → 仅数值。
+    await expect(label).toHaveAttribute('data-text', 'ƒ 10', { timeout: 30_000 });
+    const showExpressions = page.getByRole('checkbox', { name: '显示表达式' });
+    await expect(showExpressions).toBeChecked();
+    await showExpressions.uncheck();
+    await expect(label).toHaveAttribute('data-text', '10', { timeout: 10_000 });
+    await showExpressions.check();
+    await expect(label).toHaveAttribute('data-text', 'ƒ 10', { timeout: 10_000 });
+
+    // reload 持久：表达式与几何（25/30/35）保持。
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    assertCircleSlotGeometry(await readSketch(), 30, 10, 2);
+    expect((await readSketch()).constraints.find((c) => c.kind === 'slotWidth')?.expression).toBe('5*2');
+  });
+
   test('闭合矩形中线 → 槽（预选框选）→ slotWidth·ring Ø20 → 标签双击改 30（内外同步）→ reload', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const token = await getApiToken();
@@ -1595,5 +1685,286 @@ test.describe('草图槽工具：闭合 line+arc 混合环（ADR-0022 §2.12 / v
     await page.reload();
     ctx = await openSeedImodelEditor(page, seed);
     assertClosedMixedRingGeometry(await readSketch(), 30, beforeConstraintIds);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S2p 线树槽（live 2026-11-20 S2o 宽缺口分支）：毂弧 = 180° − 最小臂锥角
+// ---------------------------------------------------------------------------
+
+/** 宽缺口分支槽验收（live case A：毂 P，三臂锥 59.05°/30.00°/−3.69° → 毂弧 117.255°）。 */
+function assertWideGapTreeSlotGeometry(
+  sketch: SketchDto,
+  width: number,
+  initialConstraintIds: ReadonlySet<number>,
+): void {
+  const half = width / 2;
+  const lines = sketch.entities.filter((e): e is LineEntity => e.kind === 'line');
+  const arcs = sketch.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+  expect(lines, '源 3 线 + 6 边界').toHaveLength(9);
+  expect(arcs, '3 尖端帽 + 1 绕毂弧').toHaveLength(4);
+  for (const arc of arcs)
+    expect(arc.radius, '所有弧半径 = Ø/2').toBeCloseTo(half, 3);
+  const P = { x: -46.221, y: -43.610 };
+  const tips = [{ x: -13.889, y: 10.316 }, { x: 6.667, y: -13.075 }, { x: 19.699, y: -47.861 }];
+  const arcsAtTip = arcs.filter((arc) => {
+    const center = resolvePointRef(arc.center, sketch.entities);
+    return tips.some((tip) => dist2d(center, tip) < 0.2);
+  });
+  expect(arcsAtTip, '3 尖端帽圆心=臂尖端').toHaveLength(3);
+  const hubArc = arcs.find((arc) => {
+    const center = resolvePointRef(arc.center, sketch.entities);
+    return dist2d(center, P) < 0.2;
+  });
+  expect(hubArc, '绕毂弧圆心=毂').toBeDefined();
+  // live 毂弧几何：起点 149.055°、扫 117.255°（与宽度无关）。
+  const startDeg = ((((hubArc!.startAngle ?? NaN) * 180) / Math.PI) + 360) % 360;
+  const sweepDeg = ((((hubArc!.sweepAngle ?? NaN) * 180) / Math.PI) + 360) % 360;
+  expect(startDeg).toBeCloseTo(149.055, 2);
+  expect(sweepDeg).toBeCloseTo(117.255, 2);
+  const added = sketch.constraints.filter((c) => !initialConstraintIds.has(c.id));
+  const diameters = added.filter((c) => c.kind === 'diameter');
+  expect(diameters, '单 Ø').toHaveLength(1);
+  expect(diameters[0]!.value).toBeCloseTo(width, 3);
+  expect(added.filter((c) => c.kind === 'equal')).toHaveLength(3);
+  expect(added.filter((c) => c.kind === 'parallel')).toHaveLength(6);
+  expect(added.filter((c) => c.kind === 'tangent')).toHaveLength(8);
+  expect(added.filter((c) => c.kind === 'slotWidth')).toHaveLength(0);
+}
+
+test.describe('草图槽工具：宽缺口分支线树（ADR-0022 §2.11 扩展 / S2p）', () => {
+  test('宽缺口 Y 分支 → 槽（预选）→ 毂弧 117.255° → Ø20→30 全弧 r15 → finish+reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-tree');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, x: -46.221, y: -43.61 },
+        { kind: 'point', id: 2, x: -13.889, y: 10.316 },
+        { kind: 'point', id: 3, x: 6.667, y: -13.075 },
+        { kind: 'point', id: 4, x: 19.699, y: -47.861 },
+        { kind: 'line', id: 5, p1: 1, p2: 2 },
+        { kind: 'line', id: 6, p1: 1, p2: 3 },
+        { kind: 'line', id: 7, p1: 1, p2: 4 },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'fixed', id: 101, refs: [2] },
+        { kind: 'fixed', id: 102, refs: [3] },
+        { kind: 'fixed', id: 103, refs: [4] },
+      ],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '宽缺口分支草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -80, y: -85, z: -20 }, high: { x: 40, y: 40, z: 20 } });
+    await disableSnap(page);
+
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+    const before = await readSketch();
+    const sourceIds = before.entities.filter((e) => e.kind === 'line').map((e) => e.id);
+    expect(sourceIds).toHaveLength(3);
+    const beforeConstraintIds = new Set(before.constraints.map((c) => c.id));
+
+    const projected = await projectWorld(page, hub, [
+      { x: -75, y: -80, z: 0 },
+      { x: 35, y: 35, z: 0 },
+    ]);
+    const from = projected[0];
+    const to = projected[1];
+    if (!from || !to) throw new Error('框选角点投影失败');
+    await page.mouse.move(from.x, from.y);
+    await page.waitForTimeout(120);
+    await page.mouse.down();
+    await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 8 });
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const picker = page.getByTestId('sketch-entity-picker');
+    const selectedSourceIds = async (): Promise<number[]> =>
+      (JSON.parse((await picker.getAttribute('data-selected')) ?? '[]') as Array<[number, string]>)
+        .map(([id]) => id)
+        .filter((id) => sourceIds.includes(id));
+    await expect.poll(async () => (await selectedSourceIds()).length, { timeout: 10_000 }).toBe(3);
+
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await page.waitForTimeout(700);
+    expect((await selectedSourceIds()).length, '启动工具不得清掉草图预选').toBe(3);
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'arc').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(4);
+    const afterInsert = await readSketch();
+    assertWideGapTreeSlotGeometry(afterInsert, 20, beforeConstraintIds);
+
+    const diameter = afterInsert.constraints.find((c) => c.kind === 'diameter')!;
+    const widenLease = await borrowWriteLease(ctx, token, 'sketch-slot-tree-widen');
+    const widen = await applyFeatureOpRpc(ctx, {
+      kind: 'updateSketchConstraint', sketchId, constraintId: diameter.id, value: 30,
+    }, widenLease, token);
+    expect(widen.ok, widen.ok ? '' : widen.error).toBe(true);
+    await releaseWriteLease(ctx, widenLease, token);
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')
+      .filter((arc) => Math.abs((arc.radius ?? NaN) - 15) < 1e-3).length, {
+      timeout: 30_000, intervals: [1000, 2000, 5000],
+    }).toBe(4);
+    assertWideGapTreeSlotGeometry(await readSketch(), 30, beforeConstraintIds);
+
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    assertWideGapTreeSlotGeometry(await readSketch(), 30, beforeConstraintIds);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S2q 多连通分量联动等宽槽（live 2026-11-20 S2o C：弧 + 不相连直线）
+// ---------------------------------------------------------------------------
+
+function assertComponentsSlotGeometry(sketch: SketchDto, width: number, initialConstraintIds: ReadonlySet<number>): void {
+  const half = width / 2;
+  const lines = sketch.entities.filter((e): e is LineEntity => e.kind === 'line');
+  const arcs = sketch.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+  expect(lines, '源线保留 + 线体育场两边界').toHaveLength(3);
+  expect(arcs, '源弧保留 + 弧槽偏移 2 + 弧帽 2 + 线帽 2').toHaveLength(7);
+  // 源弧（id=2，R30 中线）不参与断言；其余新增弧：4 个帽 = w/2、弧槽两偏移
+  // = R±w/2（同心等宽；跨分量 equal 驱动线槽帽同步）。
+  const addedRadii = arcs.filter((a) => a.id !== 2)
+    .map((a) => Math.round((a.radius ?? NaN) * 1000) / 1000)
+    .sort((a, b) => a - b);
+  const expectedRadii = [half, half, half, half, 30 - half, 30 + half]
+    .map((r) => Math.round(r * 1000) / 1000)
+    .sort((a, b) => a - b);
+  expect(addedRadii, '两侧分量同宽（跨分量 equal）').toEqual(expectedRadii);
+  const added = sketch.constraints.filter((c) => !initialConstraintIds.has(c.id));
+  expect(added.filter((c) => c.kind === 'diameter'), '单 Ø').toHaveLength(1);
+  expect(added.filter((c) => c.kind === 'equal')).toHaveLength(3);
+  expect(added.filter((c) => c.kind === 'concentric')).toHaveLength(2);
+  expect(added.filter((c) => c.kind === 'parallel')).toHaveLength(2);
+  expect(added.filter((c) => c.kind === 'tangent')).toHaveLength(8);
+}
+
+test.describe('草图槽工具：多连通分量共享单 Ø（ADR-0022 §2.8 扩展 / S2q）', () => {
+  test('弧 + 不相连直线 → 两槽（预选）→ 单 Ø20 同步 → Ø30 全部 r15 → finish+reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-components');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'arc', id: 2, center: 1, radius: 30, startAngle: 0, sweepAngle: Math.PI },
+        { kind: 'point', id: 3, x: 100, y: 0 },
+        { kind: 'point', id: 4, x: 160, y: 0 },
+        { kind: 'line', id: 5, p1: 3, p2: 4 },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'radius', id: 101, refs: [2], value: 30 },
+      ],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '弧+线草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -40, y: -40, z: -20 }, high: { x: 170, y: 50, z: 20 } });
+    await disableSnap(page);
+
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+    const before = await readSketch();
+    const beforeConstraintIds = new Set(before.constraints.map((c) => c.id));
+
+    const projected = await projectWorld(page, hub, [
+      { x: -35, y: -35, z: 0 },
+      { x: 165, y: 40, z: 0 },
+    ]);
+    const from = projected[0];
+    const to = projected[1];
+    if (!from || !to) throw new Error('框选角点投影失败');
+    await page.mouse.move(from.x, from.y);
+    await page.waitForTimeout(120);
+    await page.mouse.down();
+    await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 8 });
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const picker = page.getByTestId('sketch-entity-picker');
+    const selectedSourceIds = async (): Promise<number[]> =>
+      (JSON.parse((await picker.getAttribute('data-selected')) ?? '[]') as Array<[number, string]>)
+        .map(([id]) => id)
+        .filter((id) => id === 2 || id === 5);
+    await expect.poll(async () => (await selectedSourceIds()).length, { timeout: 10_000 }).toBe(2);
+
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await page.waitForTimeout(700);
+
+    expect((await selectedSourceIds()).length, '启动工具不得清掉草图预选').toBe(2);
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'arc').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(7);
+    const afterInsert = await readSketch();
+    assertComponentsSlotGeometry(afterInsert, 20, beforeConstraintIds);
+
+    const diameter = afterInsert.constraints.find((c) => c.kind === 'diameter')!;
+    const widenLease = await borrowWriteLease(ctx, token, 'sketch-slot-components-widen');
+    const widen = await applyFeatureOpRpc(ctx, {
+      kind: 'updateSketchConstraint', sketchId, constraintId: diameter.id, value: 30,
+    }, widenLease, token);
+    expect(widen.ok, widen.ok ? '' : widen.error).toBe(true);
+    await releaseWriteLease(ctx, widenLease, token);
+    await expect.poll(async () => (await readSketch()).constraints
+      .find((c) => c.kind === 'diameter')?.value ?? NaN, {
+      timeout: 30_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(30, 3);
+    assertComponentsSlotGeometry(await readSketch(), 30, beforeConstraintIds);
+
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    assertComponentsSlotGeometry(await readSketch(), 30, beforeConstraintIds);
   });
 });

@@ -11,7 +11,7 @@
  *   `evaluateVariableTable` 把 Part Studio 变量表求成 name→值（失败时携带
  *   结构化 detail/归因字段），再 `evaluateExpression(text, values)`。
  * - 角度表达式按**度**书写（与界面一致），返回契约弧度；长度类（length/
- *   distance/radius/diameter）要求有限且 > 0。
+ *   distance/radius/diameter/slotWidth）要求有限且 > 0。
  * - 求值器是纯函数、禁 eval（shared 职责）；这里只做 UI 预校验，事实源仍是
  *   params（P0-06）——后端权威求值覆盖 value。
  *

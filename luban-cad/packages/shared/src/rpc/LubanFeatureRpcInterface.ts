@@ -216,7 +216,9 @@
  * v1.84（ADR-0022 §2.12 / ADR-0023 增补）：`slotMode="ring"` 中线扩展为 **line/arc**
  * （N≥2，闭合混合环最小两段）；每条边界须与对应中线同型且在环的同一侧。线对 =
  * parallel + 有符号垂距 ±w/2；弧对 = 同心 + 径向间距 w/2（隐藏径向构造，与
- * concentric 同构）。旧载荷（全 line、N≥3）不变。
+ * concentric 同构）。旧载荷（全 line、N≥3）不变。同批（S2r）：`slotWidth` 纳入草图
+ * 尺寸表达式白名单（长度类，物化 value 后求解）；web 表达式尺寸标签按 live（`state-183`
+ * `ƒ Ø10`）改为 `ƒ ` 前缀 + 求值格式（`显示表达式` 关闭时仅数值格式）。
  * v1.80（ADR-0020 S12）：圆周阵列**总角度**表达式——`PatternParams.angleExpression?` 与
  * `FeaturePatternParams.angleExpression?`。目标 `angle`（**度**，契约字段本就是度制；
  * `kind=angleDeg` 度值直接物化，不做弧度换算）；仅 `kind="circular"` 适用，linear 携带
@@ -1298,7 +1300,8 @@ export interface SketchConstraintDto {
   slotMode?: "concentric" | "ring";
   id: number; refs: SketchRef[]; value?: number; driven?: boolean;
   /** v1.71（ADR-0020）：表达式（设计意图）；存在时后端求值并覆盖 value（求解输入）。
-   * 仅可编辑尺寸种类 length/distance/radius/diameter/angle 允许；旧载荷无此键。 */
+   * 仅可编辑尺寸种类 length/distance/radius/diameter/angle/slotWidth 允许（v1.84 增
+   * slotWidth，长度类）；旧载荷无此键。 */
   expression?: string;
 }
 export type SketchSolveStatusDto = "ok" | "underconstrained" | "conflicting" | "failed";

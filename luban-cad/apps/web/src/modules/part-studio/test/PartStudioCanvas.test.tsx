@@ -1193,9 +1193,10 @@ describe('PartStudioCanvas ADR-0020 S2：显示表达式投影与提交', () => 
       usePartStudioStore.getState().enterSketch('sk-a');
     });
     const annotations = screen.getByTestId('sketch-annotations');
-    await waitFor(() => expect(annotations.getAttribute('data-labels')).toBe('#width'));
+    // live 2026-11-20 S2o state-183：勾选「显示表达式」→ `ƒ ` + 求值（非原文）。
+    await waitFor(() => expect(annotations.getAttribute('data-labels')).toBe('ƒ 20'));
 
-    // 关闭「显示表达式」→ 既有数值格式；重新打开 → 表达式原文。
+    // 关闭「显示表达式」→ 既有数值格式；重新打开 → `ƒ ` + 求值。
     act(() => {
       usePartStudioStore.getState().setShowExpressions(false);
     });
@@ -1203,7 +1204,7 @@ describe('PartStudioCanvas ADR-0020 S2：显示表达式投影与提交', () => 
     act(() => {
       usePartStudioStore.getState().setShowExpressions(true);
     });
-    await waitFor(() => expect(annotations.getAttribute('data-labels')).toBe('#width'));
+    await waitFor(() => expect(annotations.getAttribute('data-labels')).toBe('ƒ 20'));
 
     // 编辑器收到变量表（此宿主无连接 → 空表）。
     expect(dimensionEditorProbe.variables).toEqual([]);

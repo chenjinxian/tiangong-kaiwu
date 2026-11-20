@@ -60,6 +60,8 @@ import {
   mixedChainFromSelection,
 } from './sketch-slot-mixed-logic.js';
 import { branchChainFromSelection, buildBranchChainSlotDraft } from './sketch-slot-branch-logic.js';
+import { buildComponentsSlotDraft, slotMemberComponents } from './sketch-slot-components-logic.js';
+import { buildLineTreeSlotDraft, lineTreeFromSelection } from './sketch-slot-tree-logic.js';
 import type { SlotBuildError, SlotDraft } from './sketch-slot-logic.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 
@@ -299,6 +301,34 @@ export class SketchSlotTool extends PrimitiveTool {
     const members = ids.map((id) => sketch.entities.find((e) => e.id === id));
     if (members.some((e) => e === undefined || (e.kind !== 'line' && e.kind !== 'arc')))
       return { ok: false, error: 'unsupportedKind' };
+
+    // 端点焊接分量拆分（live 2026-11-20 S2o）：多分量且非「全为独立直线」→
+    // 分量联动构建器（弧+线独立 / 相连链+独立线，共享单 Ø）；全独立直线保持
+    // 既有 S2i 路径。
+    const components = slotMemberComponents(sketch.entities, ids);
+    if (!components) return { ok: false, error: 'unsupportedKind' };
+    if (components.length > 1) {
+      const allSingletonLines = components.every((component) => {
+        if (component.length !== 1) return false;
+        const entity = sketch.entities.find((e) => e.id === component[0]);
+        return entity?.kind === 'line';
+      });
+      if (!allSingletonLines) {
+        const built = buildComponentsSlotDraft({
+          components, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        });
+        return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+      }
+      // 两两不相连直线 → 每条线一个槽、共享单 Ø（live 2026-11-20 S2e）。
+      const built = buildMultiLineSlotDraft({
+        lines: members as Array<SketchEntityDto & { kind: 'line' }>,
+        entities: sketch.entities,
+        width: DEFAULT_SLOT_WIDTH,
+        startId: this._nextId,
+      });
+      return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+    }
+
     // 含圆弧的开放连通链（live 2026-11-20 `mixed-slot.dxf`）：line/arc 混合槽。
     if (members.some((e) => e!.kind === 'arc')) {
       const mixed = mixedChainFromSelection(sketch.entities, ids);
@@ -327,19 +357,16 @@ export class SketchSlotTool extends PrimitiveTool {
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
     }
-    const chain = lineChainFromSelection(sketch.entities, ids);
-    if (!chain) return { ok: false, error: 'unsupportedKind' };
-    if (chain.junctions.length === 0) {
-      // 两两不相连 → 每条线一个槽、共享单 Ø（live 2026-11-20 S2e）。
-      const built = buildMultiLineSlotDraft({
-        lines: members as Array<SketchEntityDto & { kind: 'line' }>,
-        entities: sketch.entities,
-        width: DEFAULT_SLOT_WIDTH,
-        startId: this._nextId,
+    // 一般线树（live 2026-11-20 S2o `s2oA` 宽缺口绕毂弧 / `s2oD` 多毂树）。
+    const tree = lineTreeFromSelection(sketch.entities, ids);
+    if (tree) {
+      const built = buildLineTreeSlotDraft({
+        tree, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
     }
-    // 部分连通 + 部分独立（junctions>0 但不是单链）由链构建器诚实拒收。
+    const chain = lineChainFromSelection(sketch.entities, ids);
+    if (!chain) return { ok: false, error: 'unsupportedKind' };
     const built = buildLineChainSlotDraft({
       chain, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
     });

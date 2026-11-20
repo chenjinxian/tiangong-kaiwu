@@ -213,6 +213,24 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （43.6 s，标签双击 Ø20→30：弧 55/25、角弧 r15、内线 |x|=20 → reload）**。**未发布**；
   残：缺口 ≥180° 分支、弧参与/多毂分支、自交环、样条中线环、混合部分连通、live 宽度拖拽、slotWidth 表达式未接；
   `ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
+  **S2o 探针 + S2p/S2q/S2r（2026-11-20）**：live 残项矩阵（私有
+  `docs/SLOT-S2O-TREE-COMPONENTS-LIVE-20261120.md` + `s2o*` DXF/截图）：宽缺口分支
+  （毂弧 = 180° − 最小臂锥角，live 117.255°）、多毂树、自交环（接受，未建模）、弧+线独立、
+  混合部分连通（链+独立线）、宽度表达式（`5*2` → `ƒ Ø10`）。
+  **S2p 线树槽**：`sketch-slot-tree-logic.ts`（端点树识别、逐节点缺口：<180° 斜接 /
+  >180° 绕毂圆弧 / ≈180° 与短臂拒收；6/6 单测与 live 逐坐标吻合）。**S2q 多连通分量**：
+  `sketch-slot-components-logic.ts`（并查集拆分量、逐分量既有构建器、保留首分量 Ø、
+  其余换跨分量 equal；含闭合环分量诚实拒收；6/6）。工具 `_buildDraft` 多分量分派；
+  **顺带修复真栈竞态**：框选后 iTwin 异步投递旧实例 mouseover → OnshapeSelectTool
+  onRestartTool 会把刚启动的草图工具顶掉；`onRestartTool` 在 `activeToolId !== null`
+  时不再重启（单测 +1）。**S2r slotWidth 表达式**：后端白名单 + 长度类物化；web 表达式
+  尺寸标签按 live `state-183` 更正为 `ƒ ` + 求值（关闭显示表达式无 ƒ）。验证：shared
+  **327/327**；后端 `SketchExpressionFlow`/`SlotWidthSolver`/`VariablesFlow` **49/49**；
+  web 全量 **2699/2699**（+15，含 OnshapeSelectTool 守卫）、tsc(src+e2e)/eslint 绿；
+  真栈 S2p **1 passed（52.4 s）**、S2q **1 passed（56.3 s）**、槽宽表达式 **1 passed
+  （56.0 s）**、`sketch-expression-ui` 标签 `ƒ 20` **1 passed（55.4 s）**。**未发布**；
+  残：弧参与的分支、样条中线环、自交环（未建模）、live 宽度拖拽、表达式编辑框 `(expr) mm`
+  闭合显示；`ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/

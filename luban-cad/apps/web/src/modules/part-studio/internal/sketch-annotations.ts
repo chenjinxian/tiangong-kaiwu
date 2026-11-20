@@ -342,19 +342,24 @@ function sideWorld(frame: ReturnType<typeof sketchPlaneFrameFrom>, side: LocalPo
   return frame.xDir.scale(side.x).plus(frame.yDir.scale(side.y));
 }
 
+/** 表达式尺寸标签前缀（live 2026-11-20 S2o `state-183`：`ƒ Ø10`）。 */
+export const EXPRESSION_DIMENSION_PREFIX = 'ƒ ';
+
 /** 标注显示选项（ADR-0020 §2.6 D1：`显示表达式` 开关）。 */
 export interface SketchDimensionAnnotationOptions {
   /**
-   * true（缺省）= driving 且带 `expression` 的尺寸标签显示**表达式原文**
-   *（不附加 R/⌀/°）；false = 沿用求值后的数值格式。driven（参考）仍用实测值。
-   * 纯显示投影，不改 params；该行为是 live 证据缺口下的可逆推断（见 ADR §2.6 D1）。
+   * true（缺省，live 勾选态）= driving 且带 `expression` 的尺寸标签显示
+   * **`ƒ ` 前缀 + 求值后的既有格式**（live `ƒ Ø10`；数值/单位前缀由调用方拼好）；
+   * false = 仅既有数值格式。driven（参考）仍用实测值、不显示 `ƒ`。
+   * 纯显示投影，不改 params。live 2026-11-20 S2o 更正了 2026-11-17 的
+   * 「表达式原文」可逆推断（当时无 live 标签证据；现采到 `ƒ Ø10`）。
    */
   showExpressions?: boolean;
 }
 
 /**
- * 尺寸标签文本：driving + expression + showExpressions → 表达式原文；其余
- * 沿用既有格式（数值前缀由调用方拼好）。空字符串表达式视为无表达式。
+ * 尺寸标签文本：driving + expression + showExpressions → `ƒ ` + 既有格式；
+ * 其余沿用既有格式（数值前缀由调用方拼好）。空字符串表达式视为无表达式。
  */
 export function dimensionLabelText(
   constraint: SketchConstraintDto,
@@ -365,7 +370,7 @@ export function dimensionLabelText(
     && constraint.driven !== true
     && typeof constraint.expression === 'string'
     && constraint.expression.trim() !== '') {
-    return constraint.expression.trim();
+    return `${EXPRESSION_DIMENSION_PREFIX}${formattedText}`;
   }
   return formattedText;
 }

@@ -723,4 +723,27 @@ describe('OnshapeSelectTool：构造函数入参归一化', () => {
     run.mockRestore();
     exit.mockRestore();
   });
+
+  it('onRestartTool：有工具命令在途（activeToolId 非空）不重启（S2q 竞态守卫）', async () => {
+    const options: OnshapeSelectOptions = {
+      connectionKey: 'imodel-key',
+      onSelectionChanged: vi.fn(),
+      onError: vi.fn(),
+    };
+    const tool = new OnshapeSelectTool([options]);
+    const run = vi.spyOn(OnshapeSelectTool.prototype, 'run').mockResolvedValue(true);
+    const exit = vi.spyOn(tool, 'exitTool').mockResolvedValue(undefined);
+    const { usePartStudioStore } = await import('../stores/use-part-studio-store.js');
+    const previous = usePartStudioStore.getState().tool.activeToolId;
+    usePartStudioStore.getState().setActiveTool('sketchSlot');
+    try {
+      await tool.onRestartTool();
+      expect(run, '在途用户命令期间不得顶掉新工具').not.toHaveBeenCalled();
+      expect(exit).not.toHaveBeenCalled();
+    } finally {
+      usePartStudioStore.getState().setActiveTool(previous);
+      run.mockRestore();
+      exit.mockRestore();
+    }
+  });
 });

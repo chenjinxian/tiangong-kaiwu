@@ -10,12 +10,13 @@
  *
  * 链路：RPC 建变量 width=10 → 10×10 方形草图 + 拉伸 5（500 mm³）→ 打开草图，
  * 双击宽度尺寸 → 输入 `#width*2` → ✓（表达式 wholesale updateSketch）→ 几何
- * 20×10、体积 1000 mm³；标签 data-text 显示表达式原文；`显示表达式` 关闭 →
- * data-text 回到求值数；`#nope` → ✓ 禁用/红下划线/对话框保持，取消后原值不变；
- * angle 尺寸对话框为 159px 紧凑变体（无展开器/参数状态切换键）。
+ * 20×10、体积 1000 mm³；标签 data-text = `ƒ 20`（live 2026-11-20 S2o state-183
+ * `ƒ Ø10` 同形：ƒ 前缀 + 求值；此前「表达式原文」为无证据可逆推断，已更正）；
+ * `显示表达式` 关闭 → data-text 回到求值数；`#nope` → ✓ 禁用/红下划线/对话框保持，
+ * 取消后原值不变；angle 尺寸对话框为 159px 紧凑变体（无展开器/参数状态切换键）。
  *
  * 说明：标签文本由 canvas 绘制，e2e 断言 `sketch-dimension-label` 观测标记上的
- * `data-text` 镜像（不声称 live 标签形态已采集；ADR-0020 §2.6 D1 为可逆推断）。
+ * `data-text` 镜像。
  */
 import { expect, test } from '@playwright/test';
 import type {
@@ -206,17 +207,18 @@ test.describe('ADR-0020 S2 草图尺寸表达式 UI（真栈）', () => {
       .toBeGreaterThan(999);
     expect(await volumeOf()).toBeLessThan(1001);
 
-    // 6) 标签投影：默认「显示表达式」勾选 → data-text 为表达式原文。
+    // 6) 标签投影（live 2026-11-20 S2o state-183 更正）：默认「显示表达式」勾选 →
+    //    data-text 为 `ƒ ` + 求值（非表达式原文）；关闭 → 仅数值格式。
     const widthMarker = page.locator(
       `[data-testid="sketch-dimension-label"][data-constraint-id="${WIDTH_CONSTRAINT_ID}"]`,
     );
-    await expect(widthMarker).toHaveAttribute('data-text', '#width*2', { timeout: 30_000 });
+    await expect(widthMarker).toHaveAttribute('data-text', 'ƒ 20', { timeout: 30_000 });
     const showExpressions = page.getByRole('checkbox', { name: '显示表达式' });
     await expect(showExpressions).toBeChecked();
     await showExpressions.uncheck();
     await expect(widthMarker).toHaveAttribute('data-text', '20', { timeout: 10_000 });
     await showExpressions.check();
-    await expect(widthMarker).toHaveAttribute('data-text', '#width*2', { timeout: 10_000 });
+    await expect(widthMarker).toHaveAttribute('data-text', 'ƒ 20', { timeout: 10_000 });
 
     // 7) 无效表达式 `#nope`：✓ 禁用、红下划线、对话框保持；取消后原值不变。
     const heightAt = await centerOf(HEIGHT_CONSTRAINT_ID);

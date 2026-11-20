@@ -2,7 +2,8 @@
 
 - 状态：**Accepted（2026-11-19 Owner 批准 S1 对称约束 + S2 槽工具）；
   2026-11-20 §2.7 S2e 由 ADR-0023 解锁整圆/闭合环槽；
-  2026-11-20 §2.11/§2.12（S2m 分支链 / S2n 闭合 line+arc 环，shared 1.84.0）已实施并真栈验收**
+  2026-11-20 §2.11/§2.12（S2m 分支链 / S2n 闭合 line+arc 环，shared 1.84.0）已实施并真栈验收；
+  2026-11-20 §2.13/§2.14（S2p 线树槽 / S2q 多连通分量共享单 Ø）已实施并真栈验收**
 - 日期：2026-11-19
 - 关联：AIRR `docs/superpowers/specs/2026-11-19-sketch-entity-constraint-expansion-airr.md`；
   AIRR `docs/superpowers/specs/2026-11-20-slot-width-constraint-airr.md`；
@@ -369,8 +370,64 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   角弧 89.237→135 与 135→180.763）；真栈新 e2e **1 passed（43.6 s）**：
   半圆 r40 + 弦 → 框选 → 槽：5 弧/3 线/单 slotWidth、标签 `⌀20` → 标签双击
   改 30（弧 55/25、角弧 r15、线 ±15、内线 |x|=20）→ finish+reload。
-- **状态口径**：闭合混合链从 missing 移除；剩自交环、样条中线环、弧分支/
-  缺口 ≥180° 分支、混合部分连通、live 宽度拖拽、slotWidth 表达式。
+- **状态口径**：闭合混合链从 missing 移除；剩自交环、样条中线环、弧分支、
+  live 宽度拖拽（缺口 ≥180° 分支/多毂树/混合部分连通已由 §2.13/§2.14 收口；
+  slotWidth 表达式由 ADR-0020 S2r 收口）。
+
+### 2.13 S2p 一般线树槽（2026-11-20 live S2o；宽缺口绕毂弧 + 多毂树）
+
+- **live 证据**（私有 `ui-evidence/slot-variants-20261120/s2oA-wide-branch-*`、
+  `s2oD-tree-*`；记录 `docs/SLOT-S2O-TREE-COMPONENTS-LIVE-20261120.md`）：
+  - A：毂 P=(−46.221,−43.610)，三臂尖端 T1/T2/T3 → 三臂方向锥 62.745°，
+    **宽缺口（反向 297.255°）** 的槽边界不是斜接而是**绕毂圆弧**：
+    圆心=毂、r=w/2、起点 149.055°、扫 **117.255° = 180° − 62.745°**（= 180°
+    减去最小臂锥角）；窄缺口两处仍为斜接；三尖端半圆帽。结果 9 LINE + 4 ARC。
+  - D：5 线双毂树（P 3 臂 + C 3 臂）→ 10 边界线 + 4 帽、两毂全斜接（各缺口
+    均 <180°）、无毂弧。
+- **实现**：新 `sketch-slot-tree-logic.ts`——按端点焊接聚成一棵树（同线两端
+  共点/断连/环拒收；V−1=E 且须 ≥1 度≥3 节点）；逐节点取入射臂的**指向方向**，
+  按角序求缺口：
+  - 缺口 <180° → 前一臂左偏移 ∩ 后一臂右偏移斜接（解析交点 + t/s 投影守卫）；
+  - 缺口 >180° → 绕毂圆弧：取所有臂「后退半平面」交集跨过的弧段（等效
+    `180° − 最小锥宽`），起止角与两侧边界偏移点逐点吻合（1e-6 守卫）；
+  - 缺口 ≈180°（T 形）与短臂斜接越界 → 诚实拒收（unsupportedChain /
+    degenerateRadius）。
+  边界 L/R 按「臂:端:L|R」连接表串接；约束：帽 3 coincident + 2 tangent、
+  毂弧 2 coincident + 2 tangent、斜接 1 coincident、每臂 2 parallel、单 Ø + equal。
+- **验证**：`sketch-slot-tree-logic` **6/6**（A 毂弧起止 149.055°/117.255°、
+  6 条边界线与 live 逐坐标吻合；D 10 边界线/4 帽/18 coincident/8 tangent；
+  T 形与短臂拒收）；真栈新 e2e **1 passed（52.4 s）**：RPC 建 live 坐标
+  Y 分支 → 框选 → 槽：9 线/4 弧、毂弧 149.055°+117.255°、单 Ø20 → 改 30
+  全弧 r15 → finish+reload。
+- **状态口径**：`ui.sketchSlot` 仍 partial；「缺口 ≥180° 分支」「多毂树」从
+  未采证据移除；剩**弧参与的分支**（未采）。
+
+### 2.14 S2q 多连通分量联动等宽槽（2026-11-20 live S2o；弧+线 / 链+线）
+
+- **live 证据**（同一私有记录；`s2oC-arc-line-disjoint-*`、
+  `s2oB2-mixed-partial-*`）：3 点弧 + 不相连直线一起选 → **两条独立槽**
+  （弧槽 = 同心偏移弧 R±w/2 + 两半圆帽；线槽 = 体育场），草图中**只有一个
+  Ø20**；2 相连线（链）+ 1 独立线 → 链槽 + 独立体育场、同一个 Ø20。
+- **实现**：新 `sketch-slot-components-logic.ts`——端点焊接并查集拆连通
+  分量；每分量分派既有构建器（单线/单弧/开放或闭合混合链/分支/线树）；合并
+  时保留**首分量** diameter，其余分量的 diameter 换成
+  `equal(首帽锚, 该分量首帽)`；cursor id 顺序分配。闭合环分量使用 slotWidth
+  宽度语义、无法与直径合并 → 混合选择含闭合环/整圆时分量构建器诚实拒收；
+  全为互不相连直线时仍走既有 S2i `buildMultiLineSlotDraft`。
+- **验证**：`sketch-slot-components-logic` **6/6**（C：2 线/6 弧/4 点、
+  radii [10,10,10,10,20,40]、28 约束、单 Ø + 3 equal + 2 concentric +
+  2 parallel + 8 tangent；B2：链槽+独立线 6 线/5 弧/38 约束；闭合环混合
+  与零宽拒收）；真栈新 e2e **1 passed（56.3 s）**：RPC 建半圆 R30 + 独立直线
+  → 框选 → 槽：源线/源弧保留 + 6 新增弧（4 帽 r10 + 偏移 20/40）→ 单 Ø
+  改 30（帽 15、偏移 15/45）→ finish+reload。
+- **竞态修复（同批，产品缺陷）**：框选后 iTwin 会把捕获阶段的 mouseover
+  异步投递到旧 OnshapeSelectTool 实例（伪「拖拽取消」）→ onRestartTool
+  重启默认选择工具；若在此窗口启动草图工具，旧实例的重启会把新工具顶掉
+  （ToolAdmin 以最后完成安装者为准）。修复：`onRestartTool` 在有工具命令
+  在途（`store.tool.activeToolId !== null`）时不重启；单测
+  `OnshapeSelectTool` **35/35**（新增守卫用例）。
+- **状态口径**：`ui.sketchSlot` 仍 partial；「多曲线联动的等宽槽（含弧/
+  部分连通）」从 missing 移除；剩样条中线环、自交环、弧分支。
 
 ## 3. 数据/事务
 

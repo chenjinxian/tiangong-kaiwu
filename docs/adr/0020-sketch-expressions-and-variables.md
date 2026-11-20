@@ -183,9 +183,13 @@ Onshape 的尺寸与数值字段接受**表达式**（如 `25.4 / 2`、`#width *
 裁决（S2/S3 实现口径；缺口不得靠猜补齐）：
 
 - **D1（显示表达式开关）**：`显示表达式` 勾选时，带 `expression` 的尺寸标签显示
-  **表达式原文**（不附加 R/⌀/° 装饰）；未勾选显示求值后的数值（沿用现有标签格式）。
-  纯显示投影，不改 params。该语义由控件名与 live 变量树“表达式原文显示”推断，属
-  **可逆推断**；live 标签证据补齐后若有差异再修正（登记为 S2 残留）。
+  **`ƒ ` 前缀 + 求值后的既有格式**（如 `ƒ Ø10`；R/⌀/° 前缀保留）；未勾选显示求值后
+  的数值（无 `ƒ`）。纯显示投影，不改 params。
+  **2026-11-20 S2o 更正（live `state-183`）**：勾选态（live 默认勾选）实采为
+  `ƒ Ø10`——`ƒ` 前缀 + 求值，不是表达式原文；编辑框同时显示 `(5*2) mm`。此前
+  「表达式原文」语义是无标签证据下的可逆推断，现按实测更正；driven 尺寸仍显示
+  实测值且不带 `ƒ`。编辑框的 `(expr) mm` 闭合显示形态未实现（输入框保持原文
+  编辑态，登记为残留）。
 - **D2（尺寸对话框变体）**：`angle` 采用 live 159 宽无展开器/状态键变体；其余可编辑
   kind 保持 W17 209×47。放置/拖拽/钳位纯函数带宽度参数。
 - **D3（表达式输入与提交）**：字段文本含运算符/括号/`#` 即按表达式求值；有效时 ✓
@@ -472,7 +476,20 @@ registry/updateVariables 复用（角度类型门：length 变量拒收）；web
   reverseSingleTxn/reinstateTxn 一次恢复 variables+sketch+geometry（apply 与
   history 路径）、重建失败仍提交变量并报错、IPC 分组计数修复 init 安全、组内
   撤销拒绝。残：组内 Undo 为拒绝（Tool 吞状态，UI 静默 no-op，重建完成后可重试）；
-  push 后 undo 不可用（既有 push 策略）。**D1 标签形态仍为 live 未采的可逆推断**。
+  push 后 undo 不可用（既有 push 策略）。~~D1 标签形态仍为 live 未采的可逆推断~~
+  （2026-11-20 S2o 已采到并更正，见下条）。
+- **S2r slotWidth 表达式 + ƒ 标签实测（2026-11-20）**：后端表达式白名单扩
+  `slotWidth`（长度类，`value` 权威物化后求解；非正拒绝、数值改值清除表达式、
+  updateVariables 联动均覆盖）。web 表达式尺寸标签按 live `state-183` 改为
+  `ƒ ` + 求值格式（`显示表达式` 勾选；关闭无 ƒ）。验证：shared **327/327**
+  （注释/契约文档更新，无类型变更，版本保持 1.84.0）；backend targeted
+  `SketchExpressionFlow`/`SlotWidthSolver`/`VariablesFlow` **49/49**（新增
+  slotWidth 表达式 3 例）；web 单测 `sketch-annotations` + `sketch-dimension-expression`
+  （新增 slotWidth/ƒ 断言）；真栈 `sketch-slot.spec.ts --grep 整圆槽宽度表达式`
+  **1 passed（56.0 s）**：整圆槽宽度 `5*2` → 10 mm（25/30/35）、标签 `ƒ 10` →
+  `显示表达式` 关闭 `10` → 勾选 `ƒ 10` → reload 持久；`sketch-expression-ui`
+  **1 passed（55.4 s）**（标签默认 `ƒ 20`、关闭 `20`）。残：编辑框 `(expr) mm`
+  闭合显示、slotWidth 表达式在真栈 updateVariables 的 UI 路径未单独 e2e（后端单测覆盖）。
 - **S4a 后端实测（2026-11-18）**：shared **286/286**；backend targeted **106/106**、
   全量 **1024 passed/1 expected fail/8 skipped**；tsc 绿。覆盖：schema blind-only、
   字面量/`#var`/类型门（length/number/any，angle 拒收）、错误优先级与零变更、

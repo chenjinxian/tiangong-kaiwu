@@ -103,6 +103,15 @@ describe('evaluateDimensionInput：表达式', () => {
       .toEqual({ ok: true, value: 30, expression: '#height + #width' });
   });
 
+  it('slotWidth（S2r）：长度类同口径——算术/变量表达式求值、非正拒收', () => {
+    expect(evaluateDimensionInput({ kind: 'slotWidth', text: '5*2' }))
+      .toEqual({ ok: true, value: 10, expression: '5*2' });
+    expect(evaluateDimensionInput({ kind: 'slotWidth', text: '#width', variables: VARIABLES }))
+      .toEqual({ ok: true, value: 10, expression: '#width' });
+    expect(evaluateDimensionInput({ kind: 'slotWidth', text: '#width - 20', variables: VARIABLES }))
+      .toEqual({ ok: false, error: { code: 'invalidValue' } });
+  });
+
   it('角度表达式按度求值并换弧度', () => {
     const result = evaluateDimensionInput({ kind: 'angle', text: '#ang * 2', variables: VARIABLES });
     expect(result.ok).toBe(true);

@@ -140,14 +140,23 @@ interface SketchSlotWidthConstraint {
   + 闭合环（4 线框选 → ring → 4 角弧 r10/内外边界 ±10 → 标签 `⌀20`→改
   `30` → 四组内外边界同步 ±15 → reload）。一次 MS 429
   `retry-after` 窗口按纪律等待后重试，未绕过限流。
+- **S2o–S2r 增补（2026-11-20）**：`slotWidth` 纳入草图尺寸表达式白名单（长度类；
+  后端 `evaluateConstraintExpressions` 物化 value 后求解，非正拒收、数值改值清除
+  expression、updateVariables 联动；`SketchExpressionFlow` slotWidth 表达式
+  **3/3**）。web 表达式尺寸标签按 live `state-183` 更正为 `ƒ ` + 求值（
+  `显示表达式` 勾选；关闭无 ƒ），见 ADR-0020 D1/S2r。真栈
+  `sketch-slot.spec.ts --grep 整圆槽宽度表达式` **1 passed（56.0 s）**：
+  整圆槽宽 `5*2` → 10（内/中线/外 25/30/35）、标签 `ƒ 10` → 开关关闭 `10`
+  → 勾选 `ƒ 10` → reload 持久。
 
 ## 5. 已知边界 / 后续
 
-- v1.84 后已支持：闭合 line+arc 混合环（弧中线 ring）、单毂分支链（单 Ø +
-  equal，见 ADR-0022 §2.11）。仍诚实拒收：样条中线闭合环、自交环、缺口
-  ≥180° 的分支（并集边界改为绕毂圆弧，未采证据）、弧参与/多毂分支、混合
-  「部分连通+部分独立」；能力账本 `ui.sketchSlot` / `constraint.slotWidth`
-  维持 `partial`。
-- `slotWidth` 表达式/变量驱动未接（live 未采）；宽度拖拽/放置交互未采。
+- v1.84/S2p/S2q 后已支持：闭合 line+arc 混合环（弧中线 ring）、单毂分支链、
+  宽缺口分支（绕毂弧）/多毂线树（ADR-0022 §2.13）、多连通分量共享单 Ø
+  （弧+线、链+线；§2.14）。仍诚实拒收：样条中线闭合环、自交环、弧参与的分支、
+  混合选择中含闭合环分量（slotWidth 宽度语义不能与直径约束合并）；能力账本
+  `ui.sketchSlot` / `constraint.slotWidth` 维持 `partial`。
+- `slotWidth` 表达式已接（S2r，长度类；见 §4）；**变量驱动 UI 真栈未单独 e2e**
+  （后端 `updateVariables` 单测覆盖）。宽度拖拽/放置交互未采。
 - 回滚：`slotWidth` 为 additive kind；工具/能力 flag 可关闭；旧库无该
   kind 不需要迁移；失败路径保持原几何。

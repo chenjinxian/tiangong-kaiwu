@@ -4,7 +4,7 @@
  *
  * 尺寸数值「显示值 ↔ 契约值」转换（ADR-0018 S1e/S1h 2026-11-12）。
  *
- * 后端 updateSketchConstraint 白名单：distance/radius/diameter/length/angle。
+ * 后端 updateSketchConstraint 白名单：distance/radius/diameter/length/angle/slotWidth。
  * 除 angle 外均为草图局部毫米值，编辑器原样显示/提交；angle 在 shared 契约中
  * 是弧度（direction-vector 语义），而 Onshape 显示度数——编辑器显示度、提交
  * 前换算回弧度，避免把用户输入的 45 当成 45 rad。

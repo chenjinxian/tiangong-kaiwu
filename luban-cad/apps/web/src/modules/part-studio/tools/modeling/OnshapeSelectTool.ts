@@ -22,6 +22,7 @@ import type {
 import { LocateSubEntityTool, solidModelingIpc } from '@itwin/editor-frontend';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import i18next from 'i18next';
+import { usePartStudioStore } from '../../stores/use-part-studio-store.js';
 import type { CanvasSelection } from '../../types.js';
 
 export interface OnshapeSelectOptions {
@@ -645,6 +646,14 @@ export class OnshapeSelectTool extends LocateSubEntityTool {
   }
 
   public override async onRestartTool(): Promise<void> {
+    // 2026-11-20 真栈 S2q 实测（iTwin ToolAdmin 事件时序）：框选后 ToolAdmin 会把
+    // 捕获阶段的 mouseover 异步投递到**旧实例**的 onMouseEnter →（伪「拖拽取消」）
+    // onReinitialize → onRestartTool；若此刻 ribbon 已发起新的草图工具（store
+    // activeToolId 已非空、工具仍在安装），本重启的新实例会把刚启动的工具顶掉
+    //（ToolAdmin 以最后完成安装者为准）。用户命令优先：有工具命令在途时不重启。
+    // undo/redo 的合法重启发生在空闲态（activeToolId=null），不受影响。
+    if (usePartStudioStore.getState().tool.activeToolId !== null)
+      return;
     const tool = new OnshapeSelectTool(this._options);
     preserveSelectionOnCleanup = true;
     try {
