@@ -228,7 +228,9 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   **327/327**；后端 `SketchExpressionFlow`/`SlotWidthSolver`/`VariablesFlow` **49/49**；
   web 全量 **2699/2699**（+15，含 OnshapeSelectTool 守卫）、tsc(src+e2e)/eslint 绿；
   真栈 S2p **1 passed（52.4 s）**、S2q **1 passed（56.3 s）**、槽宽表达式 **1 passed
-  （56.0 s）**、`sketch-expression-ui` 标签 `ƒ 20` **1 passed（55.4 s）**。**未发布**；
+  （56.0 s）**、变量驱动槽宽 **1 passed（26.7 s：变量 w=10 → `#w*2` ƒ20 → 变量表改
+  15 → 宽 30/半径 15/45 → ƒ30 → reload）**、`sketch-expression-ui` 标签 `ƒ 20`
+  **1 passed（55.4 s）**。**未发布**；
   残：弧参与的分支、样条中线环、自交环（未建模）、live 宽度拖拽、表达式编辑框 `(expr) mm`
   闭合显示；`ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
 

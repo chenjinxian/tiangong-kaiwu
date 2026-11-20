@@ -179,7 +179,8 @@ interface SketchSlotWidthConstraint {
   求解；数值改值清除 expression；updateVariables 联动）；表达式标签按 live
   `state-183` 改为 `ƒ ` + 求值（见 ADR-0020 D1）。后端全量 **1169 passed /
   1 expected fail / 8 skipped**（118 files；新增 3 例）；真栈槽宽表达式 e2e
-  56.0 s。
+  56.0 s、变量驱动槽宽 e2e **26.7 s**（变量表 UI 改 w 10→15 → 宽 20→30、
+  标签 `ƒ 20`→`ƒ 30`、reopen+reload）。
 - **残项更新**：缺口 ≥180° 分支/多毂树/混合部分连通/表达式已收口；仍剩弧
   参与的分支、自交环（未建模）、样条中线环、宽度预览/拖拽（S2t 探针证据不足）、
   编辑框 `(expr) mm` 闭合显示。

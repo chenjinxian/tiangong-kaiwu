@@ -1968,3 +1968,124 @@ test.describe('草图槽工具：多连通分量共享单 Ø（ADR-0022 §2.8 �
     assertComponentsSlotGeometry(await readSketch(), 30, beforeConstraintIds);
   });
 });
+
+// ---------------------------------------------------------------------------
+// S2r 变量驱动槽宽（ADR-0020 S2r / ADR-0023）：变量表 UI 编辑 → 草图重解 → ƒ 标签
+// ---------------------------------------------------------------------------
+
+test.describe('草图槽工具：slotWidth 变量驱动（ADR-0020 S2r / ADR-0023）', () => {
+  test('变量 w=10 → 槽宽 #w*2（ƒ 20）→ 变量表改 15 → 宽 30（15/45）→ reopen+reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 360_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+
+    // 变量 w=10（RPC 种子；编辑走变量表 UI）。
+    const varLease = await borrowWriteLease(ctx, token, 'sketch-slot-var-seed');
+    const seeded = await applyFeatureOpRpc(ctx, {
+      kind: 'updateVariables',
+      variables: [{ id: 'v-w', name: 'w', expression: '10', type: 'length' }],
+    }, varLease, token);
+    assertFeatureOpOk(seeded, '变量 w=10');
+    await releaseWriteLease(ctx, varLease, token);
+
+    // 整圆 R30（固定圆心 + 半径约束）。
+    const sketchLease = await borrowWriteLease(ctx, token, 'sketch-slot-var-sketch');
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'circle', id: 2, center: 1, radius: 30 },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'radius', id: 101, refs: [2], value: 30 },
+      ],
+      plane: XY_PLANE,
+    }, sketchLease, token);
+    assertFeatureOpOk(created, '整圆草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, sketchLease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const variableRow = page.getByTestId('tree-variable-v-w');
+    await expect(variableRow).toContainText('#w = 10 mm', { timeout: 60_000 });
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -45, y: -45, z: -20 }, high: { x: 45, y: 45, z: 20 } });
+    await disableSnap(page);
+
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+
+    // 偏移 ▾ → 槽 → 点圆 → Enter 提交。
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await clickWorld(page, hub, { x: 30, y: 0, z: 0 });
+    await page.waitForTimeout(700);
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'circle').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(3);
+    const afterInsert = await readSketch();
+    assertCircleSlotGeometry(afterInsert, 30, 20, 2);
+    const slot = afterInsert.constraints.find((c) => c.kind === 'slotWidth')!;
+    const label = page.locator(`[data-testid="sketch-dimension-label"][data-constraint-id="${slot.id}"]`);
+    await expect(label).toHaveAttribute('data-text', '20', { timeout: 30_000 });
+
+    // 标签双击 → 表达式 `#w*2` → 宽度 20（值不变）、expression 落库、标签 `ƒ 20`。
+    const labelAt = await dimensionLabelCenter(page, box, slot.id);
+    await page.mouse.dblclick(labelAt.x, labelAt.y);
+    const input = page.getByTestId('sketch-dimension-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('#w*2');
+    await page.getByTestId('sketch-dimension-confirm').click();
+    await expect.poll(async () => (await readSketch()).constraints
+      .find((c) => c.kind === 'slotWidth')?.expression ?? '', {
+      timeout: 30_000, intervals: [1000, 2000, 5000],
+    }).toBe('#w*2');
+    assertCircleSlotGeometry(await readSketch(), 30, 20, 2);
+    await expect(label).toHaveAttribute('data-text', 'ƒ 20', { timeout: 30_000 });
+
+    // 完成草图 → 变量表 UI 编辑 w=15 → 草图重解（宽度 30，半径 15/45）。
+    await finishSketch(page);
+    await expect(page.getByTestId(`tree-row-${sketchId}`)).toBeVisible({ timeout: 30_000 });
+    await variableRow.dblclick({ timeout: 30_000 });
+    const editDialog = page.getByTestId('variables-dialog');
+    await expect(editDialog).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('variables-name-input')).toHaveValue('w');
+    await page.getByTestId('variables-value-input').fill('15');
+    await page.getByTestId('variables-value-input').press('Tab');
+    await expect(page.getByTestId('variables-dialog-title')).toHaveText('#w = 15 mm');
+    await page.getByTestId('variables-confirm').click();
+    await expect(editDialog).toHaveCount(0, { timeout: 30_000 });
+    await expect.poll(async () => (await readSketch()).constraints
+      .find((c) => c.kind === 'slotWidth')?.value ?? NaN, {
+      timeout: 60_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(30, 3);
+    assertCircleSlotGeometry(await readSketch(), 30, 30, 2);
+    await expect(variableRow).toContainText('#w = 15 mm', { timeout: 30_000 });
+
+    // 重开草图 → 标签 `ƒ 30`；finish+reload 持久。
+    await page.getByTestId(`tree-row-${sketchId}`).dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    const relabel = page.locator(`[data-testid="sketch-dimension-label"][data-constraint-id="${slot.id}"]`);
+    await expect(relabel).toHaveAttribute('data-text', 'ƒ 30', { timeout: 30_000 });
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    assertCircleSlotGeometry(await readSketch(), 30, 30, 2);
+    expect((await readSketch()).constraints.find((c) => c.kind === 'slotWidth')?.expression).toBe('#w*2');
+  });
+});
