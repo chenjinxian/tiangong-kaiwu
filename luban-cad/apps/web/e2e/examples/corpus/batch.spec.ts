@@ -88,6 +88,8 @@ test.describe(batch ? `corpus batch: ${batch.name}` : 'corpus batch (requires ON
           expected: result.expected,
           approximateSteps: result.approximateSteps,
           ...(bodyComparison ? { bodyPairs: bodyComparison.pairs } : {}),
+          // opt-in 四维严格门报告（未开启时不出现，缺省路径零变化）。
+          ...(result.strictGate !== undefined ? { strictGate: result.strictGate } : {}),
         });
       } catch (error) {
         report({

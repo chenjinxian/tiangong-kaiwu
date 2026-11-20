@@ -6,9 +6,29 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import type { FeatureTreeEntry } from '@luban-cad/shared';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, type BSeedEditorContext } from '../../helpers.js';
+import {
+  getApiToken,
+  getFeatureTreeRpc,
+  getMassPropertiesRpc,
+  getSketchRpc,
+  type BSeedEditorContext,
+} from '../../helpers.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../imodel.js';
 import { DEFAULT_DATA_ROOT } from '../registry.js';
+import {
+  readBodyOracle,
+  readExpectedFeatureTree,
+  readSketchOracle,
+} from '../corpus/oracle-readers.js';
+import {
+  evaluateStrictGate,
+  formatStrictDimension,
+  parseStrictGateMode,
+  type SketchActualSample,
+  type StrictGateHooks,
+  type StrictGateMode,
+  type StrictGateReport,
+} from '../corpus/strict-gate.js';
 import { resolveScenarioEdges, type ResolveEdgesResult } from './edge-resolver.js';
 import { resolveScenarioCapFaceStart } from './cap-face-start-resolver.js';
 import { resolveImprintFaceRef } from './imprint-face-resolver.js';
@@ -81,6 +101,20 @@ export interface RunScenarioFileOptions {
    * `edgeRefsOverride` 若同时提供仍优先（显式审计覆盖 > oracle > 通用 resolver）。
    */
   edgeOracle?: ReadonlyMap<string, RollbackEdgeOracle>;
+  /**
+   * Opt-in four-dimension strict gate（计划 §1.2/§11/A6，2026-11-21）：
+   * featureTree（类型/顺序/名称）、sketches（约束/DOF/status）、bodies（逐 body
+   * volume+centroid）、persistence（push+冷重开 / undo+redo hooks）。
+   * 缺省 undefined = 既有严格轨（tree/status/body/volume/push+reopen）完全不变；
+   * 亦可用 env `ONSHAPE_STRICT_GATE=four-dim` 开启（option 优先）。
+   * 本开关只做判定与报告，不促销任何示例、不翻转缺省。
+   */
+  strictGate?: StrictGateMode;
+  /**
+   * 严格门第四维的 runner hook（真实数据）：push+冷重开、undo/redo。未提供时
+   * 该维诚实返回 `not-checked`，不伪造 pass。
+   */
+  strictGateHooks?: StrictGateHooks;
 }
 
 export function resolveScenarioFile(rel: string): string {
@@ -102,6 +136,8 @@ export async function runScenarioFile(
   reopenedMass: Array<{ bodyKey: string; volume: number; centroid: { x: number; y: number; z: number } }>;
   /** 执行上下文（批处理需要在同一 iModel/scope 上追加只读查询）。 */
   ctx: BSeedEditorContext;
+  /** opt-in 四维严格门报告（未开启时不出现，缺省路径零变化）。 */
+  strictGate?: StrictGateReport;
 }> {
   const file = resolveScenarioFile(options.scenario);
   const scenario = JSON.parse(readFileSync(file, 'utf8')) as ParityScenario;
@@ -267,6 +303,78 @@ export async function runScenarioFile(
   for (let i = 0; i < reference.length; i++) {
     expect(Math.abs(reopened[i]! - reference[i]!) / reference[i]!).toBeLessThan(tolerance);
   }
+
+  // 四维严格门（opt-in；缺省完全跳过，不额外 RPC/断言）。使用的都是已读到的
+  // 真实数据：reopenedTree / reopenedMass / getSketch（仅当 scenario 携带草图
+  // oracle 时）。persistence/undo-redo 只接受 runner hook，绝不伪造。
+  const strictGateMode = options.strictGate ?? parseStrictGateMode(process.env.ONSHAPE_STRICT_GATE);
+  let strictGateReport: StrictGateReport | undefined;
+  if (strictGateMode === 'four-dim') {
+    const expectedTreeParse = readExpectedFeatureTree(
+      (scenario.expected as { featureTree?: unknown } | undefined)?.featureTree,
+      scenario.features.map((feature) => feature.type),
+    );
+    const sketchOracleParse = readSketchOracle(
+      (scenario.expected as { sketches?: unknown } | undefined)?.sketches,
+    );
+    const bodyOracleParse = readBodyOracle(
+      (scenario.expected as { bodies?: unknown } | undefined)?.bodies,
+    );
+    const actualSketches: SketchActualSample[] = [];
+    if (sketchOracleParse.oracle !== undefined) {
+      const stepsByName = new Map(scenario.features.map((feature, index) => [
+        feature.name,
+        { type: built.steps[index]?.type, featureId: built.steps[index]?.featureId },
+      ]));
+      for (const entry of sketchOracleParse.oracle) {
+        const step = stepsByName.get(entry.sketch);
+        if (step?.type !== 'sketch' || step.featureId === undefined) continue;
+        const sketch = await getSketchRpc(ctx, step.featureId, token);
+        if (sketch === undefined) continue;
+        actualSketches.push({
+          sketch: entry.sketch,
+          constraints: sketch.constraints.map((constraint) => ({
+            kind: constraint.kind,
+            ...(constraint.driven === true ? { driven: true } : {}),
+          })),
+          dof: sketch.solve.dof,
+          status: sketch.solve.status,
+        });
+      }
+    }
+    const report = await evaluateStrictGate({
+      featureTree: {
+        actual: reopenedTree,
+        ...(expectedTreeParse.expected !== undefined ? { expected: expectedTreeParse.expected } : {}),
+        ...(expectedTreeParse.error !== undefined ? { expectedError: expectedTreeParse.error } : {}),
+      },
+      sketches: {
+        actual: actualSketches,
+        ...(sketchOracleParse.oracle !== undefined ? { oracle: sketchOracleParse.oracle } : {}),
+        ...(sketchOracleParse.error !== undefined ? { oracleError: sketchOracleParse.error } : {}),
+      },
+      bodies: {
+        actual: reopenedMass.map((body) => ({
+          volume: body.volume,
+          centroid: [body.centroid.x, body.centroid.y, body.centroid.z] as const,
+        })),
+        ...(bodyOracleParse.expected !== undefined ? { expected: bodyOracleParse.expected } : {}),
+        ...(bodyOracleParse.error !== undefined ? { expectedError: bodyOracleParse.error } : {}),
+      },
+      approximateSteps: built.approximateSteps,
+      ...(options.strictGateHooks !== undefined ? { hooks: options.strictGateHooks } : {}),
+    });
+    for (const dimension of report.dimensions)
+      console.log(`[strict-gate] ${options.name} ${formatStrictDimension(dimension)}`);
+    console.log(`[strict-gate] ${options.name} ok=${report.ok}`);
+    strictGateReport = report;
+    expect(
+      report.ok,
+      `four-dim strict gate 未通过（${options.name}）：\n` +
+      [...report.failures, ...report.notChecked].join('\n'),
+    ).toBe(true);
+  }
+
   return {
     scenario,
     volumes,
@@ -275,5 +383,6 @@ export async function runScenarioFile(
     reopenedTree,
     reopenedMass,
     ctx,
+    ...(strictGateReport !== undefined ? { strictGate: strictGateReport } : {}),
   };
 }
