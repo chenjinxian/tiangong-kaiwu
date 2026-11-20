@@ -2809,3 +2809,143 @@ test.describe('草图槽工具：纯弧臂线树（ADR-0022 §2.15 扩展 / S2u3
     assertGeometry(await readSketch(), 15);
   });
 });
+
+/**
+ * 2026-11-21 review finding 1 真栈：会话粘滞宽度对下一条曲线过大时的**回退**。
+ * 线槽预览改 30 并提交（lastWidth=30）→ 选整圆 R15 → 启动槽必须回退 Ø20
+ * （而不是构建失败、无预览、无宽度标签可调的死局），并输出本地化 warning。
+ */
+test.describe('草图槽工具：粘滞宽度回退（review finding 1）', () => {
+  test('记忆宽度 30 → 整圆 R15 → 启动槽回退 Ø20（不死局）+ 警告 toast → 提交 r5/15/25 → reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-width-fallback');
+
+    // XY 草图：整圆 R15（圆心固定 + 半径约束）+ 100 mm 水平线（先用线槽把
+    // 会话宽度记忆设为 30）。
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'circle', id: 2, center: 1, radius: 15 },
+        { kind: 'point', id: 3, x: -50, y: -40 },
+        { kind: 'point', id: 4, x: 50, y: -40 },
+        { kind: 'line', id: 5, p1: 3, p2: 4 },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'radius', id: 101, refs: [2], value: 15 },
+        { kind: 'fixed', id: 102, refs: [3] },
+        { kind: 'fixed', id: 103, refs: [4] },
+      ],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '宽度回退草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -90, y: -90, z: -20 }, high: { x: 90, y: 90, z: 20 } });
+    await disableSnap(page);
+
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+    const picker = page.getByTestId('sketch-entity-picker');
+    const selectedIds = async (): Promise<number[]> =>
+      (JSON.parse((await picker.getAttribute('data-selected')) ?? '[]') as Array<[number, string]>)
+        .map(([entityId]) => entityId);
+
+    // ① 线槽：默认预览 ⌀20 → 双击标签改 30 → 提交（会话宽度粘滞 = 30）。
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    // XY（Top）平面：直接给世界坐标（P 是 Front 平面 local→world 映射，不适用）；
+    // 拾取点避开轴线（x=25）。
+    await clickWorld(page, hub, { x: 25, y: -40, z: 0 });
+    await page.waitForTimeout(700);
+    const previewLabel = page.locator('[data-testid="sketch-dimension-label"][data-constraint-id="-1000"]');
+    await expect(previewLabel).toHaveAttribute('data-text', '⌀20', { timeout: 30_000 });
+    const previewAt = await dimensionLabelCenter(page, box, -1000);
+    await page.mouse.dblclick(previewAt.x, previewAt.y);
+    const input = page.getByTestId('sketch-dimension-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('30');
+    await page.getByTestId('sketch-dimension-confirm').click();
+    await expect(previewLabel).toHaveAttribute('data-text', '⌀30', { timeout: 10_000 });
+    await clickWorld(page, hub, P(-80, -80));
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'arc').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(2);
+    await page.waitForTimeout(800);
+
+    // ② 选中整圆 R15（45° 圆周点）→ 启动槽：粘滞 30 会使内圆 R−15=0 退化，
+    // 必须回退默认 Ø20（预览宽度标签按 concentric 语义为线性 `20`）。
+    const [circlePoint] = await projectWorld(page, hub, [
+      { x: 15 * Math.SQRT1_2, y: 15 * Math.SQRT1_2, z: 0 },
+    ]);
+    if (!circlePoint) throw new Error('整圆拾取点投影失败');
+    await page.mouse.click(circlePoint.x, circlePoint.y);
+    await page.waitForTimeout(250);
+    await expect.poll(async () => (await selectedIds()).length, { timeout: 10_000 }).toBe(1);
+    expect(await selectedIds()).toEqual([2]);
+
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+
+    // 本地化回退警告（iTwinUI warning toast，约 7s 短暂驻留——先断言 toast，
+    // 再断言预览；死局回归时此 toast 变为 degenerateRadius Info 且无预览标签）。
+    await expect(page.getByText(/已回退为默认 Ø20 mm/)).toBeVisible({ timeout: 15_000 });
+    expect(await page.evaluate(() => {
+      const im = (window as any).__lubanE2E?.coreFrontend?.IModelApp;
+      const admin = im?._toolAdmin ?? im?.toolAdmin;
+      return admin?.activeTool?.toolId as string | undefined;
+    }), '槽工具应已激活（宽度回退不得退回拾取死局）').toBe('Sketch.Slot');
+    await expect(previewLabel).toHaveAttribute('data-text', '20', { timeout: 30_000 });
+    expect(await selectedIds(), '回退不得清掉整圆预选').toEqual([2]);
+
+    // ③ 提交：整圆槽 = 源 R15 + 内 R5 + 外 R25、单一 slotWidth 20（本草图已有
+    // 前一个线槽的 2 个端帽弧，故只断言「不新增弧」与整圆槽自身约束）。
+    const arcIdsBeforeCircleSlot = new Set((await readSketch()).entities
+      .filter((e) => e.kind === 'arc').map((e) => e.id));
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'circle').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(3);
+    const afterInsert = await readSketch();
+    const circles = afterInsert.entities.filter((e): e is CircleEntity => e.kind === 'circle');
+    const radii = circles.map((circle) => circle.radius ?? NaN).sort((a, b) => a - b);
+    expect(radii[0]).toBeCloseTo(5, 3);
+    expect(radii[1]).toBeCloseTo(15, 3);
+    expect(radii[2]).toBeCloseTo(25, 3);
+    for (const circle of circles)
+      expect(dist2d(resolvePointRef(circle.center, afterInsert.entities), { x: 0, y: 0 }), '同心').toBeLessThan(0.2);
+    const newArcs = afterInsert.entities.filter((e) => e.kind === 'arc' && !arcIdsBeforeCircleSlot.has(e.id));
+    expect(newArcs, '整圆槽无端帽').toHaveLength(0);
+    const slot = afterInsert.constraints.find((c) => c.kind === 'slotWidth');
+    expect(slot, '应有 slotWidth 驱动尺寸').toBeDefined();
+    expect(slot!.slotMode).toBe('concentric');
+    expect(slot!.value).toBeCloseTo(20, 3);
+    expect(slot!.refs[0]).toBe(2);
+
+    // ④ finish + reload 持久（回退宽度 20 已提交）。
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const persisted = await readSketch();
+    expect(persisted.entities.filter((e) => e.kind === 'circle').length).toBe(3);
+    expect(persisted.constraints.find((c) => c.kind === 'slotWidth')?.value ?? NaN).toBeCloseTo(20, 3);
+  });
+});

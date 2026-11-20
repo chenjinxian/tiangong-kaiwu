@@ -64,6 +64,7 @@ import { buildComponentsSlotDraft, slotMemberComponents } from './sketch-slot-co
 import { buildLineTreeSlotDraft, lineTreeFromSelection } from './sketch-slot-tree-logic.js';
 import { buildCurveTreeSlotDraft, curveTreeFromSelection } from './sketch-slot-curve-tree-logic.js';
 import type { SlotBuildError, SlotDraft } from './sketch-slot-logic.js';
+import { buildSlotDraftWithWidthFallback } from './sketch-slot-width-fallback.js';
 import {
   buildSlotPreviewDimension,
   clearSlotPreviewDimension,
@@ -145,7 +146,7 @@ export class SketchSlotTool extends PrimitiveTool {
       return EventHandled.Yes;
     }
 
-    const built = this._buildDraft(sketch, [seed.id]);
+    const built = this._buildInitialDraft(sketch, [seed.id]);
     if (!built.ok) {
       this._notify(i18next.t(this._buildErrorToastKey(built.error)), OutputMessagePriority.Info);
       return EventHandled.Yes;
@@ -271,7 +272,7 @@ export class SketchSlotTool extends PrimitiveTool {
         return entity !== undefined && entity.kind !== 'point';
       }))];
     if (ids.length === 0) return false;
-    const built = this._buildDraft(sketch, ids);
+    const built = this._buildInitialDraft(sketch, ids);
     if (!built.ok) {
       this._notify(i18next.t(this._buildErrorToastKey(built.error)), OutputMessagePriority.Info);
       return false;
@@ -282,6 +283,34 @@ export class SketchSlotTool extends PrimitiveTool {
     this._publishPreview(sketch, built.draft);
     this._outputPrompt('confirm');
     return true;
+  }
+
+  /**
+   * 初始构建（工具激活预选 / 单击拾取）：粘滞宽度可能对当前曲线过大
+   * （上次 Ø30、本次整圆 r15 → 边界圆退化）。若首次构建因**宽度相关**原因
+   * 失败，用默认宽度重试一次并提示回退——否则预览不存在、宽度标签也不出现，
+   * 工具陷入死局（2026-11-21 review）。非宽错误原样返回，不掩盖几何拒收。
+   */
+  private _buildInitialDraft(
+    sketch: SketchDto,
+    selectedIds: readonly number[],
+  ): { ok: true; draft: SlotDraft; selectedIds: number[] } | { ok: false; error: SlotBuildError } {
+    const previousWidth = this._width;
+    const built = buildSlotDraftWithWidthFallback(previousWidth, (width) => {
+      this._width = width;
+      return this._buildDraft(sketch, selectedIds);
+    });
+    if (!built.ok) {
+      this._width = previousWidth;
+      return built;
+    }
+    this._width = built.width;
+    if (built.fellBack)
+      this._notify(
+        i18next.t('partStudio.sketch.slot.toasts.widthFallback', { previous: previousWidth, width: built.width }),
+        OutputMessagePriority.Warning,
+      );
+    return { ok: true, draft: built.draft, selectedIds: [...new Set(selectedIds)] };
   }
 
   /** 单线/单弧/相连直线链共用构建入口（预览与提交同源；id 从当前草图最大值重播）。 */
@@ -413,19 +442,31 @@ export class SketchSlotTool extends PrimitiveTool {
     setSlotPreviewDimension(previewDimension, (value) => this._applyPreviewWidth(value));
   }
 
-  /** 预览改宽：成功返回 ok:true；构建失败回滚宽度并返回本地化错误。 */
+  /**
+   * 预览改宽：成功返回 ok:true；构建失败回滚宽度并返回本地化错误。
+   * 编辑器对拒收只做红描边（不渲染文案），因此失败路径必须同时经工具
+   * notification（Warning）把本地化原因可见输出（2026-11-21 review）。
+   */
   private _applyPreviewWidth(value: number): { ok: boolean; error?: string } {
-    if (!Number.isFinite(value) || value <= 0)
-      return { ok: false, error: i18next.t('partStudio.sketch.slot.toasts.zeroWidth') };
+    if (!Number.isFinite(value) || value <= 0) {
+      const error = i18next.t('partStudio.sketch.slot.toasts.zeroWidth');
+      this._notify(error, OutputMessagePriority.Warning);
+      return { ok: false, error };
+    }
     const sketch = getSketchSystem()?.activeSketch;
-    if (!sketch || !this._selectedIds)
-      return { ok: false, error: i18next.t('partStudio.sketch.create.toasts.systemNotReady') };
+    if (!sketch || !this._selectedIds) {
+      const error = i18next.t('partStudio.sketch.create.toasts.systemNotReady');
+      this._notify(error, OutputMessagePriority.Warning);
+      return { ok: false, error };
+    }
     const previousWidth = this._width;
     this._width = value;
     const built = this._buildDraft(sketch, this._selectedIds);
     if (!built.ok) {
       this._width = previousWidth;
-      return { ok: false, error: i18next.t(this._buildErrorToastKey(built.error)) };
+      const error = i18next.t(this._buildErrorToastKey(built.error));
+      this._notify(error, OutputMessagePriority.Warning);
+      return { ok: false, error };
     }
     this._draft = built.draft;
     rememberSlotPreviewWidth(value);

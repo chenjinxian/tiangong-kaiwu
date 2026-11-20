@@ -267,6 +267,12 @@ export function buildLineTreeSlotDraft(input: {
       if (gap.through) {
         // live S2x T 形：直通缺口两侧边界各自止于毂偏移点（共线 seam），
         // 不生成斜接/毂弧；两点必须重合（非共线近 180° 无证据 → 拒收）。
+        // 直通臂必须长过半宽：否则偏移边界越过臂端、帽与毂偏移点自交
+        // （2026-11-21 review：hub + 长 4 的短臂 + width 10）。
+        const lenA = dist2(arms[aInc.armIndex]!.a, arms[aInc.armIndex]!.b);
+        const lenB = dist2(arms[bInc.armIndex]!.a, arms[bInc.armIndex]!.b);
+        if (!(lenA > half + SLOT_TOL) || !(lenB > half + SLOT_TOL))
+          return { ok: false, error: 'degenerateRadius' };
         const pA = vadd(node.pos, scale(rotL(aInc.u), half));
         const pB = vadd(node.pos, scale(rotR(bInc.u), half));
         if (dist2(pA, pB) > 1e-6) return { ok: false, error: 'unsupportedChain' };

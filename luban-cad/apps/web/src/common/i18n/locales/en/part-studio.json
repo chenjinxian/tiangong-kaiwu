@@ -1360,7 +1360,8 @@
         "zeroWidth": "Slot width must be greater than zero",
         "unsolvedLine": "The selected line has no solved coordinates; cannot build the slot",
         "unsolvedCurve": "The selected curve has no solved coordinates; cannot build the slot",
-        "degenerateRadius": "Slot width exceeds the arc radius; the offset arc would collapse"
+        "degenerateRadius": "Slot width exceeds the arc radius; the offset arc would collapse",
+        "widthFallback": "The remembered slot width Ø{{previous}} mm does not fit this curve; using the default Ø{{width}} mm"
       }
     },
     "tangentArc": {

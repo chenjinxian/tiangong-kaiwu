@@ -267,6 +267,23 @@ describe('T 形直通缺口（live S2x `s2x-tjunction-slot.dxf`）', () => {
     expect(constraints.filter((c) => c.kind === 'tangent')).toHaveLength(6);
   });
 
+  it('直通臂过短（down 长 4 ≤ 半宽 5）→ degenerateRadius（2026-11-21 review）', () => {
+    // 毂 (0,0)、上臂 (0,10)、下臂 (0,-4)、第三臂 20° 长 10、宽 10。
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, x: 0, y: 0 },
+      { kind: 'point', id: 2, x: 0, y: 10 },
+      { kind: 'point', id: 3, x: 0, y: -4 },
+      { kind: 'point', id: 4, x: 10 * Math.cos(20 * DEG), y: 10 * Math.sin(20 * DEG) },
+      { kind: 'line', id: 11, p1: 1, p2: 2 },
+      { kind: 'line', id: 12, p1: 1, p2: 3 },
+      { kind: 'line', id: 13, p1: 1, p2: 4 },
+    ];
+    const tree = lineTreeFromSelection(entities, [11, 12, 13]);
+    expect(tree).toBeDefined();
+    expect(buildLineTreeSlotDraft({ tree: tree!, width: 10, startId: 100 }))
+      .toEqual({ ok: false, error: 'degenerateRadius' });
+  });
+
   it('分支臂中的共线折点（度 2、两个直通缺口）→ unsupportedChain（无 live 证据）', () => {
     const entities: SketchEntityDto[] = [
       { kind: 'point', id: 1, ...HUB }, // 度 3 毂

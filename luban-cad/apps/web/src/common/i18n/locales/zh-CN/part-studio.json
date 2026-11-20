@@ -1360,7 +1360,8 @@
         "zeroWidth": "槽宽必须大于零",
         "unsolvedLine": "所选直线无解算坐标，无法生成槽",
         "unsolvedCurve": "所选曲线无解算坐标，无法生成槽",
-        "degenerateRadius": "槽宽超过圆弧半径，偏移弧会坍缩"
+        "degenerateRadius": "槽宽超过圆弧半径，偏移弧会坍缩",
+        "widthFallback": "上次槽宽 Ø{{previous}} mm 超出所选曲线可容纳范围，已回退为默认 Ø{{width}} mm"
       }
     },
     "tangentArc": {
