@@ -232,7 +232,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   15 → 宽 30/半径 15/45 → ƒ30 → reload）**、`sketch-expression-ui` 标签 `ƒ 20`
   **1 passed（55.4 s）**。**未发布**；
   残：样条中线环（blocked-design）、自交环（live 接受、产品诚实拒收并有回归）、
-  live 宽度拖拽、表达式编辑器预填（产品=原文+视觉单位后缀，live=`(expr) mm` 整段）；
+  预览期手柄拖拽、表达式编辑器预填（产品=原文+视觉单位后缀，live=`(expr) mm` 整段）；
   `ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
   **S2u/S2u2/S2u3 弧混合树（2026-11-20）**：live 1 弧+2 线单毂树 → 6 LINE+7 ARC
   （同心弧边界内 r−10 裁剪到 122.127°/外全扫；毂弧 11.9619°）；live 2 弧+1 线 →
@@ -248,7 +248,14 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `(5*2) mm` 全选。实现：web `dimensionExpressionText`（`(<expr>) mm`、角度 `deg`）+
   viewer 装饰器 `expressionText`/`expressionRect` 绘制气泡（并入避让、不参与双击命中）+
   `data-expression-text` 观测面。自交蝴蝶结 live 生成 10 LINE+6 ARC（需平面偏移并集）
-  → 产品既有守卫诚实 `unsupportedChain`，单测永久回归。web 全量 **2708/2708（170 files）**。
+  → 产品既有守卫诚实 `unsupportedChain`，单测永久回归。
+  **S2v 预览宽度编辑（2026-11-20）**：复测纠正 S2t 坐标误判（截图坐标 vs CSS 视口
+  DPR2）——预览期双击 `Ø` 标签打开既有尺寸编辑器，改值/表达式（只取求值）立即重算
+  预览；宽度会话内粘滞（设 30 → 下次预览 Ø30）；提交沿用新宽度。实现：工具 `_width` +
+  哨兵约束 id=-1000 的合成标注注入（不落 params；picker 负 id 解析）+ 
+  `useSyncExternalStore`。真栈新 e2e **1 passed（59.3 s）**（Ø20→30、下次默认 30、
+  `5*2`→数值 10、reload），代表回归 **4 passed（2.7 m）**；web 全量
+  **2714/2714（171 files）**。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/

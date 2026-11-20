@@ -64,6 +64,13 @@ import { buildComponentsSlotDraft, slotMemberComponents } from './sketch-slot-co
 import { buildLineTreeSlotDraft, lineTreeFromSelection } from './sketch-slot-tree-logic.js';
 import { buildCurveTreeSlotDraft, curveTreeFromSelection } from './sketch-slot-curve-tree-logic.js';
 import type { SlotBuildError, SlotDraft } from './sketch-slot-logic.js';
+import {
+  buildSlotPreviewDimension,
+  clearSlotPreviewDimension,
+  getSlotPreviewWidthDefault,
+  rememberSlotPreviewWidth,
+  setSlotPreviewDimension,
+} from './sketch-slot-preview-dimension.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 
 const PREVIEW_COLOR = ColorDef.from(0, 120, 215);
@@ -75,6 +82,8 @@ export class SketchSlotTool extends PrimitiveTool {
 
   private _phase: 'pick' | 'preview' = 'pick';
   private _draft?: SlotDraft;
+  /** 当前宽度（live S2v：预览期 Ø 标签可双击改值；会话级默认粘滞）。 */
+  private _width = DEFAULT_SLOT_WIDTH;
   /** 预览/提交共用的选中直线 id（单线或相连链；提交时按同一集合重建）。 */
   private _selectedIds?: number[];
   private _plane!: SketchPlaneFrame;
@@ -86,6 +95,7 @@ export class SketchSlotTool extends PrimitiveTool {
 
   public override async onPostInstall(): Promise<void> {
     await super.onPostInstall();
+    this._width = getSlotPreviewWidthDefault();
     this._plane = resolveSketchPlaneFrame();
     this.initLocateElements(false, true);
     this.beginDynamics();
@@ -98,6 +108,7 @@ export class SketchSlotTool extends PrimitiveTool {
   public override async onCleanup(): Promise<void> {
     if (this.isDynamicsStarted) this.endDynamics();
     clearSketchToolFeedback(this.toolId);
+    clearSlotPreviewDimension();
     this._draft = undefined;
     this._selectedIds = undefined;
     await super.onCleanup();
@@ -142,6 +153,7 @@ export class SketchSlotTool extends PrimitiveTool {
     this._draft = built.draft;
     this._selectedIds = built.selectedIds;
     this._phase = 'preview';
+    this._publishPreview(sketch, built.draft);
     this._outputPrompt('confirm');
     return EventHandled.Yes;
   }
@@ -177,6 +189,7 @@ export class SketchSlotTool extends PrimitiveTool {
       this._notify(result.error ?? i18next.t('partStudio.sketch.create.toasts.updateFailed'), OutputMessagePriority.Error);
       return EventHandled.Yes;
     }
+    rememberSlotPreviewWidth(this._width);
     await this.exitTool();
     return EventHandled.Yes;
   }
@@ -224,6 +237,7 @@ export class SketchSlotTool extends PrimitiveTool {
       this._phase = 'pick';
       this._draft = undefined;
       this._selectedIds = undefined;
+      clearSlotPreviewDimension();
       this._outputPrompt('pickCurve');
     }
     // 右键=画布菜单（首项「退出 <工具>」）；Esc 退出由基类处理。
@@ -265,6 +279,7 @@ export class SketchSlotTool extends PrimitiveTool {
     this._draft = built.draft;
     this._selectedIds = built.selectedIds;
     this._phase = 'preview';
+    this._publishPreview(sketch, built.draft);
     this._outputPrompt('confirm');
     return true;
   }
@@ -281,19 +296,19 @@ export class SketchSlotTool extends PrimitiveTool {
       if (!seed) return { ok: false, error: 'unsupportedKind' };
       if (seed.kind === 'line') {
         const built = buildLineSlotDraft({
-          line: seed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+          line: seed, entities: sketch.entities, width: this._width, startId: this._nextId,
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
       if (seed.kind === 'arc') {
         const built = buildArcSlotDraft({
-          arc: seed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+          arc: seed, entities: sketch.entities, width: this._width, startId: this._nextId,
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
       if (seed.kind === 'circle') {
         const built = buildCircleSlotDraft({
-          circle: seed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+          circle: seed, entities: sketch.entities, width: this._width, startId: this._nextId,
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
@@ -316,7 +331,7 @@ export class SketchSlotTool extends PrimitiveTool {
       });
       if (!allSingletonLines) {
         const built = buildComponentsSlotDraft({
-          components, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+          components, entities: sketch.entities, width: this._width, startId: this._nextId,
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
@@ -324,7 +339,7 @@ export class SketchSlotTool extends PrimitiveTool {
       const built = buildMultiLineSlotDraft({
         lines: members as Array<SketchEntityDto & { kind: 'line' }>,
         entities: sketch.entities,
-        width: DEFAULT_SLOT_WIDTH,
+        width: this._width,
         startId: this._nextId,
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
@@ -335,7 +350,7 @@ export class SketchSlotTool extends PrimitiveTool {
       const mixed = mixedChainFromSelection(sketch.entities, ids);
       if (mixed) {
         const built = buildMixedChainSlotDraft({
-          chain: mixed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+          chain: mixed, entities: sketch.entities, width: this._width, startId: this._nextId,
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
@@ -344,7 +359,7 @@ export class SketchSlotTool extends PrimitiveTool {
       const closed = closedMixedChainFromSelection(sketch.entities, ids);
       if (closed) {
         const built = buildClosedMixedRingSlotDraft({
-          chain: closed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+          chain: closed, entities: sketch.entities, width: this._width, startId: this._nextId,
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
@@ -354,7 +369,7 @@ export class SketchSlotTool extends PrimitiveTool {
       const curveTree = curveTreeFromSelection(sketch.entities, ids);
       if (!curveTree) return { ok: false, error: 'unsupportedChain' };
       const built = buildCurveTreeSlotDraft({
-        tree: curveTree, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        tree: curveTree, width: this._width, startId: this._nextId,
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
     }
@@ -364,7 +379,7 @@ export class SketchSlotTool extends PrimitiveTool {
     const branch = branchChainFromSelection(sketch.entities, ids);
     if (branch) {
       const built = buildBranchChainSlotDraft({
-        chain: branch, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        chain: branch, width: this._width, startId: this._nextId,
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
     }
@@ -372,16 +387,51 @@ export class SketchSlotTool extends PrimitiveTool {
     const tree = lineTreeFromSelection(sketch.entities, ids);
     if (tree) {
       const built = buildLineTreeSlotDraft({
-        tree, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        tree, width: this._width, startId: this._nextId,
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
     }
     const chain = lineChainFromSelection(sketch.entities, ids);
     if (!chain) return { ok: false, error: 'unsupportedKind' };
     const built = buildLineChainSlotDraft({
-      chain, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+      chain, entities: sketch.entities, width: this._width, startId: this._nextId,
     });
     return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+  }
+
+  /**
+   * 发布预览宽度尺寸（live 2026-11-20 S2v）：把草稿的宽度驱动约束投影成
+   * 世界系标注（与提交后同布局家族），编辑器按既有双击通道打开；提交回调
+   * 立即以新宽度重建草稿与预览。
+   */
+  private _publishPreview(sketch: SketchDto, draft: SlotDraft): void {
+    const previewDimension = buildSlotPreviewDimension(sketch, draft, this._width);
+    if (!previewDimension) {
+      clearSlotPreviewDimension();
+      return;
+    }
+    setSlotPreviewDimension(previewDimension, (value) => this._applyPreviewWidth(value));
+  }
+
+  /** 预览改宽：成功返回 ok:true；构建失败回滚宽度并返回本地化错误。 */
+  private _applyPreviewWidth(value: number): { ok: boolean; error?: string } {
+    if (!Number.isFinite(value) || value <= 0)
+      return { ok: false, error: i18next.t('partStudio.sketch.slot.toasts.zeroWidth') };
+    const sketch = getSketchSystem()?.activeSketch;
+    if (!sketch || !this._selectedIds)
+      return { ok: false, error: i18next.t('partStudio.sketch.create.toasts.systemNotReady') };
+    const previousWidth = this._width;
+    this._width = value;
+    const built = this._buildDraft(sketch, this._selectedIds);
+    if (!built.ok) {
+      this._width = previousWidth;
+      return { ok: false, error: i18next.t(this._buildErrorToastKey(built.error)) };
+    }
+    this._draft = built.draft;
+    rememberSlotPreviewWidth(value);
+    this._publishPreview(sketch, built.draft);
+    IModelApp.viewManager.selectedView?.invalidateScene();
+    return { ok: true };
   }
 
   private _buildErrorToastKey(error: SlotBuildError): string {

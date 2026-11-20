@@ -46,6 +46,10 @@ describe('constraintIdFromDimensionLabel', () => {
     expect(constraintIdFromDimensionLabel('dimension-12')).toBe(12);
   });
 
+  it('负数 id = 工具预览尺寸哨兵（S2v；dimension--1000 → -1000）', () => {
+    expect(constraintIdFromDimensionLabel('dimension--1000')).toBe(-1000);
+  });
+
   it('非标注 id / 非安全整数 → null', () => {
     expect(constraintIdFromDimensionLabel('12')).toBeNull();
     expect(constraintIdFromDimensionLabel('dimension-')).toBeNull();

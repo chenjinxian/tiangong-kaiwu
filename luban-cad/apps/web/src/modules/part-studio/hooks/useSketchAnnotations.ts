@@ -31,13 +31,15 @@ export function useSketchAnnotations(
   sketch: SketchDto | undefined,
   active: boolean,
   options?: SketchDimensionAnnotationOptions,
+  /** 工具预览尺寸（槽 S2v）：不来自草图 params，由当前工具发布/撤销。 */
+  previewAnnotation?: SketchDimensionAnnotation,
 ): UseSketchAnnotationsResult {
   // ADR-0020 §2.6 D1：showExpressions 是纯显示投影（默认 true）。
   const showExpressions = options?.showExpressions;
-  const annotations = useMemo<readonly SketchDimensionAnnotation[]>(
-    () => (active && sketch ? buildSketchDimensionAnnotations(sketch, { showExpressions }) : []),
-    [active, sketch, showExpressions],
-  );
+  const annotations = useMemo<readonly SketchDimensionAnnotation[]>(() => {
+    const base = active && sketch ? buildSketchDimensionAnnotations(sketch, { showExpressions }) : [];
+    return previewAnnotation ? [...base, previewAnnotation] : base;
+  }, [active, sketch, showExpressions, previewAnnotation]);
   const glyphs = useMemo<readonly SketchConstraintGlyphAnnotation[]>(
     () => (active && sketch ? buildSketchConstraintGlyphs(sketch) : []),
     [active, sketch],

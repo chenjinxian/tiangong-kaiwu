@@ -84,6 +84,12 @@ import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js'
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
 import { copySketchEntities, pasteSketchClipboard } from '../internal/sketch-clipboard.js';
 import { withConstraintDriven } from '../tools/sketch/sketch-dimension-logic.js';
+import {
+  SLOT_PREVIEW_DIMENSION_ID,
+  commitSlotPreviewWidth,
+  getSlotPreviewDimension,
+  subscribeSlotPreviewDimension,
+} from '../tools/sketch/sketch-slot-preview-dimension.js';
 import { commitActiveSketchPattern, hasActiveSketchPattern } from '../internal/sketch-pattern-session.js';
 import { SketchPlanePicker } from './SketchPlanePicker.js';
 import { SketchValuePopup } from './SketchValuePopup.js';
@@ -308,6 +314,12 @@ export function PartStudioCanvas({
     // E5：约束 glyph 悬停高亮实体集（显示层）。
     glyphHoverEntityIds,
   );
+  // 2026-11-20 S2v：槽工具预览宽度尺寸（非 params；工具发布/撤销）。
+  const slotPreviewDimension = React.useSyncExternalStore(
+    subscribeSlotPreviewDimension,
+    getSlotPreviewDimension,
+    getSlotPreviewDimension,
+  );
   // 2026-11-02 Onshape live：活动草图尺寸标注（长度/距离/半径）视口绘制。
   // ADR-0018 S1g：`显示约束` 关闭时尺寸标注与非尺寸 glyph 一起隐藏（live 证据）。
   const { annotations: sketchAnnotations, glyphs: sketchConstraintGlyphs } = useSketchAnnotations(
@@ -315,7 +327,13 @@ export function PartStudioCanvas({
     sketchSystem?.activeSketch,
     sketchActiveForDecorations && sketchSystem !== undefined && showConstraintsForSketch,
     { showExpressions: showExpressionsForSketch },
+    slotPreviewDimension?.annotation,
   );
+  /** 编辑器约束表 = 草图约束 + 预览哨兵约束（仅 UI，不写入 params）。 */
+  const dimensionEditorConstraints = React.useMemo(() => {
+    const base = sketchSystem?.activeSketch?.constraints ?? [];
+    return slotPreviewDimension ? [...base, slotPreviewDimension.constraint] : base;
+  }, [sketchSystem?.activeSketch?.constraints, slotPreviewDimension]);
   const [anchor, setAnchor] = React.useState<MenuAnchor | null>(null);
   /** 新建草图对话框的平面选择（三基准面 id / cPlane 特征 id / 模型面选择 id；关闭即清）。 */
   const [sketchDraftPlane, setSketchDraftPlane] = React.useState<string | null>(null);
@@ -1345,10 +1363,14 @@ export function PartStudioCanvas({
           glyphs={sketchConstraintGlyphs}
           overlayHitTestRef={sketchOverlayHitRef}
           dimensionLabelHitTestRef={sketchDimensionLabelHitRef}
-          constraints={sketchSystem.activeSketch.constraints}
+          constraints={dimensionEditorConstraints}
           variables={partStudioVariables}
           onCreateVariable={openInlineCreateVariable}
           onCommit={async (constraintId, value, expression) => {
+            // 2026-11-20 S2v：槽工具预览宽度——只取求值结果重建预览（live：
+            // 预览表达式不落 expression，提交为数值）。
+            if (constraintId === SLOT_PREVIEW_DIMENSION_ID)
+              return commitSlotPreviewWidth(value);
             // ADR-0020 §2.6 D3：表达式 → wholesale updateSketch（约束带
             // expression；value 由后端权威覆盖）；纯数字仍走既有单值通道。
             if (expression !== undefined) {
@@ -1369,7 +1391,12 @@ export function PartStudioCanvas({
             t('partStudio.sketch.dimensionUnsupported', { kind }),
           ))}
           selectedConstraintId={sketchConstraintSelection}
-          onSelectConstraint={selectSketchConstraint}
+          onSelectConstraint={(constraintId) => {
+            // 预览哨兵不是真实约束：不进入选择/删除通道。
+            if (constraintId !== null && constraintId < 0)
+              return;
+            selectSketchConstraint(constraintId);
+          }}
           onDeleteConstraint={deleteSelectedSketchConstraint}
           // E5：无绘制工具时悬停非尺寸约束 glyph → 高亮引用实体（显示层）。
           onGlyphHover={activeToolIdForSketchPicker == null ? handleGlyphHover : undefined}

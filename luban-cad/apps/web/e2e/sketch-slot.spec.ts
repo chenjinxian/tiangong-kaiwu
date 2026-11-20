@@ -267,6 +267,115 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     assertSlotGeometry(persisted, 15);
   });
 
+  test('预览宽度尺寸（S2v）：预览双击 Ø20 改 30 → 提交；下一次默认 30；预览表达式 5*2 → 数值 10', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+
+    await page.getByRole('button', { name: '草图', exact: true }).click();
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible();
+    await chooseSketchPlaneInViewport(page, 'front');
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 4, { low: { x: -100, y: -100, z: -100 }, high: { x: 100, y: 100, z: 100 } });
+    await disableSnap(page);
+
+    let sketchId: string | undefined;
+    const readSketch = async (): Promise<SketchDto> => {
+      if (!sketchId) {
+        const tree = await getFeatureTreeRpc(ctx, token);
+        sketchId = tree.filter((row) => row.featureType === 'sketch').at(-1)?.id;
+        expect(sketchId, '树内应有 sketch 行').toBeTruthy();
+      }
+      const sketch = await getSketchRpc(ctx, sketchId!, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+    const arcRadii = async (): Promise<number[]> => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')
+      .map((arc) => arc.radius ?? NaN)
+      .sort((a, b) => a - b);
+    const diameterValues = async (): Promise<number[]> => (await readSketch()).constraints
+      .filter((constraint) => constraint.kind === 'diameter')
+      .map((constraint) => Math.round((constraint.value ?? NaN) * 1000) / 1000)
+      .sort((a, b) => a - b);
+
+    // 线 1（局部 y=0）→ 槽预览：默认 Ø20（会话初始值）。
+    await activate(page, '线');
+    await clickWorld(page, hub, P(-50, 0));
+    await clickWorld(page, hub, P(50, 0));
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await clickWorld(page, hub, P(0, 0));
+    await page.waitForTimeout(700);
+
+    // live 2026-11-20 S2t3–S2t5：预览期双击宽度标签 → 编辑器 20 → 改 30 →
+    // 预览立即更新；提交沿用新宽度。
+    const previewLabel = page.locator('[data-testid="sketch-dimension-label"][data-constraint-id="-1000"]');
+    await expect(previewLabel).toHaveAttribute('data-text', '⌀20', { timeout: 30_000 });
+    const previewAt = await dimensionLabelCenter(page, box, -1000);
+    await page.mouse.dblclick(previewAt.x, previewAt.y);
+    const input = page.getByTestId('sketch-dimension-input');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await expect(input).toHaveValue('20');
+    await input.fill('30');
+    await page.getByTestId('sketch-dimension-confirm').click();
+    await expect(previewLabel).toHaveAttribute('data-text', '⌀30', { timeout: 10_000 });
+    await clickWorld(page, hub, P(-80, -80));
+    await expect.poll(async () => (await arcRadii())[0] ?? NaN, {
+      timeout: 30_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(15, 3);
+    expect(await diameterValues()).toEqual([30]);
+
+    // 线 2（局部 y=-40）→ 槽预览默认 = 上次宽度 30（live 粘滞）。
+    await activate(page, '线');
+    await clickWorld(page, hub, P(-50, -40));
+    await clickWorld(page, hub, P(50, -40));
+    await page.waitForTimeout(800);
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await clickWorld(page, hub, P(0, -40));
+    await page.waitForTimeout(700);
+    await expect(previewLabel).toHaveAttribute('data-text', '⌀30', { timeout: 30_000 });
+
+    // live S2t6：预览编辑器接受表达式但只取求值结果（5*2 → 宽 10；提交为
+    // 数值，无 expression）。
+    const previewAt2 = await dimensionLabelCenter(page, box, -1000);
+    await page.mouse.dblclick(previewAt2.x, previewAt2.y);
+    const input2 = page.getByTestId('sketch-dimension-input');
+    await expect(input2).toBeVisible({ timeout: 10_000 });
+    await expect(input2).toHaveValue('30');
+    await input2.fill('5*2');
+    await page.getByTestId('sketch-dimension-confirm').click();
+    await expect(previewLabel).toHaveAttribute('data-text', '⌀10', { timeout: 10_000 });
+    await clickWorld(page, hub, P(-80, -80));
+    await expect.poll(async () => (await arcRadii()).filter((radius) => Math.abs(radius - 5) < 0.01).length, {
+      timeout: 30_000, intervals: [1000, 2000, 5000],
+    }).toBe(2);
+    expect(await diameterValues()).toEqual([10, 30]);
+    expect((await readSketch()).constraints
+      .find((constraint) => constraint.kind === 'diameter' && Math.abs((constraint.value ?? NaN) - 10) < 1e-6)
+      ?.expression).toBeUndefined();
+
+    // finish + reload：两个槽宽度持久（r15×2 + r5×2；diameter 10/30）。
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const persistedRadii = await arcRadii();
+    expect(persistedRadii).toHaveLength(4);
+    expect(persistedRadii[0]).toBeCloseTo(5, 3);
+    expect(persistedRadii[1]).toBeCloseTo(5, 3);
+    expect(persistedRadii[2]).toBeCloseTo(15, 3);
+    expect(persistedRadii[3]).toBeCloseTo(15, 3);
+    expect(await diameterValues()).toEqual([10, 30]);
+  });
+
   test('框选相连 3 段 → 槽（预选链）→ Enter 一键提交 → Ø 参数化 → reload', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const token = await getApiToken();

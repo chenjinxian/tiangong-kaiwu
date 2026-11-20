@@ -12,7 +12,8 @@ export interface ScreenPoint2 { x: number; y: number }
 
 /** 标签 id 形如 `dimension-<constraintId>`（sketch-annotations.ts 同源）。 */
 export function constraintIdFromDimensionLabel(id: string): number | null {
-  const match = /^dimension-(\d+)$/.exec(id);
+  // 负数 id = 工具预览尺寸哨兵（槽工具 S2v；不落 params）；真实约束 id 恒正。
+  const match = /^dimension-(-?\d+)$/.exec(id);
   if (!match)
     return null;
   const value = Number(match[1]);
