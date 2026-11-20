@@ -376,6 +376,144 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     expect(await diameterValues()).toEqual([10, 30]);
   });
 
+  test('T 形直通三线（gap=180°）→ 槽（S2x）：3 帽 + 6 边界、无毂弧 → Ø30 → reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-tjunction');
+    // 毂偏离坐标轴（(20,20)）：T 线不与 X/Y 轴线重合，画布拾取/框选才可靠。
+    const HUB = { x: 20, y: 20 };
+    const UP = { x: 20, y: 120 };
+    const DOWN = { x: 20, y: -80 };
+    const RIGHT = { x: 120, y: 20 };
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, ...HUB },
+        { kind: 'point', id: 2, ...UP },
+        { kind: 'point', id: 3, ...DOWN },
+        { kind: 'point', id: 4, ...RIGHT },
+        { kind: 'line', id: 11, p1: 1, p2: 2 },
+        { kind: 'line', id: 12, p1: 1, p2: 3 },
+        { kind: 'line', id: 13, p1: 1, p2: 4 },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'fixed', id: 101, refs: [2] },
+        { kind: 'fixed', id: 102, refs: [3] },
+        { kind: 'fixed', id: 103, refs: [4] },
+      ],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, 'T 形三线草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -140, y: -140, z: -20 }, high: { x: 140, y: 140, z: 20 } });
+    await disableSnap(page);
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+
+    // 预选三线（Ctrl 逐个叠加线段中点；Top 视图框选受视口/平面边界影响）
+    // → 偏移 ▾ → 槽 → Enter。
+    const midpoints = await projectWorld(page, hub, [
+      { x: 20, y: 70, z: 0 }, { x: 20, y: -30, z: 0 }, { x: 70, y: 20, z: 0 },
+    ]);
+    await page.keyboard.down('Control');
+    for (const point of midpoints) {
+      expect(point).toBeDefined();
+      await page.mouse.click(point!.x, point!.y);
+      await page.waitForTimeout(250);
+    }
+    await page.keyboard.up('Control');
+    const picker = page.getByTestId('sketch-entity-picker');
+    const selectedIds = async (): Promise<number[]> =>
+      JSON.parse((await picker.getAttribute('data-selected')) ?? '[]') as number[];
+    await expect.poll(async () => (await selectedIds()).length, { timeout: 10_000 }).toBe(3);
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await page.waitForTimeout(700);
+    expect((await selectedIds()).length, '启动工具不得清掉草图预选').toBe(3);
+    expect(await page.evaluate(() => {
+      const im = (window as any).__lubanE2E?.coreFrontend?.IModelApp;
+      const admin = im?._toolAdmin ?? im?.toolAdmin;
+      return admin?.activeTool?.toolId as string | undefined;
+    }), '槽工具应已激活').toBe('Sketch.Slot');
+    await page.keyboard.press('Enter');
+
+    // live S2x：T 形 → 3 帽（r10）+ 6 边界线（源 3 + 边界 6 = 9 LINE）、无毂弧。
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'arc').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(3);
+    const sketch = await readSketch();
+    const lines = sketch.entities.filter((e): e is LineEntity => e.kind === 'line');
+    const arcs = sketch.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+    expect(lines, '3 源线 + 6 边界线').toHaveLength(9);
+    expect(arcs, '仅三个自由端帽、无毂弧').toHaveLength(3);
+    for (const arc of arcs)
+      expect(arc.radius ?? NaN).toBeCloseTo(10, 3);
+    const endpoints: Array<{ x: number; y: number }> = [];
+    for (const line of lines)
+      endpoints.push(resolvePointRef(line.p1, sketch.entities), resolvePointRef(line.p2, sketch.entities));
+    const hasPoint = (p: { x: number; y: number }): boolean =>
+      endpoints.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 1e-3);
+    // 两处右侧斜接 + 一处左侧直通接缝（毂偏移点）。
+    expect(hasPoint({ x: HUB.x + 10, y: HUB.y + 10 }), '上-右斜接').toBe(true);
+    expect(hasPoint({ x: HUB.x + 10, y: HUB.y - 10 }), '下-右斜接').toBe(true);
+    expect(hasPoint({ x: HUB.x - 10, y: HUB.y }), '左侧共线接缝').toBe(true);
+    const centers = arcs.map((arc) => resolvePointRef(arc.center, sketch.entities));
+    for (const want of [UP, DOWN, RIGHT])
+      expect(centers.some((c) => Math.hypot(c.x - want.x, c.y - want.y) < 1e-3)).toBe(true);
+    const diameter = sketch.constraints.find((c) => c.kind === 'diameter')!;
+    expect(diameter.value).toBeCloseTo(20, 3);
+
+    // Ø20 → 30：全部边界/帽同步（r15；斜接 15/15、接缝 −15）。
+    const lease2 = await borrowWriteLease(ctx, token, 'sketch-slot-tjunction-widen');
+    const widen = await applyFeatureOpRpc(ctx, {
+      kind: 'updateSketchConstraint', sketchId, constraintId: diameter.id, value: 30,
+    }, lease2, token);
+    expect(widen.ok, widen.ok ? '' : widen.error).toBe(true);
+    await releaseWriteLease(ctx, lease2, token);
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e): e is ArcEntity => e.kind === 'arc')[0]?.radius ?? NaN, {
+      timeout: 30_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(15, 3);
+    const widened = await readSketch();
+    const widenedEndpoints: Array<{ x: number; y: number }> = [];
+    for (const line of widened.entities.filter((e): e is LineEntity => e.kind === 'line'))
+      widenedEndpoints.push(resolvePointRef(line.p1, widened.entities), resolvePointRef(line.p2, widened.entities));
+    const hasWidened = (p: { x: number; y: number }): boolean =>
+      widenedEndpoints.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 1e-3);
+    expect(hasWidened({ x: HUB.x + 15, y: HUB.y + 15 })).toBe(true);
+    expect(hasWidened({ x: HUB.x + 15, y: HUB.y - 15 })).toBe(true);
+    expect(hasWidened({ x: HUB.x - 15, y: HUB.y })).toBe(true);
+
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const persisted = await readSketch();
+    expect(persisted.entities.filter((e) => e.kind === 'line')).toHaveLength(9);
+    const persistedArcs = persisted.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+    expect(persistedArcs).toHaveLength(3);
+    for (const arc of persistedArcs)
+      expect(arc.radius ?? NaN).toBeCloseTo(15, 3);
+  });
+
   test('框选相连 3 段 → 槽（预选链）→ Enter 一键提交 → Ø 参数化 → reload', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 300_000);
     const token = await getApiToken();

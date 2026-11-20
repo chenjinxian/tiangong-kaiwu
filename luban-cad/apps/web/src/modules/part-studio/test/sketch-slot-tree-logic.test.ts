@@ -183,21 +183,7 @@ describe('buildLineTreeSlotDraft（S2o 线树槽）', () => {
     expect(kinds.filter((k) => k === 'coincident')).toHaveLength(18); // 4 帽×3 + 6 miter
   });
 
-  it('错误：缺口≈180°（T 形）→ unsupportedChain；短臂斜接越界 → degenerateRadius', () => {
-    const tShape: SketchEntityDto[] = [
-      { kind: 'point', id: 1, x: 0, y: 0 },
-      { kind: 'point', id: 2, x: 40, y: 0 },
-      { kind: 'point', id: 3, x: 0, y: 40 },
-      { kind: 'point', id: 5, x: -40, y: 0 },
-      { kind: 'line', id: 11, p1: 1, p2: 2 },
-      { kind: 'line', id: 12, p1: 1, p2: 3 },
-      { kind: 'line', id: 14, p1: 1, p2: 5 },
-    ];
-    // 臂 0/90/180°：含 180° 缺口（东←→西）→ 拒收。
-    const tree = lineTreeFromSelection(tShape, [11, 12, 14]);
-    expect(tree).toBeDefined();
-    expect(buildLineTreeSlotDraft({ tree: tree!, width: 20, startId: 100 }))
-      .toEqual({ ok: false, error: 'unsupportedChain' });
+  it('错误：短臂斜接越界 → degenerateRadius', () => {
     // 短臂：毂 (0,0)、臂长 5/40/40、半宽 10 → 斜接越界。
     const shortArm: SketchEntityDto[] = [
       { kind: 'point', id: 1, x: 0, y: 0 },
@@ -211,5 +197,91 @@ describe('buildLineTreeSlotDraft（S2o 线树槽）', () => {
     const shortTree = lineTreeFromSelection(shortArm, [11, 12, 13])!;
     expect(buildLineTreeSlotDraft({ tree: shortTree, width: 20, startId: 100 }))
       .toEqual({ ok: false, error: 'degenerateRadius' });
+  });
+});
+
+// ── live 2026-11-20 S2x：T 形直通（上/下贯通 + 右横臂，gap=180°）──────────
+describe('T 形直通缺口（live S2x `s2x-tjunction-slot.dxf`）', () => {
+  const HUB = { x: -88.722, y: -57.662 };
+  const UP = { x: -88.722, y: -11.305 };
+  const DOWN = { x: -88.722, y: -104.018 };
+  const RIGHT = { x: -42.366, y: -57.662 };
+
+  function tSketch(upPoint = UP): SketchEntityDto[] {
+    return [
+      { kind: 'point', id: 1, ...HUB },
+      { kind: 'point', id: 2, ...upPoint },
+      { kind: 'point', id: 3, ...DOWN },
+      { kind: 'point', id: 4, ...RIGHT },
+      { kind: 'line', id: 11, p1: 1, p2: 2 },
+      { kind: 'line', id: 12, p1: 1, p2: 3 },
+      { kind: 'line', id: 13, p1: 1, p2: 4 },
+    ];
+  }
+
+  it('3 帽 + 6 边界线（无毂弧）；右侧两处斜接于 x=毂+5，左侧共线接缝于毂偏移点', () => {
+    const entities = tSketch();
+    const tree = lineTreeFromSelection(entities, [11, 12, 13]);
+    expect(tree).toBeDefined();
+    const built = buildLineTreeSlotDraft({ tree: tree!, width: 10, startId: 100 });
+    if (!built.ok) throw new Error(`unexpected ${built.error}`);
+    const draft = built.draft;
+    const lines = draft.entities.filter((e): e is LineEntity => e.kind === 'line');
+    const arcs = draft.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+    expect(lines).toHaveLength(6);
+    expect(arcs).toHaveLength(3);
+    expect(draft.cornerArcIds ?? []).toHaveLength(0);
+    const coords = lines.map((line) => {
+      const p = (ref: unknown) => ref as { x: number; y: number };
+      return [p(line.p1).x, p(line.p1).y, p(line.p2).x, p(line.p2).y];
+    });
+    const expected = [
+      [-83.722, -52.662, -42.366, -52.662], // 右臂北边界（斜接→帽）
+      [-83.722, -52.662, -83.722, -11.305], // 上臂东边界（帽→斜接）
+      [-83.722, -62.662, -42.366, -62.662], // 右臂南边界（斜接→帽）
+      [-83.722, -62.662, -83.722, -104.018], // 下臂东边界（斜接→帽）
+      [-93.722, -57.662, -93.722, -11.305], // 上臂西边界（毂偏移点→帽）
+      [-93.722, -57.662, -93.722, -104.018], // 下臂西边界（帽→毂偏移点）
+    ];
+    for (const want of expected)
+      expect(coords.some((actual) => sameLine(actual, want)), `缺少边界线 ${want.join(',')}`).toBe(true);
+    // 3 帽 r=5，圆心 = 三个自由端点（毂不出帽）。
+    expect(arcs.map((a) => a.radius)).toEqual([5, 5, 5]);
+    const points = new Map(draft.entities
+      .filter((e): e is Extract<SketchEntityDto, { kind: 'point' }> => e.kind === 'point')
+      .map((e) => [e.id, { x: e.x, y: e.y }]));
+    const centers = arcs.map((a) => {
+      const id = typeof a.center === 'number' ? a.center : undefined;
+      expect(id).toBeDefined();
+      return points.get(id!)!;
+    });
+    expect(centers).toEqual(expect.arrayContaining([
+      { x: UP.x, y: UP.y }, { x: DOWN.x, y: DOWN.y }, { x: RIGHT.x, y: RIGHT.y },
+    ]));
+    // 单 Ø：1 diameter + 2 equal；6 parallel；斜接/接缝 coincident 共 12。
+    const constraints = draft.constraints;
+    expect(constraints.filter((c) => c.kind === 'diameter')).toHaveLength(1);
+    expect(constraints.filter((c) => c.kind === 'equal')).toHaveLength(2);
+    expect(constraints.filter((c) => c.kind === 'parallel')).toHaveLength(6);
+    expect(constraints.filter((c) => c.kind === 'coincident')).toHaveLength(12);
+    expect(constraints.filter((c) => c.kind === 'tangent')).toHaveLength(6);
+  });
+
+  it('分支臂中的共线折点（度 2、两个直通缺口）→ unsupportedChain（无 live 证据）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, ...HUB }, // 度 3 毂
+      { kind: 'point', id: 2, ...UP },
+      { kind: 'point', id: 3, ...DOWN },
+      { kind: 'point', id: 5, x: -42.366, y: -57.662 }, // 分支臂中点
+      { kind: 'point', id: 6, x: -10, y: -57.662 }, // 分支臂末端
+      { kind: 'line', id: 11, p1: 1, p2: 2 },
+      { kind: 'line', id: 12, p1: 1, p2: 3 },
+      { kind: 'line', id: 13, p1: 1, p2: 5 },
+      { kind: 'line', id: 14, p1: 5, p2: 6 },
+    ];
+    const tree = lineTreeFromSelection(entities, [11, 12, 13, 14]);
+    expect(tree).toBeDefined();
+    expect(buildLineTreeSlotDraft({ tree: tree!, width: 10, startId: 100 }))
+      .toEqual({ ok: false, error: 'unsupportedChain' });
   });
 });

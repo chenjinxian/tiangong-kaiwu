@@ -13,13 +13,16 @@
  * - 相邻臂缺口 <180°：两条相对偏移线求交 → 斜接；
  * - 缺口 >180°：边界为绕顶点的 r=w/2 圆弧，弧端点 = 两条相对偏移线在顶点的
  *   偏移点；弧角区间 = 所有臂「背面半平面」的交集（±90° 半圆交）；
- * - 缺口 ≈180°（共线/直通）：无 live 证据 → 诚实拒收；
+ * - 缺口 =180°（共线/直通，live 2026-11-20 S2x T 形）：该对相对边界**不连接**，
+ *   各自止于毂偏移点（两点重合，形成共线接缝）；其余窄缺口照常斜接。T 形结果
+ *   = 3 帽 + 6 边界线（3 源线 + 6 边界；无毂弧）。
  * - 度 1 顶点：尖端半圆帽；度 2 顶点同样走上述规则（外侧圆弧/内侧斜接，与
  *   开放链一致）；度 ≥3 即分支/毂。
  *
  * 范围：**单连通、无环**的直线树（至少一个度 ≥3 顶点）、单臂长度足以容纳
  * 斜接（交点投影在臂内）。纯开放链（无度≥3）仍走既有链构建器；闭环/断链/
- * 共线折点/缺口≈180° 拒收。单 Ø = 首帽 diameter + 其余帽/毂弧逐对 equal。
+ * 多直通缺口（+ 形）/直通与宽缺口并存 → 拒收（未采证据）。
+ * 单 Ø = 首帽 diameter + 其余帽/毂弧逐对 equal。
  */
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import { SLOT_CHAIN_TOL, SLOT_TOL, type SlotBuildError, type SlotDraft } from './sketch-slot-logic.js';
@@ -207,18 +210,24 @@ export function buildLineTreeSlotDraft(input: {
     }
     incident.sort((p, q) => p.angle - q.angle);
     const m = incident.length;
-    interface Gap { from: number; to: number; gap: number; wide: boolean }
+    interface Gap { from: number; to: number; gap: number; wide: boolean; through: boolean }
     const gaps: Gap[] = [];
+    let throughGaps = 0;
     for (let k = 0; k < m; k++) {
       const a = incident[k]!;
       const b = incident[(k + 1) % m]!;
       let gap = b.angle - a.angle;
       while (gap <= 0) gap += twoPi;
-      if (gap <= 1e-9 || Math.abs(gap - Math.PI) <= 1e-9) return { ok: false, error: 'unsupportedChain' };
-      gaps.push({ from: k, to: (k + 1) % m, gap, wide: gap > Math.PI });
+      if (gap <= 1e-9) return { ok: false, error: 'unsupportedChain' };
+      const through = Math.abs(gap - Math.PI) <= 1e-9;
+      if (through) throughGaps++;
+      gaps.push({ from: k, to: (k + 1) % m, gap, wide: gap > Math.PI, through });
     }
+    // live S2x 仅采到「单一 T 形直通」；+ 形（多直通）与直通+宽缺口并存无证据。
+    if (throughGaps > 1) return { ok: false, error: 'unsupportedChain' };
     const wideGaps = gaps.filter((g) => g.wide);
     if (wideGaps.length > 1) return { ok: false, error: 'unsupportedChain' };
+    if (wideGaps.length > 0 && throughGaps > 0) return { ok: false, error: 'unsupportedChain' };
     let arcGap: Gap | undefined;
     let arcInterval: { start: number; end: number } | undefined;
     if (wideGaps.length === 1) {
@@ -255,6 +264,16 @@ export function buildLineTreeSlotDraft(input: {
     for (const gap of gaps) {
       const aInc = incident[gap.from]!;
       const bInc = incident[gap.to]!;
+      if (gap.through) {
+        // live S2x T 形：直通缺口两侧边界各自止于毂偏移点（共线 seam），
+        // 不生成斜接/毂弧；两点必须重合（非共线近 180° 无证据 → 拒收）。
+        const pA = vadd(node.pos, scale(rotL(aInc.u), half));
+        const pB = vadd(node.pos, scale(rotR(bInc.u), half));
+        if (dist2(pA, pB) > 1e-6) return { ok: false, error: 'unsupportedChain' };
+        conn.set(`${aInc.armIndex}:${aInc.end}:L`, pA);
+        conn.set(`${bInc.armIndex}:${bInc.end}:R`, pB);
+        continue;
+      }
       const isArcGap = arcGap === gap;
       if (isArcGap) {
         // startAngle = 缺口起臂角 + 交集起（缺口中 aInc 即 gap.from）。

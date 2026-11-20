@@ -391,13 +391,13 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   - 缺口 <180° → 前一臂左偏移 ∩ 后一臂右偏移斜接（解析交点 + t/s 投影守卫）；
   - 缺口 >180° → 绕毂圆弧：取所有臂「后退半平面」交集跨过的弧段（等效
     `180° − 最小锥宽`），起止角与两侧边界偏移点逐点吻合（1e-6 守卫）；
-  - 缺口 ≈180°（T 形）与短臂斜接越界 → 诚实拒收（unsupportedChain /
-    degenerateRadius）。
+  - 缺口 ≈180° 当时无 live 证据 → 诚实拒收（S2x 已补采并支持 T 形直通，
+    见 §2.17）；短臂斜接越界 → degenerateRadius。
   边界 L/R 按「臂:端:L|R」连接表串接；约束：帽 3 coincident + 2 tangent、
   毂弧 2 coincident + 2 tangent、斜接 1 coincident、每臂 2 parallel、单 Ø + equal。
-- **验证**：`sketch-slot-tree-logic` **6/6**（A 毂弧起止 149.055°/117.255°、
+- **验证**：`sketch-slot-tree-logic` **8/8**（A 毂弧起止 149.055°/117.255°、
   6 条边界线与 live 逐坐标吻合；D 10 边界线/4 帽/18 coincident/8 tangent；
-  T 形与短臂拒收）；真栈新 e2e **1 passed（52.4 s）**：RPC 建 live 坐标
+  短臂拒收；T 形直通见 §2.17）；真栈新 e2e **1 passed（52.4 s）**：RPC 建 live 坐标
   Y 分支 → 框选 → 槽：9 线/4 弧、毂弧 149.055°+117.255°、单 Ø20 → 改 30
   全弧 r15 → finish+reload。
 - **状态口径**：`ui.sketchSlot` 仍 partial；「缺口 ≥180° 分支」「多毂树」从
@@ -497,6 +497,25 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
 - **状态口径**：`ui.sketchSlot` 仍 partial；「预览宽度编辑」从 missing 移除；
   预览期手柄拖拽/光标预览仍无证据（S2t 白色「−」未确认为可拖拽手柄），保持
   未建模。
+
+### 2.17 S2x T 形直通（gap=180°，2026-11-20 live）
+
+- **live 证据**（私有 `SLOT-S2O-TREE-COMPONENTS-LIVE-20261120.md` §4f；
+  `s2x-tjunction-slot.dxf`）：三线共毂、上/下两臂共线（相邻缺口 =180°）+
+  右横臂 → Onshape **接受**：**9 LINE + 3 ARC** = 源 3 线 + 6 边界线 + 3 尖端
+  帽（r=w/2），**无毂弧**。直通两侧的边界各自止于毂偏移点（两点重合，形成
+  共线接缝）；横臂与直通两臂在 `毂 + (w/2, ±w/2)` 处直接**斜接**（90°）。
+- **实现**：`sketch-slot-tree-logic.ts` 把相邻缺口 ≈180° 识别为 through gap：
+  该对相对边界分别取 `毂 + 左/右偏移点`（重合 1e-6 守卫），不生成毂弧/斜接；
+  其余窄缺口照常斜接。单节点至多一个 through gap，且不与宽缺口并存（+ 形、
+  直通+宽缺口、分支臂中的共线折点等未采证据形态诚实拒收）。
+- **验证**：`sketch-slot-tree-logic` **8/8**（live 逐线段：6 边界线、3 帽 r5、
+  斜接点 `毂+(5,±5)`、接缝点 `毂+(−5,0)`；Ø20→30 边界同步；共线折点拒收）；
+  真栈新 e2e **1 passed（52.7 s）**：RPC T 三线 → Ctrl 叠选 → 槽 → 9 LINE+
+  3 ARC、帽 r10、斜接/接缝点 → Ø30 全边界同步 → reload。代表回归（单线/
+  链/S2p 宽缺口线树）**4 passed（2.3 m）**。
+- **状态口径**：`ui.sketchSlot` 仍 partial；「≈180° T 形直通」从「无证据拒收」
+  改为支持；+ 形、直通+宽缺口并存、近 180° 非共线等仍拒收（未采证据）。
 
 ## 3. 数据/事务
 
