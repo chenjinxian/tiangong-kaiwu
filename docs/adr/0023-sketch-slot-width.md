@@ -157,6 +157,10 @@ interface SketchSlotWidthConstraint {
   混合选择中含闭合环分量（slotWidth 宽度语义不能与直径约束合并）；能力账本
   `ui.sketchSlot` / `constraint.slotWidth` 维持 `partial`。
 - `slotWidth` 表达式已接（S2r，长度类；见 §4）；**变量驱动 UI 真栈未单独 e2e**
-  （后端 `updateVariables` 单测覆盖）。宽度拖拽/放置交互未采。
+  （后端 `updateVariables` 单测覆盖）。
+- **宽度预览/拖拽交互（S2t 探针 2026-11-20，未复刻）**：live 预览期的 `Ø20`
+  标签与槽下方白色「−」均为 canvas 绘制（无 DOM 输入框）；单击/双击标签与
+  拖拽方块未产生编辑器或宽度变化（证据不足）。产品保持默认 Ø20 + 提交后
+  尺寸编辑；该交互维持未实现残项。
 - 回滚：`slotWidth` 为 additive kind；工具/能力 flag 可关闭；旧库无该
   kind 不需要迁移；失败路径保持原几何。
