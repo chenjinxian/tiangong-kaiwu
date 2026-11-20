@@ -147,14 +147,18 @@ interface SketchSlotWidthConstraint {
   `显示表达式` 勾选；关闭无 ƒ），见 ADR-0020 D1/S2r。真栈
   `sketch-slot.spec.ts --grep 整圆槽宽度表达式` **1 passed（56.0 s）**：
   整圆槽宽 `5*2` → 10（内/中线/外 25/30/35）、标签 `ƒ 10` → 开关关闭 `10`
-  → 勾选 `ƒ 10` → reload 持久。
+  → 勾选 `ƒ 10` → reload 持久。**S2u4 补采（2026-11-20，同批）**：`(5*2) mm`
+  是数值上方的 canvas 表达式气泡（非编辑器闭合态）；已实现（viewer 气泡 +
+  web `expressionText`），真栈表达式用例 **39.7 s** 含气泡开/关断言（见
+  ADR-0020 S2u4）。
 
 ## 5. 已知边界 / 后续
 
 - v1.84/S2p/S2q/S2u 后已支持：闭合 line+arc 混合环（弧中线 ring）、单毂分支链、
   宽缺口分支（绕毂弧）/多毂线树（ADR-0022 §2.13）、多连通分量共享单 Ø
   （弧+线、链+线；§2.14）、含圆弧的混合线树（单/多弧臂 + 弧-弧宽缺口；§2.15）。
-  仍诚实拒收/不建模：自交环（live 接受但轮廓未解码）、样条中线闭合环（live
+  仍诚实拒收/不建模：自交环（live 接受并生成自交偏移轮廓；需一般平面偏移
+  并集，产品返回 `unsupportedChain`，单测回归覆盖）、样条中线闭合环（live
   采到 = 两条闭合偏移样条；求解器无样条偏移 → **blocked-design**）、混合选择中
   含闭合环分量（slotWidth 宽度语义不能与直径约束合并）；能力账本
   `ui.sketchSlot` / `constraint.slotWidth` 维持 `partial`。

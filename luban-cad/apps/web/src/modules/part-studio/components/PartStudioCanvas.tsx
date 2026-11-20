@@ -1449,6 +1449,7 @@ export function PartStudioCanvas({
           data-testid="sketch-annotations"
           data-count={sketchAnnotations.length}
           data-labels={sketchAnnotations.map((annotation) => annotation.text).join('|')}
+          data-expression-labels={sketchAnnotations.map((annotation) => annotation.expressionText ?? '').join('|')}
           aria-hidden="true"
         />
       )}

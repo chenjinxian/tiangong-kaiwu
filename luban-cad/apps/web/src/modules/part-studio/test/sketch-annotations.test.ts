@@ -293,6 +293,36 @@ describe('buildSketchDimensionAnnotations：显示表达式开关', () => {
     expect(buildSketchDimensionAnnotations(sketch(lineEntities, constraints), { showExpressions: true })[0])
       .toMatchObject({ text: '20' });
   });
+
+  it('表达式气泡（live 2026-11-20 S2u4）：`(<expr>) mm/deg`；关闭显示 → 无气泡', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 1, p1: { x: 0, y: 0 }, p2: { x: 20, y: 0 } },
+      { kind: 'circle', id: 4, center: { x: 10, y: 0 }, radius: 6 },
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 0, y: 10 } },
+    ];
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'length', id: 310, refs: [1], value: 20, expression: '5*2' },
+      { kind: 'diameter', id: 311, refs: [4], value: 12, expression: '#d' },
+      { kind: 'angle', id: 312, refs: [1, 5], value: Math.PI / 2, expression: '#ang' },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints))
+      .map((annotation) => annotation.expressionText))
+      .toEqual(['(5*2) mm', '(#d) mm', '(#ang) deg']);
+    expect(buildSketchDimensionAnnotations(sketch(entities, constraints), { showExpressions: false })
+      .map((annotation) => annotation.expressionText))
+      .toEqual([undefined, undefined, undefined]);
+  });
+
+  it('driven / 无表达式 / 空白表达式：不产生气泡', () => {
+    const constraints: SketchConstraintDto[] = [
+      { kind: 'length', id: 320, refs: [1], value: 30, expression: '#w', driven: true },
+      { kind: 'length', id: 321, refs: [1], value: 20 },
+      { kind: 'length', id: 322, refs: [1], value: 20, expression: '   ' },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(lineEntities, constraints))
+      .map((annotation) => annotation.expressionText))
+      .toEqual([undefined, undefined, undefined]);
+  });
 });
 
 // ── W31-A（2026-11-17 从动/参考尺寸）：driven 标签显示当前几何测量值 ─────────

@@ -691,3 +691,25 @@ describe('buildClosedRingSlotDraft 凹环（S2j）', () => {
     expect(built).toEqual({ ok: false, error: 'degenerateRadius' });
   });
 });
+
+// ── live 2026-11-20 S2oE 自交环（bowtie）：Onshape 接受，产品诚实拒收 ───────
+describe('自交闭合环（live s2oE-bowtie：Onshape 接受，本产品未建模）', () => {
+  it('4 线蝴蝶结（L2×L4 自交于 (96.6355,-144.4765)）→ unsupportedChain', () => {
+    const A = { x: 99.090, y: -185.370 };
+    const B = { x: 62.448, y: -121.904 };
+    const C = { x: 94.181, y: -103.583 };
+    const D = { x: 130.823, y: -167.049 };
+    const entities: SketchEntityDto[] = [
+      { kind: 'point', id: 1, ...A }, { kind: 'point', id: 2, ...B },
+      { kind: 'point', id: 3, ...C }, { kind: 'point', id: 4, ...D },
+      { kind: 'line', id: 11, p1: 1, p2: 2 },
+      { kind: 'line', id: 12, p1: 3, p2: 1 },
+      { kind: 'line', id: 13, p1: 4, p2: 3 },
+      { kind: 'line', id: 14, p1: 2, p2: 4 },
+    ];
+    const chain = lineChainFromSelection(entities, [11, 12, 13, 14]);
+    expect(chain, '闭环链识别本身成功').toBeDefined();
+    expect(buildLineChainSlotDraft({ chain: chain!, entities, width: 20, startId: 100 }))
+      .toEqual({ ok: false, error: 'unsupportedChain' });
+  });
+});

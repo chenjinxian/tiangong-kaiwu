@@ -115,6 +115,34 @@ describe('SketchDimensionsDecoration', () => {
     expect(vi.mocked(viewport.worldToView).mock.calls.length).toBeGreaterThan(0);
   });
 
+  it('表达式气泡：标签携带气泡文本/包围盒，绘制在数值上方（live S2u4）', () => {
+    const { viewport } = makeViewport();
+    const annotations: SketchDimensionAnnotation[] = [{
+      kind: 'linear',
+      id: 'dimension-1b',
+      a: Point3d.create(0, 0, 0),
+      b: Point3d.create(10, 0, 0),
+      side: Vector3d.create(0, -1, 0),
+      text: 'ƒ Ø10',
+      expressionText: '(5*2) mm',
+    }];
+    const layout = layoutSketchDimensions(annotations, viewport);
+    const labels = sketchDimensionLabels(layout);
+    expect(labels[0]).toMatchObject({ text: 'ƒ Ø10', expressionText: '(5*2) mm' });
+    expect(labels[0]!.expressionRect).toBeDefined();
+    // 气泡紧贴数值上方（屏幕 y 更小）。
+    expect(labels[0]!.expressionRect!.bottom).toBeLessThanOrEqual(labels[0]!.rect.top + 0.001);
+
+    const deco = new SketchDimensionsDecoration(viewport, annotations);
+    const { context, addCanvasDecoration } = makeContext(viewport);
+    deco.decorate(context);
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
+    const ctx = makeCtx();
+    decoration.drawDecoration(ctx);
+    const texts = ctx.fillText.mock.calls.map((call) => call[0]);
+    expect(texts).toEqual(expect.arrayContaining(['ƒ Ø10', '(5*2) mm']));
+  });
+
   it('径向尺寸：圆心-弧点引线 + R 文本', () => {
     const { viewport } = makeViewport();
     const annotations: SketchDimensionAnnotation[] = [{

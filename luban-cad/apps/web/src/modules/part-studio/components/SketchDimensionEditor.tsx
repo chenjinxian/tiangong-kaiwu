@@ -911,6 +911,9 @@ export function SketchDimensionEditor({
               // e2e/单测观测面：标签文本由 canvas 绘制，DOM 镜像原文（ADR-0020
               // S2「显示表达式」开关断言用；不参与布局/绘制）。
               data-text={label.text}
+              // live 2026-11-20 S2u4：表达式气泡 `(5*2) mm` 由 canvas 绘制，
+              // DOM 只镜像文本供 e2e 断言。
+              data-expression-text={label.expressionText ?? ''}
               data-selected={selected ? 'true' : 'false'}
               className="part-studio-dimension-marker"
               aria-hidden="true"
@@ -923,6 +926,18 @@ export function SketchDimensionEditor({
                   top: label.rect.top,
                   width: Math.max(1, label.rect.right - label.rect.left),
                   height: Math.max(1, label.rect.bottom - label.rect.top),
+                }}
+                aria-hidden="true"
+              />
+            )}
+            {selected && label.expressionRect && (
+              <span
+                className="part-studio-dimension-highlight"
+                style={{
+                  left: label.expressionRect.left,
+                  top: label.expressionRect.top,
+                  width: Math.max(1, label.expressionRect.right - label.expressionRect.left),
+                  height: Math.max(1, label.expressionRect.bottom - label.expressionRect.top),
                 }}
                 aria-hidden="true"
               />

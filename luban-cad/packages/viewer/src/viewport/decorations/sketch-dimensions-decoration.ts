@@ -29,6 +29,11 @@ export interface SketchLinearDimensionAnnotation {
   /** 草图面内世界方向：从被标注几何指向尺寸线应放置的一侧。 */
   side: Vector3d;
   text: string;
+  /**
+   * 表达式气泡文本（live 2026-11-20 S2u4：显示表达式勾选时数值上方绘制
+   * `(5*2) mm` 白底浅蓝描边气泡；关闭时省略）。
+   */
+  expressionText?: string;
 }
 
 export interface SketchRadialDimensionAnnotation {
@@ -41,6 +46,8 @@ export interface SketchRadialDimensionAnnotation {
   /** 草图面内世界方向：引线/文字朝圆弧外侧。 */
   side: Vector3d;
   text: string;
+  /** 表达式气泡文本（同线性尺寸；live S2u4）。 */
+  expressionText?: string;
 }
 
 /** 角度尺寸（两线夹角；Onshape 显示度数值，value 在 shared 中为弧度）。 */
@@ -53,6 +60,8 @@ export interface SketchAngularDimensionAnnotation {
   a: Point3d;
   b: Point3d;
   text: string;
+  /** 表达式气泡文本（同线性尺寸；live S2u4）。 */
+  expressionText?: string;
 }
 
 export type SketchDimensionAnnotation = SketchLinearDimensionAnnotation | SketchRadialDimensionAnnotation | SketchAngularDimensionAnnotation;
@@ -67,6 +76,13 @@ const STACK_STEP = 22;
 const ARROW_LENGTH = 8;
 const ARROW_HALF_WIDTH = 3;
 const FONT = '12px "Segoe UI", "Microsoft YaHei", sans-serif';
+// live 2026-11-20 S2u4 `crop-s2u4f-label-unselected`：表达式气泡白底、浅蓝描边、
+// 紧贴数值上方；`显示表达式` 关闭时连同 `ƒ` 前缀一起消失。
+const EXPRESSION_BUBBLE_BORDER = 'rgba(128, 167, 214, 0.95)';
+const EXPRESSION_BUBBLE_FILL = 'rgba(255, 255, 255, 0.98)';
+const EXPRESSION_BUBBLE_HEIGHT = 16;
+const EXPRESSION_BUBBLE_GAP = 3;
+const LABEL_HALF_HEIGHT = 8;
 
 interface ScreenPoint { x: number; y: number }
 interface ScreenRect { left: number; top: number; right: number; bottom: number }
@@ -90,6 +106,83 @@ function labelRect(center: ScreenPoint, angle: number, text: string): ScreenRect
   const w = width * c + height * s;
   const h = width * s + height * c;
   return { left: center.x - w / 2, top: center.y - h / 2, right: center.x + w / 2, bottom: center.y + h / 2 };
+}
+
+function expressionBubbleSize(text: string): { width: number; height: number } {
+  return { width: Math.max(24, text.length * 7 + 12), height: EXPRESSION_BUBBLE_HEIGHT };
+}
+
+/** 气泡局部中心 y（数值文本正上方，与数值一起旋转）。 */
+function expressionBubbleCenterY(): number {
+  return -(LABEL_HALF_HEIGHT + EXPRESSION_BUBBLE_GAP + EXPRESSION_BUBBLE_HEIGHT / 2);
+}
+
+/** 表达式气泡的屏幕包围盒（选中高亮/避让用；不参与数值双击命中）。 */
+function expressionBubbleRect(center: ScreenPoint, angle: number, text: string): ScreenRect {
+  const { width, height } = expressionBubbleSize(text);
+  const localY = expressionBubbleCenterY();
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const cx = center.x - localY * sin;
+  const cy = center.y + localY * cos;
+  const w = width * Math.abs(cos) + height * Math.abs(sin);
+  const h = width * Math.abs(sin) + height * Math.abs(cos);
+  return { left: cx - w / 2, top: cy - h / 2, right: cx + w / 2, bottom: cy + h / 2 };
+}
+
+function unionRect(a: ScreenRect, b: ScreenRect): ScreenRect {
+  return {
+    left: Math.min(a.left, b.left),
+    top: Math.min(a.top, b.top),
+    right: Math.max(a.right, b.right),
+    bottom: Math.max(a.bottom, b.bottom),
+  };
+}
+
+/** 标注避让矩形：数值 + 表达式气泡（live S2u4 两者是一个两段 chip）。 */
+function dimensionOccupiedRect(
+  center: ScreenPoint,
+  angle: number,
+  annotation: { text: string; expressionText?: string },
+): ScreenRect {
+  const label = labelRect(center, angle, annotation.text);
+  return annotation.expressionText
+    ? unionRect(label, expressionBubbleRect(center, angle, annotation.expressionText))
+    : label;
+}
+
+/** 圆角矩形路径；无 roundRect 的画布退化为直角矩形。 */
+function roundedRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  const canvas = ctx as CanvasRenderingContext2D & { roundRect?: (x: number, y: number, w: number, h: number, radii: number) => void };
+  if (typeof canvas.roundRect === 'function')
+    canvas.roundRect(x, y, w, h, r);
+  else if (typeof ctx.rect === 'function')
+    ctx.rect(x, y, w, h);
+  else {
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x, y + h);
+    ctx.closePath();
+  }
+}
+
+/** 表达式气泡（在数值的旋转坐标系里绘制，位于数值正上方）。 */
+function drawExpressionBubble(ctx: CanvasRenderingContext2D, text: string): void {
+  const { width, height } = expressionBubbleSize(text);
+  const cy = expressionBubbleCenterY();
+  ctx.beginPath();
+  roundedRectPath(ctx, -width / 2, cy - height / 2, width, height, 4);
+  ctx.fillStyle = EXPRESSION_BUBBLE_FILL;
+  ctx.fill();
+  ctx.strokeStyle = EXPRESSION_BUBBLE_BORDER;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.font = FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = TEXT_COLOR;
+  ctx.fillText(text, 0, cy);
 }
 
 /** 沿尺寸线方向画实心箭头（tip 在端点，指向尺寸线外侧）。 */
@@ -164,6 +257,10 @@ export interface SketchDimensionLabel {
   center: ScreenPoint;
   angle: number;
   rect: ScreenRect;
+  /** 表达式气泡文本（DOM 观测面/选中高亮；live S2u4）。 */
+  expressionText?: string;
+  /** 表达式气泡包围盒（选中高亮；不参与数值双击命中）。 */
+  expressionRect?: ScreenRect;
 }
 
 function layoutLinear(
@@ -195,7 +292,7 @@ function layoutLinear(
   };
   const angle = readableAngle(db.x - da.x, db.y - da.y);
   for (let attempt = 0; attempt < 5; attempt++) {
-    const rect = labelRect(labelCenter, angle, annotation.text);
+    const rect = dimensionOccupiedRect(labelCenter, angle, annotation);
     if (!occupied.some((other) => rectsOverlap(rect, other))) break;
     offset += STACK_STEP;
     da = { x: sa.x + sideDir.x * offset, y: sa.y + sideDir.y * offset };
@@ -205,7 +302,7 @@ function layoutLinear(
       y: (da.y + db.y) / 2 + sideDir.y * 9,
     };
   }
-  occupied.push(labelRect(labelCenter, angle, annotation.text));
+  occupied.push(dimensionOccupiedRect(labelCenter, angle, annotation));
   return { kind: 'linear', annotation, sa, sb, lineDir, sideDir, da, db, labelCenter, angle };
 }
 
@@ -228,12 +325,12 @@ function layoutRadial(
   let labelCenter = { x: leaderEnd.x + outward.x * 12, y: leaderEnd.y + outward.y * 12 };
   const angle = readableAngle(outward.x, outward.y);
   for (let attempt = 0; attempt < 5; attempt++) {
-    const rect = labelRect(labelCenter, angle, annotation.text);
+    const rect = dimensionOccupiedRect(labelCenter, angle, annotation);
     if (!occupied.some((other) => rectsOverlap(rect, other))) break;
     leaderEnd = { x: leaderEnd.x + outward.x * STACK_STEP, y: leaderEnd.y + outward.y * STACK_STEP };
     labelCenter = { x: labelCenter.x + outward.x * STACK_STEP, y: labelCenter.y + outward.y * STACK_STEP };
   }
-  occupied.push(labelRect(labelCenter, angle, annotation.text));
+  occupied.push(dimensionOccupiedRect(labelCenter, angle, annotation));
   return { kind: 'radial', annotation, sc, sp, outward, leaderEnd, labelCenter, angle };
 }
 
@@ -296,14 +393,22 @@ export function layoutSketchDimensions(
 
 /** 数值标签列表（id=`dimension-<constraintId>`，与标注 id 同源）。 */
 export function sketchDimensionLabels(layout: readonly SketchDimensionLayout[]): SketchDimensionLabel[] {
-  return layout.map((item) => ({
-    id: item.annotation.id,
-    kind: item.kind,
-    text: item.annotation.text,
-    center: { ...item.labelCenter },
-    angle: item.angle,
-    rect: labelRect(item.labelCenter, item.angle, item.annotation.text),
-  }));
+  return layout.map((item) => {
+    const label: SketchDimensionLabel = {
+      id: item.annotation.id,
+      kind: item.kind,
+      text: item.annotation.text,
+      center: { ...item.labelCenter },
+      angle: item.angle,
+      rect: labelRect(item.labelCenter, item.angle, item.annotation.text),
+    };
+    const expressionText = item.annotation.expressionText;
+    if (expressionText) {
+      label.expressionText = expressionText;
+      label.expressionRect = expressionBubbleRect(item.labelCenter, item.angle, expressionText);
+    }
+    return label;
+  });
 }
 
 /**
@@ -395,6 +500,8 @@ export class SketchDimensionsDecoration {
     ctx.strokeText(annotation.text, 0, 0);
     ctx.fillStyle = TEXT_COLOR;
     ctx.fillText(annotation.text, 0, 0);
+    if (annotation.expressionText)
+      drawExpressionBubble(ctx, annotation.expressionText);
     ctx.restore();
   }
 
@@ -429,6 +536,8 @@ export class SketchDimensionsDecoration {
     ctx.strokeText(annotation.text, 0, 0);
     ctx.fillStyle = TEXT_COLOR;
     ctx.fillText(annotation.text, 0, 0);
+    if (annotation.expressionText)
+      drawExpressionBubble(ctx, annotation.expressionText);
     ctx.restore();
   }
 
@@ -467,6 +576,8 @@ export class SketchDimensionsDecoration {
     ctx.strokeText(annotation.text, 0, 0);
     ctx.fillStyle = TEXT_COLOR;
     ctx.fillText(annotation.text, 0, 0);
+    if (annotation.expressionText)
+      drawExpressionBubble(ctx, annotation.expressionText);
     ctx.restore();
   }
 }

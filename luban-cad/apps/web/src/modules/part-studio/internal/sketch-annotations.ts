@@ -376,6 +376,22 @@ export function dimensionLabelText(
 }
 
 /**
+ * 表达式气泡文本（live 2026-11-20 S2u4 `crop-s2u4f-*` / `state-232`）：
+ * driving + 表达式 + `显示表达式` 勾选 → `(<expr>) mm`（角度用 `deg`，与 W18
+ * 编辑器单位一致）；关闭显示 / driven / 无表达式 → undefined。
+ * 绘制由 viewer 装饰器完成（数值上方白底浅蓝描边气泡）。
+ */
+export function dimensionExpressionText(
+  constraint: SketchConstraintDto,
+  unit: 'mm' | 'deg',
+  options?: SketchDimensionAnnotationOptions,
+): string | undefined {
+  if (options?.showExpressions === false || constraint.driven === true) return undefined;
+  const expression = typeof constraint.expression === 'string' ? constraint.expression.trim() : '';
+  return expression === '' ? undefined : `(${expression}) ${unit}`;
+}
+
+/**
  * SketchDto → 视口尺寸标注（世界系）。只消费可解析的尺寸约束；其余（水平/
  * 重合等）与未解析引用静默跳过——显示层不得因数据缺陷崩死。
  */
@@ -408,6 +424,7 @@ export function buildSketchDimensionAnnotations(
       b: world(b),
       side: sideWorld(frame, side),
       text: dimensionLabelText(constraint, `${prefix}${formatSketchDimensionValue(value)}`, options),
+      expressionText: dimensionExpressionText(constraint, 'mm', options),
     });
   };
 
@@ -451,6 +468,7 @@ export function buildSketchDimensionAnnotations(
           point: world(point),
           side: sideWorld(frame, radial),
           text: dimensionLabelText(constraint, `R${formatSketchDimensionValue(value)}`, options),
+          expressionText: dimensionExpressionText(constraint, 'mm', options),
         });
         break;
       }
@@ -475,6 +493,7 @@ export function buildSketchDimensionAnnotations(
           point: world(point),
           side: sideWorld(frame, radial),
           text: dimensionLabelText(constraint, `⌀${formatSketchDimensionValue(value)}`, options),
+          expressionText: dimensionExpressionText(constraint, 'mm', options),
         });
         break;
       }
@@ -553,6 +572,7 @@ export function buildSketchDimensionAnnotations(
           a: world(rayA),
           b: world(rayB),
           text: dimensionLabelText(constraint, formattedText, options),
+          expressionText: dimensionExpressionText(constraint, 'deg', options),
         });
         break;
       }

@@ -749,12 +749,16 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     expect(appliedSlot.expression).toBe('5*2');
     // live 2026-11-20 S2o state-183：勾选「显示表达式」→ `ƒ` + 求值；关闭 → 仅数值。
     await expect(label).toHaveAttribute('data-text', 'ƒ 10', { timeout: 30_000 });
+    // live 2026-11-20 S2u4：数值上方表达式气泡 `(5*2) mm`（canvas 绘制，DOM 镜像）。
+    await expect(label).toHaveAttribute('data-expression-text', '(5*2) mm', { timeout: 30_000 });
     const showExpressions = page.getByRole('checkbox', { name: '显示表达式' });
     await expect(showExpressions).toBeChecked();
     await showExpressions.uncheck();
     await expect(label).toHaveAttribute('data-text', '10', { timeout: 10_000 });
+    await expect(label).toHaveAttribute('data-expression-text', '', { timeout: 10_000 });
     await showExpressions.check();
     await expect(label).toHaveAttribute('data-text', 'ƒ 10', { timeout: 10_000 });
+    await expect(label).toHaveAttribute('data-expression-text', '(5*2) mm', { timeout: 10_000 });
 
     // reload 持久：表达式与几何（25/30/35）保持。
     await finishSketch(page);
