@@ -785,14 +785,16 @@ export function buildCircleSlotDraft(input: {
 // ---------------------------------------------------------------------------
 
 /**
- * 闭合直线环槽草稿（与 live `ring-slot.dxf` 同构）：
- *  - 每个角：转向**外侧**为 r=Ø/2 圆角弧（弧心=源顶点），内侧为两偏移线斜接；
- *  - **无端帽**；n 条源中线 + n 条外侧边界 + n 条内侧边界全部保留；
- *  - 单一 `slotWidth`（ring）约束 refs=[N 中线,N 外,N 内]、value=宽度：后端为
- *    每条边界补 parallel + 有符号垂距 ±w/2——一个 Ø 尺寸同时驱动内外两侧。
+ * 闭合直线环槽草稿（与 live `ring-slot.dxf` / `concave-slot.dxf` 同构）：
+ *  - 每个顶点：**转向外侧**为 r=Ø/2 圆角弧（弧心=源顶点），转向内侧为两侧偏移线
+ *    斜接/交点；凸角与凹角同一规则（凹角时外侧翻到另一侧，必须逐角判定）。
+ *  - **无端帽**；n 条源中线 + 2n 条边界（两组）全部保留；
+ *  - 单一 `slotWidth`（ring）约束 refs=[N 中线, N 组A, N 组B]、value=宽度：后端为
+ *    每条边界补 parallel + 有符号垂距 ±w/2——一个 Ø 尺寸同时驱动两侧。
  *
- * 仅接受**凸**、同向转向、无共线折点的闭合直线链（live 证据只有凸圆角矩形；
- * 凹角的外侧圆角语义未采）。其它 → unsupportedChain；内环退化 → degenerateRadius。
+ * 接受无共线折点的简单闭合直线链（凸或凹；live 2026-11-20 `concave-slot.dxf`）；
+ * 宽度导致边界环坍缩/反向 → degenerateRadius；共线折点/分支/自交兜底 →
+ * unsupportedChain。自交环无 live 证据，不在承诺范围。
  */
 export function buildClosedRingSlotDraft(input: {
   chain: OffsetChain;
@@ -823,16 +825,25 @@ export function buildClosedRingSlotDraft(input: {
     normals.push({ u: -d.v, v: d.u }); // 左法向（与偏移/单线槽同式）
   }
 
+  // 源环有向面积：凹环各角转向可不同，不能再用单一 turnSign 判定朝向。
+  let sourceArea2 = 0;
+  for (let i = 0; i < nSeg; i++) {
+    const a = points[i]!;
+    const b = points[(i + 1) % nSeg]!;
+    sourceArea2 += a.u * b.v - a.v * b.u;
+  }
+  if (Math.abs(sourceArea2) <= 2 * SLOT_TOL) return { ok: false, error: 'unsupportedChain' };
+  const orientation: 1 | -1 = sourceArea2 > 0 ? 1 : -1;
+
   interface RingCorner {
-    /** +1=left, −1=right 外侧（凸环全部同向）。 */
+    /** 本角转向的外侧（+1=left, −1=right）；凹角与凸角可不同。 */
     outsideSide: 1 | -1;
     startAngle: number;
     sweep: number;
-    /** 两侧偏移线在角点的端点：外侧=圆角弧端点，内侧=斜接交点。 */
-    offset: Record<1 | -1, SolvedPoint>;
+    /** 两侧在角点的端点：外侧=prev 段上的圆角弧端点；内侧=两偏移线斜接交点。 */
+    point: Record<1 | -1, SolvedPoint>;
   }
   const corners: RingCorner[] = [];
-  let turnSign = 0;
   for (let i = 0; i < nSeg; i++) {
     const prev = (i + nSeg - 1) % nSeg;
     const d0 = dirs[prev]!;
@@ -840,41 +851,70 @@ export function buildClosedRingSlotDraft(input: {
     const cross = d0.u * d1.v - d0.v * d1.u;
     const dot = Math.max(-1, Math.min(1, d0.u * d1.u + d0.v * d1.v));
     if (Math.abs(cross) <= 1e-9 || dot > 1 - 1e-12) return { ok: false, error: 'unsupportedChain' };
-    const sign = Math.sign(cross);
-    if (turnSign === 0) turnSign = sign;
-    else if (sign !== turnSign) return { ok: false, error: 'unsupportedChain' }; // 凹角未采：诚实拒收
     const outsideSide: 1 | -1 = cross > 0 ? -1 : 1;
     const n0 = normals[prev]!;
     const n1 = normals[i]!;
     const outsideNormal = outsideSide === 1 ? n0 : { u: -n0.u, v: -n0.v };
     const startAngle = Math.atan2(outsideNormal.v, outsideNormal.u);
-    const sweep = sign * Math.acos(Math.max(-1, Math.min(1, n0.u * n1.u + n0.v * n1.v)));
-    const offset = {} as Record<1 | -1, SolvedPoint>;
+    const sweep = Math.sign(cross) * Math.acos(Math.max(-1, Math.min(1, n0.u * n1.u + n0.v * n1.v)));
+    const point = {} as Record<1 | -1, SolvedPoint>;
     for (const side of [1, -1] as const) {
       const p = { u: points[i]!.u + side * half * n0.u, v: points[i]!.v + side * half * n0.v };
       if (side === outsideSide) {
-        offset[side] = p; // 外侧圆角弧在 prev 段上的端点（cur 段端点按段法向现算）
+        point[side] = p; // 外侧圆角弧在 prev 段上的端点（cur 段端点按段法向现算）
       } else {
         const q = { u: points[i]!.u + side * half * n1.u, v: points[i]!.v + side * half * n1.v };
         const m = lineIntersection(p, d0, q, d1);
         if (!m) return { ok: false, error: 'unsupportedChain' };
-        offset[side] = m;
+        point[side] = m;
       }
     }
-    corners.push({ outsideSide, startAngle, sweep, offset });
+    corners.push({ outsideSide, startAngle, sweep, point });
   }
-  const outsideSide = corners[0]!.outsideSide;
-  const insideSide: 1 | -1 = outsideSide === 1 ? -1 : 1;
 
-  // 内侧斜接环必须是同向凸多边形且面积/边长非退化（否则偏移过头）。
-  let area2 = 0;
-  for (let i = 0; i < nSeg; i++) {
-    const a = corners[i]!.offset[insideSide];
-    const b = corners[(i + 1) % nSeg]!.offset[insideSide];
-    if (!(Math.hypot(a.u - b.u, a.v - b.v) > SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
-    area2 += a.u * b.v - a.v * b.u;
+  /** 段 i、侧 s 在角点处的边界端点（外侧=弧端点、内侧=斜接点）。 */
+  const boundaryPoint = (cornerIndex: number, segmentIndex: number, side: 1 | -1): SolvedPoint => {
+    if (side === corners[cornerIndex]!.outsideSide) {
+      const n = normals[segmentIndex]!;
+      const p = points[cornerIndex]!;
+      return { u: p.u + side * half * n.u, v: p.v + side * half * n.v };
+    }
+    return corners[cornerIndex]!.point[side];
+  };
+
+  /** 角点代表点（外侧取弧中点，内侧取斜接点）——用于边界环面积/朝向守卫。 */
+  const loopRepPoint = (cornerIndex: number, side: 1 | -1): SolvedPoint => {
+    const corner = corners[cornerIndex]!;
+    if (side !== corner.outsideSide)
+      return corner.point[side];
+    const n0 = normals[(cornerIndex + nSeg - 1) % nSeg]!;
+    const n1 = normals[cornerIndex]!;
+    const mx = n0.u + n1.u;
+    const my = n0.v + n1.v;
+    const len = Math.hypot(mx, my);
+    if (!(len > SLOT_TOL)) return corner.point[side];
+    const p = points[cornerIndex]!;
+    return {
+      u: p.u + side * half * (mx / len),
+      v: p.v + side * half * (my / len),
+    };
+  };
+
+  // 退化/反向守卫：两侧边界线非零长；两组代表环与源环同向且面积非零。
+  for (const side of [1, -1] as const) {
+    let loopArea2 = 0;
+    for (let i = 0; i < nSeg; i++) {
+      const next = (i + 1) % nSeg;
+      const start = boundaryPoint(i, i, side);
+      const end = boundaryPoint(next, i, side);
+      if (!(Math.hypot(end.u - start.u, end.v - start.v) > SLOT_TOL))
+        return { ok: false, error: 'degenerateRadius' };
+      const rep = loopRepPoint(i, side);
+      const repNext = loopRepPoint(next, side);
+      loopArea2 += rep.u * repNext.v - rep.v * repNext.u;
+    }
+    if (!(loopArea2 * orientation > 2 * SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
   }
-  if (!(area2 * turnSign > 2 * SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
 
   let nextId = input.startId;
   const alloc = (): number => nextId++;
@@ -895,36 +935,25 @@ export function buildClosedRingSlotDraft(input: {
     newEntities.push({ kind: 'point', id, x: points[i]!.u, y: points[i]!.v });
   }
 
-  // 边界线：每段外侧/内侧各一条；外侧端止于圆角弧端点，内侧端止于斜接交点。
-  const outsideLines: number[] = [];
-  const insideLines: number[] = [];
+  // 边界线：两组（组A=角 0 的外侧，组B=另一侧），每段各一条；端点按角点性质
+  // 取弧端点或斜接点。
+  const groupA = corners[0]!.outsideSide;
+  const groupB: 1 | -1 = groupA === 1 ? -1 : 1;
+  const linesBySide: Record<1 | -1, number[]> = { 1: [], [-1]: [] };
   for (let i = 0; i < nSeg; i++) {
-    const startCorner = i;
-    const endCorner = (i + 1) % nSeg;
-    const n = normals[i]!;
-    const startOutside = {
-      u: points[startCorner]!.u + outsideSide * half * n.u,
-      v: points[startCorner]!.v + outsideSide * half * n.v,
-    };
-    const endOutside = {
-      u: points[endCorner]!.u + outsideSide * half * n.u,
-      v: points[endCorner]!.v + outsideSide * half * n.v,
-    };
-    const outsideId = alloc();
-    outsideLines.push(outsideId);
-    newEntities.push({
-      kind: 'line', id: outsideId,
-      p1: { x: startOutside.u, y: startOutside.v }, p2: { x: endOutside.u, y: endOutside.v },
-    });
-    const startInside = corners[startCorner]!.offset[insideSide];
-    const endInside = corners[endCorner]!.offset[insideSide];
-    const insideId = alloc();
-    insideLines.push(insideId);
-    newEntities.push({
-      kind: 'line', id: insideId,
-      p1: { x: startInside.u, y: startInside.v }, p2: { x: endInside.u, y: endInside.v },
-    });
+    for (const side of [groupA, groupB] as const) {
+      const start = boundaryPoint(i, i, side);
+      const end = boundaryPoint((i + 1) % nSeg, i, side);
+      const id = alloc();
+      linesBySide[side].push(id);
+      newEntities.push({
+        kind: 'line', id,
+        p1: { x: start.u, y: start.v }, p2: { x: end.u, y: end.v },
+      });
+    }
   }
+  const outsideLines = linesBySide[groupA];
+  const insideLines = linesBySide[groupB];
 
   // 圆角弧：每个角一条（弧心=源顶点，半径=Ø/2）。
   const cornerArcIds: number[] = [];
@@ -948,16 +977,20 @@ export function buildClosedRingSlotDraft(input: {
     add({ kind: 'parallel', refs: [members[i]!.id, outsideLines[i]!] });
     add({ kind: 'parallel', refs: [members[i]!.id, insideLines[i]!] });
   }
-  // 角点：外侧=线-弧端点 coincident + 两侧相切；内侧=斜接两线重合。
+  // 角点：外侧=线-弧端点 coincident + 两侧相切；内侧=斜接两线重合（逐角判定）。
   for (let i = 0; i < nSeg; i++) {
     const prev = (i + nSeg - 1) % nSeg;
-    add({ kind: 'coincident', refs: [{ entity: outsideLines[prev]!, part: 'end' }, { entity: cornerArcIds[i]!, part: 'start' }] });
-    add({ kind: 'coincident', refs: [{ entity: outsideLines[i]!, part: 'start' }, { entity: cornerArcIds[i]!, part: 'end' }] });
-    add({ kind: 'coincident', refs: [{ entity: insideLines[prev]!, part: 'end' }, { entity: insideLines[i]!, part: 'start' }] });
-    add({ kind: 'tangent', refs: [cornerArcIds[i]!, outsideLines[prev]!] });
-    add({ kind: 'tangent', refs: [cornerArcIds[i]!, outsideLines[i]!] });
+    const outside = corners[i]!.outsideSide;
+    const inside: 1 | -1 = outside === 1 ? -1 : 1;
+    const outLines = linesBySide[outside];
+    const inLines = linesBySide[inside];
+    add({ kind: 'coincident', refs: [{ entity: outLines[prev]!, part: 'end' }, { entity: cornerArcIds[i]!, part: 'start' }] });
+    add({ kind: 'coincident', refs: [{ entity: outLines[i]!, part: 'start' }, { entity: cornerArcIds[i]!, part: 'end' }] });
+    add({ kind: 'coincident', refs: [{ entity: inLines[prev]!, part: 'end' }, { entity: inLines[i]!, part: 'start' }] });
+    add({ kind: 'tangent', refs: [cornerArcIds[i]!, outLines[prev]!] });
+    add({ kind: 'tangent', refs: [cornerArcIds[i]!, outLines[i]!] });
   }
-  // 单一宽度尺寸驱动内外两侧（ADR-0023 ring 模式；后端补 parallel + ±w/2 垂距）。
+  // 单一宽度尺寸驱动两侧（ADR-0023 ring 模式；后端补 parallel + ±w/2 垂距）。
   const slotWidthConstraintId = add({
     kind: 'slotWidth', slotMode: 'ring',
     refs: [...members.map((m) => m.id), ...outsideLines, ...insideLines], value: width,

@@ -606,3 +606,88 @@ describe('buildMultiLineSlotDraft（S2i 多独立线共享单 Ø）', () => {
     })).toEqual({ ok: false, error: 'unsolvedLine' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// S2j 凹多边形闭合环槽（live 2026-11-20 `concave-slot.dxf`）：逐角判定外侧，
+// 凹角的外侧翻到另一侧（凸角=右弧/左斜接，凹角=左弧/右斜接）。
+// ---------------------------------------------------------------------------
+
+/** L 形闭合折线（100×80 外框，切掉左上 60×40 缺口；P4=(60,40) 为凹角）。 */
+function lShapedRing(): SketchEntityDto[] {
+  const pts: Array<[number, number]> = [
+    [0, 0], [100, 0], [100, 80], [60, 80], [60, 40], [0, 40],
+  ];
+  const entities: SketchEntityDto[] = pts.map(([x, y], index) => ({ kind: 'point', id: index + 1, x, y }));
+  for (let i = 0; i < 6; i++) {
+    entities.push({ kind: 'line', id: 7 + i, p1: i + 1, p2: (i + 1) % 6 + 1 });
+  }
+  return entities;
+}
+
+const lRingBuilt = (width: number) => {
+  const entities = lShapedRing();
+  const ids = [7, 8, 9, 10, 11, 12];
+  const chain = lineChainFromSelection(entities, ids);
+  if (!chain) throw new Error('chain missing');
+  return { entities, ids, built: buildClosedRingSlotDraft({ chain, entities, width, startId: 100 }) };
+};
+
+describe('buildClosedRingSlotDraft 凹环（S2j）', () => {
+  it('L 形 Ø20：24 实体（6 角心+12 边界+6 弧）、55 约束、单 slotWidth', () => {
+    const { built } = lRingBuilt(20);
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    expect(draft.entities.filter((e) => e.kind === 'point')).toHaveLength(6);
+    expect(draft.entities.filter((e) => e.kind === 'line')).toHaveLength(12);
+    expect(draft.entities.filter((e) => e.kind === 'arc')).toHaveLength(6);
+    expect(draft.capArcIds).toEqual([]);
+    expect(draft.cornerArcIds).toEqual([118, 119, 120, 121, 122, 123]);
+    expect(draft.boundaryLineIds).toEqual([106, 108, 110, 112, 114, 116, 107, 109, 111, 113, 115, 117]);
+    const kinds = draft.constraints.map((c) => c.kind);
+    expect(kinds.filter((k) => k === 'coincident')).toHaveLength(30);
+    expect(kinds.filter((k) => k === 'parallel')).toHaveLength(12);
+    expect(kinds.filter((k) => k === 'tangent')).toHaveLength(12);
+    expect(kinds.filter((k) => k === 'slotWidth')).toHaveLength(1);
+    const slotWidth = draft.constraints.find((c) => c.kind === 'slotWidth')!;
+    expect(slotWidth.value).toBe(20);
+    expect(slotWidth.slotMode).toBe('ring');
+    expect(slotWidth.refs).toHaveLength(18);
+    // 组A=右（外），组B=左；refs=[6 中线, 6 右, 6 左]。
+    expect((slotWidth.refs as number[]).slice(6)).toEqual([106, 108, 110, 112, 114, 116, 107, 109, 111, 113, 115, 117]);
+  });
+
+  it('几何：凸角右边界止于弧端点、凹角右边界斜接于 (50,50)、凹角左弧 r10 扫 −90°', () => {
+    const { built } = lRingBuilt(20);
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    expect(lineCoords(draft.entities)).toEqual(expect.arrayContaining([
+      // 右（外）边界，凸角处止于弧端点：
+      [0, -10, 100, -10], [110, 0, 110, 80], [100, 90, 60, 90],
+      // 凹角 P4：右边界斜接于 (50,50)（两侧直/斜接，无弧）
+      [50, 80, 50, 50], [50, 50, 0, 50],
+      [-10, 40, -10, 0],
+      // 左（内）边界，凹角处止于弧端点、其余为斜接：
+      [10, 10, 90, 10], [90, 10, 90, 70], [90, 70, 70, 70],
+      [70, 70, 70, 40], [60, 30, 10, 30], [10, 30, 10, 10],
+    ]));
+    const arcs = draft.entities.filter((e) => e.kind === 'arc');
+    const angle = (v: number | undefined): number => {
+      const twoPi = 2 * Math.PI;
+      const m = (((v ?? 0) % twoPi) + twoPi) % twoPi;
+      return m === 0 ? 0 : m;
+    };
+    expect(arcs.map((a) => (a.kind === 'arc' ? [a.center, a.radius, angle(a.startAngle), angle(a.sweepAngle)] : []))).toEqual([
+      [100, 10, Math.PI, Math.PI / 2],          // P0 凸角（右）
+      [101, 10, 3 * Math.PI / 2, Math.PI / 2],  // P1
+      [102, 10, 0, Math.PI / 2],                // P2
+      [103, 10, Math.PI / 2, Math.PI / 2],      // P3
+      [104, 10, 0, 3 * Math.PI / 2],            // P4 凹角（左）：0 → −90°
+      [105, 10, Math.PI / 2, Math.PI / 2],      // P5
+    ]);
+  });
+
+  it('宽度过大导致内环坍缩 → degenerateRadius（该 L 形 Ø80 内环退化）', () => {
+    const { built } = lRingBuilt(80);
+    expect(built).toEqual({ ok: false, error: 'degenerateRadius' });
+  });
+});

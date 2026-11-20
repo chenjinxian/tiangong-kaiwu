@@ -43,8 +43,8 @@
       "missing": [
         "圆弧参与的相连链槽",
         "分支链槽",
-        "凹多边形/自交闭合环（外侧圆角语义未采证据）",
-        "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）"
+        "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）",
+        "自交闭合环（无 live 证据）"
       ],
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/tools/sketch/SketchSlotTool.ts:1",
       "backendRef": "私有后端：solver-neutral `slotWidth`（SolverTypes/SketchWireNormalizer/SlvsSolver；ring=2N 条内部 parallel+有符号垂距 ±w/2，concentric=2 圆心重合+8 条隐藏径向构造）+ `updateSketchConstraint` 白名单",

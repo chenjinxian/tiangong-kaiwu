@@ -18,7 +18,7 @@
       "partial": 69
     }
   },
-  "sourceHash": "82de816316443ffa4dcaa1c06676b0a15db771f04be48a2526d384b8766829be",
+  "sourceHash": "2d5818f4746311067b4f9befa185d4eb6f5bce56cd4b97cf22cd639579a49232",
   "rows": [
     {
       "id": "constraint.angle",
@@ -1935,8 +1935,8 @@
       "missing": [
         "圆弧参与的相连链槽",
         "分支链槽",
-        "凹多边形/自交闭合环（外侧圆角语义未采证据）",
-        "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）"
+        "live 宽度光标/拖拽预览（本切片为默认 Ø20 + 尺寸编辑）",
+        "自交闭合环（无 live 证据）"
       ],
       "contractRef": null,
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/tools/sketch/SketchSlotTool.ts:1",

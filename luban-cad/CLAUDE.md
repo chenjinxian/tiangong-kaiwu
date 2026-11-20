@@ -186,13 +186,15 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （闭合环仅凸、同向、无共线折点；内环退化拒收）；工具接受整圆/闭合链并在预选中剔除点实体（picker 对点也标 part=curve）；
   `slotWidth` 尺寸标注（环 `⌀`、整圆线性）与双击编辑。**S2i 多独立线**（live 2026-11-20 `state-54..57`：两条互不相连
   直线各得一槽、草图中仅一个 Ø20）：`buildMultiLineSlotDraft` 逐线复用单线槽、仅保留首槽 diameter、其余帽以锚逐对 equal；
-  工具在预选 junction=0 时走该构建器（混合连通/独立、圆弧、分支链仍拒收）。验证：shared **326/326**；私有后端
-  `SlotWidthSolver` 3/3、`SketchSlotWidthUpdateFlow` 2/2、既有 slot 套件 9/9、tsc 绿；web `sketch-slot-logic` 23/23、
-  `sketch-annotations` 32/32、全量 web **2665/2665**、tsc(src+e2e)/eslint 绿；真栈 `e2e/sketch-slot.spec.ts`
-  **7 passed（5.1 min）**——单线/开放链/圆弧回归 + 整圆（R30 → 单 slotWidth → 标签 20→双击 30 → 内/外 15/45 → 原生
-  undo/redo → reload）+ 闭合环（4 线框选 → 4 角弧 r10 + 内外 ±10 → 标签 ⌀20→30 → 四组内外同步 ±15 → reload）+ 多独立线
-  （两条互不相连线 → 框选 → 两槽 4 帽 r10/单 Ø20 → 改 30 → 两槽同步 15 → reload）；一次 MS 429 按 retry-after 等待后
-  复跑（未绕过）。**未发布**；残：弧/样条链、分支链、凹/自交环、live 宽度拖拽、slotWidth 表达式未接；`ui.sketchSlot` 仍 partial。
+  工具在预选 junction=0 时走该构建器（混合连通/独立、圆弧、分支链仍拒收）。**S2j 凹环**（live `concave-slot.dxf`：
+  L 形凹多边形闭合环，18 LINE+7 ARC）：`buildClosedRingSlotDraft` 去掉同向守卫、逐角判定外侧（凸角右弧/左斜接，
+  凹角左弧/右斜接）；两组边界环做非零长/同向面积守卫（宽度过大坍缩拒收）。验证：shared **326/326**；私有后端
+  `SlotWidthSolver` 3/3、`SketchSlotWidthUpdateFlow` 2/2、既有 slot 套件 9/9、tsc 绿；web `sketch-slot-logic` **26/26**、
+  `sketch-annotations` 32/32、全量 web **2668/2668**、tsc(src+e2e)/eslint 绿；真栈 `e2e/sketch-slot.spec.ts` **8 用例分两窗全绿**
+  （窗口 A 6 passed：单线/开放链/圆弧回归 + 整圆标签双击改宽/undo/redo/reload + 闭合凸环标签改宽/reload + 凹 L 环
+  6 角弧 r10/12 边界/单 slotWidth 改 30 两端 15/finish+reload + 多独立线；窗口 B 按 429 retryAfter 210 s 等待后
+  闭合环+多独立线 2 passed——一次性连跑超 MS 100 req/15min）。**未发布**；残：弧/样条链、分支链、混合部分连通、自交环、
+  live 宽度拖拽、slotWidth 表达式未接；`ui.sketchSlot` 仍 partial。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
