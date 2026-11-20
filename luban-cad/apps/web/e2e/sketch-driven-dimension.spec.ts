@@ -214,7 +214,7 @@ test.describe('草图尺寸驱动/从动切换（W31-A live）', () => {
     await page.mouse.dblclick(drivingAt.x, drivingAt.y);
     const input = page.getByTestId('sketch-dimension-input');
     await expect(input).toBeVisible({ timeout: 10_000 });
-    await expect(input).toHaveValue('30');
+    await expect(input).toHaveValue('30 mm');
     await input.press('Enter');
     await expect(input).toHaveCount(0, { timeout: 20_000 });
 

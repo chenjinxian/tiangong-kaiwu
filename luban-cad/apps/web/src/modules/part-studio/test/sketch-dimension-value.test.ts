@@ -13,12 +13,16 @@ import {
   DIMENSION_EDITOR_STEP_MM,
   EDITABLE_CONSTRAINT_KINDS,
   dimensionConstraintDisplayValue,
+  dimensionEditorUnitText,
   formatAngleEditorDegrees,
   formatConstraintEditorValue,
   formatDimensionPopupValue,
   isSteppableConstraintKind,
+  normalizeDimensionEditorText,
   parseConstraintEditorValue,
   stepConstraintEditorValue,
+  stripDimensionEditorUnit,
+  stripOuterExpressionParens,
 } from '../internal/sketch-dimension-value.js';
 
 const constraint = (kind: SketchConstraintDto['kind'], value?: number): SketchConstraintDto =>
@@ -182,5 +186,40 @@ describe('stepConstraintEditorValue（live 方向键步进）', () => {
     // 非尺寸白名单种类不可步进（负例，防止函数退化为恒真）。
     expect(isSteppableConstraintKind('parallel')).toBe(false);
     expect(isSteppableConstraintKind('coincident')).toBe(false);
+  });
+});
+
+// ── live 2026-11-20 S2w：尺寸编辑器内联单位 `20 mm` / `(5*2) mm` ─────────
+describe('内联单位与表达式括号归一化（S2w live）', () => {
+  it('dimensionEditorUnitText：角度 deg，其余 mm', () => {
+    expect(dimensionEditorUnitText('angle')).toBe('deg');
+    expect(dimensionEditorUnitText('length')).toBe('mm');
+    expect(dimensionEditorUnitText('diameter')).toBe('mm');
+    expect(dimensionEditorUnitText('slotWidth')).toBe('mm');
+  });
+
+  it('stripDimensionEditorUnit：去尾部单位（大小写/空白）；无单位原样', () => {
+    expect(stripDimensionEditorUnit('20 mm', 'mm')).toBe('20');
+    expect(stripDimensionEditorUnit(' 20 MM ', 'mm')).toBe('20');
+    expect(stripDimensionEditorUnit('90 deg', 'deg')).toBe('90');
+    expect(stripDimensionEditorUnit('(5*2) mm', 'mm')).toBe('(5*2)');
+    expect(stripDimensionEditorUnit('5*2', 'mm')).toBe('5*2');
+    // 单位不是尾部 token（如变量名）不剥。
+    expect(stripDimensionEditorUnit('mm*2', 'mm')).toBe('mm*2');
+  });
+
+  it('stripOuterExpressionParens：仅剥包住整段的外层括号', () => {
+    expect(stripOuterExpressionParens('(5*2)')).toBe('5*2');
+    expect(stripOuterExpressionParens('((5*2))')).toBe('(5*2)');
+    expect(stripOuterExpressionParens('(a+b)*(c)')).toBe('(a+b)*(c)');
+    expect(stripOuterExpressionParens('5*2')).toBe('5*2');
+    expect(stripOuterExpressionParens('(5*2')).toBe('(5*2');
+  });
+
+  it('normalizeDimensionEditorText：去单位 + 去整段外层括号（求值文本）', () => {
+    expect(normalizeDimensionEditorText('20 mm', 'mm')).toBe('20');
+    expect(normalizeDimensionEditorText('(5*2) mm', 'mm')).toBe('5*2');
+    expect(normalizeDimensionEditorText('90 deg', 'deg')).toBe('90');
+    expect(normalizeDimensionEditorText('#width*2', 'mm')).toBe('#width*2');
   });
 });

@@ -506,7 +506,21 @@ registry/updateVariables 复用（角度类型门：length 变量拒收）；web
   + `sketch-slot-logic` **63/63**（新增气泡 2 例、自交环拒收 1 例）；真栈
   `sketch-slot.spec.ts --grep 整圆槽宽度表达式` **1 passed（39.7 s）**：标签
   `ƒ 10` + 气泡 `(5*2) mm` → 关闭显示表达式 `10` + 无气泡 → 勾选恢复 → reload。
-  残：编辑器预填为表达式原文 + 视觉单位后缀（live 为 `(expr) mm` 整段文本）。
+  残：编辑器预填为表达式原文 + 视觉单位后缀（live 为 `(expr) mm` 整段文本；
+  已由 S2w 关闭，见下条）。
+- **S2w 尺寸编辑器内联单位 + 失焦归一化（2026-11-20 live）**：live 双击尺寸
+  打开的输入框文本自带单位——数值 `20 mm`、表达式 `(5*2) mm`（打开即全选）；
+  失焦（画布点击）只做显示归一化、不提交：空 → 当前值 `10 mm`，输入 `20` →
+  `20 mm`，输入 `5*2` → `10 mm`（求值后表达式显示形态丢失）；Escape 后重开
+  仍为 `(5*2) mm`（模型表达式未变）。方向键在有选区/表达式文本时不步进，
+  数值光标态按显示单位 ±1。实现：编辑器初值内联单位（表达式加括号）；求值前
+  `normalizeDimensionEditorText`（去尾部单位 + 仅剥整段外层括号）；共享外壳
+  新增 `inlineUnit`/`onValueBlur`（放置弹层保持只读后缀）；失焦回调把可求值
+  文本归一化为 `<求值> <单位>`，无效文本保持原文；步进按去单位文本计算并回写
+  单位。验证：`SketchDimensionEditor` **52/52**、`sketch-dimension-value`
+  新增 4 例；真栈 `sketch-slot` 表达式用例（含重开 `(5*2) mm` / 失焦
+  `10 mm` / Escape 不进模型）与 `sketch-angle-dimension`/`sketch-driven-dimension`/
+  `sketch-dimension-edit`/`sketch-expression-ui` 全绿。
 - **S4a 后端实测（2026-11-18）**：shared **286/286**；backend targeted **106/106**、
   全量 **1024 passed/1 expected fail/8 skipped**；tsc 绿。覆盖：schema blind-only、
   字面量/`#var`/类型门（length/number/any，angle 拒收）、错误优先级与零变更、

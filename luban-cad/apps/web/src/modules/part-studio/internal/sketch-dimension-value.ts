@@ -103,6 +103,48 @@ export function formatConstraintEditorValue(constraint: SketchConstraintDto): st
   return formatEditorLengthValue(display);
 }
 
+/** 编辑器单位文本（live 2026-11-20 S2w：长度 `mm` / 角度 `deg`，单位在输入文本内）。 */
+export function dimensionEditorUnitText(kind: SketchConstraintDto['kind']): 'mm' | 'deg' {
+  return kind === 'angle' ? 'deg' : 'mm';
+}
+
+/** 去掉输入文本尾部单位（大小写不敏感；无单位时返回 trim 后原文）。 */
+export function stripDimensionEditorUnit(text: string, unit: string): string {
+  const trimmed = text.trim();
+  const match = new RegExp(`^(.*?)\\s*${unit}\\s*$`, 'i').exec(trimmed);
+  return match ? (match[1] ?? '').trim() : trimmed;
+}
+
+/**
+ * 仅当最外层一对括号包住整段表达式时剥一层：`(5*2)` → `5*2`；
+ * `(a+b)*(c)`（首括号中途闭合）原样返回。live S2w：表达式尺寸打开显示
+ * `(5*2) mm`，求值需去括号与单位。
+ */
+export function stripOuterExpressionParens(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('(') || !trimmed.endsWith(')'))
+    return trimmed;
+  let depth = 0;
+  for (let index = 0; index < trimmed.length; index++) {
+    const char = trimmed[index];
+    if (char === '(')
+      depth++;
+    else if (char === ')') {
+      depth--;
+      if (depth < 0)
+        return trimmed;
+      if (depth === 0 && index !== trimmed.length - 1)
+        return trimmed;
+    }
+  }
+  return depth === 0 ? trimmed.slice(1, -1).trim() : trimmed;
+}
+
+/** 输入框文本 → 求值文本（去尾部单位 + 去整段外层括号）。 */
+export function normalizeDimensionEditorText(text: string, unit: string): string {
+  return stripOuterExpressionParens(stripDimensionEditorUnit(text, unit));
+}
+
 /**
  * 编辑器输入 → 契约值；非正/非有限/角度 ≥180° 返回 undefined（拒绝提交，
  * 不静默改值——后端求解器 angle 契约为 (0, π) 弧度，前端提前拦截）。

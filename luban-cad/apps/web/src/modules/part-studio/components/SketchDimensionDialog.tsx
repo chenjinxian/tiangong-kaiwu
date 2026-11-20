@@ -28,7 +28,11 @@ import { useTranslation } from 'react-i18next';
 import type { SketchConstraintDto, VariableDto } from '@luban-cad/shared';
 import { OnshapeIcon } from '../icons/onshape-icons.js';
 import { isNumericDimensionText } from '../internal/sketch-dimension-expression.js';
-import { formatDimensionPopupValue, stepConstraintEditorValue } from '../internal/sketch-dimension-value.js';
+import {
+  formatDimensionPopupValue,
+  stepConstraintEditorValue,
+  stripDimensionEditorUnit,
+} from '../internal/sketch-dimension-value.js';
 import {
   autocompleteOptionCount,
   matchesVariableSuggestions,
@@ -125,8 +129,16 @@ export interface SketchDimensionDialogProps {
   initialValue: string;
   /** 原始值（未编辑时步进基线，保留全精度）。 */
   rawValue?: number;
-  /** 只读单位后缀文本（mm / deg；产品口径由宿主决定）。 */
+  /** 单位文本（mm / deg；产品口径由宿主决定）。 */
   unit: string;
+  /**
+   * 单位内联在输入文本里（live 2026-11-20 S2w：编辑器输入 `20 mm` /
+   * `(5*2) mm`）。true 时不渲染只读后缀；放置弹层保持既有后缀形态
+   * （该路径未采内联证据）。
+   */
+  inlineUnit?: boolean;
+  /** 输入失焦回调（编辑器用于把表达式/空值归一化为 `<求值> <单位>`）。 */
+  onValueBlur?: () => void;
   /** 错误态：只把下划线转红。 */
   error?: boolean;
   /** 本地预校验无效（语法/未知变量/非正/角度越界）：✓ 禁用 + 红下划线。 */
@@ -176,6 +188,8 @@ export function SketchDimensionDialog({
   initialValue,
   rawValue,
   unit,
+  inlineUnit = false,
+  onValueBlur,
   error = false,
   invalid = false,
   errorMessage,
@@ -440,7 +454,9 @@ export function SketchDimensionDialog({
             inputMode="decimal"
             data-testid={testIds.input}
             data-error={invalidState ? 'true' : 'false'}
-            className="part-studio-dimension-editor"
+            className={inlineUnit
+              ? 'part-studio-dimension-editor part-studio-dimension-editor--inline-unit'
+              : 'part-studio-dimension-editor'}
             value={value}
             placeholder={inputPlaceholder}
             aria-label={inputAriaLabel}
@@ -452,7 +468,11 @@ export function SketchDimensionDialog({
             // 失焦（画布点击等）收起补全菜单：菜单本身不可聚焦，避免「菜单
             // 可见但无输入框键路」时窗口级 Escape 被旧 hasOpenMenuOrPopover
             // 守卫吞掉。补全行的 mousedown preventDefault，不触发此分支。
-            onBlur={closeAutocomplete}
+            onBlur={() => {
+              closeAutocomplete();
+              // live S2w：失焦只把表达式/空值归一化为 `<求值> <单位>`（不提交）。
+              onValueBlur?.();
+            }}
             // 光标/选区变化（点击、选区拖拽、方向键）重算 `#` 查询：离开
             // `#name` token 即关闭菜单（评审 P3）。
             onSelect={(event) => {
@@ -508,23 +528,26 @@ export function SketchDimensionDialog({
                 // live：有选区（刚打开时全选）不步进——不拦默认行为，由
                 // 浏览器折叠选区；光标态才 ±1（长度 mm / 角度度，W18）。
                 const input = event.currentTarget;
+                // 内联单位（live S2w）：步进只对单位前的数值文本生效。
+                const stepText = inlineUnit ? stripDimensionEditorUnit(input.value, unit) : input.value;
                 // 表达式文本不步进（ADR-0020 §2.6 D3）：只有纯数字才 ±1。
-                if (!isNumericDimensionText(input.value))
+                if (!isNumericDimensionText(stepText))
                   return;
                 const { selectionStart, selectionEnd } = input;
                 if (selectionStart === null || selectionEnd === null || selectionStart !== selectionEnd)
                   return;
+                const stepInitial = inlineUnit ? stripDimensionEditorUnit(initialValue, unit) : initialValue;
                 const next = stepConstraintEditorValue({
                   kind,
-                  text: input.value,
-                  initialText: initialValue,
+                  text: stepText,
+                  initialText: stepInitial,
                   rawValue,
                   direction: event.key === 'ArrowUp' ? 1 : -1,
                 });
                 if (next === undefined)
                   return;
                 event.preventDefault();
-                onValueChange(next);
+                onValueChange(inlineUnit ? `${next} ${unit}` : next);
                 return;
               }
               if (event.key === 'Enter') {
@@ -543,13 +566,15 @@ export function SketchDimensionDialog({
               }
             }}
           />
-          <span
-            className="part-studio-dimension-editor-unit"
-            data-testid={testIds.unit}
-            aria-hidden="true"
-          >
-            {unit}
-          </span>
+          {!inlineUnit && (
+            <span
+              className="part-studio-dimension-editor-unit"
+              data-testid={testIds.unit}
+              aria-hidden="true"
+            >
+              {unit}
+            </span>
+          )}
           {autocompleteOpen && (
             <SketchExpressionAutocomplete
               variables={variableList}

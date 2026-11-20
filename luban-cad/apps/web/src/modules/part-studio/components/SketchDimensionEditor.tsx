@@ -68,7 +68,11 @@ import { isTreeOrSidebarTarget } from '../internal/tree-event-guard.js';
 import type { VariableCreateRequest } from '../internal/variables.js';
 import {
   EDITABLE_CONSTRAINT_KINDS,
+  dimensionConstraintDisplayValue,
+  dimensionEditorUnitText,
   formatConstraintEditorValue,
+  formatDimensionPopupValue,
+  normalizeDimensionEditorText,
 } from '../internal/sketch-dimension-value.js';
 import {
   DIMENSION_EDITOR_DIALOG_HEIGHT,
@@ -274,9 +278,12 @@ export function layoutDimensionEditorDialog(input: {
   return { left, top, offsetLeft: left - wrapLeft, offsetTop: top - wrapTop };
 }
 
-/** 只读单位后缀（视觉仅显示；解析/载荷仍是数值文本）：角度 deg（live W18），其余 mm。 */
+/**
+ * 编辑器单位文本（live W18/S2w）：角度 `deg`，其余 `mm`；S2w 起内联在输入
+ * 文本内（`20 mm` / `(5*2) mm`），不再作为只读后缀。
+ */
 export function dimensionEditorUnit(kind: SketchConstraintDto['kind']): 'mm' | 'deg' {
-  return kind === 'angle' ? 'deg' : 'mm';
+  return dimensionEditorUnitText(kind);
 }
 
 /**
@@ -516,10 +523,14 @@ export function SketchDimensionEditor({
       });
       // 每次新开对话框都复位拖拽位移（live：重新打开回到锚点默认位置）。
       setDragPosition(null);
-      // ADR-0020 §2.6 D3：既有表达式优先显示原文（设计意图）；否则数值格式。
-      const initialValue = typeof constraint.expression === 'string' && constraint.expression.trim() !== ''
-        ? constraint.expression
-        : formatConstraintEditorValue(constraint);
+      // live 2026-11-20 S2w：初值内联单位——表达式 `(5*2) mm`，数值 `20 mm`；
+      // 打开即全选（下方 effect），输入任意文本即整体替换。
+      const unit = dimensionEditorUnit(constraint.kind);
+      const expression = typeof constraint.expression === 'string' ? constraint.expression.trim() : '';
+      const formatted = formatConstraintEditorValue(constraint);
+      const initialValue = expression !== ''
+        ? `(${expression}) ${unit}`
+        : formatted === '' ? '' : `${formatted} ${unit}`;
       setEditor({
         constraintId,
         kind: constraint.kind,
@@ -704,9 +715,11 @@ export function SketchDimensionEditor({
       return;
     // ADR-0020 §2.6 D3：纯数字 → 既有数值通道；表达式 → 求值数 + 原文
     // （宿主走 wholesale updateSketch，value 由后端权威覆盖）。
+    // live S2w：输入文本内联单位——求值前去掉尾部单位与整段外层括号。
+    const unit = dimensionEditorUnit(current.kind);
     const evaluation = evaluateDimensionInput({
       kind: current.kind,
-      text: current.value,
+      text: normalizeDimensionEditorText(current.value, unit),
       variables: variablesRef.current,
     });
     if (!evaluation.ok) {
@@ -730,6 +743,41 @@ export function SketchDimensionEditor({
       committingRef.current = false;
       setCommitting(false);
     }
+  }, []);
+
+  /**
+   * live 2026-11-20 S2w：失焦（画布点击等）只做显示归一化，不提交——表达式/
+   * 空值 → `<求值> <单位>`（`(5*2) mm` → `10 mm`；空 → 当前值）；无效文本
+   * 保持原文（无 live 证据）。Escape 仍丢弃、Enter 仍提交。
+   */
+  const normalizeEditorValueOnBlur = React.useCallback((): void => {
+    const current = editorRef.current;
+    if (!current)
+      return;
+    const unit = dimensionEditorUnit(current.kind);
+    const stripped = normalizeDimensionEditorText(current.value, unit);
+    let display: number | undefined;
+    if (stripped === '') {
+      display = current.rawValue === undefined
+        ? undefined
+        : dimensionConstraintDisplayValue({ kind: current.kind, value: current.rawValue });
+    } else {
+      const evaluation = evaluateDimensionInput({
+        kind: current.kind,
+        text: stripped,
+        variables: variablesRef.current,
+      });
+      if (!evaluation.ok)
+        return;
+      display = current.kind === 'angle' ? evaluation.value * 180 / Math.PI : evaluation.value;
+    }
+    if (display === undefined)
+      return;
+    const formatted = formatDimensionPopupValue(current.kind, display);
+    if (formatted === '')
+      return;
+    const next = `${formatted} ${unit}`;
+    setEditor((previous) => (previous && previous.value !== next ? { ...previous, value: next } : previous));
   }, []);
 
   // 2026-11-16 live：点击画布/其它 UI 不关闭对话框（旧 blur-cancel 已移除），
@@ -816,9 +864,14 @@ export function SketchDimensionEditor({
         inputOffset: dialogInputOffset,
       })
     : null;
-  /** ADR-0020 §2.6 D3：每次输入即时本地求值——invalid → 红下划线 + ✓ 禁用。 */
+  /** ADR-0020 §2.6 D3：每次输入即时本地求值——invalid → 红下划线 + ✓ 禁用。
+      live S2w：输入文本内联单位（`20 mm` / `(5*2) mm`），求值前归一化。 */
   const editorEvaluation = editor
-    ? evaluateDimensionInput({ kind: editor.kind, text: editor.value, variables })
+    ? evaluateDimensionInput({
+        kind: editor.kind,
+        text: normalizeDimensionEditorText(editor.value, dimensionEditorUnit(editor.kind)),
+        variables,
+      })
     : undefined;
   const editorInvalid = editorEvaluation !== undefined && !editorEvaluation.ok;
   /**
@@ -962,6 +1015,9 @@ export function SketchDimensionEditor({
             initialValue={editor.initialValue}
             rawValue={editorRawValue}
             unit={dimensionEditorUnit(editor.kind)}
+            // live S2w：单位内联在输入文本（`20 mm` / `(5*2) mm`）；失焦只归一化。
+            inlineUnit
+            onValueBlur={normalizeEditorValueOnBlur}
             error={failed}
             invalid={editorInvalid}
             variables={variables}

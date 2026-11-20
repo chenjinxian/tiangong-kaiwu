@@ -323,7 +323,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     await page.mouse.dblclick(previewAt.x, previewAt.y);
     const input = page.getByTestId('sketch-dimension-input');
     await expect(input).toBeVisible({ timeout: 10_000 });
-    await expect(input).toHaveValue('20');
+    await expect(input).toHaveValue('20 mm');
     await input.fill('30');
     await page.getByTestId('sketch-dimension-confirm').click();
     await expect(previewLabel).toHaveAttribute('data-text', '⌀30', { timeout: 10_000 });
@@ -350,7 +350,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     await page.mouse.dblclick(previewAt2.x, previewAt2.y);
     const input2 = page.getByTestId('sketch-dimension-input');
     await expect(input2).toBeVisible({ timeout: 10_000 });
-    await expect(input2).toHaveValue('30');
+    await expect(input2).toHaveValue('30 mm');
     await input2.fill('5*2');
     await page.getByTestId('sketch-dimension-confirm').click();
     await expect(previewLabel).toHaveAttribute('data-text', '⌀10', { timeout: 10_000 });
@@ -846,6 +846,8 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     await page.mouse.dblclick(labelAt.x, labelAt.y);
     const input = page.getByTestId('sketch-dimension-input');
     await expect(input).toBeVisible({ timeout: 10_000 });
+    // live 2026-11-20 S2w：数值尺寸初值内联单位（`20 mm`）。
+    await expect(input).toHaveValue('20 mm');
     await input.fill('5*2');
     await page.getByTestId('sketch-dimension-confirm').click();
     await expect.poll(async () => {
@@ -856,6 +858,18 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     assertCircleSlotGeometry(applied, 30, 10, 2);
     const appliedSlot = applied.constraints.find((c) => c.kind === 'slotWidth')!;
     expect(appliedSlot.expression).toBe('5*2');
+    // live 2026-11-20 S2w：表达式尺寸重开 → `(5*2) mm`；失焦归一化 `10 mm`
+    // （不提交）；Escape 丢弃，模型仍保持表达式 `5*2`。
+    const reopenAt = await dimensionLabelCenter(page, box, slot.id);
+    await page.mouse.dblclick(reopenAt.x, reopenAt.y);
+    const reopened = page.getByTestId('sketch-dimension-input');
+    await expect(reopened).toBeVisible({ timeout: 10_000 });
+    await expect(reopened).toHaveValue('(5*2) mm');
+    await page.mouse.click(box.x + 30, box.y + 30);
+    await expect(reopened).toHaveValue('10 mm');
+    await reopened.press('Escape');
+    await expect(reopened).toHaveCount(0, { timeout: 10_000 });
+    expect((await readSketch()).constraints.find((c) => c.kind === 'slotWidth')?.expression).toBe('5*2');
     // live 2026-11-20 S2o state-183：勾选「显示表达式」→ `ƒ` + 求值；关闭 → 仅数值。
     await expect(label).toHaveAttribute('data-text', 'ƒ 10', { timeout: 30_000 });
     // live 2026-11-20 S2u4：数值上方表达式气泡 `(5*2) mm`（canvas 绘制，DOM 镜像）。

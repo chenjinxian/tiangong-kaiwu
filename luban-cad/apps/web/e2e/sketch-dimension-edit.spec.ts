@@ -239,16 +239,17 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
 
     // 方向键步进（live）：点入输入框得到光标（无选区），ArrowDown −1、ArrowUp 还原。
     const stepInput = page.getByTestId('sketch-dimension-input');
-    const stepBefore = Number(await stepInput.inputValue());
+    // live S2w：输入文本内联单位（`15.7 mm`）——取数值前缀。
+    const stepBefore = Number.parseFloat(await stepInput.inputValue());
     expect(Number.isFinite(stepBefore)).toBe(true);
     await stepInput.click();
     // 兜底折叠选区（刚打开时全选；live 有选区不步进）：光标本就在末尾，无副作用。
     await stepInput.press('End');
     await stepInput.press('ArrowDown');
-    const afterDown = Number(await stepInput.inputValue());
+    const afterDown = Number.parseFloat(await stepInput.inputValue());
     expect(Math.abs(afterDown - (stepBefore - 1))).toBeLessThan(1e-6);
     await stepInput.press('ArrowUp');
-    const afterUp = Number(await stepInput.inputValue());
+    const afterUp = Number.parseFloat(await stepInput.inputValue());
     expect(Math.abs(afterUp - stepBefore)).toBeLessThan(1e-6);
 
     // ✗ 取消：步进不提交，长度保持 20。

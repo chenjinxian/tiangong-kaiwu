@@ -301,7 +301,8 @@ test.describe('ADR-0020 S2 草图尺寸表达式 UI（真栈）', () => {
     // 无展开器/参数状态切换键（live §2.6.4）。
     await expect(page.getByTestId('sketch-dimension-expander')).toHaveCount(0);
     await expect(page.getByTestId('sketch-dimension-state-toggle')).toHaveCount(0);
-    await expect(page.getByTestId('sketch-dimension-unit')).toHaveText('deg');
+    // live S2w：单位内联在输入文本（`<度> deg`），无独立后缀节点。
+    await expect(page.getByTestId('sketch-dimension-input')).toHaveValue(/\d+(\.\d+)? deg$/);
     await page.getByTestId('sketch-dimension-cancel').click();
     await expect(angleDialog).toHaveCount(0, { timeout: 10_000 });
   });

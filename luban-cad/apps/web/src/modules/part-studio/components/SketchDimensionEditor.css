@@ -142,7 +142,13 @@
   text-align: left;
 }
 
-/* 只读单位后缀（mm / deg）：压在输入框右侧内边距上，仅视觉，不参与解析。 */
+/* 内联单位（live 2026-11-20 S2w 尺寸编辑器）：`20 mm` / `(5*2) mm` 写在
+   输入文本内，不再预留右侧后缀空间（放置弹层保持只读后缀形态）。 */
+.part-studio-dimension-editor--inline-unit {
+  padding: 0 3px;
+}
+
+/* 只读单位后缀（mm / deg；放置弹层）：压在输入框右侧内边距上，仅视觉。 */
 .part-studio-dimension-editor-unit {
   position: absolute;
   right: 6px;

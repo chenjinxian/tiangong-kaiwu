@@ -232,8 +232,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   15 → 宽 30/半径 15/45 → ƒ30 → reload）**、`sketch-expression-ui` 标签 `ƒ 20`
   **1 passed（55.4 s）**。**未发布**；
   残：样条中线环（blocked-design）、自交环（live 接受、产品诚实拒收并有回归）、
-  预览期手柄拖拽、表达式编辑器预填（产品=原文+视觉单位后缀，live=`(expr) mm` 整段）；
-  `ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
+  预览期手柄拖拽；`ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
   **S2u/S2u2/S2u3 弧混合树（2026-11-20）**：live 1 弧+2 线单毂树 → 6 LINE+7 ARC
   （同心弧边界内 r−10 裁剪到 122.127°/外全扫；毂弧 11.9619°）；live 2 弧+1 线 →
   3 LINE+10 ARC（两对同心弧、内弧裁 68.718°/11.596°、**弧-弧宽缺口毂弧 7.139°**、
@@ -254,8 +253,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   预览；宽度会话内粘滞（设 30 → 下次预览 Ø30）；提交沿用新宽度。实现：工具 `_width` +
   哨兵约束 id=-1000 的合成标注注入（不落 params；picker 负 id 解析）+ 
   `useSyncExternalStore`。真栈新 e2e **1 passed（59.3 s）**（Ø20→30、下次默认 30、
-  `5*2`→数值 10、reload），代表回归 **4 passed（2.7 m）**；web 全量
-  **2714/2714（171 files）**。
+  `5*2`→数值 10、reload），代表回归 **4 passed（2.7 m）**。
+  **S2w 尺寸编辑器内联单位（2026-11-20）**：live 输入框文本 = `20 mm` /
+  `(5*2) mm`（打开全选）；失焦只归一化为 `<求值> <单位>`（不提交；Escape 丢弃）；
+  求值前去尾部单位 + 仅剥整段外层括号；共享外壳新增 `inlineUnit`/`onValueBlur`
+  （放置弹层保持只读后缀）；步进按去单位文本计算并回写单位。真栈 slot 表达式
+  （含重开/失焦）、角度、驱动、尺寸编辑、表达式 UI 五 spec 全绿；web 全量
+  **2721/2721（171 files）**。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/

@@ -493,17 +493,17 @@ describe('SketchDimensionEditor W17：方向键步进（live）', () => {
     const onCommit = vi.fn();
     renderDimensionEditor(onCommit, STEP_CONSTRAINT);
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
-    expect(input.value).toBe('15.74583');
+    expect(input.value).toBe('15.74583 mm');
     input.setSelectionRange(input.value.length, input.value.length);
 
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     const steppedDown = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
-    expect(steppedDown.value).toBe('14.74582793');
+    expect(steppedDown.value).toBe('14.74582793 mm');
 
     steppedDown.setSelectionRange(steppedDown.value.length, steppedDown.value.length);
     fireEvent.keyDown(steppedDown, { key: 'ArrowUp' });
     // 步进后文本已不是初始格式化：基线改为 Number(text) → 15.74582793。
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74582793');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74582793 mm');
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.queryByTestId('sketch-dimension-input')).not.toBeNull();
   });
@@ -515,7 +515,7 @@ describe('SketchDimensionEditor W17：方向键步进（live）', () => {
     expect(input.selectionStart).toBe(0);
     expect(input.selectionEnd).toBe(input.value.length);
     fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74583');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74583 mm');
   });
 
   it('输入法合成中的 ArrowDown 不步进（候选导航交给输入法）', () => {
@@ -523,7 +523,7 @@ describe('SketchDimensionEditor W17：方向键步进（live）', () => {
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
     input.setSelectionRange(input.value.length, input.value.length);
     fireEvent.keyDown(input, { key: 'ArrowDown', isComposing: true });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74583');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('15.74583 mm');
   });
 
 });
@@ -537,11 +537,12 @@ const ANGLE_CONSTRAINT: SketchConstraintDto = {
 };
 
 describe('SketchDimensionEditor W18：角度编辑器（live）', () => {
-  it('单位后缀 deg（不再是 °）；长度类仍 mm', () => {
+  it('单位内联在输入文本（live S2w）：角度 `deg`、长度类 `mm`，无独立后缀', () => {
     expect(dimensionEditorUnit('angle')).toBe('deg');
     expect(dimensionEditorUnit('length')).toBe('mm');
     renderDimensionEditor(vi.fn(), ANGLE_CONSTRAINT);
-    expect(screen.getByTestId('sketch-dimension-unit').textContent).toBe('deg');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30 deg');
+    expect(screen.queryByTestId('sketch-dimension-unit')).toBeNull();
   });
 
   it('角度初值 7 位小数（度）：83.7325188；光标态 ArrowDown 步进 −1°、不提交', () => {
@@ -549,17 +550,17 @@ describe('SketchDimensionEditor W18：角度编辑器（live）', () => {
     const degrees = 83.7325188;
     renderDimensionEditor(onCommit, { ...ANGLE_CONSTRAINT, value: degrees * Math.PI / 180 });
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
-    expect(input.value).toBe('83.7325188');
+    expect(input.value).toBe('83.7325188 deg');
     input.setSelectionRange(input.value.length, input.value.length);
 
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     const steppedDown = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
-    expect(steppedDown.value).toBe('82.7325188');
+    expect(steppedDown.value).toBe('82.7325188 deg');
 
     // 步进后文本 ≠ 初始格式化：基线改为 Number(text)（度）。
     steppedDown.setSelectionRange(steppedDown.value.length, steppedDown.value.length);
     fireEvent.keyDown(steppedDown, { key: 'ArrowUp' });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('83.7325188');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('83.7325188 deg');
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.queryByTestId('sketch-dimension-input')).not.toBeNull();
   });
@@ -567,14 +568,14 @@ describe('SketchDimensionEditor W18：角度编辑器（live）', () => {
   it('角度 30 → ArrowDown = 29（整数去尾零），ArrowUp 回到 30', () => {
     renderDimensionEditor(vi.fn(), ANGLE_CONSTRAINT);
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
-    expect(input.value).toBe('30');
+    expect(input.value).toBe('30 deg');
     input.setSelectionRange(2, 2);
     fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('29');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('29 deg');
     const stepped = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
     stepped.setSelectionRange(2, 2);
     fireEvent.keyDown(stepped, { key: 'ArrowUp' });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30 deg');
   });
 
   it('角度有选区/IME 合成中 ArrowDown 不步进', () => {
@@ -582,12 +583,12 @@ describe('SketchDimensionEditor W18：角度编辑器（live）', () => {
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
     input.select();
     fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30 deg');
 
     const afterSelect = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
     afterSelect.setSelectionRange(2, 2);
     fireEvent.keyDown(afterSelect, { key: 'ArrowDown', isComposing: true });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30 deg');
   });
 });
 
@@ -667,7 +668,7 @@ describe('SketchDimensionEditor W31-A：driven 尺寸双击门禁（不打开编
     const onSelectConstraint = vi.fn();
     const { canvas } = renderForDoubleClick(DIMENSION_CONSTRAINT, onSelectConstraint);
     fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20 mm');
     expect(onSelectConstraint).toHaveBeenCalledWith(DIMENSION_ID);
   });
 });
@@ -698,9 +699,9 @@ describe('SketchDimensionEditor S2：对话框宽度变体（angle 159）', () =
     expect(dialog.classList.contains('part-studio-dimension-editor-dialog--compact')).toBe(true);
     expect(screen.queryByTestId('sketch-dimension-expander')).toBeNull();
     expect(screen.queryByTestId('sketch-dimension-state-toggle')).toBeNull();
-    // 输入/单位不变（100×26、deg）。
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30');
-    expect(screen.getByTestId('sketch-dimension-unit').textContent).toBe('deg');
+    // 输入 100×26、单位内联（live S2w：`30 deg`，无独立后缀）。
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('30 deg');
+    expect(screen.queryByTestId('sketch-dimension-unit')).toBeNull();
   });
 
   it('长度类保持 209 且保留展开器/参数状态切换键', () => {
@@ -713,14 +714,14 @@ describe('SketchDimensionEditor S2：对话框宽度变体（angle 159）', () =
 });
 
 describe('SketchDimensionEditor S2：表达式预校验与提交', () => {
-  it('既有表达式打开时显示原文（不是求值数）', () => {
+  it('既有表达式打开时显示 `(原文) 单位`（不是求值数；live S2w）', () => {
     renderDimensionEditor(
       vi.fn(),
       { ...DIMENSION_CONSTRAINT, expression: '#width' },
       { variables: EXPRESSION_VARIABLES },
     );
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
-    expect(input.value).toBe('#width');
+    expect(input.value).toBe('(#width) mm');
     expect((screen.getByTestId('sketch-dimension-confirm') as HTMLButtonElement).disabled).toBe(false);
   });
 
@@ -771,10 +772,10 @@ describe('SketchDimensionEditor S2：表达式预校验与提交', () => {
       { variables: EXPRESSION_VARIABLES },
     );
     const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
-    expect(input.value).toBe('#width');
+    expect(input.value).toBe('(#width) mm');
     input.setSelectionRange(input.value.length, input.value.length);
     fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('#width');
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('(#width) mm');
   });
 });
 
@@ -949,5 +950,55 @@ describe('SketchDimensionEditor P1-2：树事件让位', () => {
     expect((screen.getByTestId('sketch-dimension-confirm') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId('sketch-dimension-input').getAttribute('data-error')).toBe('true');
     expect(onCommit).not.toHaveBeenCalled();
+  });
+});
+
+// ── live 2026-11-20 S2w：尺寸编辑器内联单位与失焦归一化 ─────────────────────
+describe('SketchDimensionEditor S2w：内联单位/失焦归一化（live）', () => {
+  it('数值打开 `20 mm`；输入 5*2 失焦 → `10 mm`（不提交）；Enter 提交数值 10', async () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit);
+    let input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('20 mm');
+    fireEvent.change(input, { target: { value: '5*2' } });
+    fireEvent.blur(input);
+    input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('10 mm');
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    // 失焦后是数值文本：走既有数值通道（无 expression 第三参）。
+    expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 10);
+    expect(onCommit.mock.calls[0]).toHaveLength(2);
+  });
+
+  it('空值失焦 → 当前值 + 单位；Escape 丢弃并重开原值', () => {
+    const { canvas } = renderDimensionEditor(vi.fn(), DIMENSION_CONSTRAINT);
+    let input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('20 mm');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('20 mm');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByTestId('sketch-dimension-input')).toBeNull();
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20 mm');
+  });
+
+  it('表达式打开 `(#width*2) mm`；失焦 → `20 mm`；Escape 后重开仍为表达式形态', () => {
+    const { canvas } = renderDimensionEditor(
+      vi.fn(),
+      { ...DIMENSION_CONSTRAINT, expression: '#width*2' },
+      { variables: EXPRESSION_VARIABLES },
+    );
+    let input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('(#width*2) mm');
+    fireEvent.blur(input);
+    input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('20 mm');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('(#width*2) mm');
   });
 });
