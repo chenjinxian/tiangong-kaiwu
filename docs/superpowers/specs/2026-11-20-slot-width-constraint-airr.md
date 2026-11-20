@@ -168,3 +168,18 @@ interface SketchSlotWidthConstraint {
   line+arc 环 e2e **1 passed（43.6 s，标签双击 20→30 + reload）**。
 - **红线不变**：一次 FeatureOp 事务、可撤销、失败零变更、旧载荷兼容；
   能力账本仍 partial（自交环/样条中线环/弧分支/缺口 ≥180° 分支/拖拽/表达式未覆盖）。
+
+## 9. 增补（2026-11-20 S2p/S2q/S2r）
+
+- **S2p 线树槽 / S2q 多连通分量**（ADR-0022 §2.13/§2.14）：宽缺口分支改为绕毂
+  r=w/2 圆弧（扫角=180°−最小臂锥角）、多毂树逐节点斜接/毂弧；弧+线独立与链+
+  独立线各分量独立槽、共享单 Ø（跨分量 equal）。私有证据
+  `SLOT-S2O-TREE-COMPONENTS-LIVE-20261120.md`；真栈 S2p 52.4 s、S2q 56.3 s。
+- **S2r 表达式**：`slotWidth` 纳入草图尺寸表达式白名单（长度类，物化 value 后
+  求解；数值改值清除 expression；updateVariables 联动）；表达式标签按 live
+  `state-183` 改为 `ƒ ` + 求值（见 ADR-0020 D1）。后端全量 **1169 passed /
+  1 expected fail / 8 skipped**（118 files；新增 3 例）；真栈槽宽表达式 e2e
+  56.0 s。
+- **残项更新**：缺口 ≥180° 分支/多毂树/混合部分连通/表达式已收口；仍剩弧
+  参与的分支、自交环（未建模）、样条中线环、宽度预览/拖拽（S2t 探针证据不足）、
+  编辑框 `(expr) mm` 闭合显示。
