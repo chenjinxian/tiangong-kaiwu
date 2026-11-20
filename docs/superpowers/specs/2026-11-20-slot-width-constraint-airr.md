@@ -145,3 +145,26 @@ interface SketchSlotWidthConstraint {
 - **红线**：无 BIS schema/迁移；一次 `updateSketch`/`updateSketchConstraint`
   事务；旧后端遇未知 kind 拒收零变更；能力账本 `ui.sketchSlot` 仍 partial
   （弧链/分支/凹环/联动/拖拽未覆盖）。
+
+## 8. 增补（2026-11-20 v1.84.0）：ring 弧中线（闭合 line+arc 混合环）
+
+- **触发**：干净重探针（私有 `SLOT-S2L-CLOSEDMIX-BRANCH-LIVE-20261120.md`）证明
+  闭合 line+arc 环槽同样**只有一个 Ø 宽度**驱动两侧（`closed-mix3-slot.dxf`：
+  外弧 R+w/2、内弧 R−w/2、平行线 ±w/2、外角 r=w/2、内斜接、无端帽）。
+- **契约**：仍为 `slotWidth` + `slotMode="ring"`，无新字段/无新 kind；refs 数
+  仍 3N，但中线可为 **line/arc** 且 **N≥2**；每条边界须与对应中线同型、同一侧。
+  旧载荷（全 line、N≥3）不变。shared bump **1.84.0**；旧后端对弧型 ring 按
+  类型门拒收且零变更。
+- **方程**：线中线沿用 parallel + 有符号垂距 ±w/2；弧中线 = 同心（2 圆心重合）
+  + 与 concentric 同构的隐藏径向构造（横线/源圆上点/两边界圆上点/点在线×2/
+  点距=w/2），共 10 条内部方程；内部计数守卫按源类型（线 4 / 弧 10），求解后
+  verify 按「同心 + |Δr|=w/2 + 两侧异号」。
+- **前端**：闭合混合链解析（端点两两焊接单环；弧按 authored 方向，试两环向）
+  与构建（逐段两侧偏移、逐接缝外角弧/内交点裁剪、单 slotWidth ring）；ring
+  标注弧边界取外弧角中点径向跨带（`⌀`）；N≥2。
+- **验收**：shared **327/327**；后端 `SlotWidthSolver` **5/5**（新增弧环
+  20→30 与类型门拒收）、全量 **1166 passed / 1 expected fail / 8 skipped**；
+  web `sketch-slot-mixed-ring-logic` **5/5**、全量 **2684/2684**；真栈闭合
+  line+arc 环 e2e **1 passed（43.6 s，标签双击 20→30 + reload）**。
+- **红线不变**：一次 FeatureOp 事务、可撤销、失败零变更、旧载荷兼容；
+  能力账本仍 partial（自交环/样条中线环/弧分支/缺口 ≥180° 分支/拖拽/表达式未覆盖）。

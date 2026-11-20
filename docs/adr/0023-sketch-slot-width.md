@@ -1,6 +1,7 @@
 # ADR-0023 — solver-neutral 槽宽约束 `slotWidth`（整圆槽 / 闭合环槽）
 
-- 状态：**Accepted（2026-11-20 Owner 批准；实现已落地并通过真栈验收）**
+- 状态：**Accepted（2026-11-20 Owner 批准；实现已落地并通过真栈验收；
+  同日 v1.84.0 增补：ring 中线扩展 line/arc、N≥2——见 §2.4）**
 - 日期：2026-11-20
 - 关联：ADR-0022 §2.5/§2.6（S2c/S2d blocked-design 证据与原型结论）、
   AIRR `docs/superpowers/specs/2026-11-20-slot-width-constraint-airr.md`、
@@ -39,8 +40,9 @@ interface SketchSlotWidthConstraint {
 
 - `concentric`：`refs = [中线圈/弧, 内, 外]`（同型 circle/arc；source 半径须
   > w/2）；`value` = 两轮廓径向宽度。
-- `ring`：`refs = [...N 条中线(line), ...N 条外边界, ...N 条内边界]`，N≥3、
-  段序一一对应；`value` = 槽宽（= 2×每侧偏移）。
+- `ring`：`refs = [...N 条中线, ...N 条一侧边界, ...N 条另一侧边界]`，段序
+  一一对应；`value` = 槽宽（= 2×每侧偏移）。v1.83 为 N≥3 全 line；**v1.84
+  扩展为中线 line/arc、N≥2**（§2.4）。
 - 旧后端收到未知 kind **必须明确拒收且零变更**；本实现无 schema/迁移。
 
 ### 2.1 后端方程（solver-neutral，libslvs 原语组合）
@@ -80,6 +82,33 @@ interface SketchSlotWidthConstraint {
   `updateSketchConstraint` 事务；均走标准 FeatureOp + `BriefcaseTxns`，
   原生 undo/redo 已验证；失败零变更。
 
+### 2.4 v1.84 增补：ring 弧中线（闭合 line+arc 混合环）
+
+- **背景/证据**：2026-11-20 干净重探针（私有
+  `SLOT-S2L-CLOSEDMIX-BRANCH-LIVE-20261120.md`）证明闭合 line+arc 环槽同样只
+  有**一个 Ø 宽度**（`closed-mix3-slot.dxf`）：外侧弧 R+w/2、内侧弧 R−w/2、
+  平行线 ±w/2、外角 r=w/2 圆角/内侧斜接、无端帽。详见 ADR-0022 §2.12。
+- **契约**：`slotMode="ring"` 的 refs 数仍为 3N，但中线可为 line/arc（N≥2）；
+  每条边界必须与对应中线**同型**（line+line 或 arc+arc）且位于环的同一侧。
+  旧载荷（全 line、N≥3）行为不变；弧型 ring 会被旧后端按类型门拒收（零变更）。
+- **方程**（逐源，solver-neutral）：
+  - 线中线（不变）：`PARALLEL(boundary, source)` +
+    `PT_LINE_DISTANCE(boundary.p1, source, sign·value/2)`（符号取初始垂距）。
+  - 弧中线：两边界弧与中线圆心重合（2×`POINTS_COINCIDENT`）+ 与 concentric
+    完全同构的**隐藏径向构造**：中线圆心→源圆上点构成径向线（`C_HORIZONTAL`），
+    源圆上点/两边界圆上点各自 `PT_ON_CIRCLE`，两边界点 `PT_LINE_DISTANCE(0)`
+    共线，`PT_PT_DISTANCE(源点 ↔ 外点, value/2)` 与内点同值——共 10 条内部
+    方程，表达 libslvs 缺失的「同心半径差 = w/2」。
+  - 内部方程计数守卫按源类型：线 4 / 弧 10；求解后 verify 对弧环校验
+    「同心 + |Δr|=w/2 + 两侧异号」。
+- **前端**：`slotWidth` ring 标注对弧边界取外弧角中点径向跨带（仍 `⌀`），
+  下限放宽为 N≥2；闭合混合环构建器见 ADR-0022 §2.12。
+- **验证**：后端 `SlotWidthSolver` **5/5**（R=40 夹具：w20→外 50/内 30、
+  w30→外 55/内 25、角弧 r10→r15；边界/中线异型归一化拒收）；web
+  `sketch-slot-mixed-ring-logic` **5/5**（live DXF 逐坐标）；真栈闭合混合环
+  e2e **1 passed（43.6 s）**（标签 `⌀20`→双击 30 → 弧 55/25、角弧 r15、
+  线 ±15 → reload）；全量 web **2684/2684**。
+
 ## 3. 备选方案与拒绝理由
 
 | 方案 | 拒绝理由 |
@@ -92,7 +121,8 @@ interface SketchSlotWidthConstraint {
 ## 4. 验证证据
 
 - shared：契约/op DSL **326/326**（含 v1.83 ring/concentric JSON 往返）；
-  `interfaceVersion = 1.83.0`。
+  引入时 `interfaceVersion = 1.83.0`，v1.84 扩展后 **327/327**
+  （新增弧中线 ring 往返）且版本断言同步为 **1.84.0**。
 - 私有后端：`SlotWidthSolver.test` **3/3**（ring 60×40 w20→30 两侧同步；
   concentric R30 w20→30 → 15/45）、`SketchSlotWidthUpdateFlow.test` **2/2**
   （真实 `insertSketch` + `updateSketchConstraint` 通道，解析后 body 级
@@ -113,8 +143,11 @@ interface SketchSlotWidthConstraint {
 
 ## 5. 已知边界 / 后续
 
-- 弧/样条参与的闭合链、凹/自交环、分支链、多条独立曲线联动等宽槽仍
-  诚实拒收（缺 live 证据/语义）；能力账本 `ui.sketchSlot` 维持 `partial`。
+- v1.84 后已支持：闭合 line+arc 混合环（弧中线 ring）、单毂分支链（单 Ø +
+  equal，见 ADR-0022 §2.11）。仍诚实拒收：样条中线闭合环、自交环、缺口
+  ≥180° 的分支（并集边界改为绕毂圆弧，未采证据）、弧参与/多毂分支、混合
+  「部分连通+部分独立」；能力账本 `ui.sketchSlot` / `constraint.slotWidth`
+  维持 `partial`。
 - `slotWidth` 表达式/变量驱动未接（live 未采）；宽度拖拽/放置交互未采。
 - 回滚：`slotWidth` 为 additive kind；工具/能力 flag 可关闭；旧库无该
   kind 不需要迁移；失败路径保持原几何。

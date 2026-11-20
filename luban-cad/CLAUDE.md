@@ -197,8 +197,22 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   真栈 `e2e/sketch-slot.spec.ts` **9 用例分窗验证**（窗口 A 6 passed：单线/开放链/圆弧回归 + 整圆标签双击改宽/
   undo/redo/reload + 闭合凸环标签改宽/reload + 凹 L 环 6 角弧 r10/12 边界/单 slotWidth 改 30 两端 15/finish+reload +
   多独立线；窗口 B 按 429 retryAfter 210 s 等待后 闭合环+多独立线 2 passed；新增混合链单独窗口 1 passed 43.8 s：
-  3 线/6 弧/单 Ø20 → 改 30 → 偏移 35/65、帽/转角 r15 → finish+reload；一次性连跑超 MS 100 req/15min）。**未发布**；
-  残：分支链、闭合混合链（含弧；探针 DXF 解释存疑，不实现）、自交环、混合部分连通、live 宽度拖拽、slotWidth 表达式未接；`ui.sketchSlot` 仍 partial。
+  3 线/6 弧/单 Ø20 → 改 30 → 偏移 35/65、帽/转角 r15 → finish+reload；一次性连跑超 MS 100 req/15min）。
+  **S2l 干净重探针 + S2m/S2n（2026-11-20）**：旧 S2k“闭合混合环”证据作废（线画在 3 点弧的**弧上第三点**，
+  形成 T 形自交点；DXF 已解码，私有 `SLOT-S2L-CLOSEDMIX-BRANCH-LIVE-20261120.md`）。**S2m 单毂分支链**
+  （live `branch-slot.dxf`：3 线共点→9 LINE+3 ARC）：新 `sketch-slot-branch-logic.ts`——每个相邻缺口取
+  「前臂左偏移 ∩ 后臂右偏移」斜接、尖端半圆帽、单 Ø+equal；仅单毂/全直线/相邻缺口 <180°（缺口 ≥180°、
+  弧分支、多毂树诚实拒收）；顺带修复混合链**反向直线切向**（取遍历方向）。**S2n 闭合 line+arc 环**
+  （live `closed-mix3-slot.dxf`：源弧+弦，外弧 R+10/内弧 R−10/线 ±10、两外角 r10 扫 45.76°、无帽、单 Ø20）：
+  shared **1.84.0** ring 中线扩展 **line/arc、N≥2**（弧中线=同心+隐藏径向构造径向间距 w/2，10 条内部方程；
+  类型门/verify/internalCount 同步）；web `closedMixedChainFromSelection`（试两环向取弧全正向）+
+  `buildClosedMixedRingSlotDraft`（回环接缝/内侧交点裁剪/采样面积守卫）+ ring 弧标注（⌀）；工具多选含弧
+  先开放链再闭合环。验证：shared **327/327**；后端 `SlotWidthSolver` **5/5**、全量 **1166 passed/1 expected
+  fail/8 skipped**；web `sketch-slot-branch-logic` **5/5**、`sketch-slot-mixed-ring-logic` **5/5**、全量
+  **2684/2684**、tsc(src+e2e)/eslint 绿；真栈新增分支 **1 passed（42.8 s）** 与闭合混合环 **1 passed
+  （43.6 s，标签双击 Ø20→30：弧 55/25、角弧 r15、内线 |x|=20 → reload）**。**未发布**；
+  残：缺口 ≥180° 分支、弧参与/多毂分支、自交环、样条中线环、混合部分连通、live 宽度拖拽、slotWidth 表达式未接；
+  `ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/

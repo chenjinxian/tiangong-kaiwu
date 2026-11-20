@@ -1,13 +1,15 @@
 # ADR-0022 — Sketch symmetric constraint + slot tool
 
 - 状态：**Accepted（2026-11-19 Owner 批准 S1 对称约束 + S2 槽工具）；
-  2026-11-20 §2.7 S2e 由 ADR-0023 解锁整圆/闭合环槽**
+  2026-11-20 §2.7 S2e 由 ADR-0023 解锁整圆/闭合环槽；
+  2026-11-20 §2.11/§2.12（S2m 分支链 / S2n 闭合 line+arc 环，shared 1.84.0）已实施并真栈验收**
 - 日期：2026-11-19
 - 关联：AIRR `docs/superpowers/specs/2026-11-19-sketch-entity-constraint-expansion-airr.md`；
   AIRR `docs/superpowers/specs/2026-11-20-slot-width-constraint-airr.md`；
   **ADR-0023（`slotWidth` 槽宽约束）**；
   计划 `docs/superpowers/plans/2026-11-19-onshape-full-parity.md` W1–W2
-- 影响仓：`luban-cad/packages/shared`（1.81.0 additive；1.83.0 `slotWidth`）、
+- 影响仓：`luban-cad/packages/shared`（1.81.0 additive；1.83.0 `slotWidth`；
+  1.84.0 ring 中线 line/arc、N≥2）、
   私有 `luban-backend`（SolverTypes/normalizer/SlvsSolver）、
   `luban-cad/apps/web`（约束工具/ribbon/i18n/e2e）
 - 先例：ADR-0004（草图约束契约）、ADR-0020（shared additive bump）
@@ -282,7 +284,93 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   单 Ø20 → `updateSketchConstraint` 改 30（新取写租约）→ 偏移 35/65、帽/转角
   r15 → finish+reload 持久。
 - **状态口径**：`ui.sketchSlot` 仍 partial；「圆弧参与的相连链槽」已从 missing
-  移除；剩分支链（未采证据；2026-11-20 探针未建成）、自交环、闭合混合链（含弧；2026-11-20 探针 DXF 端点/帽/角弧解释不唯一，按纪律不实现）、live 宽度拖拽/表达式。
+  移除。分支链与闭合混合链的旧缺口已由 2026-11-20 干净重探针（私有
+  `SLOT-S2L-CLOSEDMIX-BRANCH-LIVE-20261120.md`）与 §2.11/§2.12 取代：旧 S2k
+  “闭合混合环”探针把线画在**弧上第三点**（T 形自交点，DXF 已解码，作废）。
+  仍缺：自交环、缺口 ≥180° 的分支、弧分支/多毂分支、混合部分连通、live 宽度
+  拖拽、slotWidth 表达式。
+
+### 2.11 S2m 单毂分支链槽（2026-11-20 live `branch-slot.dxf`）
+
+- **live 证据**（私有 `docs/SLOT-S2L-CLOSEDMIX-BRANCH-LIVE-20261120.md`；
+  `branch-input.dxf`/`branch-slot.dxf`、`state-153` 预览）：三条线共点 P
+  （输入 DXF 端点聚类 `P x3`）→ 槽工具**接受**，结果 = 9 LINE + 3 ARC：
+  - 源 3 线保留；每条线两侧 ±w/2 偏移（6 条边界线）；
+  - **尖端保留 r=w/2 半圆帽**（帽心=源线尖端）；
+  - **毂部相邻臂的偏移线两两斜接**（三个交点，无转角弧）；P 端半圆帽并入
+    并集内部而消失；
+  - 单一 **Ø20** 标注（引线指向某条帽弧）。
+  即结果恰为**三条 stadium 的并集轮廓**（证据几何逐点吻合：斜接距 P
+  = half/sin(缺口/2)，如 10/sin(57.53°)=11.853；帽起点角=右法向）。
+- **范围/拒收**：仅**单毂**（≥3 条线、每条恰一个端点落在同一焊接点、其余
+  端点自由）、全直线、所有相邻缺口**严格 <180°**（缺口 ≥180° 时并集边界会
+  切换为绕毂 r=w/2 圆弧，未采证据）；多毂树、弧参与、共线臂、自由端共点 →
+  诚实拒收。
+- **实现**（纯前端，无契约/后端变更）：`sketch-slot-branch-logic.ts`：
+  - `branchChainFromSelection`：端点聚类 → 唯一公共端点簇（≥3、每条线各一）
+    + 其余端点全自由；极角排序并校验相邻缺口 `<π`。
+  - `buildBranchChainSlotDraft`：每个缺口取「前臂左偏移线 ∩ 后臂右偏移线」
+    斜接点（并要求交点沿两臂的投影落在臂长内，否则 degenerateRadius）；
+    尖端帽从右偏移点扫 +π（背离毂部）；`parallel` 每臂×两侧、帽心↔源线尖端、
+    帽端点/切线、斜接重合；单 diameter + 其余帽逐对 equal。
+  - 顺带修复混合链解析的**反向直线切向**：直线两端的切向取遍历方向
+    （entry→exit），反向遍历时不得沿用 p1→p2（闭合环的线正常为反向遍历）。
+- **验证**：`sketch-slot-branch-logic` **5/5**（识别/拒收矩阵；与 live DXF
+  逐坐标吻合：斜接点 (118.1568,−183.5366)/(108.1568,−166.1941)/
+  (98.1568,−183.5366)、尖端帽角 −57.5288°/57.5288°/180°；单 diameter + 2
+  equal + 6 parallel + 6 tangent + 12 coincident）；真栈新 e2e **1 passed
+  （42.8 s）**：RPC 建 Y 分支（毂 (0,0)，尖端 (−40,20)/(40,20)/(0,−40)）→
+  框选 → 槽：3 帽 r10 + 6 平行边界线 + 单 Ø20 → `updateSketchConstraint`
+  改 30（帽/边界同步）→ finish+reload。
+- **状态口径**：`ui.sketchSlot` 仍 partial；「分支链槽」从 missing 移除，
+  补列「缺口 ≥180° 分支 / 弧分支 / 多毂树」为未采证据项。
+
+### 2.12 S2n 闭合 line+arc 混合环槽（2026-11-20 live；shared 1.84.0）
+
+- **live 证据**（同一私有记录；`closed-mix2-input.dxf` 输入严格焊接：
+  1 LINE + 1 ARC，线两端 = 弧两端、误差 1e-14；`closed-mix3-slot.dxf` 结果）：
+  半圆/大弧 + 弦组成的闭环 → 8 实体：
+  - 源线/源弧保留；**无端帽**；
+  - 外侧边界：弧 R+w/2（半径 42.0166=32.0166+10）+ 平行线（外移 10）；
+  - 内侧边界：弧 R−w/2（22.0166）+ 内移线（两端被子弧交点裁剪）；
+  - 每接缝：**外侧 r=w/2 圆角弧**（sweep=两侧偏移方向夹角 45.76°）+
+    **内侧斜接**（线-圆交点）；
+  - 单一 **Ø20** 宽度标注（预览/提交均为 Ø），正常驱动弧/线两侧。
+- **契约**（shared **1.84.0**，additive 语义扩展）：`slotMode="ring"` 的
+  N 条中线扩展为 **line/arc**，**N≥2**（闭合混合环最小两段）；每条边界须与
+  对应中线同型、同一侧。旧载荷（全 line、N≥3）不变；旧后端遇到弧型 ring
+  会按类型门拒收且零变更。
+- **后端**（solver-neutral 扩展）：ring 逐源处理——
+  - 线中线：`PARALLEL + PT_LINE_DISTANCE(±value/2)`（原口径）；
+  - 弧中线：两侧边界弧与中线圆心重合 + 与 concentric 同构的隐藏径向构造
+    （径向线/源圆上点/两边界圆上点/点在线/点距=w/2，共 10 条内部方程），
+    即用「同角径向点对 + 点距」表达 libslvs 缺失的半径差；
+  - `internalConstraintCount` 按源类型计（线 4 / 弧 10）；求解后 verify
+    按「同心 + |Δr|=w/2 且两侧异号」校验；`SolverTypes`/normalizer 类型门
+    同步为「中线 line/arc + 边界同型 + refs 不重复」。
+- **前端**：`sketch-slot-mixed-logic.ts` 新增
+  - `closedMixedChainFromSelection`：端点两两焊接成单环（接缝数=n）、弧必须
+    按 authored 方向遍历——**试两个环向**，取能让所有弧正向前进的方向；
+    两向都有反向弧 → 拒收；
+  - `buildClosedMixedRingSlotDraft`：每段两侧偏移（弧用
+    `R − side·sign·w/2`）、逐接缝外角弧/内侧交点裁剪（新增接缝 i=n 回环
+    处理）、`parallel`/`concentric`、单 `slotWidth` ring
+    refs=[N 源, N 左侧, N 右侧]；守卫：弧半径容纳半宽、内侧交点存在、边界
+    非退化、两边界环与源环同向且面积非零（采样面积）；
+  - 顺带硬化 `trimBoundary`：裁剪角归一到与当前扫角连续（大扫角跨 0/2π
+    不得改写另一支——live 弧形 a=180.763→449.237）。
+  - 标注：ring 的弧边界取外弧角中点径向跨带、仍显示 `⌀`；`n≥2` 下限。
+  - 工具分派：多选含弧 → 先开放混合链，失败再试闭合混合环。
+- **验证**：后端 `SlotWidthSolver` **5/5**（新增弧环夹具 R=40：w20 → 外
+  50/内 30，w30 → 外 55/内 25、角弧 r10→r15；类型门拒收）；web 单测
+  `sketch-slot-mixed-ring-logic` **5/5**（与 live DXF 逐坐标
+  吻合：内弧 r22.0166 a=190.9242→439.0758、内线端点 (−124.9096,−13.2669)/
+  (−150.6996,−39.0569)、外线 (−135.7267,4.2003)/(−168.1668,−28.2398)、
+  角弧 89.237→135 与 135→180.763）；真栈新 e2e **1 passed（43.6 s）**：
+  半圆 r40 + 弦 → 框选 → 槽：5 弧/3 线/单 slotWidth、标签 `⌀20` → 标签双击
+  改 30（弧 55/25、角弧 r15、线 ±15、内线 |x|=20）→ finish+reload。
+- **状态口径**：闭合混合链从 missing 移除；剩自交环、样条中线环、弧分支/
+  缺口 ≥180° 分支、混合部分连通、live 宽度拖拽、slotWidth 表达式。
 
 ## 3. 数据/事务
 
