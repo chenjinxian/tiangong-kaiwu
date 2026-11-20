@@ -360,11 +360,11 @@ function layoutAngular(
   for (let attempt = 0; attempt < 6; attempt++) {
     const mid = startAngle + sweep / 2;
     labelCenter = { x: sv.x + Math.cos(mid) * (radius + 14), y: sv.y + Math.sin(mid) * (radius + 14) };
-    const rect = labelRect(labelCenter, 0, annotation.text);
+    const rect = dimensionOccupiedRect(labelCenter, 0, annotation);
     if (!occupied.some((other) => rectsOverlap(rect, other))) break;
     radius += ANGULAR_STACK_STEP;
   }
-  occupied.push(labelRect(labelCenter, 0, annotation.text));
+  occupied.push(dimensionOccupiedRect(labelCenter, 0, annotation));
   const arcStart = { x: sv.x + dirA.x * radius, y: sv.y + dirA.y * radius };
   const arcEnd = { x: sv.x + dirB.x * radius, y: sv.y + dirB.y * radius };
   return { kind: 'angular', annotation, sv, radius, startAngle, sweepAngle: sweep, arcStart, arcEnd, labelCenter, angle: 0 };

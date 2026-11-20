@@ -38,7 +38,8 @@ export function useSketchAnnotations(
   const showExpressions = options?.showExpressions;
   const annotations = useMemo<readonly SketchDimensionAnnotation[]>(() => {
     const base = active && sketch ? buildSketchDimensionAnnotations(sketch, { showExpressions }) : [];
-    return previewAnnotation ? [...base, previewAnnotation] : base;
+    // 预览标注与装饰器/编辑器同一 active 门：非编辑态不暴露孤立的预览标注。
+    return active && previewAnnotation ? [...base, previewAnnotation] : base;
   }, [active, sketch, showExpressions, previewAnnotation]);
   const glyphs = useMemo<readonly SketchConstraintGlyphAnnotation[]>(
     () => (active && sketch ? buildSketchConstraintGlyphs(sketch) : []),

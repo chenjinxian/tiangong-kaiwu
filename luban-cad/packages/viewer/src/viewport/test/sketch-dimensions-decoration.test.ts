@@ -20,8 +20,8 @@ vi.mock('@itwin/core-frontend', () => ({
 
 import {
   layoutSketchDimensions,
-  sketchDimensionLabels,
   type SketchDimensionAnnotation,
+  sketchDimensionLabels,
   SketchDimensionsDecoration,
 } from '../decorations/sketch-dimensions-decoration.js';
 
@@ -129,9 +129,9 @@ describe('SketchDimensionsDecoration', () => {
     const layout = layoutSketchDimensions(annotations, viewport);
     const labels = sketchDimensionLabels(layout);
     expect(labels[0]).toMatchObject({ text: 'ƒ Ø10', expressionText: '(5*2) mm' });
-    expect(labels[0]!.expressionRect).toBeDefined();
+    expect(labels[0].expressionRect).toBeDefined();
     // 气泡紧贴数值上方（屏幕 y 更小）。
-    expect(labels[0]!.expressionRect!.bottom).toBeLessThanOrEqual(labels[0]!.rect.top + 0.001);
+    expect(labels[0].expressionRect!.bottom).toBeLessThanOrEqual(labels[0].rect.top + 0.001);
 
     const deco = new SketchDimensionsDecoration(viewport, annotations);
     const { context, addCanvasDecoration } = makeContext(viewport);
@@ -176,10 +176,10 @@ describe('SketchDimensionsDecoration', () => {
     }];
     const layout = layoutSketchDimensions(annotations, viewport);
     expect(layout).toHaveLength(1);
-    expect(layout[0]!.kind).toBe('angular');
+    expect(layout[0].kind).toBe('angular');
     const labels = sketchDimensionLabels(layout);
     expect(labels[0]).toMatchObject({ id: 'dimension-4', kind: 'angular', text: '90°' });
-    expect(labels[0]!.rect.right).toBeGreaterThan(labels[0]!.rect.left);
+    expect(labels[0].rect.right).toBeGreaterThan(labels[0].rect.left);
 
     const deco = new SketchDimensionsDecoration(viewport, annotations);
     const { context, addCanvasDecoration } = makeContext(viewport);
@@ -191,6 +191,70 @@ describe('SketchDimensionsDecoration', () => {
     expect(ctx.arc).toHaveBeenCalled();
     expect(ctx.stroke.mock.calls.length).toBeGreaterThanOrEqual(2);
     deco.dispose();
+  });
+
+  it('角度尺寸表达式气泡：标签暴露 expressionText/expressionRect，绘制包含气泡文本（live S2u4）', () => {
+    const { viewport } = makeViewport();
+    const annotations: SketchDimensionAnnotation[] = [{
+      kind: 'angular',
+      id: 'dimension-4b',
+      vertex: Point3d.create(0, 0, 0),
+      a: Point3d.create(10, 0, 0),
+      b: Point3d.create(0, 10, 0),
+      text: '45°',
+      expressionText: '(5*2) deg',
+    }];
+    const layout = layoutSketchDimensions(annotations, viewport);
+    expect(layout).toHaveLength(1);
+    const labels = sketchDimensionLabels(layout);
+    expect(labels[0]).toMatchObject({ kind: 'angular', text: '45°', expressionText: '(5*2) deg' });
+    expect(labels[0].expressionRect).toBeDefined();
+    // 气泡紧贴数值上方（屏幕 y 更小），数值命中框保持不变。
+    expect(labels[0].expressionRect!.bottom).toBeLessThanOrEqual(labels[0].rect.top + 0.001);
+
+    const deco = new SketchDimensionsDecoration(viewport, annotations);
+    const { context, addCanvasDecoration } = makeContext(viewport);
+    deco.decorate(context);
+    const decoration = addCanvasDecoration.mock.calls[0][0] as { drawDecoration: (ctx: unknown) => void };
+    const ctx = makeCtx();
+    decoration.drawDecoration(ctx);
+    const texts = ctx.fillText.mock.calls.map((call) => call[0]);
+    expect(texts).toEqual(expect.arrayContaining(['45°', '(5*2) deg']));
+    deco.dispose();
+  });
+
+  it('角度尺寸表达式气泡参与避让：仅与气泡重叠的相邻标签被堆叠（live S2u4 回归）', () => {
+    const { viewport } = makeViewport();
+    const angular = (expressionText?: string): SketchDimensionAnnotation => ({
+      kind: 'angular',
+      id: 'dimension-4c',
+      vertex: Point3d.create(0, 0, 0),
+      a: Point3d.create(10, 0, 0),
+      b: Point3d.create(0, 10, 0),
+      text: '45°',
+      ...(expressionText ? { expressionText } : {}),
+    });
+    // 线性标注初始位置只与角度气泡重叠（y 236.2–252.2），不与角度数值命中框
+    // 重叠（y 255.2–271.2）；因此只有气泡参与避让时它才会被堆叠。
+    const linear: SketchDimensionAnnotation = {
+      kind: 'linear',
+      id: 'dimension-4d',
+      a: Point3d.create(2, 1.28, 0),
+      b: Point3d.create(2.4, 1.28, 0),
+      side: Vector3d.create(0, 1, 0),
+      text: '10',
+    };
+
+    const withoutBubble = layoutSketchDimensions([angular(), linear], viewport);
+    const withBubble = layoutSketchDimensions([angular('(5*2) deg'), linear], viewport);
+    expect(withoutBubble).toHaveLength(2);
+    expect(withBubble).toHaveLength(2);
+    expect(withoutBubble[1].kind).toBe('linear');
+    expect(withBubble[1].kind).toBe('linear');
+    // 无气泡：线性标签留在初始位置（不重叠）。
+    expect(withoutBubble[1].labelCenter.y).toBeCloseTo(244.2, 5);
+    // 有气泡：初始位置与气泡重叠 → 沿侧向堆叠 STACK_STEP=22px。
+    expect(withBubble[1].labelCenter.y).toBeCloseTo(222.2, 5);
   });
 
   it('setAnnotations 触发 invalidate；空集/非空间视图不添加装饰；dispose 反注册', () => {
