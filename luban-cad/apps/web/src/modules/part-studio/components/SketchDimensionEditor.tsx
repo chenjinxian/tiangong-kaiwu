@@ -70,6 +70,7 @@ import {
   EDITABLE_CONSTRAINT_KINDS,
   dimensionConstraintDisplayValue,
   dimensionEditorUnitText,
+  dimensionEditorValueMatchesOriginal,
   formatConstraintEditorValue,
   formatDimensionPopupValue,
   normalizeDimensionEditorText,
@@ -158,6 +159,15 @@ interface EditorState {
   initialValue: string;
   /** 约束原始值（未编辑时步进基线，保留全精度；角度为契约弧度）。 */
   rawValue: number | undefined;
+  /**
+   * 2026-11-21 评审 Finding 3：打开驱动表达式尺寸时的原表达式。live：打开
+   * `(#width*2) mm` → 失焦归一化 `20 mm` → Enter 仍保留表达式（重开仍是
+   * `(#width*2) mm`）；产品此前提交归一化数值而切断参数化链接。仅当打开时
+   * 值文本就是该表达式的括号显示、且不是预览哨兵（负 id）时记录；用户实际
+   * 编辑（onValueChange/方向键步进/补全）立即清空，恢复「新数值/新表达式
+   * 按现状提交」。
+   */
+  preservedExpression?: string;
   /** position:fixed 元素的 client 坐标（垂直以 translateY(-50%) 居中）。 */
   left: number;
   top: number;
@@ -537,6 +547,9 @@ export function SketchDimensionEditor({
         value: initialValue,
         initialValue,
         rawValue: constraint.value,
+        // 打开值文本 = 表达式括号显示时记录原文（driven 已在上方早退；负 id
+        // 预览哨兵不保留——其提交通道只取数值，评审 Finding 3 不得改道）。
+        preservedExpression: expression !== '' && constraintId > 0 ? expression : undefined,
         left: placement.left,
         top: placement.top,
       });
@@ -729,10 +742,20 @@ export function SketchDimensionEditor({
     committingRef.current = true;
     setCommitting(true);
     try {
+      // 评审 Finding 3：blur 归一化后的数值仍匹配打开时的约束值 → 继续携带
+      // 原表达式（live：打开 `(#width*2) mm` → 失焦 `20 mm` → Enter 后重开
+      // 仍是表达式，参数化链接不因归一化显示被切断）。用户实际编辑已在
+      // onValueChange 清空 preservedExpression；数值不匹配时按纯数值提交。
+      // 当前文本是新表达式时以它为准（不覆盖为 preservedExpression）。
+      const preserved = evaluation.expression === undefined
+        && current.preservedExpression !== undefined
+        && dimensionEditorValueMatchesOriginal(current.kind, current.rawValue, evaluation.value)
+        ? current.preservedExpression
+        : evaluation.expression;
       // 纯数字不传第三参（保持既有回调形状/断言口径）。
-      const result = evaluation.expression === undefined
+      const result = preserved === undefined
         ? await onCommitRef.current(current.constraintId, evaluation.value)
-        : await onCommitRef.current(current.constraintId, evaluation.value, evaluation.expression);
+        : await onCommitRef.current(current.constraintId, evaluation.value, preserved);
       if (result && !result.ok) {
         setFailed(true);
         return;
@@ -749,6 +772,10 @@ export function SketchDimensionEditor({
    * live 2026-11-20 S2w：失焦（画布点击等）只做显示归一化，不提交——表达式/
    * 空值 → `<求值> <单位>`（`(5*2) mm` → `10 mm`；空 → 当前值）；无效文本
    * 保持原文（无 live 证据）。Escape 仍丢弃、Enter 仍提交。
+   *
+   * 2026-11-21 评审 Finding 3：归一化**不清** `preservedExpression`——live
+   * 失焦后 Enter/✓ 仍保留原表达式（`10 mm` 显示回 `(5*2) mm`）；只有真实的
+   * 值编辑（onValueChange）才清空。
    */
   const normalizeEditorValueOnBlur = React.useCallback((): void => {
     const current = editorRef.current;
@@ -1027,7 +1054,11 @@ export function SketchDimensionEditor({
             dragOrigin={visibleDialogPosition}
             onDragPosition={setDragPosition}
             onValueChange={(value) => {
-              setEditor((current) => (current ? { ...current, value } : current));
+              // 用户实际编辑（键入/方向键步进/补全插入）→ 丢弃打开时的原表达式
+              //（评审 Finding 3：新数值/新表达式按现状提交，不悄悄改回表达式）。
+              setEditor((current) => (current
+                ? { ...current, value, preservedExpression: undefined }
+                : current));
               setFailed(false);
             }}
             inputRef={inputRef}

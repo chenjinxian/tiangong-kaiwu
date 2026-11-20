@@ -14,6 +14,7 @@ import {
   EDITABLE_CONSTRAINT_KINDS,
   dimensionConstraintDisplayValue,
   dimensionEditorUnitText,
+  dimensionEditorValueMatchesOriginal,
   formatAngleEditorDegrees,
   formatConstraintEditorValue,
   formatDimensionPopupValue,
@@ -206,6 +207,38 @@ describe('内联单位与表达式括号归一化（S2w live）', () => {
     expect(stripDimensionEditorUnit('5*2', 'mm')).toBe('5*2');
     // 单位不是尾部 token（如变量名）不剥。
     expect(stripDimensionEditorUnit('mm*2', 'mm')).toBe('mm*2');
+  });
+
+  it('评审 Finding 2：标识符后缀不当单位吃（#width_mm/#fooDEG/#foo2mm）', () => {
+    // 合法变量名（[A-Za-z_][A-Za-z0-9_]*）尾部字母不是单位 token。
+    expect(stripDimensionEditorUnit('#width_mm', 'mm')).toBe('#width_mm');
+    expect(stripDimensionEditorUnit('#fooDEG', 'deg')).toBe('#fooDEG');
+    expect(stripDimensionEditorUnit('#foo2mm', 'mm')).toBe('#foo2mm');
+    // 变量名本身就是单位（#mm）同样不剥。
+    expect(stripDimensionEditorUnit('#mm', 'mm')).toBe('#mm');
+    // live 输入形态仍照常剥离（单位前有空白）。
+    expect(stripDimensionEditorUnit('20 mm', 'mm')).toBe('20');
+    expect(stripDimensionEditorUnit('(5*2) mm', 'mm')).toBe('(5*2)');
+    expect(stripDimensionEditorUnit('90 deg', 'deg')).toBe('90');
+    // 无空白不剥：`20mm` 按表达式判无效，而不是静默改成 20。
+    expect(stripDimensionEditorUnit('20mm', 'mm')).toBe('20mm');
+    expect(normalizeDimensionEditorText('#width_mm', 'mm')).toBe('#width_mm');
+  });
+
+  it('dimensionEditorValueMatchesOriginal：blur 舍入容差（长度 1e-5 mm / 角度 1e-9 rad）', () => {
+    expect(dimensionEditorValueMatchesOriginal('length', 20, 20)).toBe(true);
+    // 5 位小数显示舍入：15.74582793 → 15.74583（差 ≈2.1e-6）。
+    expect(dimensionEditorValueMatchesOriginal('length', 15.74582793, 15.74583)).toBe(true);
+    expect(dimensionEditorValueMatchesOriginal('length', 20, 30)).toBe(false);
+    expect(dimensionEditorValueMatchesOriginal('angle', Math.PI / 6, Math.PI / 6)).toBe(true);
+    // 角度 7 位小数（度）舍入：83.73251885° → 83.7325189°（差 ≈8.7e-10 rad）。
+    const roundedAngle = Number(formatAngleEditorDegrees(83.73251885)) * Math.PI / 180;
+    expect(dimensionEditorValueMatchesOriginal('angle', 83.73251885 * Math.PI / 180, roundedAngle))
+      .toBe(true);
+    expect(dimensionEditorValueMatchesOriginal('angle', Math.PI / 6, Math.PI / 4)).toBe(false);
+    // 缺原值/非有限不匹配（按纯数值提交）。
+    expect(dimensionEditorValueMatchesOriginal('length', undefined, 20)).toBe(false);
+    expect(dimensionEditorValueMatchesOriginal('length', Number.NaN, 20)).toBe(false);
   });
 
   it('stripOuterExpressionParens：仅剥包住整段的外层括号', () => {

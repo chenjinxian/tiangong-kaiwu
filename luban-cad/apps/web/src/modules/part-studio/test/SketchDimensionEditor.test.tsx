@@ -1002,3 +1002,90 @@ describe('SketchDimensionEditor S2w：内联单位/失焦归一化（live）', (
     expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('(#width*2) mm');
   });
 });
+
+// ── 2026-11-21 评审 Finding 3：blur 归一化后 Enter/✓ 仍保留表达式（live）───
+describe('SketchDimensionEditor Finding 3：失焦归一化不切断表达式', () => {
+  const EXPRESSION_CONSTRAINT: SketchConstraintDto = {
+    ...DIMENSION_CONSTRAINT,
+    expression: '#width*2',
+  };
+
+  it('(a) 打开表达式 → 失焦归一化 `20 mm` → Enter 提交 (id, 20, 原文)', async () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, EXPRESSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('(#width*2) mm');
+    fireEvent.blur(input);
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20 mm');
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByTestId('sketch-dimension-input'), { key: 'Enter' });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 20, '#width*2');
+  });
+
+  it('(b) 失焦后改值 30 → Enter 走纯数值通道（2 参数，不携带旧表达式）', async () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, EXPRESSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    fireEvent.blur(screen.getByTestId('sketch-dimension-input'));
+    fireEvent.change(screen.getByTestId('sketch-dimension-input'), { target: { value: '30' } });
+    fireEvent.keyDown(screen.getByTestId('sketch-dimension-input'), { key: 'Enter' });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 30);
+    expect(onCommit.mock.calls[0]).toHaveLength(2);
+  });
+
+  it('(c) 失焦归一化后 Escape 仍丢弃（不提交；重开仍是表达式形态）', () => {
+    const onCommit = vi.fn();
+    const { canvas } = renderDimensionEditor(onCommit, EXPRESSION_CONSTRAINT, {
+      variables: EXPRESSION_VARIABLES,
+    });
+    fireEvent.blur(screen.getByTestId('sketch-dimension-input'));
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20 mm');
+    fireEvent.keyDown(screen.getByTestId('sketch-dimension-input'), { key: 'Escape' });
+    expect(screen.queryByTestId('sketch-dimension-input')).toBeNull();
+    expect(onCommit).not.toHaveBeenCalled();
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('(#width*2) mm');
+  });
+
+  it('(d) 输入新表达式 → Enter 提交新表达式（不被打开时的原文覆盖）', async () => {
+    const onCommit = vi.fn();
+    renderDimensionEditor(onCommit, EXPRESSION_CONSTRAINT, { variables: EXPRESSION_VARIABLES });
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#width*3' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    expect(onCommit).toHaveBeenCalledWith(DIMENSION_ID, 30, '#width*3');
+  });
+
+  it('预览哨兵（负 id）不受影响：失焦后 Enter 仍走纯数值 2 参数通道', async () => {
+    const onCommit = vi.fn();
+    const { canvas, viewport } = makeViewport();
+    canvas.dataset.testCanvas = 'dimension-preview-sentinel';
+    document.querySelectorAll('canvas[data-test-canvas="dimension-preview-sentinel"]')
+      .forEach((stale) => stale.remove());
+    document.body.appendChild(canvas);
+    render(
+      <SketchDimensionEditor
+        viewport={viewport}
+        annotations={[{ ...DIMENSION_ANNOTATION, id: 'dimension--1000' }]}
+        constraints={[{ ...DIMENSION_CONSTRAINT, id: -1000, expression: '#width*2' }]}
+        variables={EXPRESSION_VARIABLES}
+        onCommit={onCommit as unknown as (
+          constraintId: number,
+          value: number,
+          expression?: string,
+        ) => void}
+      />,
+    );
+    fireEvent.dblClick(canvas, DIMENSION_LABEL_CENTER);
+    const input = screen.getByTestId('sketch-dimension-input') as HTMLInputElement;
+    expect(input.value).toBe('(#width*2) mm');
+    fireEvent.blur(input);
+    expect((screen.getByTestId('sketch-dimension-input') as HTMLInputElement).value).toBe('20 mm');
+    fireEvent.keyDown(screen.getByTestId('sketch-dimension-input'), { key: 'Enter' });
+    await waitFor(() => expect(onCommit).toHaveBeenCalledTimes(1));
+    expect(onCommit).toHaveBeenCalledWith(-1000, 20);
+    expect(onCommit.mock.calls[0]).toHaveLength(2);
+  });
+});

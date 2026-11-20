@@ -108,11 +108,25 @@ export function dimensionEditorUnitText(kind: SketchConstraintDto['kind']): 'mm'
   return kind === 'angle' ? 'deg' : 'mm';
 }
 
-/** 去掉输入文本尾部单位（大小写不敏感；无单位时返回 trim 后原文）。 */
+/**
+ * 去掉输入文本尾部单位（大小写不敏感；无单位时返回 trim 后原文）。
+ *
+ * 2026-11-21 评审判定（Finding 2）：单位 token 前必须是空白才剥离。旧实现
+ * `^(.*?)\s*${unit}\s*$` 会把合法变量名的尾部字母当单位吃掉（`#width_mm` →
+ * `#width_`、`#fooDEG` → `#foo`、`#foo2mm` → `#foo2`），而这些都满足
+ * `[A-Za-z_][A-Za-z0-9_]*`。live 输入形态均带空格（`20 mm` / `(5*2) mm` /
+ * `90 deg`），因此「单位前必须有空白」既能归一化 live 文本，又不破坏标识符。
+ */
 export function stripDimensionEditorUnit(text: string, unit: string): string {
   const trimmed = text.trim();
-  const match = new RegExp(`^(.*?)\\s*${unit}\\s*$`, 'i').exec(trimmed);
-  return match ? (match[1] ?? '').trim() : trimmed;
+  const lowerUnit = unit.toLowerCase();
+  if (trimmed.length <= lowerUnit.length || !trimmed.toLowerCase().endsWith(lowerUnit))
+    return trimmed;
+  const prefix = trimmed.slice(0, trimmed.length - lowerUnit.length);
+  // `#width_mm` / `#fooDEG` / `#foo2mm` / `#mm`：单位前不是空白 → 不剥。
+  if (!/\s$/.test(prefix))
+    return trimmed;
+  return prefix.trim();
 }
 
 /**
@@ -143,6 +157,25 @@ export function stripOuterExpressionParens(text: string): string {
 /** 输入框文本 → 求值文本（去尾部单位 + 去整段外层括号）。 */
 export function normalizeDimensionEditorText(text: string, unit: string): string {
   return stripOuterExpressionParens(stripDimensionEditorUnit(text, unit));
+}
+
+/**
+ * 2026-11-21 评审 Finding 3：blur 归一化把表达式尺寸显示成 `10 mm` 后，若
+ * 用户没有实际编辑（onValueChange 会清掉 preservedExpression），提交时数值
+ * 仍是原约束值的显示舍入——只有在此容差内才继续携带原表达式，否则按纯数值
+ * 提交（避免把舍入差误认成「保留表达式」）。比较用契约值：长度类毫米、
+ * 角度为弧度（归一化文本按度求值后已换算回弧度）。容差 = 显示舍入半位：
+ * 长度 5 位小数 → 5e-6 mm；角度 7 位小数（度）→ 5e-8° ≈ 8.7e-10 rad。
+ */
+export function dimensionEditorValueMatchesOriginal(
+  kind: SketchConstraintDto['kind'],
+  original: number | undefined,
+  candidate: number,
+): boolean {
+  if (original === undefined || !Number.isFinite(original) || !Number.isFinite(candidate))
+    return false;
+  const tolerance = kind === 'angle' ? 1e-9 : 1e-5;
+  return Math.abs(candidate - original) <= tolerance;
 }
 
 /**
