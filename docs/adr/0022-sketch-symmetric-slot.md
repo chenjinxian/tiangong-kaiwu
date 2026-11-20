@@ -3,7 +3,8 @@
 - 状态：**Accepted（2026-11-19 Owner 批准 S1 对称约束 + S2 槽工具）；
   2026-11-20 §2.7 S2e 由 ADR-0023 解锁整圆/闭合环槽；
   2026-11-20 §2.11/§2.12（S2m 分支链 / S2n 闭合 line+arc 环，shared 1.84.0）已实施并真栈验收；
-  2026-11-20 §2.13/§2.14（S2p 线树槽 / S2q 多连通分量共享单 Ø）已实施并真栈验收**
+  2026-11-20 §2.13/§2.14（S2p 线树槽 / S2q 多连通分量共享单 Ø）已实施并真栈验收；
+  2026-11-20 §2.15（S2u 含圆弧的混合线树）已实施并真栈验收**
 - 日期：2026-11-19
 - 关联：AIRR `docs/superpowers/specs/2026-11-19-sketch-entity-constraint-expansion-airr.md`；
   AIRR `docs/superpowers/specs/2026-11-20-slot-width-constraint-airr.md`；
@@ -400,7 +401,7 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   Y 分支 → 框选 → 槽：9 线/4 弧、毂弧 149.055°+117.255°、单 Ø20 → 改 30
   全弧 r15 → finish+reload。
 - **状态口径**：`ui.sketchSlot` 仍 partial；「缺口 ≥180° 分支」「多毂树」从
-  未采证据移除；剩**弧参与的分支**（未采）。
+  未采证据移除（弧参与的分支由 §2.15 S2u 收口；多弧臂仍未采）。
 
 ### 2.14 S2q 多连通分量联动等宽槽（2026-11-20 live S2o；弧+线 / 链+线）
 
@@ -427,7 +428,37 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   在途（`store.tool.activeToolId !== null`）时不重启；单测
   `OnshapeSelectTool` **35/35**（新增守卫用例）。
 - **状态口径**：`ui.sketchSlot` 仍 partial；「多曲线联动的等宽槽（含弧/
-  部分连通）」从 missing 移除；剩样条中线环、自交环、弧分支。
+  部分连通）」从 missing 移除；剩样条中线环、自交环、弧分支（§2.15 收口）。
+
+### 2.15 S2u 含圆弧的混合线树槽（2026-11-20 live；恰一弧臂）
+
+- **live 证据**（私有 `ui-evidence/slot-variants-20261120/s2u-arcbranch-*`；
+  记录 `docs/SLOT-S2O-TREE-COMPONENTS-LIVE-20261120.md` §4b）：毂 P 处
+  **1 弧 + 2 线**（弧 P→T 为 CCW 圆弧 R=106.7851；线 P→A/P→B）→ w=20 结果
+  6 LINE + 7 ARC：源 3 曲线保留；每线 2 条平行边界；弧两侧**同心弧边界**
+  （内 r−10=96.7851 **裁剪**到 122.127°、外 r+10=116.7851 全扫）；3 尖端帽
+  r10；线 A-B 窄缺口斜接 P′；线 B-弧窄缺口 = 线 B 边界与内弧交点；弧-线 A
+  宽缺口 = 绕毂弧 r10 起 128.232°、扫 **11.9619°**（两臂朝向偏移法线夹角，
+  与直线树半平面交集规则在**弧帧切线方向**下一致）。
+- **实现**：新 `sketch-slot-curve-tree-logic.ts`——树识别接受 line/arc，
+  **恰一条弧臂**（多弧臂未采 → 诚实拒收）；逐端帧切线、边界=直线/同心圆，
+  窄缺口求 line-line / line-circle / circle-circle 交点（直线投影/弧扫角
+  裁剪守卫，弧**只允许裁剪不允许外延**），宽缺口毂弧沿用半平面交集；约束=
+  线边界 parallel、弧边界 concentric、帽/毂弧心 coincident+端点 coincident+
+  tangent、窄缺口 coincident、单 Ø（直径锚定帽，弧边界半径经帽/毂弧相切
+  传递）。`SlotDraft.boundaryArcIds?` additive。
+- **验证**：`sketch-slot-curve-tree-logic` **4/4**（live 输入 → 4 条边界线与
+  live 逐坐标吻合；内/外弧半径与裁剪角 122.127°、毂弧 128.232°/11.962°；
+  约束 1 diameter + 3 equal + 4 parallel + 2 concentric + 8 tangent +
+  14 coincident；w=2R/零宽拒收）；真栈新 e2e **1 passed（42.7 s）**：RPC 建
+  live 几何（5 固定点+弧半径+端点重合）→ 框选 → 槽：6 线/7 弧、Ø20 →
+  Ø30（帽 15、边界 91.785/121.785）→ finish+reload。回归槽单测 **49/49**。
+- **样条中线环（同批证据，blocked-design）**：live 闭合样条 → 3 条闭合样条
+  （源 + 两条 ~110 控制点偏移、无帽）；Onshape 自身以密集控制点近似偏移，
+  本产品求解器无样条偏移约束 → 不建模，登记 blocked-design。
+- **状态口径**：`ui.sketchSlot` 仍 partial；「弧参与的分支（恰一弧臂）」从
+  missing 移除；多弧臂/弧-弧宽缺口、样条中线环（blocked-design）、自交环
+  仍为残项。
 
 ## 3. 数据/事务
 

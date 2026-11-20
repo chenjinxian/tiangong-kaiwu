@@ -151,11 +151,14 @@ interface SketchSlotWidthConstraint {
 
 ## 5. 已知边界 / 后续
 
-- v1.84/S2p/S2q 后已支持：闭合 line+arc 混合环（弧中线 ring）、单毂分支链、
+- v1.84/S2p/S2q/S2u 后已支持：闭合 line+arc 混合环（弧中线 ring）、单毂分支链、
   宽缺口分支（绕毂弧）/多毂线树（ADR-0022 §2.13）、多连通分量共享单 Ø
-  （弧+线、链+线；§2.14）。仍诚实拒收：样条中线闭合环、自交环、弧参与的分支、
-  混合选择中含闭合环分量（slotWidth 宽度语义不能与直径约束合并）；能力账本
-  `ui.sketchSlot` / `constraint.slotWidth` 维持 `partial`。
+  （弧+线、链+线；§2.14）、含圆弧的混合线树（恰一弧臂；§2.15）。仍诚实拒收/
+  不建模：多弧臂/弧-弧宽缺口（未采）、自交环（live 接受但轮廓未解码）、
+  样条中线闭合环（live 采到 = 两条闭合偏移样条；求解器无样条偏移 →
+  **blocked-design**）、混合选择中含闭合环分量（slotWidth 宽度语义不能与
+  直径约束合并）；能力账本 `ui.sketchSlot` / `constraint.slotWidth` 维持
+  `partial`。
 - `slotWidth` 表达式已接（S2r，长度类；见 §4）；**变量驱动 UI 真栈已覆盖**
   （e2e：变量 w=10 → 槽宽 `#w*2`（ƒ 20）→ 变量表改 15 → 宽度 30/半径 15/45 →
   重开 `ƒ 30` → reload；26.7 s）。

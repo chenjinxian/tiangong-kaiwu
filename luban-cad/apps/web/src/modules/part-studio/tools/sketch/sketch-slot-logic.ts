@@ -51,6 +51,8 @@ export interface SlotDraft {
   /** 端帽弧（开放链/单线/圆弧槽）；闭合环槽/整圆槽为空。 */
   capArcIds: number[];
   boundaryLineIds: number[];
+  /** S2u：含圆弧臂的混合线树的同心弧边界（可选；纯直线树不携带）。 */
+  boundaryArcIds?: number[];
   /** 单线/链/圆弧槽的 Ø 约束 id（闭合环/整圆槽用 slotWidthConstraintId）。 */
   diameterConstraintId?: number;
   /** 整圆/闭合环槽的单一宽度约束 id（ADR-0023）。 */

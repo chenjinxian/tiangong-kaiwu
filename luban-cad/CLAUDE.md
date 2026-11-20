@@ -231,8 +231,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （56.0 s）**、变量驱动槽宽 **1 passed（26.7 s：变量 w=10 → `#w*2` ƒ20 → 变量表改
   15 → 宽 30/半径 15/45 → ƒ30 → reload）**、`sketch-expression-ui` 标签 `ƒ 20`
   **1 passed（55.4 s）**。**未发布**；
-  残：弧参与的分支、样条中线环、自交环（未建模）、live 宽度拖拽、表达式编辑框 `(expr) mm`
-  闭合显示；`ui.sketchSlot`/`constraint.slotWidth` 仍 partial。
+  残：多弧臂/弧-弧宽缺口（未采）、样条中线环（blocked-design）、自交环（未建模）、
+  live 宽度拖拽、表达式编辑框 `(expr) mm` 闭合显示；`ui.sketchSlot`/`constraint.slotWidth`
+  仍 partial。**S2u 弧混合树（2026-11-20）**：live 1 弧+2 线单毂树 → 6 LINE+7 ARC
+  （同心弧边界内 r−10 裁剪到 122.127°/外全扫；毂弧 11.9619°）；新
+  `sketch-slot-curve-tree-logic.ts`（恰一弧臂、线/圆交点、弧只裁剪不外延、parallel/
+  concentric/单 Ø），单测 **4/4**、真栈 **1 passed（42.7 s）**；闭合样条中线 live =
+  两条闭合偏移样条（无帽）→ 求解器无样条偏移，登记 blocked-design。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/

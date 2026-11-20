@@ -62,6 +62,7 @@ import {
 import { branchChainFromSelection, buildBranchChainSlotDraft } from './sketch-slot-branch-logic.js';
 import { buildComponentsSlotDraft, slotMemberComponents } from './sketch-slot-components-logic.js';
 import { buildLineTreeSlotDraft, lineTreeFromSelection } from './sketch-slot-tree-logic.js';
+import { buildCurveTreeSlotDraft, curveTreeFromSelection } from './sketch-slot-curve-tree-logic.js';
 import type { SlotBuildError, SlotDraft } from './sketch-slot-logic.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 
@@ -341,9 +342,19 @@ export class SketchSlotTool extends PrimitiveTool {
       // 闭合 line+arc 混合环（live 2026-11-20 `closed-mix3-slot.dxf`）：无端帽、
       // 外侧圆角/内侧斜接、单一 Ø（slotWidth ring，弧边界 v1.84）。
       const closed = closedMixedChainFromSelection(sketch.entities, ids);
-      if (!closed) return { ok: false, error: 'unsupportedChain' };
-      const built = buildClosedMixedRingSlotDraft({
-        chain: closed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+      if (closed) {
+        const built = buildClosedMixedRingSlotDraft({
+          chain: closed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        });
+        return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+      }
+      // 含圆弧的混合线树（live 2026-11-20 S2u `s2u-arcbranch-*`：恰一条弧臂 +
+      // 直线臂，至少一个度≥3 顶点）：弧边界=同心偏移弧、窄缺口=直线/圆交点、
+      // 宽缺口=绕毂弧。多弧臂未采 → 该构建器诚实拒收（undefined）。
+      const curveTree = curveTreeFromSelection(sketch.entities, ids);
+      if (!curveTree) return { ok: false, error: 'unsupportedChain' };
+      const built = buildCurveTreeSlotDraft({
+        tree: curveTree, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
     }
