@@ -234,3 +234,84 @@ describe('buildCurveTreeSlotDraft：多弧臂（live s2u2-multiarc）', () => {
     expect(kinds.filter((k) => k === 'coincident')).toHaveLength(14);
   });
 });
+
+// ── live 2026-11-20 S2u3：纯弧臂（3 弧共毂，无直线）→ 13 ARC ──────────────
+describe('buildCurveTreeSlotDraft：纯弧臂（live s2u3-allarc）', () => {
+  const P3 = { x: -88.722, y: -57.662 };
+  const CS = [
+    { c: { x: -130.571, y: -195.765 }, sweep: 33.664 },
+    { c: { x: -320.504, y: 38.914 }, sweep: 14.25 },
+    { c: { x: -42.044, y: -81.806 }, sweep: 88.43 },
+  ];
+  const DEG3 = Math.PI / 180;
+  const specs = CS.map((s) => {
+    const R = Math.hypot(P3.x - s.c.x, P3.y - s.c.y);
+    const a1 = Math.atan2(P3.y - s.c.y, P3.x - s.c.x) / DEG3;
+    const a0 = a1 - s.sweep;
+    const T = { x: s.c.x + R * Math.cos(a0 * DEG3), y: s.c.y + R * Math.sin(a0 * DEG3) };
+    return { ...s, R, a0, a1, T };
+  });
+
+  const entities: SketchEntityDto[] = [
+    { kind: 'point', id: 1, ...P3 },
+    ...specs.flatMap((s, i) => ([
+      { kind: 'point', id: 10 + i, ...s.c },
+      { kind: 'arc', id: 20 + i, center: 10 + i, radius: s.R, startAngle: s.a0 * DEG3, sweepAngle: s.sweep * DEG3 },
+    ] as SketchEntityDto[])),
+  ];
+
+  it('6 同心弧边界 + 3 帽 + 1 毂弧（4.73°）+ 单 Ø，无 boundaryLineIds', () => {
+    const tree = curveTreeFromSelection(entities, [20, 21, 22])!;
+    expect(tree).toBeDefined();
+    expect(tree.arms.every((a) => a.kind === 'arc')).toBe(true);
+    const result = buildCurveTreeSlotDraft({ tree, width: 20, startId: 300 });
+    if (!result.ok) throw new Error(result.error);
+    const { draft } = result;
+    const arcs = draft.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+    expect(draft.entities.filter((e) => e.kind === 'line'), '无直线边界').toHaveLength(0);
+    expect(arcs, '6 同心弧边界 + 3 帽 + 1 毂弧').toHaveLength(10);
+    expect(draft.boundaryLineIds).toHaveLength(0);
+    expect(draft.boundaryArcIds).toHaveLength(6);
+    expect(draft.capArcIds).toHaveLength(3);
+    expect(draft.cornerArcIds).toHaveLength(1);
+
+    const sweeps = arcs
+      .filter((a) => Math.abs((a.radius ?? NaN) - 10) > 1e-6)
+      .map((a) => ({ r: a.radius!, sweep: (a.sweepAngle ?? NaN) / DEG3 }))
+      .sort((x, y) => x.r - y.r);
+    // live 边界裁剪角（半径 → sweep°）。
+    const expectSweeps: Array<[number, number]> = [
+      [specs[2]!.R - 10, 72.447],
+      [specs[2]!.R + 10, 88.43],
+      [specs[0]!.R - 10, 29.888],
+      [specs[0]!.R + 10, 28.613],
+      [specs[1]!.R - 10, 14.25],
+      [specs[1]!.R + 10, 12.198],
+    ];
+    for (const [r, sweep] of expectSweeps) {
+      const hit = sweeps.find((s) => Math.abs(s.r - r) < 1e-2);
+      expect(hit, `缺半径 ${r} 边界`).toBeDefined();
+      expect(hit!.sweep).toBeCloseTo(sweep, 1);
+    }
+
+    const caps = draft.capArcIds.map((id) => arcs.find((a) => a.id === id)!);
+    const capCenters = caps.map((cap) => pointOf(draft.entities.find((e) => e.id === cap.center)!));
+    for (const spec of specs)
+      expect(capCenters.filter((c) => Math.hypot(c.x - spec.T.x, c.y - spec.T.y) < 1e-2), '帽心=尖端').toHaveLength(1);
+
+    const hub = arcs.find((a) => draft.cornerArcIds!.includes(a.id))!;
+    const hubCenter = pointOf(draft.entities.find((e) => e.id === hub.center)!);
+    expect(Math.hypot(hubCenter.x - P3.x, hubCenter.y - P3.y)).toBeLessThan(1e-3);
+    expect(hub.radius).toBeCloseTo(10, 6);
+    expect((hub.startAngle! / DEG3 + 360) % 360).toBeCloseTo(152.650, 1);
+    expect(((hub.sweepAngle! / DEG3) + 360) % 360).toBeCloseTo(4.730, 1);
+
+    const kinds = draft.constraints.map((c) => c.kind);
+    expect(kinds.filter((k) => k === 'diameter')).toHaveLength(1);
+    expect(kinds.filter((k) => k === 'equal')).toHaveLength(3);
+    expect(kinds.filter((k) => k === 'parallel')).toHaveLength(0);
+    expect(kinds.filter((k) => k === 'concentric')).toHaveLength(6);
+    expect(kinds.filter((k) => k === 'tangent')).toHaveLength(8);
+    expect(kinds.filter((k) => k === 'coincident')).toHaveLength(14);
+  });
+});
