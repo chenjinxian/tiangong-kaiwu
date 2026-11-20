@@ -209,6 +209,10 @@
  * v1.81（ADR-0022 S1）：草图约束 kind 增加 `"symmetric"`——refs 恰 3：[实体A, 实体B,
  * 轴线(line)]；A/B 同型 point/line/arc/spline，与 `mirror` 同槽形，不携带 value。
  * 后端复用 `SLVS_C_SYMMETRIC_LINE`；旧后端遇到未知 kind 必须明确拒收且零变更。
+ * v1.83（ADR-0023）：草图槽宽约束 `slotWidth`——`SketchConstraintDto.kind + "slotWidth"`
+ * 与 `slotMode: "concentric"|"ring"`；concentric refs=[中线圆/弧,内,外]（value=径向宽度），
+ * ring refs=[N 中线(line),N 外边界,N 内边界]（value=槽宽）。一个可见约束同时驱动两侧；
+ * 旧后端遇到未知 kind 必须明确拒收且零变更。
  * v1.80（ADR-0020 S12）：圆周阵列**总角度**表达式——`PatternParams.angleExpression?` 与
  * `FeaturePatternParams.angleExpression?`。目标 `angle`（**度**，契约字段本就是度制；
  * `kind=angleDeg` 度值直接物化，不做弧度换算）；仅 `kind="circular"` 适用，linear 携带
@@ -1278,8 +1282,14 @@ export type SketchEntityDto =
   | { kind: "spline"; id: number; fitPoints?: SketchPointDto[]; controlPoints: SketchPointDto[]; periodic?: boolean; construction?: boolean; projected?: SketchProjectedMarker };
 export interface SketchConstraintDto {
   /** v1.25（ADR-0004）：angle=两线夹角（value 弧度，direction-vector 语义）；diameter/concentric；
-   * driven=参考尺寸（不送求解器）。 */
-  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "angle" | "length" | "midpoint" | "tangent" | "offset" | "fixed" | "mirror" | "symmetric";
+   * driven=参考尺寸（不送求解器）。v1.83（ADR-0023）：slotWidth。 */
+  kind: "coincident" | "horizontal" | "vertical" | "parallel" | "perpendicular" | "equal" | "distance" | "radius" | "diameter" | "concentric" | "angle" | "length" | "midpoint" | "tangent" | "offset" | "fixed" | "mirror" | "symmetric" | "slotWidth";
+  /**
+   * v1.83（ADR-0023）：仅 `kind="slotWidth"` 必填。
+   * - `concentric`：refs=[中线圆/弧, 内圆/弧, 外圆/弧]；value=两轮廓径向宽度。
+   * - `ring`：refs=[N 条中线(line), N 条外边界(line), N 条内边界(line)]；value=宽度。
+   */
+  slotMode?: "concentric" | "ring";
   id: number; refs: SketchRef[]; value?: number; driven?: boolean;
   /** v1.71（ADR-0020）：表达式（设计意图）；存在时后端求值并覆盖 value（求解输入）。
    * 仅可编辑尺寸种类 length/distance/radius/diameter/angle 允许；旧载荷无此键。 */
@@ -1332,7 +1342,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.82.0";
+  public static interfaceVersion = "1.83.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

@@ -1,11 +1,15 @@
 # ADR-0022 — Sketch symmetric constraint + slot tool
 
-- 状态：**Accepted（2026-11-19 Owner 批准 S1 对称约束 + S2 槽工具）**
+- 状态：**Accepted（2026-11-19 Owner 批准 S1 对称约束 + S2 槽工具）；
+  2026-11-20 §2.7 S2e 由 ADR-0023 解锁整圆/闭合环槽**
 - 日期：2026-11-19
 - 关联：AIRR `docs/superpowers/specs/2026-11-19-sketch-entity-constraint-expansion-airr.md`；
+  AIRR `docs/superpowers/specs/2026-11-20-slot-width-constraint-airr.md`；
+  **ADR-0023（`slotWidth` 槽宽约束）**；
   计划 `docs/superpowers/plans/2026-11-19-onshape-full-parity.md` W1–W2
-- 影响仓：`luban-cad/packages/shared`（1.81.0 additive）、私有 `luban-backend`
-  （SolverTypes/normalizer/SlvsSolver）、`luban-cad/apps/web`（约束工具/ribbon/i18n/e2e）
+- 影响仓：`luban-cad/packages/shared`（1.81.0 additive；1.83.0 `slotWidth`）、
+  私有 `luban-backend`（SolverTypes/normalizer/SlvsSolver）、
+  `luban-cad/apps/web`（约束工具/ribbon/i18n/e2e）
 - 先例：ADR-0004（草图约束契约）、ADR-0020（shared additive bump）
 
 ## 1. 背景
@@ -130,11 +134,11 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
     几何关系把偏移弧半径强制为 R±帽半径；单个 Ø 改值同时驱动两偏移弧与两帽。
   - 帽扫角方向随源弧 sweep 符号确定：起点帽始终从外侧点绕到内侧点
     （sweep=-sign·π），终点帽始终从外侧点绕到内侧点（sweep=+sign·π）。
-- **整圆槽 blocked-design**：live 宽度是两同心圆之间的**线性距离**；当前
-  solver-neutral 只有 line/line、arc/arc 的 `offset`，无「同心圆径向宽度」原语。
-  用两个独立 radius 尺寸可出几何但不符合 live 的单一线性宽度语义；故
-  `sketchSlot` 对整圆中线**诚实拒收**，不近似冒充。后续若要 full，需按 P0-04
-  先出「radial gap / 同心圆宽度」约束的 AIRR/ADR（shared 契约 + 后端方程 + UI）。
+- **整圆槽 blocked-design（2026-11-20 当日已由 §2.7 / ADR-0023 解锁）**：live
+  宽度是两同心圆之间的**线性距离**；S2c 时 solver-neutral 只有 line/line、
+  arc/arc 的 `offset`，无「同心圆径向宽度」原语。用两个独立 radius 尺寸可出
+  几何但不符合 live 的单一线性宽度语义；故当时 `sketchSlot` 对整圆中线
+  **诚实拒收**，随后按 P0-04 出 AIRR/ADR（`slotWidth` concentric）并落地。
 - **验证**：web 纯逻辑 `sketch-slot-logic` **13/13**（单线 4 + 链 5 + 圆弧 4，
   含负扫角镜像与坍缩/整圆弧/未解算拒收）；私有后端 `ArcSlotSolver` **2/2**
   （Ø20 → r40/60/10；Ø30 → r35/65/15）；全量后端 slot 相关 **6/6**；
@@ -142,8 +146,9 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   全量 web **2651/2651**（首跑 1 例 flake、复跑全绿，未复现）、tsc(src/e2e)/
   eslint 绿。圆弧 e2e 走真实 ribbon「偏移 ▾ → 槽」+ 画布单击弧中点 + Enter，
   断言 5 弧/14 新约束/Ø30/reload。
-- **状态口径**：`ui.sketchSlot` 仍 partial；整圆中线 = blocked-design，闭合环/
-  分支/独立多曲线联动/宽度拖拽仍缺证据或设计。
+- **状态口径（S2c 时点）**：`ui.sketchSlot` 仍 partial；整圆中线 =
+  blocked-design（§2.7 当日解锁），闭合环/分支/独立多曲线联动/宽度拖拽
+  当时仍缺证据或设计。
 
 ### 2.6 S2d 闭合环槽证据 + blocked-design（2026-11-20 live）
 
@@ -160,15 +165,41 @@ libslvs 已有 `SLVS_C_SYMMETRIC_LINE`，且本仓 `mirror` 约束已用它实�
   - 用逐侧 distance/offset 约束补内环会引入 live 不存在的额外尺寸，且其数值
     无法与 Ø 保持单一驱动关系（无算术链接）。因此**不能**用现有原语严格实现
     闭合环槽的宽度参数化。
-- **决策**：闭合环槽 = **blocked-design**；`Sketch.Slot` 继续对闭合链诚实
-  拒收（`unsupportedChain`），不提供静态/近似环槽。整圆中线槽是同类阻塞
-  （同心圆径向宽度原语缺失）。
+- **决策（S2d 时点）**：闭合环槽 = **blocked-design**；`Sketch.Slot` 继续对
+  闭合链诚实拒收（`unsupportedChain`），不提供静态/近似环槽。整圆中线槽是
+  同类阻塞（同心圆径向宽度原语缺失）。
 - **后续路径**：`docs/superpowers/specs/2026-11-20-slot-width-constraint-airr.md`
-  （Proposed，待 Owner 批准）提出 solver-neutral `slotWidth` 约束，用一个可见
-  宽度同时驱动闭合环内外边界与整圆槽两同心圆；批准前不写实现代码（P0-04）。
+  （当日 Owner 批准）提出 solver-neutral `slotWidth` 约束，用一个可见宽度
+  同时驱动闭合环内外边界与整圆槽两同心圆；**实现见 §2.7 / ADR-0023**。
 - **验证**：仅证据与设计结论；无新增产品代码。私有 DXF/截图与设计记录已归档。
-- **状态口径**：`ui.sketchSlot` 仍 partial；closed ring / full circle 均列为
-  blocked-design 子域。
+- **状态口径（S2d 时点）**：`ui.sketchSlot` 仍 partial；closed ring / full
+  circle 均列为 blocked-design 子域（§2.7 完结后两项已转实现，其余缺口保持）。
+
+### 2.7 S2e `slotWidth` 落地：整圆槽 + 闭合环槽（2026-11-20，ADR-0023）
+
+- **契约/后端**：shared **1.83.0** 新增 `SketchConstraintDto.kind="slotWidth"`
+  + `slotMode: "concentric"|"ring"`；私有后端 `SolverTypes`/`SketchWireNormalizer`/
+  `SlvsSolver` 全链 + `updateSketchConstraint` 白名单。ring 展开 2N 条
+  `PARALLEL + PT_LINE_DISTANCE(±value/2)`；concentric 展开 2 圆心重合 + 8 条
+  隐藏径向构造（径向线/点在圆上/点线距/点距 = value/2）。一个可见宽度同时
+  驱动两侧，无第二组常量。
+- **web**：`orderLineChain` 支持闭环（n 个 junction、无自由端、n 段遍历、
+  回环校验）；`buildClosedRingSlotDraft`（外侧圆角/内侧斜接/无端帽；凸环
+  守卫、内环退化拒收）；`buildCircleSlotDraft`（源圆保留 + 内/外同心圆）；
+  `SketchSlotTool` 接受整圆/闭合链，预选剔除点实体（picker 对点也标
+  `part=curve`）；`slotWidth` 尺寸标注（环 `⌀`、整圆线性）+ 双击编辑
+  （`EDITABLE_CONSTRAINT_KINDS` 扩项）。
+- **验证**：shared **326/326**；私有后端 `SlotWidthSolver` **3/3**、
+  `SketchSlotWidthUpdateFlow` **2/2**、既有 slot 套件 **9/9**；web
+  `sketch-slot-logic` **20/20**、`sketch-annotations` **32/32**、全量 web
+  见本轮最终记录；真栈 `sketch-slot.spec.ts` **6 passed（5.8 min）**——
+  **整圆**（R30 → 单 slotWidth → 标签 `20`→双击改 `30` → 内/外 15/45 →
+  原生 undo/redo → reload）与**闭合环**（4 线框选 → ring → 4 角弧 r10 +
+  内外边界 ±10 → 标签 `⌀20`→改 `30` → 四组内外同步 ±15 → reload），
+  既有单线/开放链/圆弧用例回归绿；MS 429 按 retry-after 等待，未绕过。
+- **状态口径**：`ui.sketchSlot` 保持 partial（弧/样条链、分支链、凹/自交环、
+  独立多曲线联动、live 宽度拖拽未覆盖）；整圆/闭合环不再是 blocked-design。
+  台账新增 `constraint.slotWidth` partial 行。
 
 ## 3. 数据/事务
 

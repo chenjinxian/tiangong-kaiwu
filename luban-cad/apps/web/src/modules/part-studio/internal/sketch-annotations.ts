@@ -390,7 +390,7 @@ export function buildSketchDimensionAnnotations(
   const center = sketchLocalCenter(sketch.entities);
   const annotations: SketchDimensionAnnotation[] = [];
 
-  const linear = (constraint: SketchConstraintDto, a: LocalPoint, b: LocalPoint): void => {
+  const linear = (constraint: SketchConstraintDto, a: LocalPoint, b: LocalPoint, prefix = ''): void => {
     // W31-A：driven 标签用当前几何实测距离（锚点对距离），driving 仍用存储值。
     const value = resolveDimensionLabelValue(constraint, anchorsDistance(a, b));
     if (value === undefined) return;
@@ -402,7 +402,7 @@ export function buildSketchDimensionAnnotations(
       a: world(a),
       b: world(b),
       side: sideWorld(frame, side),
-      text: dimensionLabelText(constraint, formatSketchDimensionValue(value), options),
+      text: dimensionLabelText(constraint, `${prefix}${formatSketchDimensionValue(value)}`, options),
     });
   };
 
@@ -471,6 +471,46 @@ export function buildSketchDimensionAnnotations(
           side: sideWorld(frame, radial),
           text: dimensionLabelText(constraint, `⌀${formatSketchDimensionValue(value)}`, options),
         });
+        break;
+      }
+      case 'slotWidth': {
+        // ADR-0023：一个宽度尺寸驱动两侧。
+        if (constraint.slotMode === 'ring') {
+          // refs=[N 中线,N 外,N 内]：标注跨环带，锚点=首段外/内边界中点的垂足方向。
+          const n = constraint.refs.length / 3;
+          if (!Number.isInteger(n) || n < 3) break;
+          const outerRef = constraint.refs[n];
+          const innerRef = constraint.refs[2 * n];
+          if (outerRef === undefined || innerRef === undefined) break;
+          const outer = resolveRef(outerRef, entities, points);
+          const inner = resolveRef(innerRef, entities, points);
+          if (outer?.kind !== 'line' || inner?.kind !== 'line') break;
+          const a = { x: (outer.a.x + outer.b.x) / 2, y: (outer.a.y + outer.b.y) / 2 };
+          const foot = projectToInfiniteLine(a, inner.a, inner.b);
+          // live 2026-11-20 `ring-slot.dxf`：环槽宽度显示为 Ø。
+          linear(constraint, a, foot, '⌀');
+          break;
+        }
+        if (constraint.slotMode !== 'concentric') break;
+        // refs=[中线圆,内圆,外圆]：跨环带线性宽度（live `circle-slot.dxf` 为线性）。
+        const [sourceRef, innerRefC, outerRefC] = constraint.refs;
+        if (sourceRef === undefined || innerRefC === undefined || outerRefC === undefined) break;
+        const source = resolveRef(sourceRef, entities, points);
+        const innerCircle = resolveRef(innerRefC, entities, points);
+        const outerCircle = resolveRef(outerRefC, entities, points);
+        if (source?.kind !== 'circle' || innerCircle?.kind !== 'circle' || outerCircle?.kind !== 'circle')
+          break;
+        if (innerCircle.radius < EPS || outerCircle.radius < EPS) break;
+        const dir = { x: Math.cos(Math.PI / 4), y: Math.sin(Math.PI / 4) };
+        const a = {
+          x: innerCircle.center.x + innerCircle.radius * dir.x,
+          y: innerCircle.center.y + innerCircle.radius * dir.y,
+        };
+        const b = {
+          x: outerCircle.center.x + outerCircle.radius * dir.x,
+          y: outerCircle.center.y + outerCircle.radius * dir.y,
+        };
+        linear(constraint, a, b);
         break;
       }
       case 'angle': {

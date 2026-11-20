@@ -1,8 +1,9 @@
 # AIRR — solver-neutral slot width constraint (full circle + closed ring)
 
-- 状态：**Proposed（待 Owner 批准；P0-04 门禁，批准前不写实现代码）**
+- 状态：**Accepted（2026-11-20 Owner 批准；实现已落地，见 §7 与 ADR-0023）**
 - 日期：2026-11-20
-- 关联：ADR-0022 §2.5/§2.6（S2c/S2d 的 blocked-design 证据）；计划
+- 关联：ADR-0022 §2.5/§2.6（S2c/S2d 的 blocked-design 证据）、
+  **ADR-0023（本 AIRR 的正式决策记录与实现结果）**；计划
   `docs/superpowers/plans/2026-11-19-onshape-full-parity.md` W1
 - 触发：`docs/parity/capability-overrides.json` 的 `ui.sketchSlot` 两个
   blocked 子域：整圆中线槽、闭合直线环槽
@@ -122,5 +123,25 @@ interface SketchSlotWidthConstraint {
 4. web 草稿/工具/尺寸/能力；
 5. 真栈整圆/环 e2e + 回归。
 
-未批准前：`ui.sketchSlot` 保持 partial，整圆/闭合环保持 blocked-design，
-工具继续诚实拒收。
+**裁决**：2026-11-20 Owner 批准按上述顺序全量实施（ADR-0023 Accepted）。
+
+## 7. 实现结果（2026-11-20）
+
+- **solver**：concentric 方案 1（径向隐藏点对 + 点距 = value/2）与 ring
+  （2N 条 parallel + 有符号垂距 = ±value/2）均通过；`SlotWidthSolver.test`
+  **3/3**（ring w20→30、concentric R30 w20→30 → 15/45），slot 求解器全套
+  **9/9**。
+- **契约**：shared **1.83.0**（`kind+"slotWidth"`、`slotMode`），shared
+  **326/326**；私有后端 schema/normalizer/solver + `updateSketchConstraint`
+  白名单；`SketchSlotWidthUpdateFlow.test` **2/2**（真实 service 通道）。
+- **web**：`buildCircleSlotDraft`（3 实体/1 slotWidth·concentric）、
+  `buildClosedRingSlotDraft`（n 角心 + 2n 边界 + n 角弧/1 slotWidth·ring；
+  凸环校验/内环退化拒收）、`orderLineChain` 闭环；工具接受整圆/闭合链并
+  在预选中剔除点实体；尺寸标注/编辑器支持 `slotWidth`（环 Ø、整圆线性）。
+  `sketch-slot-logic` **20/20**、`sketch-annotations` **32/32**、tsc/lint 绿。
+- **真栈**：`sketch-slot.spec.ts` **6 passed（5.8 min）**——新增整圆与
+  闭合环用例（尺寸标签双击改宽两侧同步、undo/redo、finish+reload），既有
+  单线/链/圆弧回归绿；429 窗口按 retry-after 等待（未绕过）。
+- **红线**：无 BIS schema/迁移；一次 `updateSketch`/`updateSketchConstraint`
+  事务；旧后端遇未知 kind 拒收零变更；能力账本 `ui.sketchSlot` 仍 partial
+  （弧链/分支/凹环/联动/拖拽未覆盖）。

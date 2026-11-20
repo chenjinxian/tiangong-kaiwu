@@ -178,6 +178,19 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 
 ## 验证基线（2026-11-09）
 
+- **W48 S2e 槽宽约束 `slotWidth`：整圆槽 + 闭合环槽（2026-11-20，shared 1.83 / 私有后端 / web；ADR-0023）**：
+  契约 `SketchConstraintDto.kind="slotWidth"` + `slotMode: "concentric"|"ring"`（concentric refs=[中线圆/弧,内,外]、value=径向宽度；
+  ring refs=[N 中线,N 外,N 内]、value=槽宽；旧后端遇未知 kind 拒收零变更）。后端 solver-neutral：ring 每条边界补
+  `PARALLEL + PT_LINE_DISTANCE(±value/2)`；concentric 补 2 圆心重合 + 8 条隐藏径向构造（径向线/点在圆上/点线距/点距=w/2）；
+  `updateSketchConstraint` 白名单扩 slotWidth。web：`orderLineChain` 闭环；`buildCircleSlotDraft`/`buildClosedRingSlotDraft`
+  （闭合环仅凸、同向、无共线折点；内环退化拒收）；工具接受整圆/闭合链并在预选中剔除点实体（picker 对点也标 part=curve）；
+  `slotWidth` 尺寸标注（环 `⌀`、整圆线性）与双击编辑。验证：shared **326/326**；私有后端 `SlotWidthSolver` 3/3、
+  `SketchSlotWidthUpdateFlow` 2/2、既有 slot 套件 9/9、tsc 绿；web `sketch-slot-logic` 20/20、`sketch-annotations` 32/32、
+  全量 web 见下、tsc(src+e2e)/eslint 绿；真栈 `e2e/sketch-slot.spec.ts` **6 passed（5.8 min）**——单线/开放链/圆弧回归 +
+  整圆（R30 → 单 slotWidth → 标签 20→双击 30 → 内/外 15/45 → 原生 undo/redo → reload）与闭合环（4 线框选 → 4 角弧 r10 +
+  内外 ±10 → 标签 ⌀20→30 → 四组内外同步 ±15 → reload）；一次 MS 429 按 retry-after 等待后复跑（未绕过）。**未发布**；
+  残：弧/样条链、分支链、凹/自交环、独立多曲线联动、live 宽度拖拽、slotWidth 表达式未接；`ui.sketchSlot` 仍 partial。
+
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
   无边框/无引线，替代该场景光标卡）；对齐矩形与其他工具保持原光标卡（未采

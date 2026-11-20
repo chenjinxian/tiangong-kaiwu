@@ -8,12 +8,13 @@
  * - 有预选（框选/Ctrl 叠加）：单条直线/圆弧，或相连直线链 → 工具激活即预览。
  * - 默认宽 Ø20（mm 文档）；原中线保留；宽度尺寸可在提交后双击 Ø 标签修改。
  *
- * 范围（S2 单线 + S2b 链 + S2c 圆弧，ADR-0022 §2.3–§2.5）：**单条直线**、
- * **单条开放圆弧**（同心偏移弧 + 半圆帽 + 单 Ø 驱动）与 **开放、无分支、直线
- * 成员的相连链**。链槽外顶点为圆角弧、内顶点为斜接。
- * **整圆中线**：live 2026-11-20 实测为两条同心圆 + **线性**宽度尺寸；当前
- * solver-neutral 无同心圆径向宽度原语 → blocked-design，工具诚实拒收。
- * 闭合环槽、分支链、多条独立曲线联动槽同样暂不支持。
+ * 范围（S2 单线 + S2b 链 + S2c 圆弧 + S2e/f 整圆/闭合环，ADR-0022 §2.3–§2.6、
+ * ADR-0023）：**单条直线**、**单条开放圆弧**（同心偏移弧 + 半圆帽 + 单 Ø）、
+ * **开放/闭合、无分支、直线成员的相连链**（开放=端帽+外侧圆角+内侧斜接；
+ * 闭合=无端帽、外侧圆角/内侧斜接、单一 Ø）以及**整圆中线**（同心圆 R±w/2、
+ * 无帽、**线性**宽度尺寸）。整圆与闭合环的单一宽度走 `slotWidth` 约束
+ * （concentric/ring 模式），提交后双击尺寸标签改宽度会同时驱动两侧。
+ * 分支链、凹角闭合环、多条独立曲线联动槽暂不支持（诚实拒收）。
  *
  * 基建复用 SketchOffsetTool：AccuSnap 取点 + 草图平面架 + Dynamics 预览 +
  * applyUpdate 乐观整体覆写 + id 播种/回滚 + 分阶段提示。
@@ -41,6 +42,7 @@ import {
   DEFAULT_SLOT_WIDTH,
   SLOT_TOL,
   buildArcSlotDraft,
+  buildCircleSlotDraft,
   buildLineChainSlotDraft,
   buildLineSlotDraft,
   lineChainFromSelection,
@@ -109,9 +111,9 @@ export class SketchSlotTool extends PrimitiveTool {
       this._notify(i18next.t('partStudio.sketch.toasts.noSolvedCoords'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
-    if (seed.kind !== 'line' && seed.kind !== 'arc') {
-      // 单击路径支持单条直线/单条圆弧；整圆中线（线性宽度原语缺失）与其它
-      // 类型诚实拒收。相连直线链经**预选**进入（live 2026-11-19/20）。
+    if (seed.kind !== 'line' && seed.kind !== 'arc' && seed.kind !== 'circle') {
+      // 单击路径支持单条直线/圆弧/整圆；其它类型（点/样条）诚实拒收。
+      // 相连直线链经**预选**进入（live 2026-11-19/20/21）。
       this._notify(i18next.t('partStudio.sketch.slot.toasts.unsupportedKind'), OutputMessagePriority.Info);
       return EventHandled.Yes;
     }
@@ -190,6 +192,12 @@ export class SketchSlotTool extends PrimitiveTool {
         );
         arc.tryTransformInPlace(this._plane.localToWorld);
         builder.addArc(arc, false, false);
+      } else if (e.kind === 'circle') {
+        const c = resolve(e.center);
+        if (!c || e.radius === undefined) continue;
+        const circle = Arc3d.createXY(Point3d.create(c.u, c.v, 0), e.radius);
+        circle.tryTransformInPlace(this._plane.localToWorld);
+        builder.addArc(circle, false, false);
       }
     }
     context.addGraphic(builder.finish());
@@ -219,13 +227,19 @@ export class SketchSlotTool extends PrimitiveTool {
     const sketch = getSketchSystem()?.activeSketch;
     if (!sketch) return false;
     const selection = usePartStudioStore.getState().canvas.selection;
+    // 框选会把曲线与点实体一并选中（picker 对点实体同样标 part=curve）；槽只
+    // 消费曲线——点实体（如链的端点）必须剔除，否则多选路径会误判 unsupportedKind。
     const ids = [...new Set(selection
       .filter((entry) =>
         entry.kind === 'sketchEntity'
         && entry.sketchId === sketch.id
         && (entry.sketchPart ?? 'curve') === 'curve'
         && entry.entityId !== undefined)
-      .map((entry) => entry.entityId!))];
+      .map((entry) => entry.entityId!)
+      .filter((id) => {
+        const entity = sketch.entities.find((e) => e.id === id);
+        return entity !== undefined && entity.kind !== 'point';
+      }))];
     if (ids.length === 0) return false;
     const built = this._buildDraft(sketch, ids);
     if (!built.ok) {
@@ -261,7 +275,13 @@ export class SketchSlotTool extends PrimitiveTool {
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
-      return { ok: false, error: 'unsupportedKind' }; // 整圆槽 blocked-design
+      if (seed.kind === 'circle') {
+        const built = buildCircleSlotDraft({
+          circle: seed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        });
+        return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+      }
+      return { ok: false, error: 'unsupportedKind' };
     }
     const members = ids.map((id) => sketch.entities.find((e) => e.id === id));
     if (members.some((e) => e === undefined || e.kind !== 'line'))

@@ -11,12 +11,17 @@
  *   原中线保留。帽的扫角方向随中线 sweep 符号确定（开放弧，允许负扫角）。
  * - 宽度是直径/Ø 驱动尺寸；提交后一次 updateSketch 事务（可撤销）。
  *
+ * - **整圆中线**（2026-11-20 live `circle-slot.dxf`）：两条同心圆 R±w/2、无帽；
+ *   宽度是**线性**尺寸（不是 Ø）。由 ADR-0023 solver-neutral `slotWidth`
+ *   （concentric：refs=[中线圆,内圆,外圆]）单一尺寸精确驱动两圆。
+ * - **闭合直线环**（2026-11-20 live `ring-slot.dxf`）：外侧处处 r=Ø/2 圆角弧、
+ *   内侧斜接尖角、**无端帽**；单一 Ø 驱动内外两侧。由 ADR-0023 `slotWidth`
+ *   （ring：refs=[N 中线,N 外,N 内]）单一尺寸驱动，替代 S2d 的 blocked-design。
+ *
  * 尚未实现（诚实拒收）：
- * - **整圆中线**：live 2026-11-20 实测为两条同心圆 R±w/2、无帽，宽度是**线性**
- *   尺寸（不是 Ø）。当前 solver-neutral 无「同心圆径向宽度」原语（offset 仅 line/
- *   arc），不能用单一尺寸精确驱动两圆 → blocked-design，不近似。
- * - 闭合环槽、分支链、多条互不相连曲线的联动等宽槽（live 已见两独立槽共享一个
- *   Ø，但选择/尺寸联动语义待补）、live 宽度光标拖拽。
+ * - 凹多边形/自交闭合环（圆角外侧语义未采证据）、分支链、多条互不相连曲线的
+ *   联动等宽槽（live 已见两独立槽共享一个 Ø，但选择/尺寸联动语义待补）、
+ *   live 宽度光标拖拽。
  */
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import type { OffsetChain, OffsetJunction } from './sketch-offset-logic.js';
@@ -41,10 +46,14 @@ export interface SlotDraft {
   entities: SketchEntityDto[];
   constraints: SketchConstraintDto[];
   nextId: number;
-  capArcIds: [number, number];
+  /** 端帽弧（开放链/单线/圆弧槽）；闭合环槽/整圆槽为空。 */
+  capArcIds: number[];
   boundaryLineIds: number[];
-  diameterConstraintId: number;
-  /** 链槽的圆角内顶点弧（单直线为空）。 */
+  /** 单线/链/圆弧槽的 Ø 约束 id（闭合环/整圆槽用 slotWidthConstraintId）。 */
+  diameterConstraintId?: number;
+  /** 整圆/闭合环槽的单一宽度约束 id（ADR-0023）。 */
+  slotWidthConstraintId?: number;
+  /** 链槽的圆角内顶点弧（单直线/圆弧槽为空）。 */
   cornerArcIds?: number[];
 }
 
@@ -178,8 +187,13 @@ interface ChainPath {
   entryParts: Array<'start' | 'end'>;
   /** members[i] 的出口端点槽（与 points[i+1] 重合）。 */
   exitParts: Array<'start' | 'end'>;
-  /** 沿链路径的 n+1 个顶点（局部坐标）。 */
+  /**
+   * 沿链路径的顶点（局部坐标）：开放链 n+1 个；闭合环 n+1 个且
+   * `points[n] === points[0]`（末点=回环重复点）。
+   */
   points: SolvedPoint[];
+  /** 闭合环：无自由端、无端帽。 */
+  closed: boolean;
 }
 
 function endpointCoord(
@@ -268,10 +282,12 @@ export function orderLineChain(
     bump(ka);
     bump(kb);
   }
-  if (chain.junctions.length !== members.length - 1) return { ok: false, error: 'unsupportedChain' };
+  const n = members.length;
+  const closed = chain.junctions.length === n;
+  if (!closed && chain.junctions.length !== n - 1) return { ok: false, error: 'unsupportedChain' };
 
   // 端点键的 degree = 它参与的 junction 边数；开放链恰有两个 degree-0 端点，
-  // 其余（内顶点）degree=1。degree>1 是分支/重边，已在上方拒绝。
+  // 闭合环没有自由端；其余（内顶点）degree=1。degree>1 是分支/重边，已拒绝。
   const freeNodes: string[] = [];
   for (const m of members) {
     for (const which of [0, 1] as const) {
@@ -281,7 +297,11 @@ export function orderLineChain(
       if (d === 0) freeNodes.push(key);
     }
   }
-  if (freeNodes.length !== 2) return { ok: false, error: 'unsupportedChain' };
+  if (closed) {
+    if (freeNodes.length !== 0) return { ok: false, error: 'unsupportedChain' };
+  } else if (freeNodes.length !== 2) {
+    return { ok: false, error: 'unsupportedChain' };
+  }
 
   const points = indexPoints(entities);
   const coordFor = (entityId: number, which: 0 | 1): SolvedPoint | undefined => {
@@ -295,9 +315,19 @@ export function orderLineChain(
     if (Math.hypot(a.u - b.u, a.v - b.v) > SLOT_CHAIN_TOL) return { ok: false, error: 'unsupportedChain' };
   }
 
-  const [startId, startWhich] = freeNodes[0]!.split(':');
-  let member = byId.get(Number(startId));
-  let entryPart: 'start' | 'end' = startWhich === '0' ? 'start' : 'end';
+  // 闭合环从 members[0] 的 start 端点起沿环走一圈；开放链从自由端起。
+  let startMemberId: number;
+  let startEntryPart: 'start' | 'end';
+  if (closed) {
+    startMemberId = members[0]!.id;
+    startEntryPart = 'start';
+  } else {
+    const [startId, startWhich] = freeNodes[0]!.split(':');
+    startMemberId = Number(startId);
+    startEntryPart = startWhich === '0' ? 'start' : 'end';
+  }
+  let member = byId.get(startMemberId);
+  let entryPart: 'start' | 'end' = startEntryPart;
   if (!member) return { ok: false, error: 'unsupportedChain' };
   const entryCoord = endpointCoord(member, entryPart, points);
   if (!entryCoord) return { ok: false, error: 'unsolvedLine' };
@@ -307,6 +337,7 @@ export function orderLineChain(
   const exitParts: Array<'start' | 'end'> = [];
   const pathPoints: SolvedPoint[] = [entryCoord];
   const visited = new Set<number>();
+  let lastExitKey: string | undefined;
   while (member) {
     if (visited.has(member.id)) return { ok: false, error: 'unsupportedChain' };
     visited.add(member.id);
@@ -317,15 +348,29 @@ export function orderLineChain(
     entryParts.push(entryPart);
     exitParts.push(exitPart);
     pathPoints.push(exitCoord);
-    const next = adjacent.get(`${member.id}:${exitPart === 'start' ? 0 : 1}`);
+    lastExitKey = `${member.id}:${exitPart === 'start' ? 0 : 1}`;
+    // 闭合环走满 n 段即停（下一步会回到起点，不是新成员）。
+    if (closed && ordered.length === n) break;
+    const next = adjacent.get(lastExitKey);
     if (!next) break;
     const nextMember = byId.get(next.memberId);
     if (!nextMember) return { ok: false, error: 'unsupportedChain' };
     member = nextMember;
     entryPart = next.which === 0 ? 'start' : 'end';
   }
-  if (ordered.length !== members.length) return { ok: false, error: 'unsupportedChain' };
-  return { ok: true, path: { members: ordered, entryParts, exitParts, points: pathPoints } };
+  if (ordered.length !== n) return { ok: false, error: 'unsupportedChain' };
+
+  if (closed) {
+    if (!lastExitKey) return { ok: false, error: 'unsupportedChain' };
+    const back = adjacent.get(lastExitKey);
+    const startKey = `${startMemberId}:${startEntryPart === 'start' ? 0 : 1}`;
+    if (!back || `${back.memberId}:${back.which}` !== startKey)
+      return { ok: false, error: 'unsupportedChain' };
+    const closingPoint = pathPoints[n];
+    if (!closingPoint || Math.hypot(closingPoint.u - entryCoord.u, closingPoint.v - entryCoord.v) > SLOT_CHAIN_TOL)
+      return { ok: false, error: 'unsupportedChain' };
+  }
+  return { ok: true, path: { members: ordered, entryParts, exitParts, points: pathPoints, closed } };
 }
 
 function lineIntersection(p: SolvedPoint, d: SolvedPoint, q: SolvedPoint, e: SolvedPoint): SolvedPoint | undefined {
@@ -341,8 +386,10 @@ function lineIntersection(p: SolvedPoint, d: SolvedPoint, q: SolvedPoint, e: Sol
  *  - 两端为半圆帽；所有弧等半径 + 一个 Ø 驱动尺寸；
  *  - 原中线保留；边界线平行于对应中线段；端点/弧端点 coincident，弧-线 tangent。
  *
- * 仅开放、无分支、无共线折点的直线链；其余返回 unsupportedChain/unsupportedKind/
- * unsolvedLine。后端 `equal` 契约恰 2 个同型实体 → 以首帽为锚逐对展开（等价语义）。
+ * 开放、无分支、无共线折点的直线链走本函数；**闭合环**转交
+ * `buildClosedRingSlotDraft`（ADR-0023 ring 模式，无端帽）。其余返回
+ * unsupportedChain/unsupportedKind/unsolvedLine。后端 `equal` 契约恰 2 个同型
+ * 实体 → 以首帽为锚逐对展开（等价语义）。
  */
 export function buildLineChainSlotDraft(input: {
   chain: OffsetChain;
@@ -354,6 +401,8 @@ export function buildLineChainSlotDraft(input: {
   if (!(width > SLOT_TOL)) return { ok: false, error: 'zeroWidth' };
   const ordered = orderLineChain(chain, entities);
   if (!ordered.ok) return ordered;
+  // 闭合环走 ring 模式（ADR-0023）：无端帽、外侧圆角弧/内侧斜接、单一 Ø 驱动两侧。
+  if (ordered.path.closed) return buildClosedRingSlotDraft(input);
   const { members, entryParts, exitParts, points } = ordered.path;
   const nSeg = members.length;
   const half = width / 2;
@@ -668,6 +717,260 @@ export function buildArcSlotDraft(input: {
       capArcIds: [capStartArc, capEndArc],
       boundaryLineIds: [],
       diameterConstraintId,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 整圆槽（2026-11-20 live `circle-slot.dxf`，ADR-0023 concentric 模式）
+// ---------------------------------------------------------------------------
+
+/**
+ * 整圆中线槽草稿（与 live `circle-slot.dxf` 同构）：
+ *  - 两条同心整圆 R±w/2（无端帽）；源整圆保留；
+ *  - 单一 `slotWidth`（concentric）约束 refs=[源圆,内圆,外圆]、value=宽度
+ *    （live 显示为**线性**宽度尺寸，不是 Ø）：后端补两圆心重合 + 隐藏径向
+ *    构造（点在圆上/点线距/点距），单一宽度同时驱动内外半径；
+ *  - 圆心沿用产品整圆的内联 {x,y} 口径（归一化器合成 point，写回仍内联）。
+ *
+ * 源半径不足以容纳半宽 → degenerateRadius；圆未解算 → unsolvedCurve。
+ */
+export function buildCircleSlotDraft(input: {
+  circle: SketchEntityDto & { kind: 'circle' };
+  entities: SketchEntityDto[];
+  width: number;
+  startId: number;
+}): { ok: true; draft: SlotDraft } | { ok: false; error: SlotBuildError } {
+  const { circle, entities, width } = input;
+  if (!(width > SLOT_TOL)) return { ok: false, error: 'zeroWidth' };
+  const points = indexPoints(entities);
+  const center = resolvePoint(circle.center, points);
+  if (!center || circle.radius === undefined || !Number.isFinite(circle.radius))
+    return { ok: false, error: 'unsolvedCurve' };
+  if (!(circle.radius > SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+  const half = width / 2;
+  if (!(circle.radius - half > SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+
+  let nextId = input.startId;
+  const alloc = (): number => nextId++;
+  const innerCircle = alloc();
+  const outerCircle = alloc();
+  const entitiesOut: SketchEntityDto[] = [
+    { kind: 'circle', id: innerCircle, center: { x: center.u, y: center.v }, radius: circle.radius - half },
+    { kind: 'circle', id: outerCircle, center: { x: center.u, y: center.v }, radius: circle.radius + half },
+  ];
+  const slotWidthConstraintId = alloc();
+  const constraints: SketchConstraintDto[] = [{
+    kind: 'slotWidth', slotMode: 'concentric', id: slotWidthConstraintId,
+    refs: [circle.id, innerCircle, outerCircle], value: width,
+  }];
+
+  return {
+    ok: true,
+    draft: {
+      entities: entitiesOut,
+      constraints,
+      nextId,
+      capArcIds: [],
+      boundaryLineIds: [],
+      slotWidthConstraintId,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 闭合直线环槽（2026-11-20 live `ring-slot.dxf`，ADR-0023 ring 模式）
+// ---------------------------------------------------------------------------
+
+/**
+ * 闭合直线环槽草稿（与 live `ring-slot.dxf` 同构）：
+ *  - 每个角：转向**外侧**为 r=Ø/2 圆角弧（弧心=源顶点），内侧为两偏移线斜接；
+ *  - **无端帽**；n 条源中线 + n 条外侧边界 + n 条内侧边界全部保留；
+ *  - 单一 `slotWidth`（ring）约束 refs=[N 中线,N 外,N 内]、value=宽度：后端为
+ *    每条边界补 parallel + 有符号垂距 ±w/2——一个 Ø 尺寸同时驱动内外两侧。
+ *
+ * 仅接受**凸**、同向转向、无共线折点的闭合直线链（live 证据只有凸圆角矩形；
+ * 凹角的外侧圆角语义未采）。其它 → unsupportedChain；内环退化 → degenerateRadius。
+ */
+export function buildClosedRingSlotDraft(input: {
+  chain: OffsetChain;
+  entities: SketchEntityDto[];
+  width: number;
+  startId: number;
+}): { ok: true; draft: SlotDraft } | { ok: false; error: SlotBuildError } {
+  const { chain, entities, width } = input;
+  if (!(width > SLOT_TOL)) return { ok: false, error: 'zeroWidth' };
+  const ordered = orderLineChain(chain, entities);
+  if (!ordered.ok) return ordered;
+  const { members, entryParts, exitParts, points, closed } = ordered.path;
+  if (!closed) return { ok: false, error: 'unsupportedChain' };
+  const nSeg = members.length;
+  const half = width / 2;
+
+  const dirs: SolvedPoint[] = [];
+  const normals: SolvedPoint[] = [];
+  for (let i = 0; i < nSeg; i++) {
+    const a = points[i]!;
+    const b = points[i + 1]!;
+    const dx = b.u - a.u;
+    const dy = b.v - a.v;
+    const len = Math.hypot(dx, dy);
+    if (!(len > SLOT_TOL)) return { ok: false, error: 'unsolvedLine' };
+    const d = { u: dx / len, v: dy / len };
+    dirs.push(d);
+    normals.push({ u: -d.v, v: d.u }); // 左法向（与偏移/单线槽同式）
+  }
+
+  interface RingCorner {
+    /** +1=left, −1=right 外侧（凸环全部同向）。 */
+    outsideSide: 1 | -1;
+    startAngle: number;
+    sweep: number;
+    /** 两侧偏移线在角点的端点：外侧=圆角弧端点，内侧=斜接交点。 */
+    offset: Record<1 | -1, SolvedPoint>;
+  }
+  const corners: RingCorner[] = [];
+  let turnSign = 0;
+  for (let i = 0; i < nSeg; i++) {
+    const prev = (i + nSeg - 1) % nSeg;
+    const d0 = dirs[prev]!;
+    const d1 = dirs[i]!;
+    const cross = d0.u * d1.v - d0.v * d1.u;
+    const dot = Math.max(-1, Math.min(1, d0.u * d1.u + d0.v * d1.v));
+    if (Math.abs(cross) <= 1e-9 || dot > 1 - 1e-12) return { ok: false, error: 'unsupportedChain' };
+    const sign = Math.sign(cross);
+    if (turnSign === 0) turnSign = sign;
+    else if (sign !== turnSign) return { ok: false, error: 'unsupportedChain' }; // 凹角未采：诚实拒收
+    const outsideSide: 1 | -1 = cross > 0 ? -1 : 1;
+    const n0 = normals[prev]!;
+    const n1 = normals[i]!;
+    const outsideNormal = outsideSide === 1 ? n0 : { u: -n0.u, v: -n0.v };
+    const startAngle = Math.atan2(outsideNormal.v, outsideNormal.u);
+    const sweep = sign * Math.acos(Math.max(-1, Math.min(1, n0.u * n1.u + n0.v * n1.v)));
+    const offset = {} as Record<1 | -1, SolvedPoint>;
+    for (const side of [1, -1] as const) {
+      const p = { u: points[i]!.u + side * half * n0.u, v: points[i]!.v + side * half * n0.v };
+      if (side === outsideSide) {
+        offset[side] = p; // 外侧圆角弧在 prev 段上的端点（cur 段端点按段法向现算）
+      } else {
+        const q = { u: points[i]!.u + side * half * n1.u, v: points[i]!.v + side * half * n1.v };
+        const m = lineIntersection(p, d0, q, d1);
+        if (!m) return { ok: false, error: 'unsupportedChain' };
+        offset[side] = m;
+      }
+    }
+    corners.push({ outsideSide, startAngle, sweep, offset });
+  }
+  const outsideSide = corners[0]!.outsideSide;
+  const insideSide: 1 | -1 = outsideSide === 1 ? -1 : 1;
+
+  // 内侧斜接环必须是同向凸多边形且面积/边长非退化（否则偏移过头）。
+  let area2 = 0;
+  for (let i = 0; i < nSeg; i++) {
+    const a = corners[i]!.offset[insideSide];
+    const b = corners[(i + 1) % nSeg]!.offset[insideSide];
+    if (!(Math.hypot(a.u - b.u, a.v - b.v) > SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+    area2 += a.u * b.v - a.v * b.u;
+  }
+  if (!(area2 * turnSign > 2 * SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+
+  let nextId = input.startId;
+  const alloc = (): number => nextId++;
+  const newEntities: SketchEntityDto[] = [];
+  const newConstraints: SketchConstraintDto[] = [];
+  const add = (constraint: Omit<SketchConstraintDto, 'id'>): number => {
+    const id = alloc();
+    newConstraints.push({ ...constraint, id });
+    return id;
+  };
+  const endpointRef = (line: SketchEntityDto & { kind: 'line' }, part: 'start' | 'end'): { entity: number; part: 'start' | 'end' } =>
+    ({ entity: line.id, part });
+
+  const cornerCenters: number[] = [];
+  for (let i = 0; i < nSeg; i++) {
+    const id = alloc();
+    cornerCenters.push(id);
+    newEntities.push({ kind: 'point', id, x: points[i]!.u, y: points[i]!.v });
+  }
+
+  // 边界线：每段外侧/内侧各一条；外侧端止于圆角弧端点，内侧端止于斜接交点。
+  const outsideLines: number[] = [];
+  const insideLines: number[] = [];
+  for (let i = 0; i < nSeg; i++) {
+    const startCorner = i;
+    const endCorner = (i + 1) % nSeg;
+    const n = normals[i]!;
+    const startOutside = {
+      u: points[startCorner]!.u + outsideSide * half * n.u,
+      v: points[startCorner]!.v + outsideSide * half * n.v,
+    };
+    const endOutside = {
+      u: points[endCorner]!.u + outsideSide * half * n.u,
+      v: points[endCorner]!.v + outsideSide * half * n.v,
+    };
+    const outsideId = alloc();
+    outsideLines.push(outsideId);
+    newEntities.push({
+      kind: 'line', id: outsideId,
+      p1: { x: startOutside.u, y: startOutside.v }, p2: { x: endOutside.u, y: endOutside.v },
+    });
+    const startInside = corners[startCorner]!.offset[insideSide];
+    const endInside = corners[endCorner]!.offset[insideSide];
+    const insideId = alloc();
+    insideLines.push(insideId);
+    newEntities.push({
+      kind: 'line', id: insideId,
+      p1: { x: startInside.u, y: startInside.v }, p2: { x: endInside.u, y: endInside.v },
+    });
+  }
+
+  // 圆角弧：每个角一条（弧心=源顶点，半径=Ø/2）。
+  const cornerArcIds: number[] = [];
+  for (let i = 0; i < nSeg; i++) {
+    const id = alloc();
+    cornerArcIds.push(id);
+    newEntities.push({
+      kind: 'arc', id, center: cornerCenters[i]!, radius: half,
+      startAngle: corners[i]!.startAngle, sweepAngle: corners[i]!.sweep,
+    });
+  }
+
+  // 弧心 ↔ 两条相邻中线的端点（环顶点的唯一焊接来源）。
+  for (let i = 0; i < nSeg; i++) {
+    const prev = (i + nSeg - 1) % nSeg;
+    add({ kind: 'coincident', refs: [cornerCenters[i]!, endpointRef(members[prev]!, exitParts[prev]!)] });
+    add({ kind: 'coincident', refs: [cornerCenters[i]!, endpointRef(members[i]!, entryParts[i]!)] });
+  }
+  // 边界线平行于对应中线段（宽度方向锁定）。
+  for (let i = 0; i < nSeg; i++) {
+    add({ kind: 'parallel', refs: [members[i]!.id, outsideLines[i]!] });
+    add({ kind: 'parallel', refs: [members[i]!.id, insideLines[i]!] });
+  }
+  // 角点：外侧=线-弧端点 coincident + 两侧相切；内侧=斜接两线重合。
+  for (let i = 0; i < nSeg; i++) {
+    const prev = (i + nSeg - 1) % nSeg;
+    add({ kind: 'coincident', refs: [{ entity: outsideLines[prev]!, part: 'end' }, { entity: cornerArcIds[i]!, part: 'start' }] });
+    add({ kind: 'coincident', refs: [{ entity: outsideLines[i]!, part: 'start' }, { entity: cornerArcIds[i]!, part: 'end' }] });
+    add({ kind: 'coincident', refs: [{ entity: insideLines[prev]!, part: 'end' }, { entity: insideLines[i]!, part: 'start' }] });
+    add({ kind: 'tangent', refs: [cornerArcIds[i]!, outsideLines[prev]!] });
+    add({ kind: 'tangent', refs: [cornerArcIds[i]!, outsideLines[i]!] });
+  }
+  // 单一宽度尺寸驱动内外两侧（ADR-0023 ring 模式；后端补 parallel + ±w/2 垂距）。
+  const slotWidthConstraintId = add({
+    kind: 'slotWidth', slotMode: 'ring',
+    refs: [...members.map((m) => m.id), ...outsideLines, ...insideLines], value: width,
+  });
+
+  return {
+    ok: true,
+    draft: {
+      entities: newEntities,
+      constraints: newConstraints,
+      nextId,
+      capArcIds: [],
+      boundaryLineIds: [...outsideLines, ...insideLines],
+      slotWidthConstraintId,
+      cornerArcIds,
     },
   };
 }

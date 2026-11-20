@@ -86,11 +86,12 @@ describe('parseConstraintEditorValue', () => {
 });
 
 describe('EDITABLE_CONSTRAINT_KINDS', () => {
-  it('含 angle；非尺寸约束不在白名单', () => {
+  it('含 angle 与 slotWidth（ADR-0023）；非尺寸约束不在白名单', () => {
     expect(EDITABLE_CONSTRAINT_KINDS.has('angle')).toBe(true);
+    expect(EDITABLE_CONSTRAINT_KINDS.has('slotWidth')).toBe(true);
     expect(EDITABLE_CONSTRAINT_KINDS.has('parallel')).toBe(false);
     expect(EDITABLE_CONSTRAINT_KINDS.has('coincident')).toBe(false);
-    expect(EDITABLE_CONSTRAINT_KINDS).toEqual(new Set(['distance', 'radius', 'diameter', 'length', 'angle']));
+    expect(EDITABLE_CONSTRAINT_KINDS).toEqual(new Set(['distance', 'radius', 'diameter', 'length', 'angle', 'slotWidth']));
   });
 });
 

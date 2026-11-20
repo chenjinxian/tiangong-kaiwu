@@ -6,6 +6,8 @@ import type { SketchEntityDto } from '@luban-cad/shared';
 import {
   DEFAULT_SLOT_WIDTH,
   buildArcSlotDraft,
+  buildCircleSlotDraft,
+  buildClosedRingSlotDraft,
   buildLineChainSlotDraft,
   buildLineSlotDraft,
   lineChainFromSelection,
@@ -187,7 +189,7 @@ describe('buildLineChainSlotDraft（S2b 相连折线链槽）', () => {
     expect(reverse.draft.entities.filter((e) => e.kind === 'arc')).toHaveLength(3);
   });
 
-  it('诚实拒收：非直线成员、未相连、闭环（矩形 4 段）、共线折点', () => {
+  it('诚实拒收：非直线成员、未相连、共线折点（闭环自 S2e 起由 ring 模式支持）', () => {
     const entities = lChainSketch();
     expect(lineChainFromSelection(entities, [4])).toBeUndefined();
     expect(lineChainFromSelection(entities, [4, 999])).toBeUndefined();
@@ -203,14 +205,6 @@ describe('buildLineChainSlotDraft（S2b 相连折线链槽）', () => {
       { kind: 'line', id: 5, p1: 1, p2: 2 }, { kind: 'line', id: 6, p1: 3, p2: 4 },
     ];
     expect(chainBuilt(disconnected, [5, 6])).toEqual({ ok: false, error: 'unsupportedChain' });
-
-    const rectangle: SketchEntityDto[] = [
-      { kind: 'point', id: 1, x: 0, y: 0 }, { kind: 'point', id: 2, x: 40, y: 0 },
-      { kind: 'point', id: 3, x: 40, y: 20 }, { kind: 'point', id: 4, x: 0, y: 20 },
-      { kind: 'line', id: 5, p1: 1, p2: 2 }, { kind: 'line', id: 6, p1: 2, p2: 3 },
-      { kind: 'line', id: 7, p1: 3, p2: 4 }, { kind: 'line', id: 8, p1: 4, p2: 1 },
-    ];
-    expect(chainBuilt(rectangle, [5, 6, 7, 8])).toEqual({ ok: false, error: 'unsupportedChain' });
 
     const collinear: SketchEntityDto[] = [
       { kind: 'point', id: 1, x: 0, y: 0 }, { kind: 'point', id: 2, x: 50, y: 0 },
@@ -350,5 +344,164 @@ describe('buildArcSlotDraft（S2c 圆弧槽）', () => {
     const normal = arcSketch(0, 1);
     expect(buildArcSlotDraft({ arc: arcOf(normal, 2), entities: normal, width: 0, startId: 10 }))
       .toEqual({ ok: false, error: 'zeroWidth' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S2e 整圆槽（live 2026-11-20 `circle-slot.dxf`）——ADR-0023 concentric 模式：
+// 两条同心整圆 R±w/2、无端帽、单一 slotWidth 驱动（live 显示线性宽度）。
+// ---------------------------------------------------------------------------
+
+function circleSketch(radius = 30): SketchEntityDto[] {
+  return [
+    { kind: 'point', id: 1, x: 5, y: 7 },
+    { kind: 'circle', id: 2, center: 1, radius },
+  ];
+}
+
+const circleOf = (entities: SketchEntityDto[], id: number) => {
+  const found = entities.find((e) => e.id === id);
+  if (!found || found.kind !== 'circle') throw new Error(`circle ${id} missing`);
+  return found;
+};
+
+describe('buildCircleSlotDraft（S2e 整圆槽）', () => {
+  it('R30 Ø20：内 20/外 40 同心（内联圆心），无端帽，单 slotWidth concentric', () => {
+    const entities = circleSketch();
+    const built = buildCircleSlotDraft({
+      circle: circleOf(entities, 2), entities, width: 20, startId: 10,
+    });
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    expect(draft.entities.filter((e) => e.kind === 'circle').map((c) => (c.kind === 'circle' ? [c.id, c.center, c.radius] : [])))
+      .toEqual([[10, { x: 5, y: 7 }, 20], [11, { x: 5, y: 7 }, 40]]);
+    expect(draft.constraints).toEqual([{
+      kind: 'slotWidth', slotMode: 'concentric', id: 12, refs: [2, 10, 11], value: 20,
+    }]);
+    expect(draft.slotWidthConstraintId).toBe(12);
+    expect(draft.capArcIds).toEqual([]);
+    expect(draft.boundaryLineIds).toEqual([]);
+    expect(draft.entities.some((e) => e.id === 2)).toBe(false); // 追加语义（源圆保留在草图中）
+  });
+
+  it('错误：未解算圆心 → unsolvedCurve；半径不足半宽 → degenerateRadius；零宽', () => {
+    const unresolved: SketchEntityDto[] = [{ kind: 'circle', id: 2, center: 99, radius: 30 }];
+    expect(buildCircleSlotDraft({ circle: circleOf(unresolved, 2), entities: unresolved, width: 20, startId: 10 }))
+      .toEqual({ ok: false, error: 'unsolvedCurve' });
+    const thin = circleSketch(10);
+    expect(buildCircleSlotDraft({ circle: circleOf(thin, 2), entities: thin, width: 20, startId: 10 }))
+      .toEqual({ ok: false, error: 'degenerateRadius' });
+    const normal = circleSketch();
+    expect(buildCircleSlotDraft({ circle: circleOf(normal, 2), entities: normal, width: 0, startId: 10 }))
+      .toEqual({ ok: false, error: 'zeroWidth' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S2e 闭合环槽（live 2026-11-20 `ring-slot.dxf`）——ADR-0023 ring 模式：
+// 外侧处处 r=Ø/2 圆角弧、内侧斜接尖角、无端帽、单一 Ø 驱动内外两侧。
+// ---------------------------------------------------------------------------
+
+/** 40×30 CCW 矩形闭合链（4 点 + 4 线）。 */
+function rectangleChain(): SketchEntityDto[] {
+  return [
+    { kind: 'point', id: 1, x: 0, y: 0 }, { kind: 'point', id: 2, x: 40, y: 0 },
+    { kind: 'point', id: 3, x: 40, y: 30 }, { kind: 'point', id: 4, x: 0, y: 30 },
+    { kind: 'line', id: 5, p1: 1, p2: 2 }, { kind: 'line', id: 6, p1: 2, p2: 3 },
+    { kind: 'line', id: 7, p1: 3, p2: 4 }, { kind: 'line', id: 8, p1: 4, p2: 1 },
+  ];
+}
+
+const lineCoords = (entities: SketchEntityDto[]): Array<[number, number, number, number]> => entities
+  .filter((e) => e.kind === 'line')
+  .map((l) => {
+    if (l.kind !== 'line') throw new Error('kind');
+    const p = (ref: unknown) => ref as { x: number; y: number };
+    return [p(l.p1).x, p(l.p1).y, p(l.p2).x, p(l.p2).y];
+  });
+
+describe('buildClosedRingSlotDraft（S2e 闭合环槽）', () => {
+  it('40×30 矩形 Ø20：外 ±10 + 内缩 10 + 4 角弧 r10，无端帽，单 slotWidth ring', () => {
+    const entities = rectangleChain();
+    const chain = lineChainFromSelection(entities, [5, 6, 7, 8]);
+    if (!chain) throw new Error('chain missing');
+    const built = buildClosedRingSlotDraft({ chain, entities, width: 20, startId: 10 });
+    if (!built.ok) throw new Error(built.error);
+    const { draft } = built;
+    expect(draft.entities.filter((e) => e.kind === 'point').map((p) => (p.kind === 'point' ? [p.id, p.x, p.y] : [])))
+      .toEqual([[10, 0, 0], [11, 40, 0], [12, 40, 30], [13, 0, 30]]);
+    expect(lineCoords(draft.entities)).toEqual(expect.arrayContaining([
+      // 外侧边界
+      [0, -10, 40, -10], [50, 0, 50, 30], [40, 40, 0, 40], [-10, 30, -10, 0],
+      // 内侧斜接
+      [10, 10, 30, 10], [30, 10, 30, 20], [30, 20, 10, 20], [10, 20, 10, 10],
+    ]));
+    const arcs = draft.entities.filter((e) => e.kind === 'arc');
+    // 角度的等价表示归一（−π ≡ π、−0 → 0），几何相同。
+    const angle = (v: number | undefined): number => {
+      const twoPi = 2 * Math.PI;
+      const m = (((v ?? 0) % twoPi) + twoPi) % twoPi;
+      return m === 0 ? 0 : m;
+    };
+    expect(arcs.map((a) => (a.kind === 'arc' ? [a.center, a.radius, angle(a.startAngle), angle(a.sweepAngle)] : []))).toEqual([
+      [10, 10, Math.PI, Math.PI / 2],
+      [11, 10, 3 * Math.PI / 2, Math.PI / 2],
+      [12, 10, 0, Math.PI / 2],
+      [13, 10, Math.PI / 2, Math.PI / 2],
+    ]);
+    expect(draft.capArcIds).toEqual([]);
+    expect(draft.cornerArcIds).toEqual([22, 23, 24, 25]);
+    const slotWidth = draft.constraints.find((c) => c.kind === 'slotWidth');
+    expect(slotWidth).toMatchObject({
+      slotMode: 'ring', value: 20,
+      refs: [5, 6, 7, 8, 14, 16, 18, 20, 15, 17, 19, 21],
+    });
+    expect(slotWidth?.id).toBe(draft.slotWidthConstraintId);
+    expect(draft.entities.some((e) => e.kind === 'line' && [5, 6, 7, 8].includes(e.id))).toBe(false);
+  });
+
+  it('约束集：3n coincident（2n 角心 + 2n 弧端 + n 斜接）+ 2n parallel + 2n tangent + 1 slotWidth', () => {
+    const entities = rectangleChain();
+    const chain = lineChainFromSelection(entities, [5, 6, 7, 8]);
+    if (!chain) throw new Error('chain missing');
+    const built = buildClosedRingSlotDraft({ chain, entities, width: 20, startId: 10 });
+    if (!built.ok) throw new Error(built.error);
+    const kinds = built.draft.constraints.map((c) => c.kind);
+    expect(kinds.filter((k) => k === 'coincident')).toHaveLength(20);
+    expect(kinds.filter((k) => k === 'parallel')).toHaveLength(8);
+    expect(kinds.filter((k) => k === 'tangent')).toHaveLength(8);
+    expect(kinds.filter((k) => k === 'slotWidth')).toHaveLength(1);
+    expect(kinds.filter((k) => k === 'diameter')).toHaveLength(0);
+  });
+
+  it('orderLineChain 闭环：path.closed=true、n+1 点且末点=首点', () => {
+    const entities = rectangleChain();
+    const chain = lineChainFromSelection(entities, [5, 6, 7, 8]);
+    if (!chain) throw new Error('chain missing');
+    const ordered = orderLineChain(chain, entities);
+    if (!ordered.ok) throw new Error(ordered.error);
+    expect(ordered.path.closed).toBe(true);
+    expect(ordered.path.points).toHaveLength(5);
+    expect(ordered.path.points[4]).toEqual(ordered.path.points[0]);
+  });
+
+  it('buildLineChainSlotDraft 自动转 ring；宽度过大内环退化 → degenerateRadius', () => {
+    const entities = rectangleChain();
+    const chain = lineChainFromSelection(entities, [5, 6, 7, 8]);
+    if (!chain) throw new Error('chain missing');
+    const viaChain = buildLineChainSlotDraft({ chain, entities, width: 20, startId: 10 });
+    const direct = buildClosedRingSlotDraft({ chain, entities, width: 20, startId: 10 });
+    if (!viaChain.ok || !direct.ok) throw new Error('build failed');
+    expect(viaChain.draft).toEqual(direct.draft);
+    expect(buildLineChainSlotDraft({ chain, entities, width: 40, startId: 10 }))
+      .toEqual({ ok: false, error: 'degenerateRadius' });
+  });
+
+  it('开放链交给 ring 构建器 → unsupportedChain（只处理闭合环）', () => {
+    const entities = lChainSketch();
+    const chain = lineChainFromSelection(entities, [4, 5]);
+    if (!chain) throw new Error('chain missing');
+    expect(buildClosedRingSlotDraft({ chain, entities, width: 20, startId: 10 }))
+      .toEqual({ ok: false, error: 'unsupportedChain' });
   });
 });

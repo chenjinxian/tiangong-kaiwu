@@ -23,7 +23,7 @@ import { formatFixedHalfUp } from './decimal-format.js';
 
 /** 后端 `precomputeSketchConstraint` 白名单（与私有 backend 保持同一集合）。 */
 export const EDITABLE_CONSTRAINT_KINDS = new Set<SketchConstraintDto['kind']>([
-  'distance', 'radius', 'diameter', 'length', 'angle',
+  'distance', 'radius', 'diameter', 'length', 'angle', 'slotWidth',
 ]);
 
 /** 长度类编辑器初值小数位（live：工作区显示小数 + 3；mm 产品 2+3 = 5）。 */

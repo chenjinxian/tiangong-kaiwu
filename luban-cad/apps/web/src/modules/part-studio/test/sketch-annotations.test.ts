@@ -422,3 +422,85 @@ describe('buildSketchDimensionAnnotations：driven 尺寸标签几何实测', ()
     expect(annotations).toEqual([]);
   });
 });
+
+// ADR-0023（2026-11-20）：slotWidth 单宽度尺寸标注——ring 显示 Ø（跨环带），
+// concentric 显示线性宽度（live circle-slot.dxf 为线性）。
+describe('buildSketchDimensionAnnotations：slotWidth（ADR-0023）', () => {
+  it('ring：跨首段外/内边界中点，⌀ 前缀（live ring-slot.dxf）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 40, y: 0 } },
+      { kind: 'line', id: 6, p1: { x: 40, y: 0 }, p2: { x: 0, y: 30 } },
+      { kind: 'line', id: 7, p1: { x: 0, y: 30 }, p2: { x: 0, y: 0 } },
+      { kind: 'line', id: 18, p1: { x: 0, y: -10 }, p2: { x: 40, y: -10 } },
+      { kind: 'line', id: 19, p1: { x: 40, y: -10 }, p2: { x: -10, y: 40 } },
+      { kind: 'line', id: 20, p1: { x: -10, y: 40 }, p2: { x: -10, y: -10 } },
+      { kind: 'line', id: 14, p1: { x: 10, y: 10 }, p2: { x: 30, y: 10 } },
+      { kind: 'line', id: 15, p1: { x: 30, y: 10 }, p2: { x: 20, y: 20 } },
+      { kind: 'line', id: 16, p1: { x: 20, y: 20 }, p2: { x: 10, y: 10 } },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [{
+      kind: 'slotWidth', slotMode: 'ring', id: 170,
+      refs: [5, 6, 7, 18, 19, 20, 14, 15, 16], value: 20,
+    }]));
+    expect(annotations).toHaveLength(1);
+    const dim = annotations[0]!;
+    expect(dim).toMatchObject({ kind: 'linear', id: 'dimension-170', text: '⌀20' });
+    if (dim.kind !== 'linear') throw new Error('应为线性尺寸');
+    expect(dim.a.x).toBeCloseTo(20, 6);
+    expect(dim.a.y).toBeCloseTo(-10, 6);
+    expect(dim.b.x).toBeCloseTo(20, 6);
+    expect(dim.b.y).toBeCloseTo(10, 6);
+  });
+
+  it('concentric：内/外圆 45° 对应点跨环带，文本为线性宽度（无 ⌀）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'circle', id: 10, center: { x: 0, y: 0 }, radius: 30 },
+      { kind: 'circle', id: 11, center: { x: 0, y: 0 }, radius: 20 },
+      { kind: 'circle', id: 12, center: { x: 0, y: 0 }, radius: 40 },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [{
+      kind: 'slotWidth', slotMode: 'concentric', id: 171,
+      refs: [10, 11, 12], value: 20,
+    }]));
+    expect(annotations).toHaveLength(1);
+    const dim = annotations[0]!;
+    expect(dim).toMatchObject({ kind: 'linear', id: 'dimension-171', text: '20' });
+    if (dim.kind !== 'linear') throw new Error('应为线性尺寸');
+    const s = Math.SQRT1_2;
+    expect(dim.a.x).toBeCloseTo(20 * s, 6);
+    expect(dim.a.y).toBeCloseTo(20 * s, 6);
+    expect(dim.b.x).toBeCloseTo(40 * s, 6);
+    expect(dim.b.y).toBeCloseTo(40 * s, 6);
+  });
+
+  it('driven ring 用实测环带宽（外侧/内侧边界垂距），不信任存储值', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 40, y: 0 } },
+      { kind: 'line', id: 6, p1: { x: 40, y: 0 }, p2: { x: 0, y: 30 } },
+      { kind: 'line', id: 7, p1: { x: 0, y: 30 }, p2: { x: 0, y: 0 } },
+      { kind: 'line', id: 18, p1: { x: 0, y: -12.5 }, p2: { x: 40, y: -12.5 } },
+      { kind: 'line', id: 19, p1: { x: 40, y: -12.5 }, p2: { x: -12.5, y: 42.5 } },
+      { kind: 'line', id: 20, p1: { x: -12.5, y: 42.5 }, p2: { x: -12.5, y: -12.5 } },
+      { kind: 'line', id: 14, p1: { x: 10, y: 7.5 }, p2: { x: 30, y: 7.5 } },
+      { kind: 'line', id: 15, p1: { x: 30, y: 7.5 }, p2: { x: 20, y: 17.5 } },
+      { kind: 'line', id: 16, p1: { x: 20, y: 17.5 }, p2: { x: 10, y: 7.5 } },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [{
+      kind: 'slotWidth', slotMode: 'ring', id: 172,
+      refs: [5, 6, 7, 18, 19, 20, 14, 15, 16], value: 20, driven: true,
+    }]));
+    expect(annotations[0]).toMatchObject({ kind: 'linear', id: 'dimension-172', text: '⌀20' });
+  });
+
+  it('缺 slotMode / 引用不可解析 → 不产出标注（不猜）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 5, p1: { x: 0, y: 0 }, p2: { x: 40, y: 0 } },
+    ];
+    expect(buildSketchDimensionAnnotations(sketch(entities, [{
+      kind: 'slotWidth', id: 173, refs: [5], value: 20,
+    }]))).toEqual([]);
+    expect(buildSketchDimensionAnnotations(sketch(entities, [{
+      kind: 'slotWidth', slotMode: 'concentric', id: 174, refs: [5, 6, 7], value: 20,
+    }]))).toEqual([]);
+  });
+});
