@@ -213,6 +213,10 @@
  * 与 `slotMode: "concentric"|"ring"`；concentric refs=[中线圆/弧,内,外]（value=径向宽度），
  * ring refs=[N 中线(line),N 外边界,N 内边界]（value=槽宽）。一个可见约束同时驱动两侧；
  * 旧后端遇到未知 kind 必须明确拒收且零变更。
+ * v1.84（ADR-0022 §2.12 / ADR-0023 增补）：`slotMode="ring"` 中线扩展为 **line/arc**
+ * （N≥2，闭合混合环最小两段）；每条边界须与对应中线同型且在环的同一侧。线对 =
+ * parallel + 有符号垂距 ±w/2；弧对 = 同心 + 径向间距 w/2（隐藏径向构造，与
+ * concentric 同构）。旧载荷（全 line、N≥3）不变。
  * v1.80（ADR-0020 S12）：圆周阵列**总角度**表达式——`PatternParams.angleExpression?` 与
  * `FeaturePatternParams.angleExpression?`。目标 `angle`（**度**，契约字段本就是度制；
  * `kind=angleDeg` 度值直接物化，不做弧度换算）；仅 `kind="circular"` 适用，linear 携带
@@ -1287,7 +1291,9 @@ export interface SketchConstraintDto {
   /**
    * v1.83（ADR-0023）：仅 `kind="slotWidth"` 必填。
    * - `concentric`：refs=[中线圆/弧, 内圆/弧, 外圆/弧]；value=两轮廓径向宽度。
-   * - `ring`：refs=[N 条中线(line), N 条外边界(line), N 条内边界(line)]；value=宽度。
+   * - `ring`：refs=[N 条中线, N 条一侧边界, N 条另一侧边界]；value=宽度。
+   *   v1.84：中线可为 line/arc（N≥2）；每条边界与对应中线同型（line+line 或
+   *   arc+arc：线=平行 ±w/2，弧=同心径向间距 w/2）。
    */
   slotMode?: "concentric" | "ring";
   id: number; refs: SketchRef[]; value?: number; driven?: boolean;
@@ -1342,7 +1348,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.83.0";
+  public static interfaceVersion = "1.84.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

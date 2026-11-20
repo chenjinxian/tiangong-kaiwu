@@ -452,6 +452,30 @@ describe('buildSketchDimensionAnnotations：slotWidth（ADR-0023）', () => {
     expect(dim.b.y).toBeCloseTo(10, 6);
   });
 
+  it('ring 弧边界（v1.84）：同心弧角中点径向跨带，⌀ 前缀（live 闭合 line+arc 环）', () => {
+    const entities: SketchEntityDto[] = [
+      { kind: 'line', id: 6, p1: { x: 10, y: 0 }, p2: { x: -10, y: 0 } },
+      { kind: 'line', id: 7, p1: { x: 10, y: -10 }, p2: { x: -10, y: -10 } },
+      { kind: 'line', id: 8, p1: { x: 10, y: 10 }, p2: { x: -10, y: 10 } },
+      { kind: 'arc', id: 5, center: { x: 0, y: 0 }, radius: 10, startAngle: 0, sweepAngle: Math.PI },
+      { kind: 'arc', id: 10, center: { x: 0, y: 0 }, radius: 40, startAngle: 0, sweepAngle: Math.PI },
+      { kind: 'arc', id: 12, center: { x: 0, y: 0 }, radius: 20, startAngle: 0, sweepAngle: Math.PI },
+    ];
+    const annotations = buildSketchDimensionAnnotations(sketch(entities, [{
+      kind: 'slotWidth', slotMode: 'ring', id: 175,
+      refs: [5, 6, 10, 7, 12, 8], value: 20,
+    }]));
+    expect(annotations).toHaveLength(1);
+    const dim = annotations[0]!;
+    expect(dim).toMatchObject({ kind: 'linear', id: 'dimension-175', text: '⌀20' });
+    if (dim.kind !== 'linear') throw new Error('应为线性尺寸');
+    // 外弧 0→180° 角中点 90°：跨带线段 (0,40)→(0,20)。
+    expect(dim.a.x).toBeCloseTo(0, 6);
+    expect(dim.a.y).toBeCloseTo(40, 6);
+    expect(dim.b.x).toBeCloseTo(0, 6);
+    expect(dim.b.y).toBeCloseTo(20, 6);
+  });
+
   it('concentric：内/外圆 45° 对应点跨环带，文本为线性宽度（无 ⌀）', () => {
     const entities: SketchEntityDto[] = [
       { kind: 'circle', id: 10, center: { x: 0, y: 0 }, radius: 30 },

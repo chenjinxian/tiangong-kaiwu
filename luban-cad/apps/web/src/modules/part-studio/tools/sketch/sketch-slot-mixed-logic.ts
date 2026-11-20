@@ -200,7 +200,8 @@ export function mixedChainFromSelection(
       const a = resolvePoint(member.p1, points);
       const b = resolvePoint(member.p2, points);
       if (!a || !b) return undefined;
-      const d = unit(sub(b, a));
+      // 直线两端的切向 = **遍历方向**（反向遍历时取 p2→p1，供接缝外侧判定）。
+      const d = unit(sub(entryPart === 'start' ? b : a, entryPart === 'start' ? a : b));
       if (!d) return undefined;
       return part === 'start' ? d : d;
     };
@@ -315,17 +316,21 @@ function trimBoundary(boundary: Boundary, part: 'start' | 'end', point: P2): boo
   }
   const phi = Math.atan2(point.v - boundary.center.v, point.u - boundary.center.u);
   // 交点须落在原弧的角范围内（按遍历方向）；否则说明取到了另一侧交点。
-  const norm = (v: number): number => {
-    const twoPi = 2 * Math.PI;
-    return ((v % twoPi) + twoPi) % twoPi;
-  };
-  const ccw = boundary.endAngle > boundary.startAngle;
-  const startNorm = norm(boundary.startAngle);
-  const sweepAbs = norm(boundary.endAngle - boundary.startAngle);
-  const phiRel = ccw ? norm(phi - startNorm) : norm(startNorm - phi);
-  if (phiRel > sweepAbs + 1e-6) return false;
-  if (part === 'start') boundary.startAngle = phi;
-  else boundary.endAngle = phi;
+  // 归一到与当前 start/end 连续的角度（大扫角弧跨越 0/2π 时不得改写成另一支）。
+  const twoPi = 2 * Math.PI;
+  const norm = (v: number): number => ((v % twoPi) + twoPi) % twoPi;
+  const sweep = boundary.endAngle - boundary.startAngle;
+  const sign = sweep > 0 ? 1 : -1;
+  const sweepAbs = Math.abs(sweep);
+  if (part === 'start') {
+    const rel = sign * norm(sign * (phi - boundary.startAngle));
+    if (rel > sweepAbs + 1e-6) return false;
+    boundary.startAngle += sign * rel;
+  } else {
+    const rel = sign * norm(sign * (boundary.endAngle - phi));
+    if (rel > sweepAbs + 1e-6) return false;
+    boundary.endAngle -= sign * rel;
+  }
   return true;
 }
 
@@ -505,7 +510,6 @@ export function buildMixedChainSlotDraft(input: {
     const leftPoint = boundaryPoint(boundaries[1][memberIndex]!, leftPart);
     const rightPoint = boundaryPoint(boundaries[-1][memberIndex]!, rightPart);
     const firstPoint = leftFirst ? leftPoint : rightPoint;
-    const secondPoint = leftFirst ? rightPoint : leftPoint;
     const firstSide: 1 | -1 = leftFirst ? 1 : -1;
     const secondSide: 1 | -1 = leftFirst ? -1 : 1;
     const centerId = alloc();
@@ -525,7 +529,7 @@ export function buildMixedChainSlotDraft(input: {
     return arcId;
   };
   const startCap = makeCap(0, 'start', 'start', 'start', true);
-  const endCap = makeCap(n - 1, 'end', 'end', 'end', false);
+  makeCap(n - 1, 'end', 'end', 'end', false);
 
   // 3.3 接缝实体/约束。
   const cornerCenters: number[] = [];
@@ -599,6 +603,452 @@ export function buildMixedChainSlotDraft(input: {
       capArcIds: capArcs,
       boundaryLineIds: allBoundaryIds,
       diameterConstraintId,
+      cornerArcIds: cornerArcs,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 闭合 line+arc 混合环槽（ADR-0022 §2.12，2026-11-20 live `closed-mix3-slot.dxf`）
+// ---------------------------------------------------------------------------
+
+export interface ClosedMixedChain {
+  /** 环序成员（弧按 authored 方向 start→end 遍历）。 */
+  members: MixedChainMember[];
+  /** n+1 顶点（末点=回环起点）。 */
+  vertices: P2[];
+}
+
+/**
+ * 从选择集构造**闭合** line+arc 混合环（live 2026-11-20 干净探针）：
+ * 每条实体两端均焊接、恰 n 个接缝、单一环。环可正反两向遍历——取能让
+ * **所有弧**都按 authored 方向（start→end）行进的方向；两个方向都不行 →
+ * undefined（反向弧/断开/分支/非 line·arc → 工具诚实拒收）。纯线闭合环由
+ * `buildClosedRingSlotDraft` 处理，本函数要求至少一段弧。
+ */
+export function closedMixedChainFromSelection(
+  entities: SketchEntityDto[],
+  selectedIds: readonly number[],
+): ClosedMixedChain | undefined {
+  const ids = new Set(selectedIds);
+  if (ids.size < 2) return undefined;
+  const members = entities.filter(
+    (e): e is MixedMemberEntity => (e.kind === 'line' || e.kind === 'arc') && ids.has(e.id),
+  );
+  if (members.length !== ids.size) return undefined;
+  if (!members.some((m) => m.kind === 'arc')) return undefined;
+
+  const points = indexPoints(entities);
+  interface End { entityId: number; which: 0 | 1; pos: P2 }
+  const ends: End[] = [];
+  for (const member of members) {
+    if (member.kind === 'line') {
+      const a = resolvePoint(member.p1, points);
+      const b = resolvePoint(member.p2, points);
+      if (!a || !b) return undefined;
+      ends.push({ entityId: member.id, which: 0, pos: a }, { entityId: member.id, which: 1, pos: b });
+    } else {
+      const g = resolveMixedArc(member, points);
+      if (!g) return undefined;
+      ends.push({ entityId: member.id, which: 0, pos: g.start }, { entityId: member.id, which: 1, pos: g.end });
+    }
+  }
+
+  // 端点两两焊接：每个端点恰一个伙伴、接缝数恰 n → 单一闭环（分支/断链拒收）。
+  const adjacent = new Map<string, { memberId: number; which: 0 | 1 }>();
+  const seen = new Set<string>();
+  for (let i = 0; i < ends.length; i++) {
+    for (let j = i + 1; j < ends.length; j++) {
+      const a = ends[i]!;
+      const b = ends[j]!;
+      if (a.entityId === b.entityId) continue;
+      if (dist2(a.pos, b.pos) > SLOT_CHAIN_TOL) continue;
+      const ka = `${a.entityId}:${a.which}`;
+      const kb = `${b.entityId}:${b.which}`;
+      const key = [ka, kb].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (adjacent.has(ka) || adjacent.has(kb)) return undefined; // 分支/重边
+      adjacent.set(ka, { memberId: b.entityId, which: b.which });
+      adjacent.set(kb, { memberId: a.entityId, which: a.which });
+    }
+  }
+  if (seen.size !== members.length) return undefined;
+
+  const byId = new Map(members.map((m) => [m.id, m]));
+  const buildOrder = (startEntry: 0 | 1): ClosedMixedChain | undefined => {
+    let currentId = members[0]!.id;
+    let entryWhich: 0 | 1 = startEntry;
+    const visited = new Set<number>();
+    const ordered: MixedChainMember[] = [];
+    const vertices: P2[] = [];
+    let firstEntry: P2 | undefined;
+    while (true) {
+      if (visited.has(currentId)) return undefined;
+      const member = byId.get(currentId);
+      if (!member) return undefined;
+      const g = member.kind === 'arc' ? resolveMixedArc(member, points) : undefined;
+      if (member.kind === 'arc' && (!g || entryWhich !== 0)) return undefined; // 弧须 authored 方向
+      const exitWhich: 0 | 1 = entryWhich === 0 ? 1 : 0;
+      const posFor = (part: 'start' | 'end'): P2 | undefined => member.kind === 'line'
+        ? resolvePoint(part === 'start' ? member.p1 : member.p2, points)
+        : (part === 'start' ? g!.start : g!.end);
+      const entryPos = posFor(entryWhich === 0 ? 'start' : 'end');
+      const exitPos = posFor(exitWhich === 0 ? 'start' : 'end');
+      const tangents: P2[] = [];
+      if (member.kind === 'line') {
+        const a = resolvePoint(member.p1, points);
+        const b = resolvePoint(member.p2, points);
+        if (!a || !b) return undefined;
+        // 遍历方向（entry→exit）：反向遍历时取 p2→p1。
+        const d = unit(entryWhich === 0 ? sub(b, a) : sub(a, b));
+        if (!d) return undefined;
+        tangents.push(d, d);
+      } else {
+        tangents.push(entryWhich === 0 ? g!.startTangent : g!.endTangent,
+          exitWhich === 0 ? g!.startTangent : g!.endTangent);
+      }
+      if (!entryPos || !exitPos || !tangents[0] || !tangents[1]) return undefined;
+      if (ordered.length === 0) {
+        firstEntry = entryPos;
+        vertices.push(entryPos);
+      } else if (dist2(entryPos, vertices[vertices.length - 1]!) > SLOT_CHAIN_TOL) {
+        return undefined;
+      }
+      ordered.push({
+        entity: member,
+        kind: member.kind,
+        entryPart: entryWhich === 0 ? 'start' : 'end',
+        exitPart: exitWhich === 0 ? 'start' : 'end',
+        start: entryPos,
+        end: exitPos,
+        startTangent: tangents[0]!,
+        endTangent: tangents[1]!,
+        ...(g ? { arc: g } : {}),
+      });
+      visited.add(currentId);
+      vertices.push(exitPos);
+      if (ordered.length === members.length) {
+        if (!firstEntry || dist2(exitPos, firstEntry) > SLOT_CHAIN_TOL) return undefined;
+        const next = adjacent.get(`${member.id}:${exitWhich}`);
+        if (!next || next.memberId !== members[0]!.id || next.which !== startEntry) return undefined;
+        return { members: ordered, vertices };
+      }
+      const next = adjacent.get(`${member.id}:${exitWhich}`);
+      if (!next) return undefined;
+      currentId = next.memberId;
+      entryWhich = next.which;
+    }
+  };
+  return buildOrder(0) ?? buildOrder(1);
+}
+
+interface RingJunction {
+  /** 接缝顶点在 vertices 中的下标（1..n；n=回环接缝）。 */
+  index: number;
+  vertex: P2;
+  type: 'corner' | 'tangent';
+  outsideSide?: 1 | -1;
+  startAngle?: number;
+  sweep?: number;
+}
+
+/** 曲线采样（弧 16 段）——用于边界环面积/朝向守卫。 */
+function sampleCurve(curve: Boundary, samples: P2[]): void {
+  if (curve.kind === 'line') {
+    samples.push(curve.start, curve.end);
+    return;
+  }
+  const steps = 16;
+  for (let k = 0; k <= steps; k++) {
+    const angle = curve.startAngle + (curve.endAngle - curve.startAngle) * (k / steps);
+    samples.push(vadd(curve.center, scale(radial(angle), curve.radius)));
+  }
+}
+
+function sampleArc(center: P2, radius: number, startAngle: number, sweep: number, samples: P2[]): void {
+  const steps = 16;
+  for (let k = 0; k <= steps; k++) {
+    const angle = startAngle + sweep * (k / steps);
+    samples.push(vadd(center, scale(radial(angle), radius)));
+  }
+}
+
+function polygonArea2(points: P2[]): number {
+  let area2 = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]!;
+    const b = points[(i + 1) % points.length]!;
+    area2 += a.u * b.v - a.v * b.u;
+  }
+  return area2;
+}
+
+/**
+ * 闭合 line+arc 混合环槽草稿（与 live `closed-mix3-slot.dxf` 同构）：
+ *
+ * - 源线/源弧全部保留；每段两侧偏移边界（line→平行线；arc→同心 R±w/2、
+ *   同角范围）；**无端帽**；
+ * - 每个接缝（含回环接缝）：转向外侧 r=w/2 圆角弧、转向内侧两偏移曲线交点
+ *   裁剪；相切接缝两侧直接相接；
+ * - 单一 `slotWidth`（ring）驱动两侧：refs=[N 源, N 左侧边界, N 右侧边界]
+ *   （v1.84：弧源走同心 + 径向间距 w/2）；
+ * - 守卫：弧半径不足以容纳半宽 / 内侧交点不存在 / 边界环坍缩或反向 →
+ *   degenerateRadius；接缝/几何非法 → unsupportedChain。
+ */
+export function buildClosedMixedRingSlotDraft(input: {
+  chain: ClosedMixedChain;
+  entities: SketchEntityDto[];
+  width: number;
+  startId: number;
+}): { ok: true; draft: SlotDraft } | { ok: false; error: SlotBuildError } {
+  const { chain, width } = input;
+  const { members, vertices } = chain;
+  const n = members.length;
+  if (n < 2) return { ok: false, error: 'unsupportedChain' };
+  if (!(width > SLOT_TOL)) return { ok: false, error: 'zeroWidth' };
+  const half = width / 2;
+
+  // 1) 未裁剪边界（每段两侧）。
+  const boundaries: Record<1 | -1, Boundary[]> = { 1: [], [-1]: [] };
+  for (let i = 0; i < n; i++) {
+    const member = members[i]!;
+    if (member.kind === 'line') {
+      const d = unit(sub(member.end, member.start));
+      if (!d) return { ok: false, error: 'unsolvedLine' };
+      const left = rotateLeft(d);
+      for (const side of [1, -1] as const) {
+        boundaries[side].push({
+          kind: 'line', memberIndex: i, side,
+          start: vadd(member.start, scale(left, side * half)),
+          end: vadd(member.end, scale(left, side * half)),
+        });
+      }
+    } else {
+      const g = member.arc;
+      if (!g) return { ok: false, error: 'unsolvedCurve' };
+      if (!(g.radius - half > SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+      for (const side of [1, -1] as const) {
+        boundaries[side].push({
+          kind: 'arc', memberIndex: i, side,
+          center: g.center,
+          radius: g.radius - side * g.sign * half,
+          startAngle: g.startAngle,
+          endAngle: g.endAngle,
+        });
+      }
+    }
+  }
+
+  // 2) 接缝（i=1..n；i=n 为末段→首段的回环接缝，顶点=vertices[n]=起点）。
+  const junctions: RingJunction[] = [];
+  for (let i = 1; i <= n; i++) {
+    const prevIdx = i - 1;
+    const nextIdx = i % n;
+    const vertex = vertices[i]!;
+    const t0 = members[prevIdx]!.endTangent;
+    const t1 = members[nextIdx]!.startTangent;
+    const cross = cross2(t0, t1);
+    const dot = Math.max(-1, Math.min(1, dot2(t0, t1)));
+    if (Math.abs(cross) <= 1e-9) {
+      if (dot < 0) return { ok: false, error: 'unsupportedChain' };
+      for (const side of [1, -1] as const) {
+        const prev = boundaryPoint(boundaries[side][prevIdx]!, 'end');
+        const next = boundaryPoint(boundaries[side][nextIdx]!, 'start');
+        if (dist2(prev, next) > 1e-6) return { ok: false, error: 'unsupportedChain' };
+      }
+      junctions.push({ index: i, vertex, type: 'tangent' });
+      continue;
+    }
+    const outsideSide: 1 | -1 = cross > 0 ? -1 : 1;
+    const insideSide: 1 | -1 = outsideSide === 1 ? -1 : 1;
+    const prevOut = boundaryPoint(boundaries[outsideSide][prevIdx]!, 'end');
+    const nextOut = boundaryPoint(boundaries[outsideSide][nextIdx]!, 'start');
+    const startAngle = Math.atan2(prevOut.v - vertex.v, prevOut.u - vertex.u);
+    const endAngle = Math.atan2(nextOut.v - vertex.v, nextOut.u - vertex.u);
+    let sweep = endAngle - startAngle;
+    while (sweep > Math.PI) sweep -= 2 * Math.PI;
+    while (sweep < -Math.PI) sweep += 2 * Math.PI;
+    if (Math.abs(sweep) <= SLOT_TOL) return { ok: false, error: 'unsupportedChain' };
+    junctions.push({ index: i, vertex, type: 'corner', outsideSide, startAngle, sweep });
+
+    // 内侧交点：裁剪两条偏移曲线（末段→首段时同样按 prev/next 索引裁剪）。
+    const prevB = boundaries[insideSide][prevIdx]!;
+    const nextB = boundaries[insideSide][nextIdx]!;
+    let intersection: P2 | undefined;
+    if (prevB.kind === 'line' && nextB.kind === 'line') {
+      const d0 = unit(sub(prevB.end, prevB.start));
+      const d1 = unit(sub(nextB.end, nextB.start));
+      if (!d0 || !d1) return { ok: false, error: 'unsolvedLine' };
+      const denom = cross2(d0, d1);
+      if (Math.abs(denom) <= 1e-12) return { ok: false, error: 'unsupportedChain' };
+      const t = cross2(sub(nextB.start, prevB.start), d1) / denom;
+      intersection = vadd(prevB.start, scale(d0, t));
+    } else if (prevB.kind === 'line') {
+      const nextArc = nextB as BoundaryArc;
+      const d = unit(sub(prevB.end, prevB.start));
+      if (!d) return { ok: false, error: 'unsolvedLine' };
+      intersection = intersectLineCircle(prevB.start, d, nextArc.center, nextArc.radius, vertex);
+    } else if (nextB.kind === 'line') {
+      const prevArc = prevB as BoundaryArc;
+      const d = unit(sub(nextB.end, nextB.start));
+      if (!d) return { ok: false, error: 'unsolvedLine' };
+      intersection = intersectLineCircle(nextB.start, d, prevArc.center, prevArc.radius, vertex);
+    } else {
+      const prevArc = prevB as BoundaryArc;
+      const nextArc = nextB as BoundaryArc;
+      intersection = intersectCircleCircle(prevArc.center, prevArc.radius, nextArc.center, nextArc.radius, vertex);
+    }
+    if (!intersection) return { ok: false, error: 'unsupportedChain' };
+    if (!trimBoundary(prevB, 'end', intersection)) return { ok: false, error: 'unsupportedChain' };
+    if (!trimBoundary(nextB, 'start', intersection)) return { ok: false, error: 'unsupportedChain' };
+  }
+
+  // 3) 守卫：边界非退化 + 两侧边界环与源环同向且面积非零。
+  for (const side of [1, -1] as const) {
+    for (let i = 0; i < n; i++) {
+      const b = boundaries[side][i]!;
+      if (b.kind === 'line') {
+        if (!(dist2(b.start, b.end) > SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+      } else if (!(Math.abs(b.endAngle - b.startAngle) > 1e-9)) {
+        return { ok: false, error: 'degenerateRadius' };
+      }
+    }
+  }
+  const sourceLoop: P2[] = [];
+  for (const member of members) {
+    if (member.kind === 'line') sourceLoop.push(member.start, member.end);
+    else {
+      const g = member.arc!;
+      sampleArc(g.center, g.radius, g.startAngle, g.endAngle - g.startAngle, sourceLoop);
+    }
+  }
+  const orientation = Math.sign(polygonArea2(sourceLoop));
+  if (orientation === 0) return { ok: false, error: 'unsupportedChain' };
+  for (const side of [1, -1] as const) {
+    const loop: P2[] = [];
+    for (let i = 0; i < n; i++) {
+      sampleCurve(boundaries[side][i]!, loop);
+      const junction = junctions[i]!; // 段 i 之后 = 接缝 i+1
+      if (junction.type === 'corner' && junction.outsideSide === side)
+        sampleArc(junction.vertex, half, junction.startAngle!, junction.sweep!, loop);
+    }
+    const area2 = polygonArea2(loop);
+    if (!(area2 * orientation > 2 * SLOT_TOL)) return { ok: false, error: 'degenerateRadius' };
+  }
+
+  // 4) 实体/约束。
+  let nextId = input.startId;
+  const alloc = (): number => nextId++;
+  const newEntities: SketchEntityDto[] = [];
+  const newConstraints: SketchConstraintDto[] = [];
+  const add = (constraint: Omit<SketchConstraintDto, 'id'>): number => {
+    const id = alloc();
+    newConstraints.push({ ...constraint, id });
+    return id;
+  };
+  const boundaryIds: Record<1 | -1, number[]> = { 1: [], [-1]: [] };
+  const boundaryIdAt = (side: 1 | -1, memberIndex: number): number => boundaryIds[side][memberIndex]!;
+  for (const side of [1, -1] as const) {
+    for (let i = 0; i < n; i++) {
+      const boundary = boundaries[side][i]!;
+      const id = alloc();
+      boundaryIds[side].push(id);
+      if (boundary.kind === 'line') {
+        newEntities.push({
+          kind: 'line', id,
+          p1: { x: boundary.start.u, y: boundary.start.v },
+          p2: { x: boundary.end.u, y: boundary.end.v },
+        });
+      } else {
+        const sourceArc = members[i]!.entity as SketchEntityDto & { kind: 'arc' };
+        newEntities.push({
+          kind: 'arc', id,
+          center: sourceArc.center,
+          radius: boundary.radius,
+          startAngle: boundary.startAngle,
+          sweepAngle: boundary.endAngle - boundary.startAngle,
+        });
+      }
+    }
+  }
+
+  const cornerArcs: number[] = [];
+  for (const junction of junctions) {
+    const i = junction.index;
+    const prevIdx = i - 1;
+    const nextIdx = i % n;
+    if (junction.type === 'tangent') {
+      for (const side of [1, -1] as const) {
+        add({
+          kind: 'coincident',
+          refs: [
+            { entity: boundaryIdAt(side, prevIdx), part: 'end' },
+            { entity: boundaryIdAt(side, nextIdx), part: 'start' },
+          ],
+        });
+      }
+      continue;
+    }
+    const outside = junction.outsideSide!;
+    const inside: 1 | -1 = outside === 1 ? -1 : 1;
+    const centerId = alloc();
+    newEntities.push({ kind: 'point', id: centerId, x: junction.vertex.u, y: junction.vertex.v });
+    const arcId = alloc();
+    cornerArcs.push(arcId);
+    newEntities.push({
+      kind: 'arc', id: arcId, center: centerId, radius: half,
+      startAngle: junction.startAngle!, sweepAngle: junction.sweep!,
+    });
+    const prevMember = members[prevIdx]!;
+    const nextMember = members[nextIdx]!;
+    add({ kind: 'coincident', refs: [centerId, { entity: prevMember.entity.id, part: prevMember.exitPart }] });
+    add({ kind: 'coincident', refs: [centerId, { entity: nextMember.entity.id, part: nextMember.entryPart }] });
+    add({ kind: 'coincident', refs: [{ entity: arcId, part: 'start' }, { entity: boundaryIdAt(outside, prevIdx), part: 'end' }] });
+    add({ kind: 'coincident', refs: [{ entity: arcId, part: 'end' }, { entity: boundaryIdAt(outside, nextIdx), part: 'start' }] });
+    add({ kind: 'tangent', refs: [arcId, boundaryIdAt(outside, prevIdx)] });
+    add({ kind: 'tangent', refs: [arcId, boundaryIdAt(outside, nextIdx)] });
+    add({
+      kind: 'coincident',
+      refs: [
+        { entity: boundaryIdAt(inside, prevIdx), part: 'end' },
+        { entity: boundaryIdAt(inside, nextIdx), part: 'start' },
+      ],
+    });
+  }
+
+  // 平行（线边界）/ 同心（弧边界）——与混合开放链同口径。
+  for (let i = 0; i < n; i++) {
+    const member = members[i]!;
+    for (const side of [1, -1] as const) {
+      if (member.kind === 'line') {
+        add({ kind: 'parallel', refs: [member.entity.id, boundaryIdAt(side, i)] });
+      } else {
+        add({ kind: 'concentric', refs: [member.entity.id, boundaryIdAt(side, i)] });
+      }
+    }
+  }
+
+  // 单一宽度：ring refs=[N 源, N 左侧边界, N 右侧边界]（v1.84 弧边界支持）。
+  const slotWidthConstraintId = add({
+    kind: 'slotWidth', slotMode: 'ring',
+    refs: [
+      ...members.map((m) => m.entity.id),
+      ...boundaryIds[1],
+      ...boundaryIds[-1],
+    ],
+    value: width,
+  });
+
+  return {
+    ok: true,
+    draft: {
+      entities: newEntities,
+      constraints: newConstraints,
+      nextId,
+      capArcIds: [],
+      boundaryLineIds: [...boundaryIds[1], ...boundaryIds[-1]],
+      slotWidthConstraintId,
       cornerArcIds: cornerArcs,
     },
   };

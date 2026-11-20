@@ -476,19 +476,31 @@ export function buildSketchDimensionAnnotations(
       case 'slotWidth': {
         // ADR-0023：一个宽度尺寸驱动两侧。
         if (constraint.slotMode === 'ring') {
-          // refs=[N 中线,N 外,N 内]：标注跨环带，锚点=首段外/内边界中点的垂足方向。
+          // refs=[N 中线,N 组A,N 组B]：标注跨环带，锚点=首段两组边界之间。
+          // N≥2（v1.84 闭合 line+arc 环最小两段）。
           const n = constraint.refs.length / 3;
-          if (!Number.isInteger(n) || n < 3) break;
+          if (!Number.isInteger(n) || n < 2) break;
           const outerRef = constraint.refs[n];
           const innerRef = constraint.refs[2 * n];
           if (outerRef === undefined || innerRef === undefined) break;
           const outer = resolveRef(outerRef, entities, points);
           const inner = resolveRef(innerRef, entities, points);
-          if (outer?.kind !== 'line' || inner?.kind !== 'line') break;
-          const a = { x: (outer.a.x + outer.b.x) / 2, y: (outer.a.y + outer.b.y) / 2 };
-          const foot = projectToInfiniteLine(a, inner.a, inner.b);
-          // live 2026-11-20 `ring-slot.dxf`：环槽宽度显示为 Ø。
-          linear(constraint, a, foot, '⌀');
+          if (outer?.kind === 'line' && inner?.kind === 'line') {
+            const a = { x: (outer.a.x + outer.b.x) / 2, y: (outer.a.y + outer.b.y) / 2 };
+            const foot = projectToInfiniteLine(a, inner.a, inner.b);
+            // live 2026-11-20 `ring-slot.dxf`：环槽宽度显示为 Ø。
+            linear(constraint, a, foot, '⌀');
+            break;
+          }
+          // v1.84：同心弧边界——取外边界的角中点径向跨带（live `closed-mix3-slot.dxf` Ø20）。
+          if (outer?.kind === 'circle' && inner?.kind === 'circle'
+            && outer.startAngle !== undefined && outer.sweepAngle !== undefined) {
+            const angle = outer.startAngle + outer.sweepAngle / 2;
+            const a = arcPoint(outer.center, outer.radius, angle);
+            const b = arcPoint(inner.center, inner.radius, angle);
+            linear(constraint, a, b, '⌀');
+            break;
+          }
           break;
         }
         if (constraint.slotMode !== 'concentric') break;

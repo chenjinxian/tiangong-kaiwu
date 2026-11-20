@@ -9,15 +9,17 @@
  * - 默认宽 Ø20（mm 文档）；原中线保留；宽度尺寸可在提交后双击 Ø 标签修改。
  *
  * 范围（S2 单线 + S2b 链 + S2c 圆弧 + S2e/f 整圆/闭合环 + S2i 多独立线 +
- * S2h 线/弧混合链 + S2j 凹环，ADR-0022 §2.3–§2.9、ADR-0023）：**单条直线**、
- * **单条开放圆弧**（同心偏移弧 + 半圆帽 + 单 Ø）、**开放/闭合、无分支的
- * line 链与 line+arc 混合开放链**（开放=端帽+外侧圆角+内侧交点/斜接；混合链
- * 按接缝逐角判定；闭合=无端帽、外侧圆角/内侧斜接、凸/凹多边形均支持、单一 Ø）、
- * **整圆中线**（同心圆 R±w/2、无帽、**线性**宽度尺寸）以及**多条互不相连直线**
- * （每条线一个槽，全部帽共享同一个 Ø）。整圆/闭合环走 `slotWidth`
- * （concentric/ring），其余槽走单个 diameter；改宽度会同时驱动所有受控轮廓。
- * 分支链、自交闭合环、混合「部分连通+部分独立」、圆弧参与的独立多曲线、
- * 闭合混合链（含弧）暂不支持（诚实拒收）。
+ * S2h 线/弧混合链 + S2j 凹环 + S2m 单毂分支链，ADR-0022 §2.3–§2.11、ADR-0023）：
+ * **单条直线**、**单条开放圆弧**（同心偏移弧 + 半圆帽 + 单 Ø）、**开放/闭合、
+ * 无分支的 line 链与 line+arc 混合开放链**（开放=端帽+外侧圆角+内侧交点/斜接；
+ * 混合链按接缝逐角判定；闭合=无端帽、外侧圆角/内侧斜接、凸/凹多边形均支持、
+ * 单一 Ø）、**整圆中线**（同心圆 R±w/2、无帽、**线性**宽度尺寸）、**多条互不
+ * 相连直线**（每条线一个槽，全部帽共享同一个 Ø）以及**单毂分支链**（≥3 条线
+ * 共点、相邻缺口 <180°：各条 stadium 的并集轮廓——尖端半圆帽 + 毂部相邻偏移线
+ * 斜接，单一 Ø）。整圆/闭合环走 `slotWidth`（concentric/ring），其余槽走单个
+ * diameter；改宽度会同时驱动所有受控轮廓。多毂树状分支、弧参与的分支、自交
+ * 闭合环、混合「部分连通+部分独立」、圆弧参与的独立多曲线、闭合混合链（含弧）
+ * 暂不支持（诚实拒收）。
  *
  * 基建复用 SketchOffsetTool：AccuSnap 取点 + 草图平面架 + Dynamics 预览 +
  * applyUpdate 乐观整体覆写 + id 播种/回滚 + 分阶段提示。
@@ -51,7 +53,13 @@ import {
   buildMultiLineSlotDraft,
   lineChainFromSelection,
 } from './sketch-slot-logic.js';
-import { buildMixedChainSlotDraft, mixedChainFromSelection } from './sketch-slot-mixed-logic.js';
+import {
+  buildClosedMixedRingSlotDraft,
+  buildMixedChainSlotDraft,
+  closedMixedChainFromSelection,
+  mixedChainFromSelection,
+} from './sketch-slot-mixed-logic.js';
+import { branchChainFromSelection, buildBranchChainSlotDraft } from './sketch-slot-branch-logic.js';
 import type { SlotBuildError, SlotDraft } from './sketch-slot-logic.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 
@@ -294,9 +302,28 @@ export class SketchSlotTool extends PrimitiveTool {
     // 含圆弧的开放连通链（live 2026-11-20 `mixed-slot.dxf`）：line/arc 混合槽。
     if (members.some((e) => e!.kind === 'arc')) {
       const mixed = mixedChainFromSelection(sketch.entities, ids);
-      if (!mixed) return { ok: false, error: 'unsupportedChain' };
-      const built = buildMixedChainSlotDraft({
-        chain: mixed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+      if (mixed) {
+        const built = buildMixedChainSlotDraft({
+          chain: mixed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+        });
+        return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+      }
+      // 闭合 line+arc 混合环（live 2026-11-20 `closed-mix3-slot.dxf`）：无端帽、
+      // 外侧圆角/内侧斜接、单一 Ø（slotWidth ring，弧边界 v1.84）。
+      const closed = closedMixedChainFromSelection(sketch.entities, ids);
+      if (!closed) return { ok: false, error: 'unsupportedChain' };
+      const built = buildClosedMixedRingSlotDraft({
+        chain: closed, entities: sketch.entities, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
+      });
+      return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
+    }
+    // 单毂分支链（live 2026-11-20 `branch-slot.dxf`）：≥3 线共点 → 各臂 stadium
+    // 并集轮廓（尖帽 + 毂部斜接 + 单 Ø）；必须在折线链排序前识别（三度点会被
+    // `orderLineChain` 当作分支拒收）。
+    const branch = branchChainFromSelection(sketch.entities, ids);
+    if (branch) {
+      const built = buildBranchChainSlotDraft({
+        chain: branch, width: DEFAULT_SLOT_WIDTH, startId: this._nextId,
       });
       return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
     }
