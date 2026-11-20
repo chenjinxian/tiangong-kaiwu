@@ -2236,3 +2236,162 @@ test.describe('草图槽工具：含圆弧的混合线树（ADR-0022 §2.15 / S2
     assertArcBranchSlotGeometry(await readSketch(), 15, beforeConstraintIds);
   });
 });
+
+// ---------------------------------------------------------------------------
+// S2u2 多弧臂混合线树（live 2026-11-20 `s2u2-multiarc-*`：2 弧 + 1 线共毂）
+// ---------------------------------------------------------------------------
+
+test.describe('草图槽工具：多弧臂混合线树（ADR-0022 §2.15 扩展 / S2u2）', () => {
+  test('2 弧 + 1 线单毂树 → 槽（预选）→ 4 同心弧/3 帽/弧-弧毂弧 → Ø30 → reload', async ({ page, request }) => {
+    test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 360_000);
+    const token = await getApiToken();
+    const seed = await resetBModelSeed(request, token);
+    let ctx = await openSeedImodelEditor(page, seed);
+    const lease = await borrowWriteLease(ctx, token, 'sketch-slot-multi-arc');
+    const DEG = Math.PI / 180;
+    const P = { x: -88.722, y: -57.662 };
+    const L = { x: -19.188, y: -104.018 };
+    const C1 = { x: -320.504, y: 38.914 };
+    const C2 = { x: -38.479, y: -86.389 };
+    const R1 = Math.hypot(P.x - C1.x, P.y - C1.y);
+    const R2 = Math.hypot(P.x - C2.x, P.y - C2.y);
+    const A1 = Math.atan2(P.y - C1.y, P.x - C1.x) / DEG; // arc1 end angle
+    const A2 = Math.atan2(P.y - C2.y, P.x - C2.x) / DEG; // arc2 end angle
+    const S1 = 14.25;
+    const S2 = 79.888;
+    const T1 = {
+      x: C1.x + R1 * Math.cos((A1 - S1) * DEG),
+      y: C1.y + R1 * Math.sin((A1 - S1) * DEG),
+    };
+    const T2 = {
+      x: C2.x + R2 * Math.cos((A2 - S2) * DEG),
+      y: C2.y + R2 * Math.sin((A2 - S2) * DEG),
+    };
+    const created = await applyFeatureOpRpc(ctx, {
+      kind: 'insertSketch',
+      entities: [
+        { kind: 'point', id: 1, ...P },
+        { kind: 'point', id: 2, ...L },
+        { kind: 'point', id: 3, ...C1 },
+        { kind: 'point', id: 4, ...C2 },
+        { kind: 'point', id: 5, ...T1 },
+        { kind: 'point', id: 6, ...T2 },
+        { kind: 'line', id: 7, p1: 1, p2: 2 },
+        { kind: 'arc', id: 8, center: 3, radius: R1, startAngle: (A1 - S1) * DEG, sweepAngle: S1 * DEG },
+        { kind: 'arc', id: 9, center: 4, radius: R2, startAngle: (A2 - S2) * DEG, sweepAngle: S2 * DEG },
+      ],
+      constraints: [
+        { kind: 'fixed', id: 100, refs: [1] },
+        { kind: 'fixed', id: 101, refs: [2] },
+        { kind: 'fixed', id: 102, refs: [3] },
+        { kind: 'fixed', id: 103, refs: [4] },
+        { kind: 'fixed', id: 104, refs: [5] },
+        { kind: 'fixed', id: 105, refs: [6] },
+        { kind: 'radius', id: 106, refs: [8], value: R1 },
+        { kind: 'radius', id: 107, refs: [9], value: R2 },
+        { kind: 'coincident', id: 108, refs: [{ entity: 8, part: 'start' }, 5] },
+        { kind: 'coincident', id: 109, refs: [{ entity: 8, part: 'end' }, 1] },
+        { kind: 'coincident', id: 110, refs: [{ entity: 9, part: 'start' }, 6] },
+        { kind: 'coincident', id: 111, refs: [{ entity: 9, part: 'end' }, 1] },
+      ],
+      plane: XY_PLANE,
+    }, lease, token);
+    assertFeatureOpOk(created, '两弧一线分支草图');
+    const sketchId = created.featureId!;
+    await releaseWriteLease(ctx, lease, token);
+
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    const row = page.getByTestId(`tree-row-${sketchId}`);
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await row.dblclick({ timeout: 30_000 });
+    await expect(page.getByTestId('part-studio-sketch-dialog')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('toolbar', { name: '草图工具' })).toBeVisible({ timeout: 60_000 });
+
+    const canvas = page.getByTestId('part-studio-viewport').locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas boundingBox 不可得');
+    const hub = { x: box.x, y: box.y };
+    await setStandardView(page, 0, { low: { x: -340, y: -130, z: -20 }, high: { x: 10, y: 70, z: 20 } });
+    await disableSnap(page);
+
+    const readSketch = async (): Promise<SketchDto> => {
+      const sketch = await getSketchRpc(ctx, sketchId, token);
+      expect(sketch).toBeDefined();
+      return sketch!;
+    };
+    const before = await readSketch();
+    const beforeConstraintIds = new Set(before.constraints.map((c) => c.id));
+
+    const projected = await projectWorld(page, hub, [
+      { x: -335, y: -125, z: 0 },
+      { x: 5, y: 65, z: 0 },
+    ]);
+    const from = projected[0];
+    const to = projected[1];
+    if (!from || !to) throw new Error('框选角点投影失败');
+    await page.mouse.move(from.x, from.y);
+    await page.waitForTimeout(120);
+    await page.mouse.down();
+    await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 8 });
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const picker = page.getByTestId('sketch-entity-picker');
+    const selectedSourceIds = async (): Promise<number[]> =>
+      (JSON.parse((await picker.getAttribute('data-selected')) ?? '[]') as Array<[number, string]>)
+        .map(([id]) => id)
+        .filter((id) => id === 7 || id === 8 || id === 9);
+    await expect.poll(async () => (await selectedSourceIds()).length, { timeout: 10_000 }).toBe(3);
+
+    const assertGeometry = (sketch: SketchDto, half: number): void => {
+      const lines = sketch.entities.filter((e): e is LineEntity => e.kind === 'line');
+      const arcs = sketch.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+      expect(lines, '源线 + 2 条边界线').toHaveLength(3);
+      expect(arcs, '源 2 弧 + 4 同心弧 + 3 帽 + 1 毂弧').toHaveLength(10);
+      const boundary = arcs.filter((a) => {
+        const r = a.radius ?? NaN;
+        return [R1 + half, R1 - half, R2 + half, R2 - half].some((x) => Math.abs(r - x) < 1e-2);
+      });
+      expect(boundary, '4 条同心弧边界').toHaveLength(4);
+      expect(arcs.filter((a) => Math.abs((a.radius ?? NaN) - half) < 1e-3), '3 帽 + 1 毂弧').toHaveLength(4);
+      const added = sketch.constraints.filter((c) => !beforeConstraintIds.has(c.id));
+      expect(added.filter((c) => c.kind === 'diameter'), '单 Ø').toHaveLength(1);
+      expect(added.filter((c) => c.kind === 'diameter')[0]!.value).toBeCloseTo(half * 2, 3);
+      expect(added.filter((c) => c.kind === 'equal')).toHaveLength(3);
+      expect(added.filter((c) => c.kind === 'parallel')).toHaveLength(2);
+      expect(added.filter((c) => c.kind === 'concentric')).toHaveLength(4);
+      expect(added.filter((c) => c.kind === 'tangent')).toHaveLength(8);
+      expect(added.filter((c) => c.kind === 'coincident')).toHaveLength(14);
+    };
+
+    await page.getByRole('button', { name: '偏移 ▾' }).click({ timeout: 10_000 });
+    await page.getByRole('menuitem', { name: '槽', exact: true }).click();
+    await page.waitForTimeout(700);
+    expect((await selectedSourceIds()).length, '启动工具不得清掉草图预选').toBe(3);
+    await page.keyboard.press('Enter');
+
+    await expect.poll(async () => (await readSketch()).entities
+      .filter((e) => e.kind === 'arc').length, { timeout: 30_000, intervals: [1000, 2000, 5000] }).toBe(10);
+    const afterInsert = await readSketch();
+    assertGeometry(afterInsert, 10);
+
+    const diameter = afterInsert.constraints.find((c) => c.kind === 'diameter')!;
+    const widenLease = await borrowWriteLease(ctx, token, 'sketch-slot-multi-arc-widen');
+    const widen = await applyFeatureOpRpc(ctx, {
+      kind: 'updateSketchConstraint', sketchId, constraintId: diameter.id, value: 30,
+    }, widenLease, token);
+    expect(widen.ok, widen.ok ? '' : widen.error).toBe(true);
+    await releaseWriteLease(ctx, widenLease, token);
+    await expect.poll(async () => (await readSketch()).constraints
+      .find((c) => c.kind === 'diameter')?.value ?? NaN, {
+      timeout: 30_000, intervals: [1000, 2000, 5000],
+    }).toBeCloseTo(30, 3);
+    assertGeometry(await readSketch(), 15);
+
+    await finishSketch(page);
+    await page.reload();
+    ctx = await openSeedImodelEditor(page, seed);
+    assertGeometry(await readSketch(), 15);
+  });
+});

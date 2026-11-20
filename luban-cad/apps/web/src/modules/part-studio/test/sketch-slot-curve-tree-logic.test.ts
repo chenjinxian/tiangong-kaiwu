@@ -157,3 +157,80 @@ describe('buildCurveTreeSlotDraft（S2u 弧分支槽）', () => {
       .toEqual({ ok: false, error: 'zeroWidth' });
   });
 });
+
+// ── live 2026-11-20 S2u2：多弧臂（2 弧 + 1 线共毂）→ 3 LINE + 10 ARC ──────
+describe('buildCurveTreeSlotDraft：多弧臂（live s2u2-multiarc）', () => {
+  const P2 = { x: -88.722, y: -57.662 };
+  const L = { x: -19.188, y: -104.018 };
+  const C1 = { x: -320.504, y: 38.914 };
+  const C2 = { x: -38.479, y: -86.389 };
+  // 半径取 |P−C|（DXF 3 位小数半径与真实圆心距差 ~2e-4，超出 1e-6 焊接容差）。
+  const R1 = Math.hypot(P2.x - C1.x, P2.y - C1.y);
+  const R2 = Math.hypot(P2.x - C2.x, P2.y - C2.y);
+  const DEG2 = Math.PI / 180;
+
+  const entities: SketchEntityDto[] = [
+    { kind: 'point', id: 1, ...P2 },
+    { kind: 'point', id: 2, ...L },
+    { kind: 'point', id: 3, ...C1 },
+    { kind: 'point', id: 4, ...C2 },
+    { kind: 'line', id: 5, p1: 1, p2: 2 },
+    // 角由圆心↔P 反算（DXF 3 位小数会使弧端点偏离 P 0.058mm，超出焊接容差）。
+    { kind: 'arc', id: 6, center: 3, radius: R1, startAngle: -36.86990005290909 * DEG2, sweepAngle: 14.25 * DEG2 },
+    { kind: 'arc', id: 7, center: 4, radius: R2, startAngle: 70.3527520576169 * DEG2, sweepAngle: 79.888 * DEG2 },
+  ];
+
+  it('两对同心弧边界 + 3 帽 + 弧-弧宽缺口毂弧（7.139°）+ 2 斜接 + 单 Ø', () => {
+    const tree = curveTreeFromSelection(entities, [5, 6, 7])!;
+    expect(tree).toBeDefined();
+    expect(tree.arms.filter((a) => a.kind === 'arc')).toHaveLength(2);
+    const result = buildCurveTreeSlotDraft({ tree, width: 20, startId: 200 });
+    if (!result.ok) throw new Error(result.error);
+    const { draft } = result;
+    const lines = draft.entities.filter((e): e is LineEntity => e.kind === 'line');
+    const arcs = draft.entities.filter((e): e is ArcEntity => e.kind === 'arc');
+    expect(lines, '线臂 2 条边界线').toHaveLength(2);
+    expect(arcs, '4 同心弧边界 + 3 帽 + 1 毂弧').toHaveLength(8);
+
+    // 边界弧半径/裁剪角（与 live 逐值吻合）。
+    const boundary = arcs.filter((a) => {
+      const r = a.radius ?? NaN;
+      return Math.abs(r - (R1 + 10)) < 1e-2 || Math.abs(r - (R1 - 10)) < 1e-2
+        || Math.abs(r - (R2 + 10)) < 1e-2 || Math.abs(r - (R2 - 10)) < 1e-2;
+    });
+    expect(boundary, '4 条同心弧边界').toHaveLength(4);
+    const sweepOf = (r: number): number => {
+      const a = boundary.find((x) => Math.abs((x.radius ?? NaN) - r) < 1e-2)!;
+      return (a.sweepAngle ?? NaN) / DEG2;
+    };
+    expect(sweepOf(R1 + 10)).toBeCloseTo(11.596, 2);
+    expect(sweepOf(R1 - 10)).toBeCloseTo(14.25, 2);
+    expect(sweepOf(R2 + 10)).toBeCloseTo(79.888, 2);
+    expect(sweepOf(R2 - 10)).toBeCloseTo(68.718, 2);
+
+    // 尖端帽：线端 L、弧自由端 T1/T2。
+    const T1 = { x: C1.x + R1 * Math.cos(-36.86990005290909 * DEG2), y: C1.y + R1 * Math.sin(-36.86990005290909 * DEG2) };
+    const T2 = { x: C2.x + R2 * Math.cos(70.3527520576169 * DEG2), y: C2.y + R2 * Math.sin(70.3527520576169 * DEG2) };
+    const caps = draft.capArcIds.map((id) => arcs.find((a) => a.id === id)!);
+    expect(caps).toHaveLength(3);
+    const capCenters = caps.map((cap) => pointOf(draft.entities.find((e) => e.id === cap.center)!));
+    for (const tip of [L, T1, T2])
+      expect(capCenters.filter((c) => Math.hypot(c.x - tip.x, c.y - tip.y) < 1e-2), '帽心=尖端').toHaveLength(1);
+
+    // 弧-弧宽缺口毂弧：圆心 P、r10、起 150.241°、扫 7.139°。
+    const hub = arcs.find((a) => draft.cornerArcIds!.includes(a.id))!;
+    const hubCenter = pointOf(draft.entities.find((e) => e.id === hub.center)!);
+    expect(Math.hypot(hubCenter.x - P2.x, hubCenter.y - P2.y)).toBeLessThan(1e-3);
+    expect(hub.radius).toBeCloseTo(10, 6);
+    expect((hub.startAngle! / DEG2 + 360) % 360).toBeCloseTo(150.241, 2);
+    expect(((hub.sweepAngle! / DEG2) + 360) % 360).toBeCloseTo(7.139, 2);
+
+    const kinds = draft.constraints.map((c) => c.kind);
+    expect(kinds.filter((k) => k === 'diameter')).toHaveLength(1);
+    expect(kinds.filter((k) => k === 'equal')).toHaveLength(3);
+    expect(kinds.filter((k) => k === 'parallel')).toHaveLength(2);
+    expect(kinds.filter((k) => k === 'concentric')).toHaveLength(4);
+    expect(kinds.filter((k) => k === 'tangent')).toHaveLength(8);
+    expect(kinds.filter((k) => k === 'coincident')).toHaveLength(14);
+  });
+});

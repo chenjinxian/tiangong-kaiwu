@@ -348,9 +348,9 @@ export class SketchSlotTool extends PrimitiveTool {
         });
         return built.ok ? { ok: true, draft: built.draft, selectedIds: ids } : built;
       }
-      // 含圆弧的混合线树（live 2026-11-20 S2u `s2u-arcbranch-*`：恰一条弧臂 +
-      // 直线臂，至少一个度≥3 顶点）：弧边界=同心偏移弧、窄缺口=直线/圆交点、
-      // 宽缺口=绕毂弧。多弧臂未采 → 该构建器诚实拒收（undefined）。
+      // 含圆弧的混合线树（live 2026-11-20 S2u `s2u-arcbranch-*` 1 弧+2 线；
+      // `s2u2-multiarc-*` 2 弧+1 线）：弧边界=同心偏移弧、窄缺口=直线/圆或
+      // 圆/圆交点、宽缺口=绕毂弧。至少一个度≥3 顶点；无弧/非树 → undefined。
       const curveTree = curveTreeFromSelection(sketch.entities, ids);
       if (!curveTree) return { ok: false, error: 'unsupportedChain' };
       const built = buildCurveTreeSlotDraft({

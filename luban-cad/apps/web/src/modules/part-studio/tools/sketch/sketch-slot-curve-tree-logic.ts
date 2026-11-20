@@ -16,8 +16,10 @@
  * = 与源弧同心的同心弧（半径由端点偏移点确定；只允许在源扫角内裁剪，不允许
  * 外延——未采证据）。
  *
- * 范围（证据边界）：单连通无环树、**恰一条圆弧臂**（≥2 条直线臂，至少一个
- * 度 ≥3 顶点）；多弧臂/弧-弧宽缺口未采 → 诚实拒收。纯直线树仍走
+ * 范围（证据边界）：单连通无环树、**至少一条圆弧臂**（至少一个度 ≥3 顶点）；
+ * 多弧臂 + 弧-弧宽缺口已由 live `s2u2-multiarc-*`（2 弧 + 1 线 → 3 LINE +
+ * 10 ARC：两对同心弧边界、3 帽、弧-弧宽缺口毂弧 7.139°、圆-圆/线-圆斜接）
+ * 验证；**纯圆弧无直线**组合未单独采（同一局部规则，未宣称）。纯直线树仍走
  * `sketch-slot-tree-logic.ts`（行为不变）。
  */
 import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
@@ -127,7 +129,7 @@ export function curveTreeFromSelection(
       return undefined;
     }
   }
-  if (arms.length !== ids.size || arcCount !== 1) return undefined;
+  if (arms.length !== ids.size || arcCount < 1) return undefined;
 
   const clusters: Array<{ pos: P2; ends: Array<{ armIndex: number; end: 0 | 1 }> }> = [];
   for (let i = 0; i < arms.length; i++) {
