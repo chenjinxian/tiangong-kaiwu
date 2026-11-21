@@ -79,6 +79,7 @@ const FEATURE_MISSING_FAMILIES = new Set([
  */
 const EXTRA_CAPABILITIES = [
   { id: 'sketch.externalRefs.modelEdge', family: 'sketch', onshapeEntry: 'sketch.externalRefs.modelEdge' },
+  { id: 'sketch.externalRefs.pierce', family: 'sketch', onshapeEntry: 'sketch.externalRefs.pierce' },
 ];
 
 const DOCUMENT_OR_NON_GEOMETRY = new Set([

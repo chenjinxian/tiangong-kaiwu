@@ -314,8 +314,18 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   status 1、恢复 → 4000。回归 `sketch-projection`/`sketch-use` **3 passed**、后端全量
   **1203 passed + 1 expected fail + 8 skipped（121 files）**、shared **337/337**、
   web **2750/2750**（173 files）；能力账本 `sketch.externalRefs.modelEdge=partial`。
-  残：bodyFace/PIERCE/INTERSECTED/SILHOUETTED（S2+/S4）；样条/椭圆非精确拒绝；
-  投影样式/offset UI 未采；PIERCE 固定参考求解语义未启用。
+  残：bodyFace/INTERSECTED/SILHOUETTED（S3/S4）；样条/椭圆非精确拒绝；
+  投影样式/offset UI 未采。**S2 PIERCE（同日）**：模型边 line/arc × 草图平面
+  精确求交（`appendPlaneIntersectionPoints`，弧按本体扫掠过滤、直线按 [0,1] 过滤；
+  0/切点/多交点/in-plane/spline/椭圆全部失败封闭）；PIERCE 行 `entityIds: []` +
+  `localEntityId` 指向本地 point/线端点，求解内部展开为隐藏 fixed 交点 + coincident
+  （不落库、不泄漏 `failedConstraintIds`/`conflictingRank`）；读面在成功时把交点写回
+  本地点，失败时省略坐标，源抑制/改参联动；updateVariables 保留 externalRefs；预览
+  影子表隔离。验证：后端全量 **1224 passed + 1 expected fail + 8 skipped（123 files）**、
+  私有 `SketchPierce` 2/2 + `SketchPierceFlow` 15/15（S1/legacy 37 不变）、tsc/eslint
+  绿；能力账本 `sketch.externalRefs.pierce=partial`。残：UI「穿透」工具 gated（live
+  选项/失败提示未采）、样条 PIERCE blocked、仅源 body 变化时其他约束的整图重解待后续
+  切片、INTERSECTED/SILHOUETTED（S4）。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/

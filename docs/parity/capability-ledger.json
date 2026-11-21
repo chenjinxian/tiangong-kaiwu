@@ -12,13 +12,13 @@
     "entityKinds": 5
   },
   "counts": {
-    "total": 122,
+    "total": 123,
     "byStatus": {
       "gated": 52,
-      "partial": 70
+      "partial": 71
     }
   },
-  "sourceHash": "1c1cbf6f9df1d75f48c57743356edebb656b8d0e9e22f90bbb7706c0f7782a1c",
+  "sourceHash": "a0fea2bd2b61aecc54bf67bfbe45bc32e3b6e166b4ae1f9a56570e90f3d8f067",
   "rows": [
     {
       "id": "constraint.angle",
@@ -846,12 +846,11 @@
       "family": "sketch",
       "onshapeEntry": "sketch.externalRefs.modelEdge",
       "status": "partial",
-      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S1 仅 bodyEdge：模型边/端点精确投影（line/arc）、持久 externalRefs 表、进程内投影快照、驱动边重接、删除守卫、读面失败封闭（projection-* 结构化错误）；真栈 20x20x10 顶面四边 → 投影草图 area 400/DOF 0/12 实体 → 消费拉伸 4000 mm³，改源宽 30 → 6000 mm³、push+冷重开一致；bodyFace/PIERCE/INTERSECTED/SILHOUETTED 在 op 边界 projection-unsupported（S2+ gated）",
+      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S1 仅 bodyEdge：模型边/端点精确投影（line/arc）、持久 externalRefs 表、进程内投影快照、驱动边重接、删除守卫、读面失败封闭（projection-* 结构化错误）；真栈 20x20x10 顶面四边 → 投影草图 area 400/DOF 0/12 实体 → 消费拉伸 4000 mm³，改源宽 30 → 6000 mm³、push+冷重开一致；bodyFace/INTERSECTED/SILHOUETTED 在 op 边界 projection-unsupported（S3/S4 gated）；PIERCE 见独立行",
       "missing": [
-        "bodyFace 面边界投影（S2+）",
-        "PIERCE/INTERSECTED/SILHOUETTED（S2+ gated）",
-        "样条/椭圆等非精确源诚实拒收；投影线专属样式/offset/构造性 UI 未采 live 证据而 gated",
-        "PIERCE 固定参考求解语义（ADR-0025）未启用；S1 不涉及求解器契约"
+        "bodyFace 面边界投影（S3+）",
+        "INTERSECTED/SILHOUETTED（S4 gated）",
+        "样条/椭圆等非精确源诚实拒收；投影线专属样式/offset/构造性 UI 未采 live 证据而 gated"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "uiRef": null,
@@ -859,6 +858,29 @@
       "kernelRef": null,
       "evidence": [
         "luban-cad/apps/web/e2e/sketch-projection-body.spec.ts"
+      ],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": "2026-11-21"
+    },
+    {
+      "id": "sketch.externalRefs.pierce",
+      "family": "sketch",
+      "onshapeEntry": "sketch.externalRefs.pierce",
+      "status": "partial",
+      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S2：模型边(line/arc)×草图平面精确 PIERCE；隐藏 fixed 交点 + coincident 求解展开（不落库、不泄漏归因）；0/切点/多交点/in-plane/spline/椭圆失败封闭；源抑制/改参联动、updateVariables 保留 refs、预览影子表隔离；UI 因 live 选项证据缺失保持 gated。",
+      "missing": [
+        "UI「穿透」约束工具仍 gated（live 选项/失败提示未采）",
+        "样条边 PIERCE blocked（point-on-spline 契约缺口）",
+        "仅源头 body 变化时读面更新交点，其他约束的整图重解待后续切片",
+        "INTERSECTED/SILHOUETTED（S4）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
+      "uiRef": null,
+      "backendRef": "私有后端：feature/SketchPierce.ts、SketchEdgeProjection.ts、SketchExternalRefWrite.ts、FeatureService.ts（证据私有）",
+      "kernelRef": null,
+      "evidence": [
+        "私有后端 StandaloneDb：SketchPierceFlow（21 tests）"
       ],
       "wave": "W2",
       "owner": "parity-program",
