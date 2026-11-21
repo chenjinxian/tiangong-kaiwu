@@ -335,6 +335,10 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   TDD 用例：垂直线+distance 耦合点 2 随 PIERCE 点 1 由 (20,10) 联到 (30,10)，dof 0；
   `SketchPierceFlow` **14/14**、四投影 suite **37 passed**、后端全量
   **1233 passed + 1 expected fail + 8 skipped（124 files）**、tsc/eslint 绿。
+  真栈回归（重启源码模式 MS 后）：`sketch-pierce` **2 用例 passed**（含 (30,0)/
+  消费体 600/面积 150 与 push+冷重开）；`sketch-projection-body` 首轮第二用例
+  撞 MS `429`（retryAfter 620，非产品失败），按窗口单跑 **2 用例 passed**
+  （4000/6000/undo/redo/push+重开、抑制失败封闭/恢复 4000）。
   残：UI「穿透」工具 gated（live 选项/失败提示未采）、样条 PIERCE blocked、
   INTERSECTED/SILHOUETTED（S4）。
   **S3 bodyFace（同日）**：平面面边界读取（`facesFromId` → Loop/ParityRegion，
