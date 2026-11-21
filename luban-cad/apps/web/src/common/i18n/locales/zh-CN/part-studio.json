@@ -1195,6 +1195,15 @@
     "useFaceLoopUnsupported": "部分模型面的外环无法判定（退化/歧义），已跳过 {{count}} 个",
     "useResolveFailed": "无法解析模型引用，已跳过 {{count}} 处",
     "useFailed": "使用（投影）提交失败：{{message}}",
+    "pierce": {
+      "promptPoint": "穿透：单击草图点",
+      "promptEdge": "穿透：单击模型边（直线/圆弧）",
+      "promptEdgeHover": "穿透：单击以钉住该边",
+      "loadingEdges": "穿透：正在读取模型边…",
+      "readEdgesFailed": "无法读取模型边（投影通道不可用）",
+      "invalidSelection": "一些图元无法使用。",
+      "failed": "穿透约束提交失败：{{message}}"
+    },
     "projectionFailed": "外部引用投影失败",
     "projectionNonExact": "投影源与草图平面不垂直（非精确投影）",
     "projectionSourceMissing": "投影源不存在或投影快照已失效",

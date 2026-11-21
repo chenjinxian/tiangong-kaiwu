@@ -52,6 +52,7 @@ import {
 } from './sketch-constraint-logic.js';
 import { clearSketchToolFeedback, publishSketchToolHint } from './sketch-tool-feedback.js';
 import type { PickVerdict, SketchConstraintKind, SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
+import { PierceAddTool } from './SketchPierceTool.js';
 
 export { acceptPick, CONSTRAINT_SLOT_SHAPES, nextConstraintId, pickPrompt, resolveNearestEntityId, resolveNearestPick } from './sketch-constraint-logic.js';
 export type { PickVerdict, SketchConstraintKind, SketchPick, SketchPickKind } from './sketch-constraint-logic.js';
@@ -306,7 +307,8 @@ export class FixedAddTool extends SketchAddConstraintTool {
 }
 
 /**
- * 注册草图约束 11 工具（M6-b T5；v1.81 增 symmetric；幂等——模块级 flag）。注册点=PartStudioPage
+ * 注册草图约束 12 工具（M6-b T5；v1.81 增 symmetric；S2 UI 2026-11-21 增
+ * Pierce——两步点+模型边管道，非槽位基类；幂等——模块级 flag）。注册点=PartStudioPage
  * 工具注册编排（registerSketchTools 之后同 try 块）；懒引与幂等语义见
  * registerSketchTools（SketchCreateTool.ts）。
  */
@@ -324,5 +326,6 @@ export function registerSketchConstraintTools(): void {
   IModelApp.tools.register(FixedAddTool);
   IModelApp.tools.register(ConcentricAddTool);
   IModelApp.tools.register(SymmetricAddTool);
+  IModelApp.tools.register(PierceAddTool);
   constraintToolsRegistered = true;
 }

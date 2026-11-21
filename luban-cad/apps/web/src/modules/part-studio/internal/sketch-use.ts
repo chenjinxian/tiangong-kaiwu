@@ -333,6 +333,53 @@ export function buildBodyFaceExternalRefRow(
   };
 }
 
+/** PIERCE 行构造失败原因（locale-neutral；调用方映射通用失败提示）。 */
+export type BuildPierceExternalRefError = 'invalid-local-entity';
+
+export interface BuildPierceExternalRefRowArgs {
+  /** 外部引用 id（`nextExternalRefId` 分配；与实体 id 不同命名空间）。 */
+  id: number;
+  bodyKey: string;
+  topologyRef: LubanTopologyId;
+  /** 被钉住的本地 point 实体 id（后端按该实体展开隐藏固定交点 + coincident）。 */
+  localEntityId: number;
+  entities: readonly SketchEntityDto[];
+  externalRefs: readonly SketchExternalReferenceDto[];
+}
+
+/**
+ * PIERCE 拾取 → 持久外部引用行（S2 2026-11-21）：`kind="pierce"`、
+ * `source=bodyEdge/part:"curve"`、`entityIds: []`（无派生曲线实体）、
+ * `localEntityId` 指向本地 **point** 实体。
+ *
+ * 校验失败诚实返回 `invalid-local-entity`（不猜 id、不创建实体、不返回空载荷）：
+ * - `localEntityId` 必须是正整数（实体 id 命名空间）；
+ * - 必须存在、`kind: "point"`、且不是投影实体（后端 PIERCE 只钉本地点）。
+ * 既有 `externalRefs` 原样保留（调用方追加本行；本函数不分配任何实体 id 块）。
+ */
+export function buildPierceExternalRefRow(
+  args: BuildPierceExternalRefRowArgs,
+): SketchExternalReferenceDto | { ok: false; error: BuildPierceExternalRefError } {
+  const { localEntityId } = args;
+  if (!Number.isInteger(localEntityId) || localEntityId <= 0)
+    return { ok: false, error: 'invalid-local-entity' };
+  const entity = args.entities.find((candidate) => candidate.id === localEntityId);
+  if (!entity || entity.kind !== 'point' || entity.projected !== undefined)
+    return { ok: false, error: 'invalid-local-entity' };
+  return {
+    id: args.id,
+    kind: 'pierce',
+    source: {
+      kind: 'bodyEdge',
+      bodyId: args.bodyKey,
+      topologyRef: args.topologyRef,
+      part: 'curve',
+    },
+    entityIds: [],
+    localEntityId,
+  };
+}
+
 /** 投影失败错误码 → i18n 键（`partStudio.sketch.` 前缀由调用方拼接）。 */
 export function projectionErrorI18nKey(code: SketchProjectionStatusDto['errors'][number]['code']): string {
   switch (code) {

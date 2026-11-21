@@ -178,10 +178,18 @@ function distance3(a: SketchUseVec3, b: SketchUseVec3): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
 
+/** 弧几何描述（模型边/面环共用；纯显示/屏幕命中用，不进入数据事实源）。 */
+export interface BrepArcDescriptor {
+  center: [number, number, number];
+  radius: number;
+  normal: [number, number, number];
+  start: [number, number, number];
+  end: [number, number, number];
+  sweepRadians: number;
+}
+
 /** 弧采样（与边显示同口径：y = normal × x，sweep 符号直接作用到采样角）。 */
-export function sampleFaceArcPoints(
-  curve: Extract<BrepFaceLoopCurve, { kind: 'arc' }>,
-): SketchUseVec3[] {
+export function sampleFaceArcPoints(curve: BrepArcDescriptor): SketchUseVec3[] {
   const [cx, cy, cz] = curve.center;
   const xAxis = normalize3([curve.start[0] - cx, curve.start[1] - cy, curve.start[2] - cz]);
   const normal = normalize3(curve.normal);
@@ -242,6 +250,18 @@ function planeBasis(normal: SketchUseVec3): { u: SketchUseVec3; v: SketchUseVec3
   if (!u)
     return undefined;
   return { u, v: cross3(n, u) };
+}
+
+/**
+ * 模型边曲线 → 世界折线（仅显示/屏幕命中采样；数据事实源在后端投影）。
+ * `other`（样条/椭圆等非精确曲线）返回空数组——调用方跳过，不近似。
+ */
+export function bodyEdgeCurvePolyline(curve: BrepEdgeCurve): SketchUseVec3[] {
+  if (curve.kind === 'line')
+    return [curve.p0, curve.p1];
+  if (curve.kind === 'arc')
+    return sampleFaceArcPoints(curve);
+  return [];
 }
 
 /** 环折线在面内平面的绝对面积（鞋带公式；平面基由面法向构造）。 */

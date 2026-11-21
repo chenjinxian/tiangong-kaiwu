@@ -39,6 +39,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import i18next from 'i18next';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import {
+  type BodyInfo,
   type FeatureOpResult,
   LubanFeatureRpcInterface,
   type SketchConstraintDto,
@@ -55,6 +56,16 @@ import { useWorkspaceRef } from '@common/workspace/use-workspace-ref.js';
 export interface UseSketchSystem {
   /** 当前活动草图（getSketch 读面，含现场解算状态；未进草图模式为 undefined）。 */
   activeSketch?: SketchDto;
+  /**
+   * S2 UI（2026-11-21）：当前 Briefcase 连接。PIERCE 工具用 `connection.key`
+   * 读模型边候选（与 Use 覆盖层同一只读 BRep 通道）；未连接时 undefined。
+   */
+  connection?: BriefcaseConnection;
+  /**
+   * S2 UI（2026-11-21）：body 读面（featureSystem.bodies 直通；含 consumed）。
+   * 模型边候选来源——`readBrepEdgeHandles` 自行过滤 active authored body。
+   */
+  bodies?: readonly BodyInfo[];
   loading: boolean;
   error?: string;
   /**
@@ -247,6 +258,8 @@ export function useSketchSystem(
 
   return {
     activeSketch,
+    connection: connection ?? undefined,
+    bodies: fs?.bodies,
     loading,
     error,
     projection,

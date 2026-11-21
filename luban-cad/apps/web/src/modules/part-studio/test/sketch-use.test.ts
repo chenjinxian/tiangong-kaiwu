@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { SketchEntityDto, SketchExternalReferenceDto, SketchPlaneDto } from '@luban-cad/shared';
 import {
   buildBodyFaceExternalRefRow,
+  buildPierceExternalRefRow,
   buildProjectedSketchEntity,
   isUsableSourceEntity,
   nextProjectedRootId,
@@ -189,5 +190,81 @@ describe('buildBodyFaceExternalRefRow', () => {
       expect(buildBodyFaceExternalRefRow({ ...base, blockLength }))
         .toEqual({ ok: false, error: 'no-entity-block' });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S2（2026-11-21）：PIERCE externalRefs 行（外键到本地 point 实体）
+// ---------------------------------------------------------------------------
+
+const pierceEntity: SketchEntityDto = { kind: 'point', id: 1, x: 0, y: 0 };
+
+describe('buildPierceExternalRefRow', () => {
+  const base = {
+    id: 4,
+    bodyKey: 'body-a',
+    topologyRef: { nodeId: 7, entityId: 8 },
+    localEntityId: 1,
+    entities: [pierceEntity] as readonly SketchEntityDto[],
+    externalRefs: [] as readonly SketchExternalReferenceDto[],
+  };
+
+  it('精确行形状：kind=pierce、bodyEdge/curve、entityIds 空、localEntityId 保留', () => {
+    expect(buildPierceExternalRefRow(base)).toEqual({
+      id: 4,
+      kind: 'pierce',
+      source: {
+        kind: 'bodyEdge',
+        bodyId: 'body-a',
+        topologyRef: { nodeId: 7, entityId: 8 },
+        part: 'curve',
+      },
+      entityIds: [],
+      localEntityId: 1,
+    });
+  });
+
+  it('不分配实体 id（entityIds 恒空，即使既有引用占用 id 块）', () => {
+    const row = buildPierceExternalRefRow({
+      ...base,
+      entities: [
+        { kind: 'point', id: 1, x: 0, y: 0 },
+        { kind: 'point', id: 2, x: 1, y: 1 },
+      ],
+      externalRefs: [bodyFaceRef(1, [3, 4, 5, 6])],
+    });
+    expect(row).toMatchObject({ kind: 'pierce', entityIds: [], localEntityId: 1 });
+  });
+
+  it('既有 externalRefs 原样保留（函数返回新行、不改动输入）', () => {
+    const existing = [bodyFaceRef(9, [10, 11, 12])];
+    const snapshot = JSON.parse(JSON.stringify(existing)) as SketchExternalReferenceDto[];
+    const row = buildPierceExternalRefRow({ ...base, externalRefs: existing });
+    expect(row).toMatchObject({ id: 4, kind: 'pierce' });
+    expect(existing).toEqual(snapshot);
+  });
+
+  it('拒绝非整数/负数/零 localEntityId', () => {
+    for (const localEntityId of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(buildPierceExternalRefRow({ ...base, localEntityId }))
+        .toEqual({ ok: false, error: 'invalid-local-entity' });
+    }
+  });
+
+  it('localEntityId 必须指向存在的非投影 point 实体（线/缺失/投影点拒收）', () => {
+    expect(buildPierceExternalRefRow({
+      ...base,
+      localEntityId: 7,
+      entities: [{ kind: 'line', id: 7, p1: { x: 0, y: 0 }, p2: { x: 1, y: 0 } }],
+    })).toEqual({ ok: false, error: 'invalid-local-entity' });
+    expect(buildPierceExternalRefRow({ ...base, localEntityId: 7 }))
+      .toEqual({ ok: false, error: 'invalid-local-entity' });
+    expect(buildPierceExternalRefRow({
+      ...base,
+      entities: [{
+        kind: 'point', id: 1, x: 0, y: 0,
+        projected: { kind: 'projected', source: { kind: 'sketchEntity', sketchId: 's', entityId: 2 } },
+      }],
+    })).toEqual({ ok: false, error: 'invalid-local-entity' });
   });
 });

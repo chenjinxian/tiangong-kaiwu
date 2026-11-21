@@ -75,9 +75,9 @@ const EXPECTED_GATED_IDS = [
   'sketchSplineControlPoints',
   'sketchIntersection',
   'sketchInsertImage',
-  // 2026-11-13 工具栏 live 全量对拍：约束飞菜单补全 14 变体（六项 gated）。
+  // 2026-11-13 工具栏 live 全量对拍：约束飞菜单补全 14 变体（六项 gated；
+  // S2 UI 2026-11-21 起穿透 sketchPierce 已翻 full）。
   'sketchNormal',
-  'sketchPierce',
   'sketchCurvature',
   'sketchFlow',
   // 平面▾ 飞菜单的装配/参考工具。
@@ -94,7 +94,7 @@ const EXPECTED_GATED_IDS = [
 ] as const;
 
 describe('TOOL_CAPABILITIES 初始 gated 集合（spec §5）', () => {
-  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单七变体（倒角已翻 full）+ 2026-11-13 live 工具栏 10 项（同心/中点线已翻 full） + moveFace/transform/splitPart 已翻 full + 右键菜单三项（选择过滤/创建选定内容/选择其他）+ W26 面混合（v1.81 对称、AX-01 拔模翻 full 后共 53，不多不少）', () => {
+  it('gated 键集精确等于 spec 钉死集合（14）+ T5 dependencies + T7 五项 + M4-T8 三项 + B5 curvePattern + W1.2b 十项 + 草图文本/圆锥曲线 + 飞菜单变体（倒角/同心/穿透等已翻 full）+ 2026-11-13 live 工具栏项 + moveFace/transform/splitPart 已翻 full + 右键菜单三项（选择过滤/创建选定内容/选择其他）+ W26 面混合（v1.81 对称、AX-01 拔模、S2 穿透翻 full 后共 51，不多不少）', () => {
     const gatedIds = Object.keys(TOOL_CAPABILITIES)
       .filter((id) => TOOL_CAPABILITIES[id] === 'gated')
       .sort();

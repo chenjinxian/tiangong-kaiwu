@@ -1185,6 +1185,15 @@
     "useFaceLoopUnsupported": "Some model faces have an ambiguous or degenerate outer loop; skipped {{count}}",
     "useResolveFailed": "Could not resolve model references; skipped {{count}}",
     "useFailed": "Use (project) commit failed: {{message}}",
+    "pierce": {
+      "promptPoint": "Pierce: select a sketch point",
+      "promptEdge": "Pierce: select a model edge (line/arc)",
+      "promptEdgeHover": "Pierce: click to pierce to this edge",
+      "loadingEdges": "Pierce: reading model edges…",
+      "readEdgesFailed": "Could not read model edges (projection channel unavailable)",
+      "invalidSelection": "Some entities cannot be used.",
+      "failed": "Pierce constraint failed: {{message}}"
+    },
     "projectionFailed": "External reference projection failed",
     "projectionNonExact": "The projection source is not normal to the sketch plane (non-exact projection)",
     "projectionSourceMissing": "The projection source is missing or its snapshot is stale",

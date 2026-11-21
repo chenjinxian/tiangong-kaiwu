@@ -86,7 +86,10 @@ export const TOOL_CAPABILITIES: Record<string, Capability> = {
   // 求解器/拾取未接的六项登记 gated（诚实引导，不静默 no-op）。
   sketchConcentric: 'full', // 同心（2026-11-13：两圆拾取工具接通；arc/混合待解析器）
   sketchNormal: 'gated', // 法向
-  sketchPierce: 'gated', // 穿透
+  // S2 UI（2026-11-21）：穿透约束工具已接（点 + 模型边两步拾取，externalRefs
+  // `kind="pierce"`）；line/arc 精确、样条/椭圆边与非法选择失败封闭（通用
+  // 「一些图元无法使用。」提示）。成功 glyph 未采 live → 仅阶段提示，无假对话框。
+  sketchPierce: 'full',
   sketchSymmetric: 'full', // 对称（2026-11-19 ADR-0022 S1：point/line/arc/spline 对 + 轴线，SLVS_C_SYMMETRIC_LINE；整圆对称待扩展）
   sketchCurvature: 'gated', // 曲率
   sketchFlow: 'gated', // 草图流
@@ -215,9 +218,8 @@ export const CAPABILITY_GUIDANCE: Record<string, CapabilityGuidance> = {
   sketchSplineControlPoints: guidanceFor('sketchSplineControlPoints'),
   sketchIntersection: guidanceFor('sketchIntersection'),
   sketchInsertImage: guidanceFor('sketchInsertImage'),
-  // 2026-11-13 工具栏 live 全量对拍新增 gated。
+  // 2026-11-13 工具栏 live 全量对拍新增 gated（sketchPierce 已于 S2 UI 翻 full）。
   sketchNormal: guidanceFor('sketchNormal'),
-  sketchPierce: guidanceFor('sketchPierce'),
   sketchCurvature: guidanceFor('sketchCurvature'),
   sketchFlow: guidanceFor('sketchFlow'),
   mateConnector: guidanceFor('mateConnector'),
