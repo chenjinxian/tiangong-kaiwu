@@ -12,13 +12,13 @@
     "entityKinds": 5
   },
   "counts": {
-    "total": 121,
+    "total": 122,
     "byStatus": {
       "gated": 52,
-      "partial": 69
+      "partial": 70
     }
   },
-  "sourceHash": "507c31c07f07e990477c52914cf7b7727aff746b02b64cb2c1fd25309600c775",
+  "sourceHash": "1c1cbf6f9df1d75f48c57743356edebb656b8d0e9e22f90bbb7706c0f7782a1c",
   "rows": [
     {
       "id": "constraint.angle",
@@ -840,6 +840,29 @@
       "wave": "W3",
       "owner": "parity-program",
       "lastUpdated": null
+    },
+    {
+      "id": "sketch.externalRefs.modelEdge",
+      "family": "sketch",
+      "onshapeEntry": "sketch.externalRefs.modelEdge",
+      "status": "partial",
+      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S1 仅 bodyEdge：模型边/端点精确投影（line/arc）、持久 externalRefs 表、进程内投影快照、驱动边重接、删除守卫、读面失败封闭（projection-* 结构化错误）；真栈 20x20x10 顶面四边 → 投影草图 area 400/DOF 0/12 实体 → 消费拉伸 4000 mm³，改源宽 30 → 6000 mm³、push+冷重开一致；bodyFace/PIERCE/INTERSECTED/SILHOUETTED 在 op 边界 projection-unsupported（S2+ gated）",
+      "missing": [
+        "bodyFace 面边界投影（S2+）",
+        "PIERCE/INTERSECTED/SILHOUETTED（S2+ gated）",
+        "样条/椭圆等非精确源诚实拒收；投影线专属样式/offset/构造性 UI 未采 live 证据而 gated",
+        "PIERCE 固定参考求解语义（ADR-0025）未启用；S1 不涉及求解器契约"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
+      "uiRef": null,
+      "backendRef": "私有后端：feature/SketchEdgeProjection.ts、SketchProjectionSnapshot.ts、FeatureService.ts（证据私有）",
+      "kernelRef": null,
+      "evidence": [
+        "luban-cad/apps/web/e2e/sketch-projection-body.spec.ts"
+      ],
+      "wave": "W2",
+      "owner": "parity-program",
+      "lastUpdated": "2026-11-21"
     },
     {
       "id": "ui.appearance",

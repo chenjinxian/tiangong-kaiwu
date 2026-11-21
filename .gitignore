@@ -2,6 +2,9 @@
 node_modules/
 dist/
 lib/
+# scripts/parity/lib 是源文件（能力账本生成器），不是构建产物
+!scripts/parity/lib/
+!scripts/parity/lib/**
 coverage/
 *.tsbuildinfo
 *.log

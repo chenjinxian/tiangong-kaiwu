@@ -6,8 +6,8 @@
 
 - shared 接口版本：`1.85.0`
 - 生成日期：2026-11-19
-- 行数：121
-- 状态分布：gated=52，partial=69
+- 行数：122
+- 状态分布：gated=52，partial=70
 
 | ID | Family | Status | Wave | Scope / Missing | UI | Contract | Backend | Kernel | Evidence |
 |---|---|---|---|---|---|---|---|---|---|
@@ -56,6 +56,7 @@
 | `feature.splitPart` | feature | partial | W3 | LubanFeatureType=splitPart；映射 UI 工具 splitPart；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:65 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250 | — | — | — |
 | `feature.sweep` | feature | partial | W3 | LubanFeatureType=sweep；映射 UI 工具 sweep；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:55 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250 | — | — | — |
 | `feature.transform` | feature | partial | W3 | LubanFeatureType=transform；映射 UI 工具 transform；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:66 | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250 | — | — | — |
+| `sketch.externalRefs.modelEdge` | sketch | partial | W2 | shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S1 仅 bodyEdge：模型边/端点精确投影（line/arc）、持久 externalRefs 表、进程内投影快照、驱动边重接、删除守卫、读面失败封闭（projection-* 结构化错误）；真栈 20x20x10 顶面四边 → 投影草图 area 400/DOF 0/12 实体 → 消费拉伸 4000 mm³，改源宽 30 → 6000 mm³、push+冷重开一致；bodyFace/PIERCE/INTERSECTED/SILHOUETTED 在 op 边界 projection-unsupported（S2+ gated）；bodyFace 面边界投影（S2+）；PIERCE/INTERSECTED/SILHOUETTED（S2+ gated）；样条/椭圆等非精确源诚实拒收；投影线专属样式/offset/构造性 UI 未采 live 证据而 gated；PIERCE 固定参考求解语义（ADR-0025）未启用；S1 不涉及求解器契约 | — | luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0) | 私有后端：feature/SketchEdgeProjection.ts、SketchProjectionSnapshot.ts、FeatureService.ts（证据私有） | — | luban-cad/apps/web/e2e/sketch-projection-body.spec.ts |
 | `ui.appearance` | tooling | gated | W5 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:128 | — | — | — | — |
 | `ui.assemblyEdit` | tooling | gated | W5 | UI 入口 gated（能力引导）；未实现（诚实 gated） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:131 | — | — | — | — |
 | `ui.boolean` | tooling | partial | W2 | UI 入口可用；全量七维证据未审计；未按七维 full 门审计（W0 基线） | luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64 | — | — | — | — |
