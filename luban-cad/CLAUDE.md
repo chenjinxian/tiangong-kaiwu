@@ -298,6 +298,24 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   Loft1/2 因显式 scope+先建造体阻塞），四行 blocker/bucket 不变；单测 **18/18**、
   组合 **50/50**。残：converter 目前仅合成可映射（需 target/scope 通道才能
   提升真实行）。
+  **B3 S1 模型边/端点投影（2026-11-21，shared 1.85.0 + 私有后端 + web）**：
+  `SketchExternalRef` 三分支联合 + `externalRefs` 持久表 + `projection` 状态/14 错误码
+  （ADR-0024/0025；AIRR 已批准）。私有后端：进程内投影快照（键含外部引用摘要、body
+  持久 BRep/placement/overridden、上游特征链/草图 params、epoch；预览用
+  AsyncLocalStorage 影子表，提交读面不可见）、bodyEdge 精确 line/arc/端点投影
+  （非平行圆/弧/样条/退化失败封闭）、写面 omission/前向/循环/跨 scope/重叠守卫、
+  源特征驱动边与 boolean/多目标重接、删除守卫、读面失败时剔除失败曲线且不计算面域、
+  消费特征 status=1。web：Use 覆盖层复用 BRep 只读通道列模型边/端点候选，externalRefs
+  透传，投影失败 marker/toast；不新增投影样式/offset UI（无 live 证据）。真栈
+  `sketch-projection-body.spec.ts` **2 passed**：20×20×10 盒顶面四边 → area 400/
+  DOF 0/12 实体 → 消费拉伸 **4000 mm³**；源宽 30 → **6000**；原生 Undo 体积 **4000**
+  且投影读面 area **400**、Redo **6000/600**；push+冷重开 6000/ok/4 refs；失败用例
+  删源拒收、抑制 → `projection-source-missing`/无投影曲线/regions undefined/consumer
+  status 1、恢复 → 4000。回归 `sketch-projection`/`sketch-use` **3 passed**、后端全量
+  **1203 passed + 1 expected fail + 8 skipped（121 files）**、shared **337/337**、
+  web **2750/2750**（173 files）；能力账本 `sketch.externalRefs.modelEdge=partial`。
+  残：bodyFace/PIERCE/INTERSECTED/SILHOUETTED（S2+/S4）；样条/椭圆非精确拒绝；
+  投影样式/offset UI 未采；PIERCE 固定参考求解语义未启用。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
