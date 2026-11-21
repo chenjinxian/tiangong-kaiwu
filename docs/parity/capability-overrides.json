@@ -1,6 +1,37 @@
 {
   "schemaVersion": 1,
   "overrides": {
+    "ui.sketchPierce": {
+      "status": "gated",
+      "scopeNote": "UI「穿透」入口仍 gated（live 选项/失败提示未采）；底层 S2 已实现：模型边 line/arc × 草图平面精确 PIERCE（隐藏 fixed 交点 + coincident，不落库），RPC 真栈 sketch-pierce.spec.ts 2 passed，能力行见 sketch.externalRefs.pierce。",
+      "missing": [
+        "live 穿透工具交互/选项/失败提示证据",
+        "样条边 PIERCE blocked（point-on-spline 契约缺口）"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
+      "backendRef": "私有后端：feature/SketchPierce.ts（证据私有）",
+      "evidence": [
+        "luban-cad/apps/web/e2e/sketch-pierce.spec.ts"
+      ],
+      "wave": "W2",
+      "lastUpdated": "2026-11-21"
+    },
+    "ui.sketchIntersection": {
+      "status": "gated",
+      "scopeNote": "UI「交点」入口不提供假入口；INTERSECTED 投影（S4a）blocked-kernel：精确面×平面切片 API 未暴露为产品接口，产品 op 边界 projection-unsupported 诚实拒收，不做采样近似。",
+      "missing": [
+        "native 精确面×平面切片 wrapper + TS 线 + native ADR + ctest",
+        "live INTERSECTION 投影语义/选项证据",
+        "非圆椭圆弧输出 DTO 决策"
+      ],
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
+      "kernelRef": "docs/architecture/SKETCH-EXTERNAL-REFS-S0-PROBES.md",
+      "evidence": [
+        "docs/architecture/SKETCH-EXTERNAL-REFS-S0-PROBES.md"
+      ],
+      "wave": "W2",
+      "lastUpdated": "2026-11-21"
+    },
     "ui.draft": {
       "status": "partial",
       "scopeNote": "入口可用：DraftDialog（目标面/中性面同选集、X/Y/Z、角度、添加台阶面、实时预览、insert/updateParams）+ 标准 targetBodyId；真栈 3732.051 mm³ push+冷重开",

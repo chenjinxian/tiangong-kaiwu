@@ -20,7 +20,7 @@
       "partial": 72
     }
   },
-  "sourceHash": "fc57b6aa8b4a237e93dfea476a867576487e82c8e3a71c728c7c584087a16ea3",
+  "sourceHash": "0ce0740d4780e705efdbca3a32d681e0aecda6d8d241700b1b87924d99c71bf4",
   "rows": [
     {
       "id": "constraint.angle",
@@ -1975,18 +1975,22 @@
       "family": "tooling",
       "onshapeEntry": "sketchIntersection",
       "status": "gated",
-      "scopeNote": "UI 入口 gated（能力引导）",
+      "scopeNote": "UI「交点」入口不提供假入口；INTERSECTED 投影（S4a）blocked-kernel：精确面×平面切片 API 未暴露为产品接口，产品 op 边界 projection-unsupported 诚实拒收，不做采样近似。",
       "missing": [
-        "未实现（诚实 gated）"
+        "native 精确面×平面切片 wrapper + TS 线 + native ADR + ctest",
+        "live INTERSECTION 投影语义/选项证据",
+        "非圆椭圆弧输出 DTO 决策"
       ],
-      "contractRef": null,
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:78",
       "backendRef": null,
-      "kernelRef": null,
-      "evidence": [],
+      "kernelRef": "docs/architecture/SKETCH-EXTERNAL-REFS-S0-PROBES.md",
+      "evidence": [
+        "docs/architecture/SKETCH-EXTERNAL-REFS-S0-PROBES.md"
+      ],
       "wave": "W2",
       "owner": "parity-program",
-      "lastUpdated": null
+      "lastUpdated": "2026-11-21"
     },
     {
       "id": "ui.sketchMidline",
@@ -2029,18 +2033,21 @@
       "family": "tooling",
       "onshapeEntry": "sketchPierce",
       "status": "gated",
-      "scopeNote": "UI 入口 gated（能力引导）",
+      "scopeNote": "UI「穿透」入口仍 gated（live 选项/失败提示未采）；底层 S2 已实现：模型边 line/arc × 草图平面精确 PIERCE（隐藏 fixed 交点 + coincident，不落库），RPC 真栈 sketch-pierce.spec.ts 2 passed，能力行见 sketch.externalRefs.pierce。",
       "missing": [
-        "未实现（诚实 gated）"
+        "live 穿透工具交互/选项/失败提示证据",
+        "样条边 PIERCE blocked（point-on-spline 契约缺口）"
       ],
-      "contractRef": null,
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:89",
-      "backendRef": null,
+      "backendRef": "私有后端：feature/SketchPierce.ts（证据私有）",
       "kernelRef": null,
-      "evidence": [],
+      "evidence": [
+        "luban-cad/apps/web/e2e/sketch-pierce.spec.ts"
+      ],
       "wave": "W2",
       "owner": "parity-program",
-      "lastUpdated": null
+      "lastUpdated": "2026-11-21"
     },
     {
       "id": "ui.sketchSlot",
