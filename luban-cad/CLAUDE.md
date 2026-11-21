@@ -339,7 +339,20 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   消费体 600/面积 150 与 push+冷重开）；`sketch-projection-body` 首轮第二用例
   撞 MS `429`（retryAfter 620，非产品失败），按窗口单跑 **2 用例 passed**
   （4000/6000/undo/redo/push+重开、抑制失败封闭/恢复 4000）。
-  残：UI「穿透」工具 gated（live 选项/失败提示未采）、样条 PIERCE blocked、
+  **S2 UI（2026-11-21）**：`Sketch.Constraint.Pierce` 约束工具已接（ribbon 约束
+  飞菜单「穿透」/ shift+g；live 证据=无对话框，非法选择通用提示「一些图元无法使用。」）。
+  两步拾取：草图点只接受持久非投影 point 实体（`resolvePiercePointPick`；原点与
+  显式点同坐标时改选显式点），模型边复用 Use 只读通道（`loadSketchUseBodyCandidates`
+  + `withExclusiveBrepCommand`），仅 line/arc `part="curve"`、屏幕最邻近
+  `HIT_CURVE_PX`；`buildPierceExternalRefRow`（`entityIds: []`/`localEntityId`）
+  经既有 `applyUpdate` 提交，成功后工具保持激活。成功 glyph 未采 live → 仅阶段
+  提示 pill（无假对话框）。验证：单测 `sketch-pierce-logic`/`sketch-use`/
+  capabilities/注册面 **109 passed**；真栈 UI `sketch-pierce-ui.spec.ts` 1 passed
+  （z=5 草图点 (0,0)+20×20×10 盒体 (10,10) 竖边 → pierce ref/localEntityId、
+  点 (10,10)、DOF 0、无隐藏实体/约束、工具保持激活）；web 全量 **2778 passed**
+  （174 files；首轮 FeatureDialog `#` 补全计时抖动 1 红，单文件 **307/307** 复跑
+  绿、二轮全量绿，非本切片回归）、src/e2e tsc+eslint 绿。
+  残：样条/椭圆边 PIERCE blocked（候选仅 line/arc，点击失败封闭）、
   INTERSECTED/SILHOUETTED（S4）。
   **S3 bodyFace（同日）**：平面面边界读取（`facesFromId` → Loop/ParityRegion，
   `CurveOps.isPlanar` 几何平面判据——native `isPlanarFace` 对带孔平面面返回 false，

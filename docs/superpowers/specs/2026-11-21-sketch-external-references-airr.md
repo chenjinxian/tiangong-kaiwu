@@ -720,9 +720,20 @@ interface ProjectionSnapshot {
 - 契约：`externalRefs.kind="pierce"` + `localEntityId`；不新增 solver constraint kind。
 - backend：边×平面精确交点；隐藏固定点 + coincident；固定参考语义（ADR）；
   0/多交点/切点/边在平面内 fail closed；快照/依赖边/删除守卫同 S1。
-- web：PIERCE 工具/约束 UI 在 live 证据前保持 gated；先用 RPC/测试通道打通。
+- web（2026-11-21 已接）：`Sketch.Constraint.Pierce` 约束工具（ribbon 约束飞菜单
+  「穿透」/ shift+g）两步拾取——草图点只接受**持久非投影 point 实体**（线端点
+  引用点实体可；圆心/隐藏原点/投影点拒收；原点与显式点同坐标时改选显式点），
+  模型边复用 Use 只读通道（`readBrepEdgeHandles` + `resolveEdgeRef` +
+  `withExclusiveBrepCommand`），仅 line/arc `part="curve"`、屏幕最邻近
+  `HIT_CURVE_PX`；提交 `kind="pierce"` / `entityIds: []` / `localEntityId` 行经
+  既有 `updateSketch`（无新 RPC/契约）。非法选择与不支持的边用 live 通用提示
+  「一些图元无法使用。」；成功 glyph 未采 live → 只做阶段提示 pill（不发明对话框/
+  glyph）；连续约束语义（成功后保持激活）。样条/椭圆边不参与候选（失败封闭）。
 - 退出测试：点落在边上坐标 + DOF；改上游 → 交点/点联动；0/多交点拒收；
-  push+冷重开；真栈 `e2e/sketch-pierce.spec.ts`（成功 + 失败）。
+  push+冷重开；真栈 `e2e/sketch-pierce.spec.ts`（成功 + 失败）；
+  真栈 UI `e2e/sketch-pierce-ui.spec.ts`（z=5 草图点 (0,0) + 20×20×10 盒体
+  (10,10) 竖边 → `localEntityId`/`entityIds: []`、点 (10,10)、DOF 0、无隐藏
+  实体/约束、工具保持激活）。
 - 若 fixed curve ADR 未批：仅固定点方案 + 限制约束引用，能力登记 partial，不冒充 full。
 
 ### S3 — 平面面/轮廓环投影（bodyFace）

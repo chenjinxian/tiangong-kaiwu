@@ -2,16 +2,17 @@
   "schemaVersion": 1,
   "overrides": {
     "ui.sketchPierce": {
-      "status": "gated",
-      "scopeNote": "UI「穿透」入口仍 gated（live 选项/失败提示未采）；底层 S2 已实现：模型边 line/arc × 草图平面精确 PIERCE（隐藏 fixed 交点 + coincident，不落库），RPC 真栈 sketch-pierce.spec.ts 2 passed，能力行见 sketch.externalRefs.pierce。",
+      "status": "partial",
+      "scopeNote": "UI「穿透」约束工具已接（S2 UI 2026-11-21）：ribbon 约束飞菜单「穿透」/ shift+g 两步拾取——草图点只接受持久非投影 point 实体（原点与显式点同坐标时改选显式点），模型边复用 Use 只读通道（readBrepEdgeHandles + resolveEdgeRef + withExclusiveBrepCommand），仅 line/arc part=\"curve\"、屏幕最邻近 HIT_CURVE_PX；提交 externalRefs kind=\"pierce\"/entityIds: []/localEntityId 经既有 updateSketch（无新 RPC/契约），成功后保持激活。非法选择/不支持边用 live 通用提示「一些图元无法使用。」；成功 glyph 未采 live → 仅阶段提示 pill（无假对话框）。真栈 sketch-pierce-ui.spec.ts 与 sketch-pierce.spec.ts 通过。",
       "missing": [
-        "live 穿透工具交互/选项/失败提示证据",
-        "样条边 PIERCE blocked（point-on-spline 契约缺口）"
+        "样条/椭圆边 PIERCE blocked（point-on-spline 契约缺口）；候选仅 line/arc",
+        "live 成功 glyph/失败 toast 图标未采（仅阶段提示 pill + 通用失败文案）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "backendRef": "私有后端：feature/SketchPierce.ts（证据私有）",
       "evidence": [
-        "luban-cad/apps/web/e2e/sketch-pierce.spec.ts"
+        "luban-cad/apps/web/e2e/sketch-pierce.spec.ts",
+        "luban-cad/apps/web/e2e/sketch-pierce-ui.spec.ts"
       ],
       "wave": "W2",
       "lastUpdated": "2026-11-21"
@@ -131,16 +132,16 @@
     },
     "sketch.externalRefs.pierce": {
       "status": "partial",
-      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S2：模型边(line/arc)×草图平面精确 PIERCE；隐藏 fixed 交点 + coincident 求解展开（不落库、不泄漏归因）；0/切点/多交点/in-plane/spline/椭圆失败封闭；源抑制/改参联动、updateVariables 保留 refs、预览影子表隔离；源 body 变化后读面（getSketch）与消费面（面域/特征）按当前交点**全草图重解**，vertical/distance 等耦合约束一致（读面无副作用、隐藏行不泄漏）；真栈 RPC `sketch-pierce.spec.ts` 2 passed：z=5 草图点 PIERCE 到竖边 → (20,0)/DOF 0，消费三角形 400 mm³，改源宽 30 → (30,0)/600 mm³/push+冷重开；失败：平行边 projection-pierce-miss、抑制源 failed/无旧坐标/恢复 ok；UI 因 live 选项证据缺失保持 gated。",
+      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S2：模型边(line/arc)×草图平面精确 PIERCE；隐藏 fixed 交点 + coincident 求解展开（不落库、不泄漏归因）；0/切点/多交点/in-plane/spline/椭圆失败封闭；源抑制/改参联动、updateVariables 保留 refs、预览影子表隔离；源 body 变化后读面（getSketch）与消费面（面域/特征）按当前交点**全草图重解**，vertical/distance 等耦合约束一致（读面无副作用、隐藏行不泄漏）；真栈 RPC `sketch-pierce.spec.ts` 2 passed：z=5 草图点 PIERCE 到竖边 → (20,0)/DOF 0，消费三角形 400 mm³，改源宽 30 → (30,0)/600 mm³/push+冷重开；失败：平行边 projection-pierce-miss、抑制源 failed/无旧坐标/恢复 ok；UI「穿透」约束工具已接（S2 UI 2026-11-21，两步点+模型边，见 ui.sketchPierce）。",
       "missing": [
-        "UI「穿透」约束工具仍 gated（live 选项/失败提示未采）",
-        "样条边 PIERCE blocked（point-on-spline 契约缺口）",
+        "样条/椭圆边 PIERCE blocked（point-on-spline 契约缺口）；UI 候选仅 line/arc",
         "INTERSECTED/SILHOUETTED（S4）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "backendRef": "私有后端：feature/SketchPierce.ts、SketchEdgeProjection.ts、SketchExternalRefWrite.ts、FeatureService.ts（证据私有）",
       "evidence": [
         "luban-cad/apps/web/e2e/sketch-pierce.spec.ts",
+        "luban-cad/apps/web/e2e/sketch-pierce-ui.spec.ts",
         "私有后端 StandaloneDb：SketchPierceFlow（21 tests）"
       ],
       "wave": "W2",

@@ -16,11 +16,11 @@
     "byStatus": {
       "blocked-design": 1,
       "blocked-kernel": 1,
-      "gated": 52,
-      "partial": 72
+      "gated": 51,
+      "partial": 73
     }
   },
-  "sourceHash": "2b40ccd7ef2e490e26b693230984ac98f8ab512ecdec00cd1e2e2dadbd4eba73",
+  "sourceHash": "82b652906607d7199c4399dfb9f453bcc379b4855cfd81828510fcef19f083df",
   "rows": [
     {
       "id": "constraint.angle",
@@ -542,7 +542,7 @@
         "未按七维 full 门审计（W0 基线）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:113",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:116",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -727,7 +727,7 @@
         "未按七维 full 门审计（W0 基线）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:108",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:111",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -781,7 +781,7 @@
         "未按七维 full 门审计（W0 基线）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:119",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:122",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -917,10 +917,9 @@
       "family": "sketch",
       "onshapeEntry": "sketch.externalRefs.pierce",
       "status": "partial",
-      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S2：模型边(line/arc)×草图平面精确 PIERCE；隐藏 fixed 交点 + coincident 求解展开（不落库、不泄漏归因）；0/切点/多交点/in-plane/spline/椭圆失败封闭；源抑制/改参联动、updateVariables 保留 refs、预览影子表隔离；源 body 变化后读面（getSketch）与消费面（面域/特征）按当前交点**全草图重解**，vertical/distance 等耦合约束一致（读面无副作用、隐藏行不泄漏）；真栈 RPC `sketch-pierce.spec.ts` 2 passed：z=5 草图点 PIERCE 到竖边 → (20,0)/DOF 0，消费三角形 400 mm³，改源宽 30 → (30,0)/600 mm³/push+冷重开；失败：平行边 projection-pierce-miss、抑制源 failed/无旧坐标/恢复 ok；UI 因 live 选项证据缺失保持 gated。",
+      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S2：模型边(line/arc)×草图平面精确 PIERCE；隐藏 fixed 交点 + coincident 求解展开（不落库、不泄漏归因）；0/切点/多交点/in-plane/spline/椭圆失败封闭；源抑制/改参联动、updateVariables 保留 refs、预览影子表隔离；源 body 变化后读面（getSketch）与消费面（面域/特征）按当前交点**全草图重解**，vertical/distance 等耦合约束一致（读面无副作用、隐藏行不泄漏）；真栈 RPC `sketch-pierce.spec.ts` 2 passed：z=5 草图点 PIERCE 到竖边 → (20,0)/DOF 0，消费三角形 400 mm³，改源宽 30 → (30,0)/600 mm³/push+冷重开；失败：平行边 projection-pierce-miss、抑制源 failed/无旧坐标/恢复 ok；UI「穿透」约束工具已接（S2 UI 2026-11-21，两步点+模型边，见 ui.sketchPierce）。",
       "missing": [
-        "UI「穿透」约束工具仍 gated（live 选项/失败提示未采）",
-        "样条边 PIERCE blocked（point-on-spline 契约缺口）",
+        "样条/椭圆边 PIERCE blocked（point-on-spline 契约缺口）；UI 候选仅 line/arc",
         "INTERSECTED/SILHOUETTED（S4）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
@@ -929,6 +928,7 @@
       "kernelRef": null,
       "evidence": [
         "luban-cad/apps/web/e2e/sketch-pierce.spec.ts",
+        "luban-cad/apps/web/e2e/sketch-pierce-ui.spec.ts",
         "私有后端 StandaloneDb：SketchPierceFlow（21 tests）"
       ],
       "wave": "W2",
@@ -968,7 +968,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:128",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:131",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -986,7 +986,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:131",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:134",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1058,7 +1058,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:98",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:101",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1076,7 +1076,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:140",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:143",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1094,7 +1094,7 @@
         "未按七维 full 门审计（W0 基线）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:113",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:116",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1112,7 +1112,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:103",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:106",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1148,7 +1148,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:124",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:127",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1184,7 +1184,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:105",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:108",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1202,7 +1202,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:107",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:110",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1220,7 +1220,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:134",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:137",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1238,7 +1238,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:95",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:98",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1279,7 +1279,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:126",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:129",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1333,7 +1333,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:148",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:151",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1369,7 +1369,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:122",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:125",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1405,7 +1405,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:146",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:149",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1459,7 +1459,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:94",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:97",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1477,7 +1477,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:127",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:130",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1513,7 +1513,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:106",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:109",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1531,7 +1531,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:138",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:141",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1549,7 +1549,7 @@
         "未按七维 full 门审计（W0 基线）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:108",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:111",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1567,7 +1567,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:129",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:132",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1585,7 +1585,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:147",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:150",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1603,7 +1603,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:130",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:133",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1621,7 +1621,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:97",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:100",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1639,7 +1639,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:125",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:128",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1657,7 +1657,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:109",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:112",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1675,7 +1675,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:139",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:142",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1711,7 +1711,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:118",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:121",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1747,7 +1747,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:102",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:105",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1765,7 +1765,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:104",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:107",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1783,7 +1783,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:121",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:124",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1801,7 +1801,7 @@
         "未按七维 full 门审计（W0 基线）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:119",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:122",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1891,7 +1891,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:91",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:94",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -1945,7 +1945,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:92",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:95",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2033,18 +2033,19 @@
       "id": "ui.sketchPierce",
       "family": "tooling",
       "onshapeEntry": "sketchPierce",
-      "status": "gated",
-      "scopeNote": "UI「穿透」入口仍 gated（live 选项/失败提示未采）；底层 S2 已实现：模型边 line/arc × 草图平面精确 PIERCE（隐藏 fixed 交点 + coincident，不落库），RPC 真栈 sketch-pierce.spec.ts 2 passed，能力行见 sketch.externalRefs.pierce。",
+      "status": "partial",
+      "scopeNote": "UI「穿透」约束工具已接（S2 UI 2026-11-21）：ribbon 约束飞菜单「穿透」/ shift+g 两步拾取——草图点只接受持久非投影 point 实体（原点与显式点同坐标时改选显式点），模型边复用 Use 只读通道（readBrepEdgeHandles + resolveEdgeRef + withExclusiveBrepCommand），仅 line/arc part=\"curve\"、屏幕最邻近 HIT_CURVE_PX；提交 externalRefs kind=\"pierce\"/entityIds: []/localEntityId 经既有 updateSketch（无新 RPC/契约），成功后保持激活。非法选择/不支持边用 live 通用提示「一些图元无法使用。」；成功 glyph 未采 live → 仅阶段提示 pill（无假对话框）。真栈 sketch-pierce-ui.spec.ts 与 sketch-pierce.spec.ts 通过。",
       "missing": [
-        "live 穿透工具交互/选项/失败提示证据",
-        "样条边 PIERCE blocked（point-on-spline 契约缺口）"
+        "样条/椭圆边 PIERCE blocked（point-on-spline 契约缺口）；候选仅 line/arc",
+        "live 成功 glyph/失败 toast 图标未采（仅阶段提示 pill + 通用失败文案）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:89",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:92",
       "backendRef": "私有后端：feature/SketchPierce.ts（证据私有）",
       "kernelRef": null,
       "evidence": [
-        "luban-cad/apps/web/e2e/sketch-pierce.spec.ts"
+        "luban-cad/apps/web/e2e/sketch-pierce.spec.ts",
+        "luban-cad/apps/web/e2e/sketch-pierce-ui.spec.ts"
       ],
       "wave": "W2",
       "owner": "parity-program",
@@ -2109,7 +2110,7 @@
         "未按七维 full 门审计（W0 基线）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:90",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:93",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2163,7 +2164,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:123",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:126",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2199,7 +2200,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:99",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:102",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2235,7 +2236,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:120",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:123",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2271,7 +2272,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:141",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:144",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2289,7 +2290,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:114",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:117",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2307,7 +2308,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:96",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:99",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
@@ -2325,7 +2326,7 @@
         "未实现（诚实 gated）"
       ],
       "contractRef": null,
-      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:142",
+      "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:145",
       "backendRef": null,
       "kernelRef": null,
       "evidence": [],
