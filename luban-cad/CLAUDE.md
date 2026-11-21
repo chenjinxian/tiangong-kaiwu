@@ -267,6 +267,24 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   **8/8**、真栈 **1 passed（52.7 s）**（RPC T 三线 → Ctrl 叠选 → Ø30 →
   reload）；代表回归（单线/链/S2p）**4 passed（2.3 m）**；web 全量
   **2723/2723（171 files）**。
+  **S2 复核修复 + C1 四维 strict 门禁（2026-11-21，test-only e2e / 纯前端）**：
+  槽工具初始构建在粘滞宽度对当前曲线过大（`degenerateRadius`/`zeroWidth`）时
+  仅重试一次默认宽度并提示回退（非宽错误原样拒收，不掩盖几何）；预览改宽失败
+  同时可见 Warning；直通（gap=180°）臂长 ≤ 半宽拒收（防帽自交）。尺寸编辑器
+  单位只在单位前有空白时剥离（`#width_mm` 等标识符不被吃）；失焦把表达式
+  归一化为数值后，Enter 在数值仍匹配原约束（显示舍入容差）时保留原表达式，
+  实际编辑则按新值提交。viewer 角度标注避让计入表达式气泡占位；预览标注在
+  `useSketchAnnotations` 内与装饰器/编辑器同 active 门。C1 新增私有回放
+  **opt-in 四维 strict 门禁**（`strictGate:'four-dim'` / `ONSHAPE_STRICT_GATE=four-dim`）：
+  特征树类型/顺序/名称/status、草图约束/DOF/状态、逐 body volume/centroid、
+  persistence/undo hooks；缺 oracle/未接 hook 一律 `not-checked` 且整体失败
+  （不得静默 pass），body oracle 只收显式 `volumeMm3`/`centroidMm`（双键/legacy
+  centroid 拒收），树名复用产品 `featureDisplayType` + en 标签。验证：web
+  **2738/2738（172 files）**、viewer **162/162**、strict-gate helpers
+  **42 passed**、e2e tsc/eslint 绿；真栈 T 直通复跑 **2 passed（56.2 s）**、
+  粘滞宽度回退 **2 passed（55.9 s，Ø30→整圆 R15→Ø20+警告→提交 r5/15/25→reload）**。
+  残：strict 门禁仍缺草图/DOF oracle 与 body centroid oracle、persistence/undo
+  hook 未接线（缺省 fail closed）；`faceExtrude` 类型别名刻意不设默认别名。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
