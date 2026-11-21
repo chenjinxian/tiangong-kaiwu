@@ -213,6 +213,9 @@ export type {
   SketchEntityDto, SketchConstraintDto, SketchSolveStatusDto, SketchSolveStateDto, SketchDto, SketchSummaryDto,
   // v1.35（ADR-0009 切片 1a）
   SketchExternalRef, SketchProjectedMarker, SketchProjectionRequest,
+  // v1.85（草图外部引用 S1：模型边/面源 + externalRefs + 投影状态）
+  SketchExternalRefKind, SketchExternalReferenceDto,
+  SketchProjectionErrorCode, SketchProjectionErrorDto, SketchProjectionStatusDto,
   // Tutorial 2 v1.19
   SketchRef, SketchPointDto, FeatureBooleanOperation, MassPropertiesDto,
   // RW2-T6 v1.4

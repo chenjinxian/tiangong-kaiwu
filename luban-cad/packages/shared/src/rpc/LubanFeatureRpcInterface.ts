@@ -227,6 +227,17 @@
  * angle/number/any（length 变量拒收）、长度上限 `MAX_EXPRESSION_LENGTH`；错误零变更、
  * 无表达式不读变量表。**实例数（count）表达式不支持**（live 对 number 输入失焦标红）——
  * count 保持整数字面量。
+ * v1.85（草图外部引用 S1；AIRR `2026-11-21-sketch-external-references-airr.md`）：
+ * `SketchExternalRef` 扩为三分支判别联合（`sketchEntity`/`bodyEdge`/`bodyFace`）；
+ * 新增 `SketchExternalRefKind`、`SketchExternalReferenceDto`（持久外部引用行）、
+ * `SketchProjectionErrorCode`/`SketchProjectionErrorDto`/`SketchProjectionStatusDto`
+ * （读面投影状态，失败封闭）；`SketchDto.externalRefs/projection`；
+ * `insertSketch/updateSketch.externalRefs`（持久引用表，updateSketch omission guard 归后端）；
+ * `SketchProjectedMarker.refId/derivation`；`SketchProjectionRequest` 接受旧
+ * `{sourceSketchId,sourceEntityId}` 分支与 `{source}` 新分支。
+ * **TS 源码级不兼容**（单形态 interface → 判别联合），消费者同批窄化；JSON/运行时 additive。
+ * S1 仅 bodyEdge 走 externalRefs 通道；bodyFace/PIERCE/INTERSECTED/SILHOUETTED 在 op 边界
+ * `projection-unsupported`（S2+/S4 条件性，未实现前不提供假入口）。
  * 消费方：modeling-server FeatureRpcImpl（服务端）、web part-studio（树/对话框）。
  */
 import {
@@ -1162,9 +1173,23 @@ export type FeatureOp =
   /** v1.35（ADR-0009 切片 1a）：`projections` 指定从**其它草图实体**投影到本草图平面。
    * 后端在求解前从源草图当前解合成曲线（line/circle/arc/point），合成实体带 `projected`
    * 标记且不参与求解器 DOF；读取时按源实时重投影（改源草图→下游特征联动）。
-   * 切片 1a 不支持实体边/面引用（后续切片）。 */
-  | { kind: "insertSketch"; entities: SketchEntityDto[]; constraints: SketchConstraintDto[]; plane?: SketchPlaneDto; projections?: SketchProjectionRequest[] }
-  | { kind: "updateSketch"; sketchId: string; entities: SketchEntityDto[]; constraints: SketchConstraintDto[] }
+   * 切片 1a 不支持实体边/面引用（后续切片）。
+   * v1.85（S1）：模型边/面源走 `externalRefs` 通道（持久引用表）；`projections`
+   * 新 `{source}` 分支在 S1 后端 op 边界 `projection-unsupported`（模型边请用
+   * externalRefs），旧 `{sourceSketchId,sourceEntityId}` 分支逐字兼容。 */
+  | {
+    kind: "insertSketch"; entities: SketchEntityDto[]; constraints: SketchConstraintDto[];
+    plane?: SketchPlaneDto; projections?: SketchProjectionRequest[];
+    /** v1.85（S1）：持久外部引用表（派生根实体由后端按块分配合成）。 */
+    externalRefs?: SketchExternalReferenceDto[];
+  }
+  | {
+    kind: "updateSketch"; sketchId: string; entities: SketchEntityDto[];
+    constraints: SketchConstraintDto[];
+    /** v1.85（S1）：整表覆写；库内已有非空 externalRefs 而本键缺失时服务端拒收
+     * `projection-external-refs-omitted`（零变更）。 */
+    externalRefs?: SketchExternalReferenceDto[];
+  }
   /** RW2-T3 v1.3：删草图（守卫：被任一特征引用即拒收——服务端按 sketch→feature 边检查） */
   | { kind: "deleteSketch"; sketchId: string }
   /** v1.71（ADR-0020）：整表覆写 Part Studio 变量（可逆 op；后端权威求值/重算）。 */
@@ -1251,31 +1276,102 @@ export type SketchRef =
   | { entity: number; part: "handle"; index: number }
   | { origin: true };
 
-/** v1.35（ADR-0009 切片 1a）：草图外部引用。当前唯一形态=同 Part Studio 内另一张
- * 草图的实体（源实体类型决定投影结果：line/circle/arc/point）。实体边/面引用属后续切片。 */
-export interface SketchExternalRef {
-  kind: "sketchEntity";
-  sketchId: string;
-  entityId: number;
+/**
+ * v1.35（ADR-0009 切片 1a）：草图外部引用源（同一 Part Studio）。
+ * v1.85（S1）：单形态 interface → **判别联合**（TS 源码级不兼容；旧 `sketchEntity`
+ * JSON 形态逐字保留）。
+ * - `sketchEntity`：另一张草图的实体（源实体类型决定投影结果：line/circle/arc/point）；
+ * - `bodyEdge`：模型边（持久拓扑 id；S1 唯一走 externalRefs 通道的模型源）；
+ * - `bodyFace`：模型面（S2+ gated；S1 op 边界 `projection-unsupported`）。
+ */
+export type SketchExternalRef =
+  | {
+    kind: "sketchEntity"; sketchId: string; entityId: number;
+    /** 子元素语义：curve（缺省根曲线）/start/end/center（端点/圆心投影）。 */
+    part?: "curve" | "start" | "end" | "center";
+  }
+  | {
+    kind: "bodyEdge"; bodyId: string; topologyRef: LubanTopologyId;
+    /** curve（缺省）/start/end（边端点投影）。 */
+    part?: "curve" | "start" | "end";
+  }
+  | {
+    kind: "bodyFace"; bodyId: string; topologyRef: LubanTopologyId;
+    /** 面边界环选择（S2+ gated）。 */
+    loops?: "outer" | "all";
+  };
+
+/** v1.85（S1）：外部引用语义种类。S1 仅 project/projectEndpoint 落地；pierce 归 S3，
+ * intersect/silhouette 归 S4（条件性，精确 API 未证明前 blocked-design/kernel）。 */
+export type SketchExternalRefKind =
+  | "project" | "projectEndpoint" | "pierce" | "intersect" | "silhouette";
+
+/** v1.85（S1）：持久外部引用行；`params.externalRefs` 与 `SketchDto.externalRefs` 同形。
+ * `externalRefs` 是唯一持久引用列表（实体 `projected.source` 是兼容/显示冗余）。 */
+export interface SketchExternalReferenceDto {
+  /** 草图内稳定引用 id（不是实体 id）。 */
+  id: number;
+  kind: SketchExternalRefKind;
+  source: SketchExternalRef;
+  /** 派生根实体 id 块（按块分配；PIERCE 可为空）。 */
+  entityIds: number[];
+  /** PIERCE：被约束的本地点/端点引用 id（S3）。 */
+  localEntityId?: number;
+  /** INTERSECTED/SILHOUETTED/面源选项（S2+ gated）。 */
+  options?: { silhouette?: "aligned" | "antiAligned" | "outer" | "inner" };
+  /** 来源构造性；缺省 false。 */
+  construction?: boolean;
 }
 
 /** v1.35：投影实体标记（后端合成并落 params）。携带该标记的实体不参与求解器 DOF；
  * 每次读取按 `source` 的当前解实时重投影（源草图改尺寸→引用草图/下游特征联动）。
- * 派生点实体与曲线实体携带同一标记（source 指向源曲线实体）。 */
+ * 派生点实体与曲线实体携带同一标记（source 指向源曲线实体）。
+ * v1.85（S1）：`refId`/`derivation` 关联 externalRefs 表（旧标记两键省略，逐字兼容）。 */
 export interface SketchProjectedMarker {
   kind: "projected";
   source: SketchExternalRef;
+  /** v1.85：关联 `externalRefs[].id`（旧 1a 标记省略）。 */
+  refId?: number;
+  /** v1.85：引用语义种类（旧 1a 标记省略）。 */
+  derivation?: SketchExternalRefKind;
   /** true=派生点（端点/圆心；由所属曲线统一刷新与求解排除）。根实体省略。 */
   derived?: boolean;
 }
 
-/** v1.35：insertSketch 投影请求。`entityId`=合成曲线实体 id（后端保留 id+1/+2 给
- * 派生端点/圆心点）；与既有实体 id 冲突即拒收。 */
-export interface SketchProjectionRequest {
-  sourceSketchId: string;
-  sourceEntityId: number;
-  entityId: number;
+/** v1.85（S1）：投影失败错误码（locale-neutral；前端做 zh/en 映射）。
+ * 失败一律 fail closed：不返回旧坐标/最近边/折线近似。 */
+export type SketchProjectionErrorCode =
+  | "projection-source-missing" | "projection-source-ambiguous"
+  | "projection-non-exact" | "projection-degenerate"
+  | "projection-unsupported" | "projection-forward-reference"
+  | "projection-cross-project" | "projection-cycle"
+  | "projection-snapshot-missing" | "projection-snapshot-stale"
+  | "projection-pierce-miss" | "projection-pierce-ambiguous"
+  | "projection-source-changed-type" | "projection-external-refs-omitted";
+
+/** v1.85（S1）：单条外部引用失败信息（读面状态 / op 拒收 detail 同形）。 */
+export interface SketchProjectionErrorDto {
+  refId?: number;
+  source?: SketchExternalRef;
+  code: SketchProjectionErrorCode;
+  detail?: string;
 }
+
+/** v1.85（S1）：读面投影状态（`SketchDto.projection`）。`status="failed"` 时失败引用
+ * 曲线不下发、面域不计算；消费特征诚实 status=1。 */
+export interface SketchProjectionStatusDto {
+  status: "ok" | "failed";
+  failedRefIds: number[];
+  errors: SketchProjectionErrorDto[];
+}
+
+/** v1.35：insertSketch 投影请求。`entityId`=合成曲线实体 id（后端保留 id+1/+2 给
+ * 派生端点/圆心点）；与既有实体 id 冲突即拒收。
+ * v1.85（S1）：兼容旧 `{sourceSketchId,sourceEntityId}` 分支；新请求走 `{source}`
+ * （bodyEdge/bodyFace 等模型源）。两分支互斥。 */
+export type SketchProjectionRequest =
+  | { entityId: number; sourceSketchId: string; sourceEntityId: number }
+  | { entityId: number; source: SketchExternalRef };
 
 export type SketchEntityDto =
   | { kind: "point"; id: number; x?: number; y?: number; projected?: SketchProjectedMarker }
@@ -1328,6 +1424,11 @@ export interface SketchDto {
    * 可选——旧库/旧后端无 plane 时省略键，前端按缺省 XY@z=0 语义处理（与 insertSketch
    * op 省略 plane 键同义）。 */
   plane?: SketchPlaneDto;
+  /** v1.85（S1）：持久外部引用表（旧库/旧后端省略键=无外部引用）。 */
+  externalRefs?: SketchExternalReferenceDto[];
+  /** v1.85（S1）：外部引用投影状态（可选——旧后端不下发时前端不显示状态）。
+   * `status="failed"` 为 fail closed：失败引用曲线不下发、面域不计算。 */
+  projection?: SketchProjectionStatusDto;
 }
 export interface SketchSummaryDto { id: string; entityCount: number; constraintCount: number }
 
@@ -1351,7 +1452,7 @@ export abstract class LubanFeatureRpcInterface extends RpcInterface {
    * （T6.6 连通冒烟实证：解析退化为接口名 "features"）。同 LubanRpcInterface 惯例。
    */
   public static interfaceName = "LubanFeatureRpcInterface";
-  public static interfaceVersion = "1.84.0";
+  public static interfaceVersion = "1.85.0";
 
   /** 前端消费方入口（同 LubanRpcInterface.getClient 模式） */
   public static getClient(): LubanFeatureRpcInterface {

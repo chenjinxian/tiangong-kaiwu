@@ -14,7 +14,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { dslToOps, OpDslParseError, opsToDsl } from "./opDsl.js";
-import type { FeatureOp, FeatureParams, FilletEdgeRef, LubanFeatureType } from "./rpc/LubanFeatureRpcInterface.js";
+import type {
+  FeatureOp, FeatureParams, FilletEdgeRef, LubanFeatureType, SketchExternalReferenceDto,
+} from "./rpc/LubanFeatureRpcInterface.js";
 
 const tri = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 }];
 
@@ -721,5 +723,69 @@ describe("op DSL × v1.74（其他特征数值字段表达式）", () => {
     ];
     for (const [op, expected] of cases)
       expect(opsToDsl([op])).toBe(expected);
+  });
+});
+
+describe("op DSL × v1.85（externalRefs 发射/解析；草图外部引用 S1）", () => {
+  const externalRefs: SketchExternalReferenceDto[] = [
+    {
+      id: 1, kind: "project",
+      source: { kind: "bodyEdge", bodyId: "0x2000000000b", topologyRef: { nodeId: 10, entityId: 11 } },
+      entityIds: [1, 2, 3],
+    },
+    {
+      id: 2, kind: "projectEndpoint",
+      source: { kind: "bodyEdge", bodyId: "0x2000000000b", topologyRef: { nodeId: 12, entityId: 13 }, part: "start" },
+      entityIds: [4],
+    },
+    {
+      id: 3, kind: "project",
+      source: { kind: "sketchEntity", sketchId: "0x2000000000c", entityId: 21 },
+      entityIds: [5, 6], construction: true,
+    },
+  ];
+
+  it("insertSketch externalRefs 往返深等 + 文本级稳定", () => {
+    const op: FeatureOp = { kind: "insertSketch", entities: [], constraints: [], externalRefs };
+    const dsl = opsToDsl([op]);
+    expect(dsl).toContain('"externalRefs"');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("updateSketch externalRefs 往返深等 + 文本级稳定", () => {
+    const op: FeatureOp = { kind: "updateSketch", sketchId: "0xa", entities: [], constraints: [], externalRefs };
+    const dsl = opsToDsl([op]);
+    expect(dsl).toContain('"externalRefs"');
+    expect(dslToOps(dsl)).toEqual([op]);
+    expect(opsToDsl(dslToOps(dsl))).toBe(dsl);
+  });
+
+  it("缺省不发射 externalRefs（旧 updateSketch 文本逐字不变）", () => {
+    const dsl = opsToDsl([{ kind: "updateSketch", sketchId: "s", entities: [], constraints: [] }]);
+    expect(dsl).toBe('op updateSketch {"sketchId":"s","entities":[],"constraints":[]}');
+  });
+
+  it("projections 新 {entityId, source} 分支往返深等（旧 sourceSketchId 分支并存）", () => {
+    const op: FeatureOp = {
+      kind: "insertSketch", entities: [], constraints: [],
+      projections: [
+        { entityId: 7, sourceSketchId: "0xa", sourceEntityId: 11 },
+        { entityId: 8, source: { kind: "bodyEdge", bodyId: "0xb", topologyRef: { nodeId: 1, entityId: 2 } } },
+      ],
+    };
+    expect(dslToOps(opsToDsl([op]))).toEqual([op]);
+  });
+
+  it("非法 externalRefs 形态拒收（id/kind/source.kind/topologyRef/entityIds）", () => {
+    const bad = [
+      `op updateSketch {"sketchId":"s","entities":[],"constraints":[],"externalRefs":[{"kind":"project","source":{"kind":"bodyEdge","bodyId":"b","topologyRef":{"nodeId":1,"entityId":2}},"entityIds":[1]}]}`,
+      `op updateSketch {"sketchId":"s","entities":[],"constraints":[],"externalRefs":[{"id":1,"kind":"frobnicate","source":{"kind":"bodyEdge","bodyId":"b","topologyRef":{"nodeId":1,"entityId":2}},"entityIds":[1]}]}`,
+      `op updateSketch {"sketchId":"s","entities":[],"constraints":[],"externalRefs":[{"id":1,"kind":"project","source":{"kind":"warp","bodyId":"b"},"entityIds":[1]}]}`,
+      `op updateSketch {"sketchId":"s","entities":[],"constraints":[],"externalRefs":[{"id":1,"kind":"project","source":{"kind":"bodyEdge","bodyId":"b","topologyRef":{"nodeId":"1","entityId":2}},"entityIds":[1]}]}`,
+      `op updateSketch {"sketchId":"s","entities":[],"constraints":[],"externalRefs":[{"id":1,"kind":"project","source":{"kind":"sketchEntity","sketchId":"a","entityId":1},"entityIds":"x"}]}`,
+    ];
+    for (const dsl of bad)
+      expect(() => dslToOps(dsl)).toThrow(OpDslParseError);
   });
 });

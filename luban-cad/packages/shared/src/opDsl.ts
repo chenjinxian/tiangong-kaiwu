@@ -31,7 +31,10 @@
  * v1.72（ADR-0020 S3）同步：变量可选 `type`（四值联合）/`description`（string）随
  * updateVariables 发射与解析往返；未知键仍剥离。
  */
-import type { FeatureOp, FeatureParams, LubanFeatureType, VariableType } from "./rpc/LubanFeatureRpcInterface.js";
+import type {
+  FeatureOp, FeatureParams, LubanFeatureType, SketchExternalRef, SketchExternalReferenceDto,
+  SketchExternalRefKind, VariableType,
+} from "./rpc/LubanFeatureRpcInterface.js";
 
 /** 注入校验器（zod 接线位）：逐 op 调用，可抛错拒收或返回规范化 op（如 .default 补全）。 */
 export type OpDslValidator = (op: FeatureOp, index: number) => FeatureOp;
@@ -61,6 +64,8 @@ const OP_KINDS: readonly FeatureOp["kind"][] = [
 const OP_KIND_SET = new Set<string>(OP_KINDS);
 /** v1.72（ADR-0020 S3）：变量类型四值（与 shared `VariableType` 同步；DSL 层只做结构校验）。 */
 const VARIABLE_TYPES: readonly VariableType[] = ["length", "angle", "number", "any"];
+/** v1.85（S1）：外部引用语义种类（与 shared `SketchExternalRefKind` 同步；DSL 层只做结构校验）。 */
+const EXTERNAL_REF_KINDS: readonly SketchExternalRefKind[] = ["project", "projectEndpoint", "pierce", "intersect", "silhouette"];
 
 // =============================================================================
 // 发射（op 链 → DSL 文本）
@@ -95,16 +100,23 @@ function opToLine(op: FeatureOp): string {
       return `op updateSketchConstraint ${JSON.stringify({ sketchId: op.sketchId, constraintId: op.constraintId, value: op.value })}`;
     case "insertSketch": {
       // M6-a v1.6：plane 为可选声明字段——携带时恒写（往返恒等），缺省时保持旧文本形态。
-      // v1.35：projections 同口径（ADR-0009 切片 1a）。
+      // v1.35：projections 同口径（ADR-0009 切片 1a）；v1.85：externalRefs 同口径（S1）。
       const payload: Record<string, unknown> = { entities: op.entities, constraints: op.constraints };
       if (op.plane !== undefined)
         payload.plane = op.plane;
       if (op.projections !== undefined)
         payload.projections = op.projections;
+      if (op.externalRefs !== undefined)
+        payload.externalRefs = op.externalRefs;
       return `op insertSketch ${JSON.stringify(payload)}`;
     }
-    case "updateSketch":
-      return `op updateSketch ${JSON.stringify({ sketchId: op.sketchId, entities: op.entities, constraints: op.constraints })}`;
+    case "updateSketch": {
+      // v1.85（S1）：externalRefs 携带时恒写；缺省保持旧文本逐字稳定。
+      const payload: Record<string, unknown> = { sketchId: op.sketchId, entities: op.entities, constraints: op.constraints };
+      if (op.externalRefs !== undefined)
+        payload.externalRefs = op.externalRefs;
+      return `op updateSketch ${JSON.stringify(payload)}`;
+    }
     case "deleteSketch":
       return `op deleteSketch ${JSON.stringify({ sketchId: op.sketchId })}`;
     case "updateVariables":
@@ -215,6 +227,87 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
   const noFeatureType = (): void => {
     if (featureType !== undefined) throw err("featureType 令牌仅 insertFeature 接受");
   };
+  /** v1.85（S1）：枚举形态校验（未知值拒收，不静默落为字符串）。 */
+  const asEnum = <T extends string>(v: unknown, name: string, values: readonly T[]): T => {
+    const value = asStr(v, name);
+    if (!(values as readonly string[]).includes(value))
+      throw err(`${name} 非法: ${value}（须为 ${values.join("/")}）`);
+    return value as T;
+  };
+  /** v1.85（S1）：持久拓扑 id（nodeId/entityId 双 number）。 */
+  const asTopologyRef = (v: unknown, name: string): { nodeId: number; entityId: number } => {
+    const o = asObj(v, name);
+    return { nodeId: asNum(o.nodeId, `${name}.nodeId`), entityId: asNum(o.entityId, `${name}.entityId`) };
+  };
+  /** v1.85（S1）：`SketchExternalRef` 三分支结构校验（source.kind 3 值；分支专属键）。 */
+  const asExternalRefSource = (v: unknown, name: string): SketchExternalRef => {
+    const o = asObj(v, name);
+    const sourceKind = asEnum(o.kind, `${name}.kind`, ["sketchEntity", "bodyEdge", "bodyFace"] as const);
+    switch (sourceKind) {
+      case "sketchEntity":
+        return {
+          kind: sourceKind,
+          sketchId: asStr(o.sketchId, `${name}.sketchId`),
+          entityId: asNum(o.entityId, `${name}.entityId`),
+          ...(o.part === undefined ? {} : {
+            part: asEnum(o.part, `${name}.part`, ["curve", "start", "end", "center"] as const),
+          }),
+        };
+      case "bodyEdge":
+        return {
+          kind: sourceKind,
+          bodyId: asStr(o.bodyId, `${name}.bodyId`),
+          topologyRef: asTopologyRef(o.topologyRef, `${name}.topologyRef`),
+          ...(o.part === undefined ? {} : {
+            part: asEnum(o.part, `${name}.part`, ["curve", "start", "end"] as const),
+          }),
+        };
+      case "bodyFace":
+        return {
+          kind: sourceKind,
+          bodyId: asStr(o.bodyId, `${name}.bodyId`),
+          topologyRef: asTopologyRef(o.topologyRef, `${name}.topologyRef`),
+          ...(o.loops === undefined ? {} : {
+            loops: asEnum(o.loops, `${name}.loops`, ["outer", "all"] as const),
+          }),
+        };
+    }
+  };
+  /** v1.85（S1）：`SketchExternalReferenceDto` 结构校验（id/kind/entityIds + 可选键保形）。 */
+  const asExternalRef = (v: unknown, name: string): SketchExternalReferenceDto => {
+    const o = asObj(v, name);
+    let options: SketchExternalReferenceDto["options"];
+    if (o.options !== undefined) {
+      const rawOptions = asObj(o.options, `${name}.options`);
+      options = rawOptions.silhouette === undefined ? {} : {
+        silhouette: asEnum(rawOptions.silhouette, `${name}.options.silhouette`, ["aligned", "antiAligned", "outer", "inner"] as const),
+      };
+    }
+    return {
+      id: asNum(o.id, `${name}.id`),
+      kind: asEnum(o.kind, `${name}.kind`, EXTERNAL_REF_KINDS),
+      source: asExternalRefSource(o.source, `${name}.source`),
+      entityIds: asArr(o.entityIds, `${name}.entityIds`).map((id, index) => asNum(id, `${name}.entityIds[${index}]`)),
+      ...(o.localEntityId === undefined ? {} : { localEntityId: asNum(o.localEntityId, `${name}.localEntityId`) }),
+      ...(options === undefined ? {} : { options }),
+      ...(o.construction === undefined ? {} : { construction: asBool(o.construction, `${name}.construction`) }),
+    };
+  };
+  /** v1.35 旧分支 `{sourceSketchId,sourceEntityId}` 与 v1.85 新分支 `{source}` 互斥。 */
+  const asProjectionRequest = (v: unknown, name: string): unknown => {
+    const o = asObj(v, name);
+    const entityId = asNum(o.entityId, `${name}.entityId`);
+    if (o.source !== undefined) {
+      if (o.sourceSketchId !== undefined || o.sourceEntityId !== undefined)
+        throw err(`${name}: source 与 sourceSketchId/sourceEntityId 互斥`);
+      return { entityId, source: asExternalRefSource(o.source, `${name}.source`) };
+    }
+    return {
+      sourceSketchId: asStr(o.sourceSketchId, `${name}.sourceSketchId`),
+      sourceEntityId: asNum(o.sourceEntityId, `${name}.sourceEntityId`),
+      entityId,
+    };
+  };
 
   switch (kind) {
     case "insertFeature": {
@@ -268,7 +361,10 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
       const constraints = asArr(p.constraints, "constraints");
       const plane = p.plane === undefined ? undefined : asObj(p.plane, "plane");
       const projections = p.projections === undefined ? undefined : asArr(p.projections, "projections");
-      if (plane === undefined && projections === undefined)
+      const externalRefs = p.externalRefs === undefined
+        ? undefined
+        : asArr(p.externalRefs, "externalRefs").map((raw, index) => asExternalRef(raw, `externalRefs[${index}]`));
+      if (plane === undefined && projections === undefined && externalRefs === undefined)
         return { kind, entities, constraints } as unknown as FeatureOp;
       return {
         kind, entities, constraints,
@@ -277,21 +373,23 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
           plane: { origin: asVec3(plane.origin, "plane.origin"), normal: asVec3(plane.normal, "plane.normal"), xDir: asVec3(plane.xDir, "plane.xDir") },
         }),
         ...(projections === undefined ? {} : {
-          // v1.35：projections 形态校验后透传（源草图/实体 id 与目标实体 id）
-          projections: projections.map((raw, index) => {
-            const item = asObj(raw, `projections[${index}]`);
-            return {
-              sourceSketchId: asStr(item.sourceSketchId, `projections[${index}].sourceSketchId`),
-              sourceEntityId: asNum(item.sourceEntityId, `projections[${index}].sourceEntityId`),
-              entityId: asNum(item.entityId, `projections[${index}].entityId`),
-            };
-          }),
+          // v1.35 旧分支 + v1.85 新 source 分支（结构校验后透传）
+          projections: projections.map((raw, index) => asProjectionRequest(raw, `projections[${index}]`)),
         }),
+        ...(externalRefs === undefined ? {} : { externalRefs }),
       } as unknown as FeatureOp;
     }
-    case "updateSketch":
+    case "updateSketch": {
       noFeatureType();
-      return { kind, sketchId: asStr(p.sketchId, "sketchId"), entities: asArr(p.entities, "entities"), constraints: asArr(p.constraints, "constraints") } as unknown as FeatureOp;
+      const externalRefs = p.externalRefs === undefined
+        ? undefined
+        : asArr(p.externalRefs, "externalRefs").map((raw, index) => asExternalRef(raw, `externalRefs[${index}]`));
+      return {
+        kind, sketchId: asStr(p.sketchId, "sketchId"),
+        entities: asArr(p.entities, "entities"), constraints: asArr(p.constraints, "constraints"),
+        ...(externalRefs === undefined ? {} : { externalRefs }),
+      } as unknown as FeatureOp;
+    }
     case "deleteSketch":
       noFeatureType();
       return { kind, sketchId: asStr(p.sketchId, "sketchId") };

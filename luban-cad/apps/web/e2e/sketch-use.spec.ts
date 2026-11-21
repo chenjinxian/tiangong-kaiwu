@@ -108,6 +108,7 @@ function projectedCircle(sketch: SketchDto | undefined, sourceId: string): { rad
   return (sketch?.entities ?? []).find(
     (entity) => entity.kind === 'circle'
       && entity.projected?.kind === 'projected'
+      && entity.projected.source.kind === 'sketchEntity'
       && entity.projected.source.sketchId === sourceId,
   ) as { radius?: number } | undefined;
 }
@@ -164,6 +165,7 @@ test.describe('草图「使用」（Onshape Use 对拍）', () => {
         entity.kind === 'point'
         && entity.projected?.kind === 'projected'
         && entity.projected.derived !== true
+        && entity.projected.source.kind === 'sketchEntity'
         && entity.projected.source.sketchId === sourceId
         && entity.projected.source.entityId === 12);
     }, { timeout: 40_000, intervals: [500, 1000, 2000] }).toBe(true);
