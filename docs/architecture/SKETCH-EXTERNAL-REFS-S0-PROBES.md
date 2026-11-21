@@ -95,3 +95,20 @@
 3. 非圆椭圆弧 DTO 决策（拒收或扩展契约）。
 4. 样条 PIERCE 的 solver-neutral 约束扩展 ADR（或明确 blocked）。
 5. 所有临时探针已删除/还原；两端源码树干净，现有 smoke 测试复跑通过。
+
+## 实施收口（2026-11-21，S1–S5）
+
+- **S1/S2/S3 已实现并真栈验收**：bodyEdge 投影（4000/6000 mm³、undo/redo、push+冷重开）、
+  PIERCE（(20,0)→(30,0)、消费体 400/600 mm³、push+冷重开、失败封闭）、bodyFace
+  （顶面外环 400/4000 mm³；通孔面 `loops=all` 双面域 400−4π 与 4π、消费体
+  (400−4π)×10 mm³；失败封闭）。能力账本 5 行：modelEdge/pierce/bodyFace=partial，
+  intersect=blocked-kernel，silhouette=blocked-design。
+- **S4 收口**：INTERSECTED（S4a）保持 blocked-kernel——精确面×平面切片 API 未暴露为
+  产品接口，需 native wrapper + TS 线 + native ADR + ctest；SILHOUETTED（S4b）保持
+  blocked-design——无产品级精确轮廓接口/语义证据。产品在 op 边界
+  `projection-unsupported` 诚实拒收，不做采样/近似，UI 不提供假入口。
+- **S5 收口（私有离线审计的脱敏结论，原始报告与语料计数留在私有仓）**：converter 对
+  PROJECTED/PIERCE/INTERSECTED/SILHOUETTED 四类约束无 `externalRefs` 映射，v2 转换器
+  fail-closed 记入 dropped 且 `provenance.status=blocked-capability`（legacy 转换器整单
+  抛错）；三态 registry 1,685 行、unknown 0、strict 0、publicEligible 0；25 个
+  near-flip 行仍为 `blocked-evidence:no-body-oracle`，**不宣称 strict 增量**。

@@ -348,6 +348,20 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   无投影曲线、恢复 → 4000。能力账本 `sketch.externalRefs.bodyFace=partial`。
   残：UI 面选择器/「外环·全部环」选项/失败提示无 live 证据仍 gated；
   INTERSECTED/SILHOUETTED（S4 条件性）。
+  **S4/S5 收口（同日，离线）**：S4a INTERSECTED=`blocked-kernel`（精确面×平面切片
+  API 未暴露，需 native wrapper/TS 线/ADR/ctest）、S4b SILHOUETTED=`blocked-design`
+  （无产品级精确轮廓接口/语义证据）；产品 op 边界 `projection-unsupported` 诚实拒收
+  （Intersect+Silhouette 均有私有单测），不做近似、UI 不设假入口。S5（私有离线审计，
+  原始报告在私有仓）：converter 对 PROJECTED/PIERCE/INTERSECTED/SILHOUETTED 四类
+  约束**无 externalRefs 映射**——v2 逐条 dropped + `provenance.status=
+  blocked-capability`、legacy 整单抛错，均 fail-closed；180 scenarios 中 74 含此类
+  drop（PROJECTED 208/PIERCE 27/INTERSECTED 12/SILHOUETTED 18 条消息）；三态 registry
+  **1,685 行**（strict 0/approx 50/blocked 1,476/excluded 159；unknown 0；
+  publicEligible 0）；**25 个 near-flip 行仍为 `blocked-evidence:no-body-oracle`**
+  （23 PROJECTED-only、1 PIERCE-only、1 PROJECTED+SILHOUETTED），**无 strict 增量**、
+  无假绿；converter 专项新测 `external-refs.test.mjs` 2/2、converter 套件 **52/52**、
+  工具套件 **37/37**、registry verify OK。公共 ledger 5 行（partial×3 + blocked×2），
+  冻结矩阵/文档索引/探针结论已同步（私有证据不外泄）。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
