@@ -357,8 +357,20 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   loops=all → 14 实体（4 线+整圆）/双面域 400−4π 与 4π/消费体 (400−4π)×10 +
   冷重开；失败：删源拒收、抑制 → `projection-source-missing`/consumer status 1/
   无投影曲线、恢复 → 4000。能力账本 `sketch.externalRefs.bodyFace=partial`。
-  残：UI 面选择器/「外环·全部环」选项/失败提示无 live 证据仍 gated；
-  INTERSECTED/SILHOUETTED（S4 条件性）。
+  **S3-UI（同日，live 证据后）**：登录后追加探针确认 Onshape Use 选「面」默认
+  **只投影外环**（带孔面隐藏零件后仅外环闭合区域、孔环未投影；无外环/全部环
+  选项、无 offset/间距/构造性对话框；投影线黑色+关系字形）。web Use 覆盖层新增
+  平面面候选：`readBrepFaceHandles` + `resolveFaceRef` 注入加载（同一
+  `withExclusiveBrepCommand` 槽）、面内最大面积环判外环 + 屏幕多边形命中
+  （边/端点/曲线优先不回归）、固定 `loops:"outer"`、块长按后端 line=3/arc=2；
+  宿主 `buildBodyFaceExternalRefRow` 连续块分配 + `updateSketch` 整表提交。
+  真栈 UI e2e `sketch-use-face.spec.ts` **2 passed**（auth+1 用例；顶面中心
+  hover→face→点击 → bodyFace/outer/12 实体/area 400/DOF 0，改源宽 30 → 600；
+  首次等轴测下源草图角点落入 6 px 端点优先级，改用正视顶面后稳定）。
+  单测 `sketch-use-candidates`+`sketch-use` **29 passed**、web 全量 **2762 passed**
+  （173 files）、src/e2e tsc+eslint 绿。残：body placement 非单位时面/边候选的
+  显示/命中（BRep 句柄局部坐标）待验证；「全部环」仅 API 能力；失败提示沿用
+  既有投影失败 UI。INTERSECTED/SILHOUETTED（S4 条件性）。
   **S4/S5 收口（同日，离线）**：S4a INTERSECTED=`blocked-kernel`（精确面×平面切片
   API 未暴露，需 native wrapper/TS 线/ADR/ctest）、S4b SILHOUETTED=`blocked-design`
   （无产品级精确轮廓接口/语义证据）；产品 op 边界 `projection-unsupported` 诚实拒收

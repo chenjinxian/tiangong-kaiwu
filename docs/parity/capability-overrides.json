@@ -148,15 +148,17 @@
     },
     "sketch.externalRefs.bodyFace": {
       "status": "partial",
-      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S3：平面面边界投影。面引用经 facesFromId → Loop/ParityRegion，CurveOps.isPlanar 几何共面判据（native isPlanarFace 对带孔平面面返回 false，不作门）；外环/孔环按面内包含关系分类（恰一外环），loops=outer|all；逐边精确 line/真圆弧/整圆投影（line=3、arc/circle=2 连续子块，整面任一非精确/曲面/样条/椭圆/开口环即整面拒收，不产半环）；块长漂移 sourceChangedType、写面块长不符 unsupported 零变更；body placement 转世界坐标；驱动边/删除/抑制/省略/前向/跨 scope 守卫与 bodyEdge 同构。真栈 sketch-face-projection.spec.ts 3 用例分窗 passed：盒体顶面 4 线 → 12 实体/area 400/DOF 0/消费体 4000 mm³，源宽 30 → 600/6000，原生 undo/redo 400/4000↔600/6000，push+冷重开 6000/ok；通孔顶面 loops=all → 14 实体（4 线+整圆）/双面域 400−4π 与 4π/消费体 (400−4π)×10+冷重开；删源守卫拒收、抑制 → source-missing/consumer status 1/无投影曲线、恢复 4000。UI 面选择器与「外环·全部环」选项无 live 证据保持 gated。",
+      "scopeNote": "shared 1.85.0（AIRR 2026-11-21-sketch-external-references-airr.md）S3：平面面边界投影。面引用经 facesFromId → Loop/ParityRegion，CurveOps.isPlanar 几何共面判据（native isPlanarFace 对带孔平面面返回 false，不作门）；外环/孔环按面内包含关系分类（恰一外环），loops=outer|all；逐边精确 line/真圆弧/整圆投影（line=3、arc/circle=2 连续子块，整面任一非精确/曲面/样条/椭圆/开口环即整面拒收，不产半环）；块长漂移 sourceChangedType、写面块长不符 unsupported 零变更；body placement 转世界坐标；驱动边/删除/抑制/省略/前向/跨 scope 守卫与 bodyEdge 同构。UI（S1b 2026-11-21）：Use 覆盖层增加平面面候选（readBrepFaceHandles + resolveFaceRef，屏幕点击区域优先低于边/端点），固定 loops=outer——live 证据（带孔面只投影外环、无外环/全部环选项）；真栈 UI e2e sketch-use-face.spec.ts 2 passed（顶面中心点击 → bodyFace/outer/12 实体/area 400，改源宽 30 → 600）。RPC 真栈 sketch-face-projection.spec.ts 3 用例分窗 passed：盒体顶面 4 线 → 12 实体/area 400/DOF 0/消费体 4000 mm³，源宽 30 → 600/6000，原生 undo/redo 400/4000↔600/6000，push+冷重开 6000/ok；通孔顶面 loops=all → 14 实体（4 线+整圆）/双面域 400−4π 与 4π/消费体 (400−4π)×10+冷重开；删源守卫拒收、抑制 → source-missing/consumer status 1/无投影曲线、恢复 4000。",
       "missing": [
-        "UI 面选择器/外环·全部环选项/失败提示仍 gated（live 证据未采）",
+        "「外环/全部环」选项在 live Use 中不存在（当前固定外环）；all 环仅 API 能力",
+        "body placement 非单位时面/边候选的显示与屏幕命中（BRep 句柄局部坐标）待后续验证",
         "圆柱端盖等由面建片体的曲面边界整面拒收（S0 证据：曲面边界几何不可精确读）",
         "INTERSECTED/SILHOUETTED（S4 条件性）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "backendRef": "私有后端：feature/SketchEdgeProjection.ts、SketchProjectionSnapshot.ts、SketchExternalRefWrite.ts、FeatureService.ts（证据私有）",
       "evidence": [
+        "luban-cad/apps/web/e2e/sketch-use-face.spec.ts",
         "luban-cad/apps/web/e2e/sketch-face-projection.spec.ts",
         "私有后端 StandaloneDb：SketchFaceProjectionFlow（8 tests）"
       ],
