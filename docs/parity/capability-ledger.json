@@ -20,7 +20,7 @@
       "partial": 73
     }
   },
-  "sourceHash": "82b652906607d7199c4399dfb9f453bcc379b4855cfd81828510fcef19f083df",
+  "sourceHash": "bc10aa8de4f3c3435c5d309aa76827d8565a34b6d22dad833a226341267b9af9",
   "rows": [
     {
       "id": "constraint.angle",
@@ -853,7 +853,8 @@
         "「外环/全部环」选项在 live Use 中不存在（当前固定外环）；all 环仅 API 能力",
         "body placement 非单位时面/边候选的显示与屏幕命中（BRep 句柄局部坐标）待后续验证",
         "圆柱端盖等由面建片体的曲面边界整面拒收（S0 证据：曲面边界几何不可精确读）",
-        "INTERSECTED/SILHOUETTED（S4 条件性）"
+        "INTERSECTED/SILHOUETTED（S4 条件性）",
+        "UI Use 面路径原生 undo e2e 待专项（与 PIERCE UI 同一观测，未定位）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "uiRef": null,
@@ -2037,7 +2038,8 @@
       "scopeNote": "UI「穿透」约束工具已接（S2 UI 2026-11-21）：ribbon 约束飞菜单「穿透」/ shift+g 两步拾取——草图点只接受持久非投影 point 实体（原点与显式点同坐标时改选显式点），模型边复用 Use 只读通道（readBrepEdgeHandles + resolveEdgeRef + withExclusiveBrepCommand），仅 line/arc part=\"curve\"、屏幕最邻近 HIT_CURVE_PX；提交 externalRefs kind=\"pierce\"/entityIds: []/localEntityId 经既有 updateSketch（无新 RPC/契约），成功后保持激活。非法选择/不支持边用 live 通用提示「一些图元无法使用。」；成功 glyph 未采 live → 仅阶段提示 pill（无假对话框）。真栈 sketch-pierce-ui.spec.ts 与 sketch-pierce.spec.ts 通过。",
       "missing": [
         "样条/椭圆边 PIERCE blocked（point-on-spline 契约缺口）；候选仅 line/arc",
-        "live 成功 glyph/失败 toast 图标未采（仅阶段提示 pill + 通用失败文案）"
+        "live 成功 glyph/失败 toast 图标未采（仅阶段提示 pill + 通用失败文案）",
+        "UI 路径原生 undo e2e 待专项（按钮可用，但种子库撤销+重载后读面/坐标断言不稳定，未定位）"
       ],
       "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts (LubanFeatureRpcInterface 1.85.0)",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:92",

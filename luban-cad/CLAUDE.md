@@ -353,7 +353,11 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   （174 files；首轮 FeatureDialog `#` 补全计时抖动 1 红，单文件 **307/307** 复跑
   绿、二轮全量绿，非本切片回归）、src/e2e tsc+eslint 绿。
   残：样条/椭圆边 PIERCE blocked（候选仅 line/arc，点击失败封闭）、
-  INTERSECTED/SILHOUETTED（S4）。
+  INTERSECTED/SILHOUETTED（S4）。**UI 原生 undo e2e 待专项**：标准撤消按钮在
+  UI 提交后可用，但「种子库 + 撤销 + 重载」后的读面坐标断言不稳定（撤销后
+  `getSketch` 偶发 undefined/点仍为解算值，疑似 ctx/自动保存交互，未定位）；
+  现有 P0-10 证据来自 RPC 事务撤销/重做（`sketch-projection-body`）与
+  sketch→sketch Use undo（`sketch-use`），不宣称 UI 面/PIERCE 路径 undo 已验证。
   **S3 bodyFace（同日）**：平面面边界读取（`facesFromId` → Loop/ParityRegion，
   `CurveOps.isPlanar` 几何平面判据——native `isPlanarFace` 对带孔平面面返回 false，
   不可作门；多面片 → ambiguous）→ 外环/孔环分类（面内包含关系，恰一外环）→ 逐边
