@@ -1549,4 +1549,51 @@ test.describe('scenario → FeatureOp', () => {
       params: { ...base.params, axis: { origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 0 } } },
     }, { featureIdBySource: new Map([['onshape-hole', 'local-hole']]) })).toThrow(BlockedCapabilityError);
   });
+
+  test('loft：有序截面草图映射为 LoftParams.sketchIds（bodyType SOLID）', () => {
+    const feature: ScenarioFeature = {
+      type: 'loft',
+      name: 'Loft 1',
+      params: { operation: 'add', bodyType: 'SOLID', sketchFeatureIds: ['onshape-a', 'onshape-b', 'onshape-c'] },
+    };
+    const step = translateScenarioFeature(feature, {
+      sketchIdBySource: new Map([['onshape-a', 'local-a'], ['onshape-b', 'local-b'], ['onshape-c', 'local-c']]),
+    });
+    expect(step.op.kind).toBe('insertFeature');
+    if (step.op.kind !== 'insertFeature') return;
+    expect(step.op.featureType).toBe('loft');
+    expect(step.op.params).toEqual({ sketchIds: ['local-a', 'local-b', 'local-c'], bodyType: 'SOLID' });
+    expect(step.approximate).toBe(false);
+  });
+
+  test('loft：截面缺失/重复/少于两个/非 SOLID/非 add → blocked', () => {
+    const base: ScenarioFeature = {
+      type: 'loft',
+      name: 'Loft 1',
+      params: { operation: 'add', bodyType: 'SOLID', sketchFeatureIds: ['onshape-a', 'onshape-b'] },
+    };
+    const context = { sketchIdBySource: new Map([['onshape-a', 'local-a'], ['onshape-b', 'local-b']]) };
+    expect(() => translateScenarioFeature(base)).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      ...base, params: { ...base.params, sketchFeatureIds: ['onshape-a'] },
+    }, context)).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      ...base, params: { ...base.params, sketchFeatureIds: ['onshape-a', 'onshape-a'] },
+    }, context)).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      ...base, params: { ...base.params, bodyType: 'SURFACE' },
+    }, context)).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      ...base, params: { ...base.params, bodyType: undefined },
+    }, context)).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      ...base, params: { ...base.params, operation: 'new' },
+    }, context)).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      ...base, params: { ...base.params, operation: undefined },
+    }, context)).toThrow(BlockedCapabilityError);
+    expect(() => translateScenarioFeature({
+      ...base, params: { ...base.params, sketchFeatureIds: ['onshape-a', 'onshape-missing'] },
+    }, context)).toThrow(BlockedCapabilityError);
+  });
 });

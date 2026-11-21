@@ -285,6 +285,19 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   粘滞宽度回退 **2 passed（55.9 s，Ø30→整圆 R15→Ø20+警告→提交 r5/15/25→reload）**。
   残：strict 门禁仍缺草图/DOF oracle 与 body centroid oracle、persistence/undo
   hook 未接线（缺省 fail closed）；`faceExtrude` 类型别名刻意不设默认别名。
+  **B4 loft 通用回放通道（2026-11-21，test-only e2e + 私有 converter）**：
+  `scenario-to-op` 新增 loft：有序 `sketchFeatureIds` → 本地 `LoftParams.sketchIds`
+  （必须显式 `operation:'add'`/`bodyType:'SOLID'`，缺省/重复/缺失截面一律
+  `BlockedCapabilityError`）；`run.ts` 把 loft 纳入造体谱系与多体
+  `targetBodyId` 锚定。真栈 `loft-scenario.spec.ts` **3 passed（46.3 s）**：
+  20×20@z0→10×10@z10 锥台 **2333.333 mm³（7000/3）**、1 body、树 sketchIds
+  等于两张草图 featureId、push+冷重开；多体两先建体 + loft 锚定 B →
+  **1000 / 8000 mm³、2 body** push+冷重开。私有 converter（`tools/scenario/loft.mjs`）
+  保守门禁：仅无显式 booleanScope、loft 前无任何造体特征、平行/非共面/单闭环
+  草图、SOLID/ADD/DEFAULT 才输出；真实语料 **0 个 loft 映射**（Gear Cover
+  Loft1/2 因显式 scope+先建造体阻塞），四行 blocker/bucket 不变；单测 **18/18**、
+  组合 **50/50**。残：converter 目前仅合成可映射（需 target/scope 通道才能
+  提升真实行）。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/

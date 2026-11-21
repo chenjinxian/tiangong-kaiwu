@@ -821,6 +821,58 @@ function transformOp(feature: ScenarioFeature, context: TranslateContext): Trans
   };
 }
 
+/**
+ * loft（shared 1.69 多截面）：scenario 只携带**有序**截面草图 sourceFeatureIds；
+ * 翻译期逐个人 id 映射为本地 sketch featureId，产出产品 LoftParams
+ * `{ sketchIds, bodyType:'SOLID' }`。产品求值每张草图取最大面域外环、截面须
+ * 平行；converter 只有在一区域/平行/无 guides 等证据齐全时才输出该步骤。
+ * 缺任一截面映射即阻塞，绝不跳过或重排截面（顺序=放样方向）。
+ */
+function loftOp(feature: ScenarioFeature, context: TranslateContext): TranslatedStep {
+  const params = asRecord(feature.params) ?? {};
+  const rawIds = params.sketchFeatureIds;
+  if (!Array.isArray(rawIds) || rawIds.length < 2
+    || !rawIds.every((value): value is string => typeof value === 'string' && value.length > 0))
+    throw new BlockedCapabilityError(
+      'loft-sections',
+      `${feature.name} 需要 ≥2 个有序截面草图 sourceFeatureIds`,
+    );
+  const sourceIds = rawIds as string[];
+  if (new Set(sourceIds).size !== sourceIds.length)
+    throw new BlockedCapabilityError('loft-sections', `${feature.name} 截面草图重复（产品拒绝同一草图重复）`);
+  // 契约必须显式且精确：缺省 operation/bodyType 不得被默认为 ADD/SOLID
+  // （防止旧/手写场景把未知合并语义静默压成产品 ADD）。
+  const bodyType = stringParam(params, 'bodyType');
+  if (bodyType !== 'SOLID')
+    throw new BlockedCapabilityError(
+      'loft-body-type',
+      `${feature.name} bodyType=${String(bodyType)}（产品 loft 仅 SOLID，必须显式）`,
+    );
+  const operation = stringParam(params, 'operation');
+  if (operation !== 'add')
+    throw new BlockedCapabilityError(
+      'loft-operation',
+      `${feature.name} operation=${String(operation)}（产品 loft 与上游 Unite，仅映射 add，必须显式）`,
+    );
+  const sketchIds: string[] = [];
+  for (const source of sourceIds) {
+    const local = context.sketchIdBySource?.get(source);
+    if (local === undefined)
+      throw new BlockedCapabilityError('sketch-selector', `${feature.name} 截面草图 ${source} 尚未构建`);
+    sketchIds.push(local);
+  }
+  return {
+    scenario: feature,
+    op: {
+      kind: 'insertFeature',
+      featureType: 'loft',
+      params: { sketchIds, bodyType: 'SOLID' },
+    },
+    notes: [`loft sections=${sketchIds.length}（有序草图截面，产品 LoftParams.sketchIds）`],
+    approximate: false,
+  };
+}
+
 function cPlaneOp(feature: ScenarioFeature): TranslatedStep {
   const params = asRecord(feature.params) ?? {};
   const reference = stringParam(params, 'reference');
@@ -1337,6 +1389,8 @@ export function translateScenarioFeature(
       return faceExtrudeOp(feature);
     case 'revolve':
       return revolveOp(feature, context);
+    case 'loft':
+      return loftOp(feature, context);
     case 'hole':
       return holeOp(feature, context);
     case 'cPlane':
@@ -1360,7 +1414,6 @@ export function translateScenarioFeature(
     case 'shell':
       return shellOp(feature, context);
     case 'pattern':
-    case 'loft':
     case 'sweep':
       throw new BlockedCapabilityError(
         'feature-channel',

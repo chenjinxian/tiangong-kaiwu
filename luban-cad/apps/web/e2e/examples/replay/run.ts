@@ -281,8 +281,12 @@ export async function runScenario(
   // sourceFeatureId 指向最近修改它的特征（可能是 fillet），沿场景特征顺序回溯到
   // 最近的造体特征即可恢复 Onshape body 引用所指向的 extrude/revolve。
   const scenarioFeatureByLocalId = new Map<string, ScenarioFeature>();
-  const BODY_CREATOR_TYPES = new Set(['extrude', 'revolve', 'booleanBodies', 'booleanAdd', 'booleanSubtract']);
-  const MULTI_BODY_ANCHOR_TYPES = new Set(['extrude', 'revolve', 'hole', 'faceExtrude', 'featurePattern', 'mirror']);
+  // loft 也产生/合并 body（产品与上游 Unite）；纳入谱系别名解析，后续
+  // booleanScope 引用 loft 源特征时可解析到同一 body。
+  const BODY_CREATOR_TYPES = new Set(['extrude', 'revolve', 'loft', 'booleanBodies', 'booleanAdd', 'booleanSubtract']);
+  // 产品 insertFeature 支持 targetBodyId；多体模型的 loft 必须显式锚定合并目标
+  // （后端 MULTI_BODY_INSERT_NEEDS_TARGET 门禁），runner 按最近造体谱系注入。
+  const MULTI_BODY_ANCHOR_TYPES = new Set(['extrude', 'revolve', 'loft', 'hole', 'faceExtrude', 'featurePattern', 'mirror']);
   let latestSketchId: string | undefined;
   const featureIds: string[] = [];
   const notes: string[] = [];
