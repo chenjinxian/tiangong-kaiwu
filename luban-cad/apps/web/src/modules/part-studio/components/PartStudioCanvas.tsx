@@ -80,11 +80,12 @@ import { SketchPatternGizmo } from './SketchPatternGizmo.js';
 import { SketchUseOverlay, type SketchUsePick } from './SketchUseOverlay.js';
 import {
   buildBodyEdgeExternalRefRow,
+  buildBodyFaceExternalRefRow,
   buildProjectedSketchEntity,
   nextExternalRefId,
   projectionFailureMessage,
 } from '../internal/sketch-use.js';
-import type { SketchUseBodyCandidate } from '../internal/sketch-use-candidates.js';
+import type { SketchUseModelCandidate } from '../internal/sketch-use-candidates.js';
 import { SketchDimensionEditor } from './SketchDimensionEditor.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
@@ -888,27 +889,37 @@ export function PartStudioCanvas({
   }, [sketchSystem, t]);
 
   /**
-   * 2026-11-21 S1：模型边/端点拾取 → externalRefs 行（id/实体块分配），随
-   * updateSketch 整表提交；投影几何由后端读面按快照合成（前端不写坐标）。
+   * 2026-11-21 S1/S1b：模型边/端点/平面面拾取 → externalRefs 行（id/实体块分配），
+   * 随 updateSketch 整表提交；投影几何由后端读面按快照合成（前端不写坐标）。
    */
   const applySketchUseBodyPick = React.useCallback(async (
-    candidate: SketchUseBodyCandidate,
+    candidate: SketchUseModelCandidate,
   ): Promise<void> => {
     const system = sketchSystem;
     const active = system?.activeSketch;
     if (!system || !active)
       return;
     const externalRefs = active.externalRefs ?? [];
-    const row = buildBodyEdgeExternalRefRow({
-      id: nextExternalRefId(externalRefs),
-      bodyKey: candidate.bodyKey,
-      topologyRef: candidate.topologyRef,
-      part: candidate.part,
-      curveKind: candidate.curveKind,
-      entities: active.entities,
-      constraints: active.constraints,
-      externalRefs,
-    });
+    const row = candidate.kind === 'face'
+      ? buildBodyFaceExternalRefRow({
+        id: nextExternalRefId(externalRefs),
+        bodyKey: candidate.bodyKey,
+        topologyRef: candidate.topologyRef,
+        blockLength: candidate.blockLength,
+        entities: active.entities,
+        constraints: active.constraints,
+        externalRefs,
+      })
+      : buildBodyEdgeExternalRefRow({
+        id: nextExternalRefId(externalRefs),
+        bodyKey: candidate.bodyKey,
+        topologyRef: candidate.topologyRef,
+        part: candidate.part,
+        curveKind: candidate.curveKind,
+        entities: active.entities,
+        constraints: active.constraints,
+        externalRefs,
+      });
     if ('ok' in row) {
       IModelApp.notifications.outputMessage(new NotifyMessageDetails(
         OutputMessagePriority.Error,

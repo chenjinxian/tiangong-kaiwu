@@ -13,8 +13,14 @@
  * 经 `withExclusiveBrepCommand` 串行（不新增工具族/选择管道）。边曲线虚线、
  * 端点圆点；端点优先 6 px 命中，点击交给宿主构造 externalRefs 行。
  *
- * 边界：仅 line/arc 精确（其他曲线跳过并计数提示）；面投影/PIERCE 未接；
- * 样条/投影源不入候选；非平行平面的圆/弧由后端诚实拒收。Esc 结束。
+ * 2026-11-21 S1b：同一只读通道扩展**平面面**（`readBrepFaceHandles` +
+ * `resolveFaceRef`）——面边界外环/孔环画虚线；面命中=指针在屏幕外环多边形内
+ * 且不在孔环内（边/端点/曲线先行命中优先，不回归既有拾取）。点击交给宿主
+ * 构造 `source.kind="bodyFace"` + `loops:"outer"` 的 externalRefs 行。
+ *
+ * 边界：边仅 line/arc 精确、面任一环含 other 曲线整面跳过（计数提示）；
+ * PIERCE/面环选项（外环/全部环）未接，固定 outer（真栈证据：带孔面只投影
+ * 外环）；样条/投影源不入候选；非平行平面的圆/弧由后端诚实拒收。Esc 结束。
  */
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,8 +32,12 @@ import { sketchEntitiesToWorldPolylines, type SketchEntityPolyline } from '../in
 import { curveDistance, HIT_CURVE_PX } from '../internal/sketch-entity-picker.js';
 import { isUsableSourceEntity } from '../internal/sketch-use.js';
 import {
+  faceLoopContainsPoint,
   loadSketchUseBodyCandidates,
+  loadSketchUseFaceCandidates,
   type SketchUseBodyCandidate,
+  type SketchUseFaceCandidate,
+  type SketchUseModelCandidate,
 } from '../internal/sketch-use-candidates.js';
 import type { BrepEdgeCurve } from '../internal/brep-topology.js';
 import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
@@ -50,8 +60,8 @@ export interface SketchUseOverlayProps {
   /** S1：同 Part Studio 的 body 读面（模型边候选来源；缺省=无体候选）。 */
   bodies?: readonly BodyInfo[];
   onPick: (pick: SketchUsePick) => void | Promise<void>;
-  /** S1：模型边/端点拾取（宿主构造 externalRefs 行并 applyUpdate）。 */
-  onPickBody: (candidate: SketchUseBodyCandidate) => void | Promise<void>;
+  /** S1/S1b：模型边/端点/平面面拾取（宿主构造 externalRefs 行并 applyUpdate）。 */
+  onPickBody: (candidate: SketchUseModelCandidate) => void | Promise<void>;
   onError: (message: string) => void;
   onCancel: () => void;
 }
@@ -64,7 +74,8 @@ interface SourceGeometry {
 
 type Hover =
   | { kind: 'sketch'; sketchId: string; entityId: number }
-  | { kind: 'body'; bodyKey: string; subEntityId: number; part: SketchUseBodyCandidate['part'] };
+  | { kind: 'body'; bodyKey: string; subEntityId: number; part: SketchUseBodyCandidate['part'] }
+  | { kind: 'face'; bodyKey: string; subEntityId: number };
 
 const toPoint3d = (tuple: readonly [number, number, number]): Point3d =>
   new Point3d(tuple[0], tuple[1], tuple[2]);
@@ -137,6 +148,7 @@ export function SketchUseOverlay({
   const [loading, setLoading] = React.useState(true);
   const [hover, setHover] = React.useState<Hover | null>(null);
   const [bodyCandidates, setBodyCandidates] = React.useState<SketchUseBodyCandidate[]>([]);
+  const [faceCandidates, setFaceCandidates] = React.useState<SketchUseFaceCandidate[]>([]);
   const [bodyLoading, setBodyLoading] = React.useState(false);
   const [bodyNote, setBodyNote] = React.useState<string | undefined>(undefined);
   const sourceKey = sourceSketchIds.join(',');
@@ -184,13 +196,14 @@ export function SketchUseOverlay({
     // sourceKey 是 sourceSketchIds 的稳定内容键（数组每次渲染可能新引用）。
   }, [connection.key, partStudioId, sourceKey, onError, t, sourceSketchIds]);
 
-  // S1：模型边候选（同一只读 BRep 通道；动态 import 避免把 editor 通道打进
-  // 非 Use 路径，与 e2e 观测面同款）。读面不可用/无 body 时静默跳过。
+  // S1/S1b：模型边/端点 + 平面面候选（同一只读 BRep 通道；动态 import 避免把
+  // editor 通道打进非 Use 路径，与 e2e 观测面同款）。读面不可用/无 body 时静默跳过。
   React.useEffect(() => {
     let disposed = false;
     const list = bodies ?? [];
     if (list.length === 0) {
       setBodyCandidates([]);
+      setFaceCandidates([]);
       setBodyLoading(false);
       setBodyNote(undefined);
       return;
@@ -198,39 +211,66 @@ export function SketchUseOverlay({
     setBodyLoading(true);
     void (async () => {
       try {
-        const [{ readBrepEdgeHandles }, { withExclusiveBrepCommand }] = await Promise.all([
+        const [{ readBrepEdgeHandles, readBrepFaceHandles }, { withExclusiveBrepCommand }] = await Promise.all([
           import('../internal/brep-topology.js'),
           import('../internal/brep-command-coordinator.js'),
         ]);
-        if (typeof readBrepEdgeHandles !== 'function') {
+        const hasEdgeReader = typeof readBrepEdgeHandles === 'function';
+        const hasFaceReader = typeof readBrepFaceHandles === 'function';
+        if (!hasEdgeReader && !hasFaceReader) {
           if (!disposed) {
             setBodyCandidates([]);
+            setFaceCandidates([]);
             setBodyLoading(false);
           }
           return;
         }
-        const result = await withExclusiveBrepCommand(() => loadSketchUseBodyCandidates({
-          iModelKey: connection.key,
-          bodies: list,
-          readEdges: readBrepEdgeHandles,
-          resolveEdgeRef: (iModelKey, bodyKey, subEntityId) =>
-            LubanFeatureRpcInterface.getClient().resolveEdgeRef(iModelKey, bodyKey, subEntityId),
+        // 两个只读命令共享同一 editor 命令槽：在一次独占任务内顺序执行，
+        // 不新增命令槽/拾取管道（hover 只 suspend/resume 一次）。
+        const { edges, faces } = await withExclusiveBrepCommand(async () => ({
+          edges: hasEdgeReader
+            ? await loadSketchUseBodyCandidates({
+              iModelKey: connection.key,
+              bodies: list,
+              readEdges: readBrepEdgeHandles,
+              resolveEdgeRef: (iModelKey, bodyKey, subEntityId) =>
+                LubanFeatureRpcInterface.getClient().resolveEdgeRef(iModelKey, bodyKey, subEntityId),
+            })
+            : { candidates: [], skipped: 0, errors: ['read-edges-unavailable' as const] },
+          faces: hasFaceReader
+            ? await loadSketchUseFaceCandidates({
+              iModelKey: connection.key,
+              bodies: list,
+              readFaces: readBrepFaceHandles,
+              resolveFaceRef: (iModelKey, bodyKey, subEntityId) =>
+                LubanFeatureRpcInterface.getClient().resolveFaceRef(iModelKey, bodyKey, subEntityId),
+            })
+            : { candidates: [], skipped: 0, errors: ['read-faces-unavailable' as const] },
         }));
         if (disposed)
           return;
-        setBodyCandidates(result.candidates);
+        setBodyCandidates(edges.candidates);
+        setFaceCandidates(faces.candidates);
         setBodyLoading(false);
-        const unsupported = result.errors.filter((code) => code === 'unsupported-curve').length;
-        const resolveFailed = result.errors.filter((code) => code === 'resolve-failed').length;
+        const unsupportedEdges = edges.errors.filter((code) => code === 'unsupported-curve').length;
+        const unsupportedFaces = faces.errors.filter((code) => code === 'unsupported-curve').length;
+        const resolveFailed = edges.errors.filter((code) => code === 'resolve-failed').length
+          + faces.errors.filter((code) => code === 'resolve-failed').length;
+        const noOuterLoop = faces.errors.filter((code) => code === 'no-outer-loop').length;
         const notes: string[] = [];
-        if (unsupported > 0)
-          notes.push(t('partStudio.sketch.useBodyEdgeUnsupported', { count: unsupported }));
+        if (unsupportedEdges > 0)
+          notes.push(t('partStudio.sketch.useBodyEdgeUnsupported', { count: unsupportedEdges }));
+        if (unsupportedFaces > 0)
+          notes.push(t('partStudio.sketch.useFaceUnsupported', { count: unsupportedFaces }));
+        if (noOuterLoop > 0)
+          notes.push(t('partStudio.sketch.useFaceLoopUnsupported', { count: noOuterLoop }));
         if (resolveFailed > 0)
           notes.push(t('partStudio.sketch.useResolveFailed', { count: resolveFailed }));
         setBodyNote(notes.length > 0 ? notes.join(' ') : undefined);
       } catch {
         if (!disposed) {
           setBodyCandidates([]);
+          setFaceCandidates([]);
           setBodyLoading(false);
           setBodyNote(undefined);
         }
@@ -261,6 +301,14 @@ export function SketchUseOverlay({
       }))
       .filter((entry): entry is { candidate: SketchUseBodyCandidate; position: Point3d } => entry.position !== undefined),
     [bodyCandidates],
+  );
+  // S1b：面边界折线（世界坐标；仅显示/命中用，数据事实源在后端投影）。
+  const faceLoops = React.useMemo(
+    () => faceCandidates.map((candidate) => ({
+      candidate,
+      polylines: candidate.loops.map((loop) => loop.map(toPoint3d)),
+    })),
+    [faceCandidates],
   );
 
   const draw = React.useCallback((): void => {
@@ -319,6 +367,14 @@ export function SketchUseOverlay({
         && hover.part === 'curve';
       strokePolyline(entry.points, highlighted, false);
     }
+    // S1b：面边界（外环 + 孔环）虚线；悬停整面高亮。
+    for (const entry of faceLoops) {
+      const highlighted = hover?.kind === 'face'
+        && hover.bodyKey === entry.candidate.bodyKey
+        && hover.subEntityId === entry.candidate.subEntityId;
+      for (const points of entry.polylines)
+        strokePolyline(points, highlighted, false);
+    }
     ctx.setLineDash([]);
     for (const source of sources) {
       for (const point of source.points) {
@@ -343,7 +399,7 @@ export function SketchUseOverlay({
       ctx.fillStyle = highlighted ? 'rgba(245, 166, 65, 0.95)' : 'rgba(110, 140, 190, 0.85)';
       ctx.fill();
     }
-  }, [sources, bodyCurves, bodyEndpoints, hover, viewport]);
+  }, [sources, bodyCurves, faceLoops, bodyEndpoints, hover, viewport]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {
@@ -414,8 +470,51 @@ export function SketchUseOverlay({
           distance,
         };
     }
-    return curveBest?.hover ?? null;
-  }, [sources, bodyCurves, bodyEndpoints, viewport]);
+    // 边/端点优先；面只在没有边/点命中时按屏幕多边形命中（外环内、孔环外）。
+    if (curveBest)
+      return curveBest.hover;
+
+    const view = viewport.view;
+    const eye = view.is3d() ? view.getEyePoint() : undefined;
+    let faceBest: { hover: Hover; distance: number } | null = null;
+    for (const entry of faceLoops) {
+      const screenLoops = entry.polylines.map((points) => points.map((world) => {
+        const view = viewport.worldToView(world);
+        return { x: view.x, y: view.y };
+      }));
+      const outerIndex = entry.candidate.outerLoopIndex;
+      const outer = screenLoops[outerIndex] ?? [];
+      if (outer.length < 3)
+        continue;
+      const holes = screenLoops.filter((_, loopIndex) => loopIndex !== outerIndex);
+      if (!faceLoopContainsPoint(point, { outer, holes }))
+        continue;
+      // 多面在屏幕重叠时取离相机最近的面（视点距离；无额外拾取通道）。
+      const worldOuter = entry.polylines[outerIndex] ?? [];
+      const count = Math.max(1, worldOuter.length);
+      let centerX = 0;
+      let centerY = 0;
+      let centerZ = 0;
+      for (const vertex of worldOuter) {
+        centerX += vertex.x;
+        centerY += vertex.y;
+        centerZ += vertex.z;
+      }
+      const distance = eye
+        ? Math.hypot(eye.x - centerX / count, eye.y - centerY / count, eye.z - centerZ / count)
+        : 0;
+      if (faceBest === null || distance < faceBest.distance)
+        faceBest = {
+          hover: {
+            kind: 'face',
+            bodyKey: entry.candidate.bodyKey,
+            subEntityId: entry.candidate.subEntityId,
+          },
+          distance,
+        };
+    }
+    return faceBest?.hover ?? null;
+  }, [sources, bodyCurves, bodyEndpoints, faceLoops, viewport]);
 
   const localPoint = React.useCallback((event: React.PointerEvent | React.MouseEvent): { x: number; y: number } => {
     const rect = viewport.canvas.getBoundingClientRect();
@@ -431,6 +530,8 @@ export function SketchUseOverlay({
       return a.sketchId === b.sketchId && a.entityId === b.entityId;
     if (a.kind === 'body' && b.kind === 'body')
       return a.bodyKey === b.bodyKey && a.subEntityId === b.subEntityId && a.part === b.part;
+    if (a.kind === 'face' && b.kind === 'face')
+      return a.bodyKey === b.bodyKey && a.subEntityId === b.subEntityId;
     return false;
   };
 
@@ -452,6 +553,13 @@ export function SketchUseOverlay({
         void onPickBody(candidate);
       return;
     }
+    if (hit.kind === 'face') {
+      const candidate = faceCandidates.find((entry) => entry.bodyKey === hit.bodyKey
+        && entry.subEntityId === hit.subEntityId);
+      if (candidate)
+        void onPickBody(candidate);
+      return;
+    }
     const source = sources.find((entry) => entry.sketch.id === hit.sketchId);
     if (!source)
       return;
@@ -459,7 +567,7 @@ export function SketchUseOverlay({
     if (!entity)
       return;
     void onPick({ sketch: source.sketch, entity });
-  }, [findHit, localPoint, onPick, onPickBody, sources, bodyCandidates]);
+  }, [findHit, localPoint, onPick, onPickBody, sources, bodyCandidates, faceCandidates]);
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -475,7 +583,7 @@ export function SketchUseOverlay({
 
   const basePrompt = loading || bodyLoading
     ? t('partStudio.sketch.useLoading')
-    : sources.length === 0 && bodyCandidates.length === 0
+    : sources.length === 0 && bodyCandidates.length === 0 && faceCandidates.length === 0
       ? t('partStudio.sketch.useEmpty')
       : t('partStudio.sketch.usePrompt');
   const prompt = bodyNote ? `${basePrompt} ${bodyNote}` : basePrompt;
@@ -495,7 +603,13 @@ export function SketchUseOverlay({
         onPointerLeave={() => setHover(null)}
         onClick={handleClick}
       />
-      <div className="part-studio-pattern-prompt" data-testid="sketch-use-prompt">
+      <div
+        className="part-studio-pattern-prompt"
+        data-testid="sketch-use-prompt"
+        data-edge-candidates={bodyCandidates.length}
+        data-face-candidates={faceCandidates.length}
+        data-hover-kind={hover?.kind ?? ''}
+      >
         {prompt}
       </div>
     </React.Fragment>

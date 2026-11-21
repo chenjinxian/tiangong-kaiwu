@@ -2,8 +2,9 @@
  * 草图「使用」纯逻辑（2026-11-13）：投影根实体快照、id 分配、平面支持判定。
  */
 import { describe, expect, it } from 'vitest';
-import type { SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
+import type { SketchEntityDto, SketchExternalReferenceDto, SketchPlaneDto } from '@luban-cad/shared';
 import {
+  buildBodyFaceExternalRefRow,
   buildProjectedSketchEntity,
   isUsableSourceEntity,
   nextProjectedRootId,
@@ -127,5 +128,66 @@ describe('buildProjectedSketchEntity', () => {
     const degenerate: SketchEntityDto = { kind: 'line', id: 31, p1: { x: 1, y: 1 }, p2: { x: 1, y: 1 } };
     expect(buildProjectedSketchEntity({ id: 's', plane: XY, entities: [degenerate] }, degenerate, target()))
       .toEqual({ ok: false, error: 'degenerate-source' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S1b（2026-11-21）：bodyFace（外环）externalRefs 行
+// ---------------------------------------------------------------------------
+
+const bodyFaceRef = (id: number, entityIds: number[]): SketchExternalReferenceDto => ({
+  id,
+  kind: 'project',
+  source: { kind: 'bodyFace', bodyId: 'body-a', topologyRef: { nodeId: 1, entityId: id }, loops: 'outer' },
+  entityIds,
+});
+
+describe('buildBodyFaceExternalRefRow', () => {
+  const base = {
+    id: 5,
+    bodyKey: 'body-a',
+    topologyRef: { nodeId: 7, entityId: 8 },
+    blockLength: 12,
+    entities: [] as readonly SketchEntityDto[],
+    constraints: [] as readonly { id: number }[],
+    externalRefs: [] as readonly SketchExternalReferenceDto[],
+  };
+
+  it('kind=project、source=bodyFace loops=outer、恰好 blockLength 连块', () => {
+    expect(buildBodyFaceExternalRefRow(base)).toEqual({
+      id: 5,
+      kind: 'project',
+      source: {
+        kind: 'bodyFace', bodyId: 'body-a', topologyRef: { nodeId: 7, entityId: 8 }, loops: 'outer',
+      },
+      entityIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    });
+  });
+
+  it('在既有引用块之后分配（不重叠、不截断）', () => {
+    const row = buildBodyFaceExternalRefRow({
+      ...base,
+      entities: [{ kind: 'point', id: 1 }, { kind: 'point', id: 2 }],
+      constraints: [{ id: 3 }],
+      externalRefs: [bodyFaceRef(1, [4, 5, 6])],
+    });
+    expect(row).toMatchObject({ entityIds: [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18] });
+  });
+
+  it('避开本地实体 id（块内含占用即整体前移）', () => {
+    const row = buildBodyFaceExternalRefRow({
+      ...base,
+      entities: [{ kind: 'point', id: 3 }],
+    });
+    expect(row).toMatchObject({
+      entityIds: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    });
+  });
+
+  it('非法/超大块长诚实失败（不静默截断）', () => {
+    for (const blockLength of [0, -1, 1.5, Number.NaN, 4097]) {
+      expect(buildBodyFaceExternalRefRow({ ...base, blockLength }))
+        .toEqual({ ok: false, error: 'no-entity-block' });
+    }
   });
 });

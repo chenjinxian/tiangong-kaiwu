@@ -9,8 +9,9 @@
  * 合成——本模块只负责选择/平面支持判定/根实体快照与 id 分配。
  *
  * 诚实边界：
- * - 2026-11-21 S1 起模型边（bodyEdge）走 externalRefs 通道；面源/PIERCE 仍
- *   `projection-unsupported`（S2+ gated），无假入口；
+ * - 2026-11-21 S1 起模型边（bodyEdge）走 externalRefs 通道；S1b 起平面面
+ *   （bodyFace loops=outer）同通道（外环块长按后端 line=3/arc=2 口径）；PIERCE/
+ *   INTERSECTED/SILHOUETTED 仍 `projection-unsupported`（gated，无假入口）；
  * - circle/arc 仅在平行平面间保形（非平行是椭圆，后端拒收）；
  * - 样条/投影源/自身 sketch 不入候选。
  */
@@ -287,6 +288,48 @@ export function buildBodyEdgeExternalRefRow(
       ...(args.part === 'curve' ? {} : { part: args.part }),
     },
     entityIds,
+  };
+}
+
+/** 面外环实体块上限（防御性：异常块长不得静默截断或退化为长时间搜索）。 */
+export const MAX_BODY_FACE_BLOCK_IDS = 4096;
+
+export interface BuildBodyFaceExternalRefRowArgs {
+  id: number;
+  bodyKey: string;
+  topologyRef: LubanTopologyId;
+  /** 外环实体块长（后端口径：line=3、arc/circle=2 逐曲线累加）。 */
+  blockLength: number;
+  entities: readonly SketchEntityDto[];
+  constraints: readonly { id: number }[];
+  externalRefs: readonly SketchExternalReferenceDto[];
+}
+
+/**
+ * 模型面拾取 → 持久外部引用行（`kind=project` 外环投影，v1.85 bodyFace 契约）。
+ * 恰好分配 `blockLength` 个连续实体 id；块分配失败/块长非法或超限诚实返回
+ * `no-entity-block`（不猜 id、不覆盖既有实体、不静默截断）。
+ */
+export function buildBodyFaceExternalRefRow(
+  args: BuildBodyFaceExternalRefRowArgs,
+): SketchExternalReferenceDto | { ok: false; error: 'no-entity-block' } {
+  if (!Number.isInteger(args.blockLength)
+    || args.blockLength <= 0
+    || args.blockLength > MAX_BODY_FACE_BLOCK_IDS)
+    return { ok: false, error: 'no-entity-block' };
+  const start = nextEntityBlockStart(args.entities, args.constraints, args.externalRefs, args.blockLength);
+  if (start === undefined)
+    return { ok: false, error: 'no-entity-block' };
+  return {
+    id: args.id,
+    kind: 'project',
+    source: {
+      kind: 'bodyFace',
+      bodyId: args.bodyKey,
+      topologyRef: args.topologyRef,
+      loops: 'outer',
+    },
+    entityIds: Array.from({ length: args.blockLength }, (_, offset) => start + offset),
   };
 }
 

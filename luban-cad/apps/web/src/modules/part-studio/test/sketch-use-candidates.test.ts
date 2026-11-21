@@ -13,8 +13,13 @@ import {
   nextExternalRefId,
   projectionFailureMessage,
 } from '../internal/sketch-use.js';
-import { loadSketchUseBodyCandidates } from '../internal/sketch-use-candidates.js';
-import type { BrepEdgeHandle } from '../internal/brep-topology.js';
+import {
+  faceLoopContainsPoint,
+  loadSketchUseBodyCandidates,
+  loadSketchUseFaceCandidates,
+  pointInPolygon,
+} from '../internal/sketch-use-candidates.js';
+import type { BrepEdgeHandle, BrepFaceHandle, BrepFaceLoopCurve } from '../internal/brep-topology.js';
 
 const bodyEdgeRef = (
   id: number,
@@ -210,5 +215,223 @@ describe('loadSketchUseBodyCandidates', () => {
     });
     expect(unavailable.candidates).toEqual([]);
     expect(unavailable.errors).toContain('read-edges-unavailable');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S1b（2026-11-21）：平面面候选（bodyFace loops=outer）
+// ---------------------------------------------------------------------------
+
+type Vec3 = [number, number, number];
+
+const faceLine = (p0: Vec3, p1: Vec3): BrepFaceLoopCurve => ({ kind: 'line', p0, p1 });
+const faceArc = (
+  center: Vec3,
+  radius: number,
+  start: Vec3,
+  end: Vec3,
+  sweepRadians: number,
+  normal: Vec3 = [0, 0, 1],
+): BrepFaceLoopCurve => ({ kind: 'arc', center, radius, normal, start, end, sweepRadians });
+
+const squareLoop = (halfSize: number, z = 10): BrepFaceLoopCurve[] => [
+  faceLine([-halfSize, -halfSize, z], [halfSize, -halfSize, z]),
+  faceLine([halfSize, -halfSize, z], [halfSize, halfSize, z]),
+  faceLine([halfSize, halfSize, z], [-halfSize, halfSize, z]),
+  faceLine([-halfSize, halfSize, z], [-halfSize, -halfSize, z]),
+];
+
+const faceHandle = (loops: BrepFaceLoopCurve[][], subEntityId = 21): BrepFaceHandle => ({
+  bodyKey: 'body-a',
+  subEntityId,
+  range: { low: [-10, -10, 10], high: [10, 10, 10] },
+  normal: [0, 0, 1],
+  loops,
+});
+
+const faceRef = { nodeId: 4, entityId: 9 };
+
+const resolveFaceOk = () => vi.fn(async () => ({ ok: true, ref: faceRef }));
+
+describe('loadSketchUseFaceCandidates', () => {
+  it('4 线外环 + 孔环 → blockLength 12、outerLoopIndex 指向外环（孔被忽略）', async () => {
+    const readFaces = vi.fn(async () => [faceHandle([squareLoop(2), squareLoop(10)])]);
+    const resolveFaceRef = resolveFaceOk();
+    const result = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces,
+      resolveFaceRef,
+    });
+
+    expect(readFaces).toHaveBeenCalledWith('model-key', bodies);
+    expect(result.errors).toEqual([]);
+    expect(result.skipped).toBe(0);
+    expect(result.candidates).toHaveLength(1);
+    const candidate = result.candidates[0]!;
+    expect(candidate.kind).toBe('face');
+    expect(candidate.bodyKey).toBe('body-a');
+    expect(candidate.subEntityId).toBe(21);
+    expect(candidate.topologyRef).toEqual(faceRef);
+    expect(candidate.blockLength).toBe(12);
+    expect(candidate.outerLoopIndex).toBe(1);
+    expect(candidate.loops).toHaveLength(2);
+    // 每环闭合折线（首尾重合；线环 5 点）。
+    expect(candidate.loops[0]).toHaveLength(5);
+    expect(candidate.loops[0]![0]).toEqual(candidate.loops[0]!.at(-1));
+    expect(resolveFaceRef).toHaveBeenCalledWith('model-key', 'body-a', 21);
+  });
+
+  it('外环含一段弧 → 块长 3+2；整圆外环 → 2', async () => {
+    const halfDisk = [
+      faceLine([-10, 0, 10], [10, 0, 10]),
+      faceArc([0, 0, 10], 10, [10, 0, 10], [-10, 0, 10], Math.PI),
+    ];
+    const halfDiskResult = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces: vi.fn(async () => [faceHandle([halfDisk])]),
+      resolveFaceRef: resolveFaceOk(),
+    });
+    expect(halfDiskResult.errors).toEqual([]);
+    expect(halfDiskResult.candidates[0]?.blockLength).toBe(5);
+    expect(halfDiskResult.candidates[0]?.outerLoopIndex).toBe(0);
+
+    const disk = [faceArc([0, 0, 10], 10, [10, 0, 10], [10, 0, 10], Math.PI * 2)];
+    const diskResult = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces: vi.fn(async () => [faceHandle([disk])]),
+      resolveFaceRef: resolveFaceOk(),
+    });
+    expect(diskResult.errors).toEqual([]);
+    expect(diskResult.candidates[0]?.blockLength).toBe(2);
+    expect(diskResult.candidates[0]?.loops[0]!.length).toBeGreaterThan(8);
+  });
+
+  it('任一环含 other 曲线 → 整面跳过（unsupported-curve）', async () => {
+    const resolveFaceRef = resolveFaceOk();
+    const result = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces: vi.fn(async () => [
+        faceHandle([squareLoop(10), [{ kind: 'other', geometryType: 'BsplineCurve' }]]),
+      ]),
+      resolveFaceRef,
+    });
+    expect(result.candidates).toEqual([]);
+    expect(result.skipped).toBe(1);
+    expect(result.errors).toEqual(['unsupported-curve']);
+    expect(resolveFaceRef).not.toHaveBeenCalled();
+  });
+
+  it('resolveFaceRef 失败/缺失 → 逐面跳过（resolve-failed）', async () => {
+    const resolveFaceRef = vi.fn(async () => ({ ok: false, error: '面不存在' }));
+    const failed = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces: vi.fn(async () => [faceHandle([squareLoop(10)])]),
+      resolveFaceRef,
+    });
+    expect(failed.candidates).toEqual([]);
+    expect(failed.skipped).toBe(1);
+    expect(failed.errors).toEqual(['resolve-failed']);
+
+    const missing = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces: vi.fn(async () => [faceHandle([squareLoop(10)])]),
+      resolveFaceRef: vi.fn(async () => ({ ok: true })),
+    });
+    expect(missing.candidates).toEqual([]);
+    expect(missing.errors).toEqual(['resolve-failed']);
+  });
+
+  it('退化环/等面积双环/开口环 → no-outer-loop 跳过', async () => {
+    const collinear: BrepFaceLoopCurve[] = [
+      faceLine([-10, 0, 10], [0, 0, 10]),
+      faceLine([0, 0, 10], [10, 0, 10]),
+      faceLine([10, 0, 10], [-10, 0, 10]),
+    ];
+    const equalSquares = [
+      [
+        faceLine([-10, -10, 10], [0, -10, 10]),
+        faceLine([0, -10, 10], [0, 0, 10]),
+        faceLine([0, 0, 10], [-10, 0, 10]),
+        faceLine([-10, 0, 10], [-10, -10, 10]),
+      ],
+      [
+        faceLine([0, 0, 10], [10, 0, 10]),
+        faceLine([10, 0, 10], [10, 10, 10]),
+        faceLine([10, 10, 10], [0, 10, 10]),
+        faceLine([0, 10, 10], [0, 0, 10]),
+      ],
+    ];
+    const open: BrepFaceLoopCurve[] = [
+      faceLine([-10, -10, 10], [10, -10, 10]),
+      faceLine([10, -10, 10], [10, 10, 10]),
+      faceLine([10, 10, 10], [-10, 10, 10]),
+    ];
+    const resolveFaceRef = resolveFaceOk();
+    const result = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces: vi.fn(async () => [
+        faceHandle([collinear]),
+        faceHandle(equalSquares),
+        faceHandle([open]),
+        faceHandle([]),
+      ]),
+      resolveFaceRef,
+    });
+    expect(result.candidates).toEqual([]);
+    expect(result.skipped).toBe(4);
+    expect(result.errors).toEqual(['no-outer-loop', 'no-outer-loop', 'no-outer-loop', 'no-outer-loop']);
+    expect(resolveFaceRef).not.toHaveBeenCalled();
+  });
+
+  it('无 body → 空结果不读面；读面通道不可用 → read-faces-unavailable', async () => {
+    const readFaces = vi.fn(async () => undefined);
+    const empty = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies: [],
+      readFaces,
+      resolveFaceRef: vi.fn(),
+    });
+    expect(empty).toEqual({ candidates: [], skipped: 0, errors: [] });
+    expect(readFaces).not.toHaveBeenCalled();
+
+    const unavailable = await loadSketchUseFaceCandidates({
+      iModelKey: 'model-key',
+      bodies,
+      readFaces,
+      resolveFaceRef: vi.fn(),
+    });
+    expect(unavailable.candidates).toEqual([]);
+    expect(unavailable.errors).toEqual(['read-faces-unavailable']);
+  });
+});
+
+describe('face screen hit helpers', () => {
+  const square = (x: number, y: number, half: number) => [
+    { x: x - half, y: y - half },
+    { x: x + half, y: y - half },
+    { x: x + half, y: y + half },
+    { x: x - half, y: y + half },
+    { x: x - half, y: y - half },
+  ];
+
+  it('pointInPolygon：内外/边界外；闭合重复点不影响', () => {
+    const outer = square(0, 0, 10);
+    expect(pointInPolygon({ x: 0, y: 0 }, outer)).toBe(true);
+    expect(pointInPolygon({ x: 9.9, y: -9.9 }, outer)).toBe(true);
+    expect(pointInPolygon({ x: 11, y: 0 }, outer)).toBe(false);
+  });
+
+  it('faceLoopContainsPoint：孔内不命中，外环内孔外命中', () => {
+    const loops = { outer: square(0, 0, 10), holes: [square(0, 0, 2)] };
+    expect(faceLoopContainsPoint({ x: 0, y: 0 }, loops)).toBe(false);
+    expect(faceLoopContainsPoint({ x: 5, y: 5 }, loops)).toBe(true);
+    expect(faceLoopContainsPoint({ x: 20, y: 0 }, loops)).toBe(false);
   });
 });
