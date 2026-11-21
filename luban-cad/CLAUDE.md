@@ -314,8 +314,8 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   status 1、恢复 → 4000。回归 `sketch-projection`/`sketch-use` **3 passed**、后端全量
   **1203 passed + 1 expected fail + 8 skipped（121 files）**、shared **337/337**、
   web **2750/2750**（173 files）；能力账本 `sketch.externalRefs.modelEdge=partial`。
-  残：bodyFace/INTERSECTED/SILHOUETTED（S3/S4）；样条/椭圆非精确拒绝；
-  投影样式/offset UI 未采。**S2 PIERCE（同日）**：模型边 line/arc × 草图平面
+  残（S1 时点）：bodyFace/INTERSECTED/SILHOUETTED（S3/S4；bodyFace 见下 S3）；
+  样条/椭圆非精确拒绝；投影样式/offset UI 未采。**S2 PIERCE（同日）**：模型边 line/arc × 草图平面
   精确求交（`appendPlaneIntersectionPoints`，弧按本体扫掠过滤、直线按 [0,1] 过滤；
   0/切点/多交点/in-plane/spline/椭圆全部失败封闭）；PIERCE 行 `entityIds: []` +
   `localEntityId` 指向本地 point/线端点，求解内部展开为隐藏 fixed 交点 + coincident
@@ -330,6 +330,24 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   `sketch.externalRefs.pierce=partial`。残：UI「穿透」工具 gated（live 选项/失败提示
   未采）、样条 PIERCE blocked、仅源 body 变化时其他约束的整图重解待后续切片、
   INTERSECTED/SILHOUETTED（S4）。
+  **S3 bodyFace（同日）**：平面面边界读取（`facesFromId` → Loop/ParityRegion，
+  `CurveOps.isPlanar` 几何平面判据——native `isPlanarFace` 对带孔平面面返回 false，
+  不可作门；多面片 → ambiguous）→ 外环/孔环分类（面内包含关系，恰一外环）→ 逐边
+  精确 line/真圆弧/整圆投影（line=3、arc/circle=2 连续子块；曲面/样条/椭圆/开口环
+  任一即**整面拒收**，不产出半环）；`loops:"outer"|"all"`、块长漂移 →
+  `sourceChangedType`、写面块长不符 → `unsupported` 零变更；body placement 入世界
+  坐标。验证：私有 StandaloneDb `SketchFaceProjectionFlow` **8/8**（顶面外环
+  400/拉伸 4000 与改源宽 6000、孔面 400−4π/4π、曲面/样条/椭圆拒收、块长/省略/
+  前向/跨 scope/快照/preview 隔离）；后端全量 **1232 passed + 1 expected fail +
+  8 skipped（124 files）**、tsc/eslint 绿。真栈 `sketch-face-projection.spec.ts`
+  **3 用例分窗 passed**（同一 15min 窗连跑会触发 MS 100 限流 429，按窗口分跑）：
+  盒体顶面 4 线 → 12 实体/area 400/DOF 0/消费体 4000 → 源宽 30 → 600/6000 →
+  原生 undo/redo（400/4000 ↔ 600/6000）→ push+冷重开 6000/ok；通孔顶面
+  loops=all → 14 实体（4 线+整圆）/双面域 400−4π 与 4π/消费体 (400−4π)×10 +
+  冷重开；失败：删源拒收、抑制 → `projection-source-missing`/consumer status 1/
+  无投影曲线、恢复 → 4000。能力账本 `sketch.externalRefs.bodyFace=partial`。
+  残：UI 面选择器/「外环·全部环」选项/失败提示无 live 证据仍 gated；
+  INTERSECTED/SILHOUETTED（S4 条件性）。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
