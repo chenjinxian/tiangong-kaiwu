@@ -323,9 +323,13 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   本地点，失败时省略坐标，源抑制/改参联动；updateVariables 保留 externalRefs；预览
   影子表隔离。验证：后端全量 **1224 passed + 1 expected fail + 8 skipped（123 files）**、
   私有 `SketchPierce` 2/2 + `SketchPierceFlow` 15/15（S1/legacy 37 不变）、tsc/eslint
-  绿；能力账本 `sketch.externalRefs.pierce=partial`。残：UI「穿透」工具 gated（live
-  选项/失败提示未采）、样条 PIERCE blocked、仅源 body 变化时其他约束的整图重解待后续
-  切片、INTERSECTED/SILHOUETTED（S4）。
+  绿；真栈 RPC `sketch-pierce.spec.ts` **2 passed**：z=5 草图点 PIERCE 到竖边 →
+  (20,0)/DOF 0，消费三角形 400 mm³，改源宽 30 → (30,0)/600 mm³、push+冷重开；平行边
+  → `projection-pierce-miss`，抑制源 → failed/无旧坐标/恢复 ok；回归 `sketch-projection-
+  body`/`sketch-projection`/`sketch-use` **5 passed**；能力账本
+  `sketch.externalRefs.pierce=partial`。残：UI「穿透」工具 gated（live 选项/失败提示
+  未采）、样条 PIERCE blocked、仅源 body 变化时其他约束的整图重解待后续切片、
+  INTERSECTED/SILHOUETTED（S4）。
 
 - **绘制中贴边读数（2026-11-16 W11，纯前端；AIRR 同上 §10）**：拐角矩形/
   中心矩形拖动时宽/高数值以蓝色文字沿对应边旋转显示在边中点外侧（无白卡/
