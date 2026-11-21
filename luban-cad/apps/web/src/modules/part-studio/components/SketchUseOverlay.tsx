@@ -8,21 +8,33 @@
  * 树序取最近的），把 line/circle/arc 画成灰色虚线候选；指针悬停高亮、点击
  * 交给宿主生成 projected 根实体（后端 updateSketch 实时重投影）。
  *
- * 边界：仅草图源（实体边/面未接）；样条/投影源不入候选；非平行平面的圆/弧
- * 可点但由宿主诚实拒收（后端同样拒收）。Esc 结束。
+ * 2026-11-21 S1：候选来源扩展**模型边/边端点**（同一 Part Studio 的 active
+ * authored body）——复用既有 `readBrepEdgeHandles` + `resolveEdgeRef` 通道，
+ * 经 `withExclusiveBrepCommand` 串行（不新增工具族/选择管道）。边曲线虚线、
+ * 端点圆点；端点优先 6 px 命中，点击交给宿主构造 externalRefs 行。
+ *
+ * 边界：仅 line/arc 精确（其他曲线跳过并计数提示）；面投影/PIERCE 未接；
+ * 样条/投影源不入候选；非平行平面的圆/弧由后端诚实拒收。Esc 结束。
  */
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
+import type { BodyInfo, SketchDto, SketchEntityDto } from '@luban-cad/shared';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
 import type { BriefcaseConnection, ScreenViewport } from '@itwin/core-frontend';
+import { Point3d } from '@itwin/core-geometry';
 import { sketchEntitiesToWorldPolylines, type SketchEntityPolyline } from '../internal/sketch-curves.js';
 import { curveDistance, HIT_CURVE_PX } from '../internal/sketch-entity-picker.js';
 import { isUsableSourceEntity } from '../internal/sketch-use.js';
+import {
+  loadSketchUseBodyCandidates,
+  type SketchUseBodyCandidate,
+} from '../internal/sketch-use-candidates.js';
+import type { BrepEdgeCurve } from '../internal/brep-topology.js';
 import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
-import type { Point3d } from '@itwin/core-geometry';
 
 const MAX_SOURCE_SKETCHES = 8;
+/** 端点命中优先半径（px；曲线沿用 HIT_CURVE_PX）。 */
+const HIT_ENDPOINT_PX = 6;
 
 export interface SketchUsePick {
   sketch: SketchDto;
@@ -35,7 +47,11 @@ export interface SketchUseOverlayProps {
   partStudioId?: string;
   /** 当前草图之前的同 Part Studio 草图 id（树序；取最近 8 张）。 */
   sourceSketchIds: readonly string[];
+  /** S1：同 Part Studio 的 body 读面（模型边候选来源；缺省=无体候选）。 */
+  bodies?: readonly BodyInfo[];
   onPick: (pick: SketchUsePick) => void | Promise<void>;
+  /** S1：模型边/端点拾取（宿主构造 externalRefs 行并 applyUpdate）。 */
+  onPickBody: (candidate: SketchUseBodyCandidate) => void | Promise<void>;
   onError: (message: string) => void;
   onCancel: () => void;
 }
@@ -46,12 +62,72 @@ interface SourceGeometry {
   points: Array<{ entityId: number; position: Point3d }>;
 }
 
+type Hover =
+  | { kind: 'sketch'; sketchId: string; entityId: number }
+  | { kind: 'body'; bodyKey: string; subEntityId: number; part: SketchUseBodyCandidate['part'] };
+
+const toPoint3d = (tuple: readonly [number, number, number]): Point3d =>
+  new Point3d(tuple[0], tuple[1], tuple[2]);
+
+function normalize3(v: readonly [number, number, number]): [number, number, number] | undefined {
+  const length = Math.hypot(v[0], v[1], v[2]);
+  if (length <= 1e-12)
+    return undefined;
+  return [v[0] / length, v[1] / length, v[2] / length];
+}
+
+/** 边曲线显示折线（仅显示采样；不进入数据/投影事实源）。 */
+function bodyCurvePolyline(curve: BrepEdgeCurve): Point3d[] {
+  if (curve.kind === 'line')
+    return [toPoint3d(curve.p0), toPoint3d(curve.p1)];
+  if (curve.kind === 'other')
+    return [];
+  const [cx, cy, cz] = curve.center;
+  const xAxis = normalize3([curve.start[0] - cx, curve.start[1] - cy, curve.start[2] - cz]);
+  const normal = normalize3(curve.normal);
+  if (!xAxis || !normal)
+    return [toPoint3d(curve.start), toPoint3d(curve.end)];
+  // y = normal × x（右手系；sweep 符号直接作用到采样角）。
+  const yAxis: [number, number, number] = [
+    normal[1] * xAxis[2] - normal[2] * xAxis[1],
+    normal[2] * xAxis[0] - normal[0] * xAxis[2],
+    normal[0] * xAxis[1] - normal[1] * xAxis[0],
+  ];
+  const steps = Math.max(8, Math.min(64, Math.ceil(Math.abs(curve.sweepRadians) / (Math.PI / 32))));
+  const points: Point3d[] = [];
+  for (let index = 0; index <= steps; index++) {
+    if (index === steps) {
+      points.push(toPoint3d(curve.end));
+      break;
+    }
+    const angle = (curve.sweepRadians * index) / steps;
+    const cos = Math.cos(angle) * curve.radius;
+    const sin = Math.sin(angle) * curve.radius;
+    points.push(new Point3d(
+      cx + cos * xAxis[0] + sin * yAxis[0],
+      cy + cos * xAxis[1] + sin * yAxis[1],
+      cz + cos * xAxis[2] + sin * yAxis[2],
+    ));
+  }
+  return points;
+}
+
+function bodyEndpoint(curve: BrepEdgeCurve, part: 'start' | 'end'): Point3d | undefined {
+  if (curve.kind === 'line')
+    return toPoint3d(part === 'start' ? curve.p0 : curve.p1);
+  if (curve.kind === 'arc')
+    return toPoint3d(part === 'start' ? curve.start : curve.end);
+  return undefined;
+}
+
 export function SketchUseOverlay({
   viewport,
   connection,
   partStudioId,
   sourceSketchIds,
+  bodies,
   onPick,
+  onPickBody,
   onError,
   onCancel,
 }: SketchUseOverlayProps): React.JSX.Element {
@@ -59,8 +135,12 @@ export function SketchUseOverlay({
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [sources, setSources] = React.useState<SourceGeometry[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [hover, setHover] = React.useState<{ sketchId: string; entityId: number } | null>(null);
+  const [hover, setHover] = React.useState<Hover | null>(null);
+  const [bodyCandidates, setBodyCandidates] = React.useState<SketchUseBodyCandidate[]>([]);
+  const [bodyLoading, setBodyLoading] = React.useState(false);
+  const [bodyNote, setBodyNote] = React.useState<string | undefined>(undefined);
   const sourceKey = sourceSketchIds.join(',');
+  const bodiesKey = (bodies ?? []).map((body) => `${body.bodyKey}:${body.active ? 1 : 0}`).join(',');
 
   React.useEffect(() => {
     let disposed = false;
@@ -104,6 +184,85 @@ export function SketchUseOverlay({
     // sourceKey 是 sourceSketchIds 的稳定内容键（数组每次渲染可能新引用）。
   }, [connection.key, partStudioId, sourceKey, onError, t, sourceSketchIds]);
 
+  // S1：模型边候选（同一只读 BRep 通道；动态 import 避免把 editor 通道打进
+  // 非 Use 路径，与 e2e 观测面同款）。读面不可用/无 body 时静默跳过。
+  React.useEffect(() => {
+    let disposed = false;
+    const list = bodies ?? [];
+    if (list.length === 0) {
+      setBodyCandidates([]);
+      setBodyLoading(false);
+      setBodyNote(undefined);
+      return;
+    }
+    setBodyLoading(true);
+    void (async () => {
+      try {
+        const [{ readBrepEdgeHandles }, { withExclusiveBrepCommand }] = await Promise.all([
+          import('../internal/brep-topology.js'),
+          import('../internal/brep-command-coordinator.js'),
+        ]);
+        if (typeof readBrepEdgeHandles !== 'function') {
+          if (!disposed) {
+            setBodyCandidates([]);
+            setBodyLoading(false);
+          }
+          return;
+        }
+        const result = await withExclusiveBrepCommand(() => loadSketchUseBodyCandidates({
+          iModelKey: connection.key,
+          bodies: list,
+          readEdges: readBrepEdgeHandles,
+          resolveEdgeRef: (iModelKey, bodyKey, subEntityId) =>
+            LubanFeatureRpcInterface.getClient().resolveEdgeRef(iModelKey, bodyKey, subEntityId),
+        }));
+        if (disposed)
+          return;
+        setBodyCandidates(result.candidates);
+        setBodyLoading(false);
+        const unsupported = result.errors.filter((code) => code === 'unsupported-curve').length;
+        const resolveFailed = result.errors.filter((code) => code === 'resolve-failed').length;
+        const notes: string[] = [];
+        if (unsupported > 0)
+          notes.push(t('partStudio.sketch.useBodyEdgeUnsupported', { count: unsupported }));
+        if (resolveFailed > 0)
+          notes.push(t('partStudio.sketch.useResolveFailed', { count: resolveFailed }));
+        setBodyNote(notes.length > 0 ? notes.join(' ') : undefined);
+      } catch {
+        if (!disposed) {
+          setBodyCandidates([]);
+          setBodyLoading(false);
+          setBodyNote(undefined);
+        }
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, [connection.key, bodiesKey, t]);
+
+  // 体候选显示折线（仅 curve 候选；端点单独画点）。
+  const bodyCurves = React.useMemo(
+    () => bodyCandidates
+      .filter((candidate) => candidate.part === 'curve')
+      .map((candidate) => ({
+        candidate,
+        points: bodyCurvePolyline(candidate.curve),
+      }))
+      .filter((entry) => entry.points.length >= 2),
+    [bodyCandidates],
+  );
+  const bodyEndpoints = React.useMemo(
+    () => bodyCandidates
+      .filter((candidate) => candidate.part !== 'curve')
+      .map((candidate) => ({
+        candidate,
+        position: bodyEndpoint(candidate.curve, candidate.part === 'start' ? 'start' : 'end'),
+      }))
+      .filter((entry): entry is { candidate: SketchUseBodyCandidate; position: Point3d } => entry.position !== undefined),
+    [bodyCandidates],
+  );
+
   const draw = React.useCallback((): void => {
     const canvas = canvasRef.current;
     const viewRect = viewport?.viewRect;
@@ -125,36 +284,46 @@ export function SketchUseOverlay({
     ctx.clearRect(0, 0, width, height);
     ctx.setLineDash([5, 4]);
     ctx.lineWidth = 1.4;
+    const strokePolyline = (points: Point3d[], highlighted: boolean, construction: boolean): void => {
+      if (points.length < 2)
+        return;
+      ctx.strokeStyle = highlighted
+        ? 'rgba(245, 166, 65, 0.95)'
+        : construction
+          ? 'rgba(150, 150, 160, 0.65)'
+          : 'rgba(110, 140, 190, 0.85)';
+      ctx.lineWidth = highlighted ? 2.4 : 1.4;
+      ctx.beginPath();
+      const screen = points.map((point) => viewport.worldToView(point));
+      ctx.moveTo(screen[0]!.x, screen[0]!.y);
+      for (let index = 1; index < screen.length; index++)
+        ctx.lineTo(screen[index]!.x, screen[index]!.y);
+      const closed = screen.length > 3
+        && Math.hypot(screen[0]!.x - screen.at(-1)!.x, screen[0]!.y - screen.at(-1)!.y) < 0.5;
+      if (closed)
+        ctx.closePath();
+      ctx.stroke();
+    };
     for (const source of sources) {
       for (const line of source.lines) {
-        if (line.points.length < 2)
-          continue;
-        const highlighted = hover !== null
+        const highlighted = hover?.kind === 'sketch'
           && hover.sketchId === source.sketch.id
           && hover.entityId === line.entityId;
-        ctx.strokeStyle = highlighted
-          ? 'rgba(245, 166, 65, 0.95)'
-          : line.construction
-            ? 'rgba(150, 150, 160, 0.65)'
-            : 'rgba(110, 140, 190, 0.85)';
-        ctx.lineWidth = highlighted ? 2.4 : 1.4;
-        ctx.beginPath();
-        const screen = line.points.map((point) => viewport.worldToView(point));
-        ctx.moveTo(screen[0]!.x, screen[0]!.y);
-        for (let index = 1; index < screen.length; index++)
-          ctx.lineTo(screen[index]!.x, screen[index]!.y);
-        const closed = screen.length > 3
-          && Math.hypot(screen[0]!.x - screen.at(-1)!.x, screen[0]!.y - screen.at(-1)!.y) < 0.5;
-        if (closed)
-          ctx.closePath();
-        ctx.stroke();
+        strokePolyline(line.points, highlighted, line.construction === true);
       }
+    }
+    for (const entry of bodyCurves) {
+      const highlighted = hover?.kind === 'body'
+        && hover.bodyKey === entry.candidate.bodyKey
+        && hover.subEntityId === entry.candidate.subEntityId
+        && hover.part === 'curve';
+      strokePolyline(entry.points, highlighted, false);
     }
     ctx.setLineDash([]);
     for (const source of sources) {
       for (const point of source.points) {
         const screen = viewport.worldToView(point.position);
-        const highlighted = hover !== null
+        const highlighted = hover?.kind === 'sketch'
           && hover.sketchId === source.sketch.id
           && hover.entityId === point.entityId;
         ctx.beginPath();
@@ -163,7 +332,18 @@ export function SketchUseOverlay({
         ctx.fill();
       }
     }
-  }, [sources, hover, viewport]);
+    for (const entry of bodyEndpoints) {
+      const screen = viewport.worldToView(entry.position);
+      const highlighted = hover?.kind === 'body'
+        && hover.bodyKey === entry.candidate.bodyKey
+        && hover.subEntityId === entry.candidate.subEntityId
+        && hover.part === entry.candidate.part;
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y, highlighted ? 4.5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = highlighted ? 'rgba(245, 166, 65, 0.95)' : 'rgba(110, 140, 190, 0.85)';
+      ctx.fill();
+    }
+  }, [sources, bodyCurves, bodyEndpoints, hover, viewport]);
 
   React.useEffect(() => { draw(); }, [draw]);
   React.useEffect(() => {
@@ -179,33 +359,84 @@ export function SketchUseOverlay({
     };
   }, [viewport, draw]);
 
-  const findHit = React.useCallback((point: { x: number; y: number }): { source: SourceGeometry; entityId: number } | null => {
-    let best: { source: SourceGeometry; entityId: number; distance: number } | null = null;
+  const findHit = React.useCallback((point: { x: number; y: number }): Hover | null => {
+    // 端点/点优先（6 px；plan S1）：先找最近的草图点或模型边端点。
+    let endpointBest: { hover: Hover; distance: number } | null = null;
     for (const source of sources) {
-      for (const line of source.lines) {
-        const distance = curveDistance(point, line.points.map((world) => viewport.worldToView(world)));
-        if (distance <= HIT_CURVE_PX && (best === null || distance < best.distance))
-          best = { source, entityId: line.entityId, distance };
-      }
       for (const sourcePoint of source.points) {
         const screen = viewport.worldToView(sourcePoint.position);
         const distance = Math.hypot(point.x - screen.x, point.y - screen.y);
-        if (distance <= 6 && (best === null || distance < best.distance))
-          best = { source, entityId: sourcePoint.entityId, distance };
+        if (distance <= HIT_ENDPOINT_PX && (endpointBest === null || distance < endpointBest.distance))
+          endpointBest = {
+            hover: { kind: 'sketch', sketchId: source.sketch.id, entityId: sourcePoint.entityId },
+            distance,
+          };
       }
     }
-    return best && { source: best.source, entityId: best.entityId };
-  }, [sources, viewport]);
+    for (const entry of bodyEndpoints) {
+      const screen = viewport.worldToView(entry.position);
+      const distance = Math.hypot(point.x - screen.x, point.y - screen.y);
+      if (distance <= HIT_ENDPOINT_PX && (endpointBest === null || distance < endpointBest.distance))
+        endpointBest = {
+          hover: {
+            kind: 'body',
+            bodyKey: entry.candidate.bodyKey,
+            subEntityId: entry.candidate.subEntityId,
+            part: entry.candidate.part,
+          },
+          distance,
+        };
+    }
+    if (endpointBest)
+      return endpointBest.hover;
+
+    let curveBest: { hover: Hover; distance: number } | null = null;
+    for (const source of sources) {
+      for (const line of source.lines) {
+        const distance = curveDistance(point, line.points.map((world) => viewport.worldToView(world)));
+        if (distance <= HIT_CURVE_PX && (curveBest === null || distance < curveBest.distance))
+          curveBest = {
+            hover: { kind: 'sketch', sketchId: source.sketch.id, entityId: line.entityId },
+            distance,
+          };
+      }
+    }
+    for (const entry of bodyCurves) {
+      const distance = curveDistance(point, entry.points.map((world) => viewport.worldToView(world)));
+      if (distance <= HIT_CURVE_PX && (curveBest === null || distance < curveBest.distance))
+        curveBest = {
+          hover: {
+            kind: 'body',
+            bodyKey: entry.candidate.bodyKey,
+            subEntityId: entry.candidate.subEntityId,
+            part: 'curve',
+          },
+          distance,
+        };
+    }
+    return curveBest?.hover ?? null;
+  }, [sources, bodyCurves, bodyEndpoints, viewport]);
 
   const localPoint = React.useCallback((event: React.PointerEvent | React.MouseEvent): { x: number; y: number } => {
     const rect = viewport.canvas.getBoundingClientRect();
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }, [viewport]);
 
+  const sameHover = (a: Hover | null, b: Hover | null): boolean => {
+    if (a === null || b === null)
+      return a === b;
+    if (a.kind !== b.kind)
+      return false;
+    if (a.kind === 'sketch' && b.kind === 'sketch')
+      return a.sketchId === b.sketchId && a.entityId === b.entityId;
+    if (a.kind === 'body' && b.kind === 'body')
+      return a.bodyKey === b.bodyKey && a.subEntityId === b.subEntityId && a.part === b.part;
+    return false;
+  };
+
   const handleMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>): void => {
-    const hit = findHit(localPoint(event));
-    const next = hit ? { sketchId: hit.source.sketch.id, entityId: hit.entityId } : null;
-    if (next?.sketchId !== hover?.sketchId || next?.entityId !== hover?.entityId)
+    const next = findHit(localPoint(event));
+    if (!sameHover(next, hover))
       setHover(next);
   }, [findHit, hover, localPoint]);
 
@@ -213,11 +444,22 @@ export function SketchUseOverlay({
     const hit = findHit(localPoint(event));
     if (!hit)
       return;
-    const entity = hit.source.sketch.entities.find((candidate) => candidate.id === hit.entityId);
+    if (hit.kind === 'body') {
+      const candidate = bodyCandidates.find((entry) => entry.bodyKey === hit.bodyKey
+        && entry.subEntityId === hit.subEntityId
+        && entry.part === hit.part);
+      if (candidate)
+        void onPickBody(candidate);
+      return;
+    }
+    const source = sources.find((entry) => entry.sketch.id === hit.sketchId);
+    if (!source)
+      return;
+    const entity = source.sketch.entities.find((candidate) => candidate.id === hit.entityId);
     if (!entity)
       return;
-    void onPick({ sketch: hit.source.sketch, entity });
-  }, [findHit, localPoint, onPick]);
+    void onPick({ sketch: source.sketch, entity });
+  }, [findHit, localPoint, onPick, onPickBody, sources, bodyCandidates]);
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -231,11 +473,12 @@ export function SketchUseOverlay({
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [onCancel]);
 
-  const prompt = loading
+  const basePrompt = loading || bodyLoading
     ? t('partStudio.sketch.useLoading')
-    : sources.length === 0
+    : sources.length === 0 && bodyCandidates.length === 0
       ? t('partStudio.sketch.useEmpty')
       : t('partStudio.sketch.usePrompt');
+  const prompt = bodyNote ? `${basePrompt} ${bodyNote}` : basePrompt;
 
   return (
     <React.Fragment>

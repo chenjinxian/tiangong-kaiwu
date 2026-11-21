@@ -9,11 +9,19 @@
  * 合成——本模块只负责选择/平面支持判定/根实体快照与 id 分配。
  *
  * 诚实边界：
- * - 仅草图源（实体边/面投影属后端切片 1b，未实现）；
+ * - 2026-11-21 S1 起模型边（bodyEdge）走 externalRefs 通道；面源/PIERCE 仍
+ *   `projection-unsupported`（S2+ gated），无假入口；
  * - circle/arc 仅在平行平面间保形（非平行是椭圆，后端拒收）；
  * - 样条/投影源/自身 sketch 不入候选。
  */
-import type { SketchEntityDto, SketchPlaneDto, SketchProjectedMarker } from '@luban-cad/shared';
+import type {
+  LubanTopologyId,
+  SketchEntityDto,
+  SketchExternalReferenceDto,
+  SketchPlaneDto,
+  SketchProjectedMarker,
+  SketchProjectionStatusDto,
+} from '@luban-cad/shared';
 import { sketchPlaneFrameFrom } from '../tools/sketch/sketch-plane.js';
 
 export type SketchUseError = 'unsupported-kind' | 'non-parallel' | 'degenerate-source' | 'no-id';
@@ -185,4 +193,132 @@ export function buildProjectedSketchEntity(
     default:
       return { ok: false, error: 'unsupported-kind' };
   }
+}
+
+// ---------------------------------------------------------------------------
+// v1.85（S1 2026-11-21）：模型边 externalRefs 行构造 + 投影状态消息
+// ---------------------------------------------------------------------------
+
+export type SketchUseBodyPart = 'curve' | 'start' | 'end';
+export type SketchUseBodyCurveKind = 'line' | 'arc';
+
+/** 外部引用 id（与实体 id 不同命名空间）：表内最大 id + 1，空表从 1 起。 */
+export function nextExternalRefId(refs: readonly SketchExternalReferenceDto[]): number {
+  let max = 0;
+  for (const ref of refs)
+    max = Math.max(max, ref.id);
+  return max + 1;
+}
+
+/**
+ * 分配实体 id 块起点：块 `[start, start+slots-1]` 必须同时避开实体 id、约束 id
+ * 与已有外部引用声明的 `entityIds`（后端按块保留派生端点/圆心槽位）。
+ */
+export function nextEntityBlockStart(
+  entities: readonly SketchEntityDto[],
+  constraints: readonly { id: number }[],
+  refs: readonly SketchExternalReferenceDto[],
+  slots: number,
+): number | undefined {
+  if (!Number.isInteger(slots) || slots <= 0)
+    return undefined;
+  const used = new Set<number>();
+  for (const entity of entities)
+    used.add(entity.id);
+  for (const constraint of constraints)
+    used.add(constraint.id);
+  for (const ref of refs) {
+    for (const id of ref.entityIds)
+      used.add(id);
+  }
+  let candidate = 1;
+  for (let attempt = 0; attempt < used.size + slots + 4; attempt++) {
+    let free = true;
+    for (let offset = 0; offset < slots; offset++) {
+      if (used.has(candidate + offset)) {
+        free = false;
+        break;
+      }
+    }
+    if (free)
+      return candidate;
+    candidate += 1;
+  }
+  return undefined;
+}
+
+/** 槽位：line 曲线 3（根 + 两端点）、arc 曲线 2（根 + 圆心）、端点 1。 */
+export function bodyEdgeEntitySlots(part: SketchUseBodyPart, curveKind: SketchUseBodyCurveKind): number {
+  if (part !== 'curve')
+    return 1;
+  return curveKind === 'line' ? 3 : 2;
+}
+
+export interface BuildBodyEdgeExternalRefRowArgs {
+  id: number;
+  bodyKey: string;
+  topologyRef: LubanTopologyId;
+  part: SketchUseBodyPart;
+  curveKind: SketchUseBodyCurveKind;
+  entities: readonly SketchEntityDto[];
+  constraints: readonly { id: number }[];
+  externalRefs: readonly SketchExternalReferenceDto[];
+}
+
+/**
+ * 模型边拾取 → 持久外部引用行（`kind=project` 曲线 / `projectEndpoint` 端点）。
+ * 块分配失败诚实返回 `no-entity-block`（不猜 id、不覆盖既有实体）。
+ */
+export function buildBodyEdgeExternalRefRow(
+  args: BuildBodyEdgeExternalRefRowArgs,
+): SketchExternalReferenceDto | { ok: false; error: 'no-entity-block' } {
+  const slots = bodyEdgeEntitySlots(args.part, args.curveKind);
+  const start = nextEntityBlockStart(args.entities, args.constraints, args.externalRefs, slots);
+  if (start === undefined)
+    return { ok: false, error: 'no-entity-block' };
+  const entityIds = Array.from({ length: slots }, (_, offset) => start + offset);
+  return {
+    id: args.id,
+    kind: args.part === 'curve' ? 'project' : 'projectEndpoint',
+    source: {
+      kind: 'bodyEdge',
+      bodyId: args.bodyKey,
+      topologyRef: args.topologyRef,
+      ...(args.part === 'curve' ? {} : { part: args.part }),
+    },
+    entityIds,
+  };
+}
+
+/** 投影失败错误码 → i18n 键（`partStudio.sketch.` 前缀由调用方拼接）。 */
+export function projectionErrorI18nKey(code: SketchProjectionStatusDto['errors'][number]['code']): string {
+  switch (code) {
+    case 'projection-non-exact':
+      return 'projectionNonExact';
+    case 'projection-source-missing':
+    case 'projection-source-ambiguous':
+    case 'projection-snapshot-missing':
+    case 'projection-snapshot-stale':
+      return 'projectionSourceMissing';
+    case 'projection-degenerate':
+      return 'projectionDegenerate';
+    default:
+      return 'projectionFailed';
+  }
+}
+
+/**
+ * 读面投影失败 → 最小提示文案（去重后按错误码映射；未知 code / 空 errors
+ * 兜底 `projectionFailed`；多条不同原因以 `; ` 连接）。
+ */
+export function projectionFailureMessage(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  projection: SketchProjectionStatusDto,
+): string {
+  const keys = new Set<string>();
+  for (const error of projection.errors)
+    keys.add(projectionErrorI18nKey(error.code));
+  if (keys.size === 0)
+    return t('partStudio.sketch.projectionFailed');
+  return [...keys].map((key) => t(`partStudio.sketch.${key}`)).join('; ');
 }

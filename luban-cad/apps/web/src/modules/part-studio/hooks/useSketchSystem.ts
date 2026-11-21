@@ -44,6 +44,8 @@ import {
   type SketchConstraintDto,
   type SketchDto,
   type SketchEntityDto,
+  type SketchExternalReferenceDto,
+  type SketchProjectionStatusDto,
 } from '@luban-cad/shared';
 import type { UseFeatureSystem } from './useFeatureSystem.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
@@ -56,10 +58,22 @@ export interface UseSketchSystem {
   loading: boolean;
   error?: string;
   /**
+   * v1.85（S1）：活动草图外部引用投影状态（读面同源；旧后端/未进草图时
+   * undefined）。`status="failed"` 时宿主渲染 `sketch-projection-status`
+   * 标记并按 code 去重发一次失败提示。
+   */
+  projection?: SketchProjectionStatusDto;
+  /**
    * 提交 updateSketch op（乐观整体覆写；后端拒收零变更——拒收文本含 dof/
    * 冲突 id，即工具的反馈通道，不抛异常）。成功 → 重取 activeSketch。
+   * v1.85（S1）：`externalRefs` 显式传入即整表覆写（`[]` = 清空）；省略时
+   * 保留活动草图已读取的引用表（否则后端 omission guard 拒收所有编辑通道）。
    */
-  applyUpdate(entities: SketchEntityDto[], constraints: SketchConstraintDto[]): Promise<FeatureOpResult>;
+  applyUpdate(
+    entities: SketchEntityDto[],
+    constraints: SketchConstraintDto[],
+    externalRefs?: SketchExternalReferenceDto[],
+  ): Promise<FeatureOpResult>;
   /**
    * 改尺寸约束值（历史面板内联编辑通道；面板已删除，保留 API 供标注编辑）——
    * updateSketchConstraint op（distance/radius/diameter/length/offset 类；后端改值重解算并
@@ -96,8 +110,13 @@ export function useSketchSystem(
   const activeSketchId = usePartStudioStore((s) => s.sketch.activeSketchId);
 
   const [activeSketch, setActiveSketch] = useState<SketchDto | undefined>(undefined);
+  const [projection, setProjection] = useState<SketchProjectionStatusDto | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  // applyUpdate 省略 externalRefs 时保留活动草图引用表（回调身份不随读面
+  // 变化重建；消费方工具调用点无需逐处透传）。
+  const activeSketchRef = useRef<SketchDto | undefined>(undefined);
+  activeSketchRef.current = activeSketch;
 
   // 活动身份代际：身份切换/换连接时 +1——迟到的 getSketch 解析发现自己代数
   // 过期即丢弃，防止覆写更新后的身份（stale-clobber 竞态，M3-b 同款）。
@@ -112,6 +131,7 @@ export function useSketchSystem(
     // 草图身份呈现，等待 readEnabled 翻真后由 effect 补读。
     if (!readEnabled) {
       setActiveSketch(undefined);
+      setProjection(undefined);
       setError(undefined);
       setLoading(false);
       return;
@@ -119,6 +139,7 @@ export function useSketchSystem(
     const activeId = readActiveId();
     if (!connectionKey || !activeId) {
       setActiveSketch(undefined);
+      setProjection(undefined);
       setError(undefined);
       return;
     }
@@ -129,10 +150,12 @@ export function useSketchSystem(
       // 迟写丢弃：await 期间身份已切换/退出草图/换连接 → 不得覆写新态。
       if (activeEpochRef.current !== epoch) return;
       setActiveSketch(sketch);
+      setProjection(sketch?.projection);
       setError(undefined);
     } catch (err) {
       if (activeEpochRef.current === epoch) {
         setError(err instanceof Error ? err.message : String(err));
+        setProjection(undefined);
       }
     } finally {
       if (activeEpochRef.current === epoch) setLoading(false);
@@ -162,13 +185,28 @@ export function useSketchSystem(
   }, [connection, refresh]);
 
   const applyUpdate = useCallback(
-    async (entities: SketchEntityDto[], constraints: SketchConstraintDto[]): Promise<FeatureOpResult> => {
+    async (
+      entities: SketchEntityDto[],
+      constraints: SketchConstraintDto[],
+      externalRefs?: SketchExternalReferenceDto[],
+    ): Promise<FeatureOpResult> => {
       if (!fs) return { ok: false, error: i18next.t('partStudio.sketch.system.featureSystemNotReady') };
       const activeId = readActiveId();
       if (!activeId) return { ok: false, error: i18next.t('partStudio.sketch.system.notOpen') };
+      // v1.85（S1）：未显式传入时保留活动草图引用表（旧无引用草图仍省略键，
+      // payload 与 1.84 逐字一致——后端 omission guard 只在库内引用非空时生效）。
+      const active = activeSketchRef.current;
+      const preserved = active?.id === activeId ? active.externalRefs : undefined;
+      const refs = externalRefs ?? (preserved !== undefined && preserved.length > 0 ? preserved : undefined);
       let result: FeatureOpResult;
       try {
-        result = await fs.applyOp({ kind: 'updateSketch', sketchId: activeId, entities, constraints });
+        result = await fs.applyOp({
+          kind: 'updateSketch',
+          sketchId: activeId,
+          entities,
+          constraints,
+          ...(refs === undefined ? {} : { externalRefs: refs }),
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setError(message);
@@ -211,6 +249,7 @@ export function useSketchSystem(
     activeSketch,
     loading,
     error,
+    projection,
     applyUpdate,
     applyConstraintValue,
     refresh,

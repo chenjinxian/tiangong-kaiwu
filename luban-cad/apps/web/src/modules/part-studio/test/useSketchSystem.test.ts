@@ -11,7 +11,13 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LubanFeatureRpcInterface } from '@luban-cad/shared';
-import type { FeatureOp, FeatureOpResult, SketchDto } from '@luban-cad/shared';
+import type {
+  FeatureOp,
+  FeatureOpResult,
+  SketchDto,
+  SketchExternalReferenceDto,
+  SketchProjectionStatusDto,
+} from '@luban-cad/shared';
 import { useSketchSystem } from '../hooks/useSketchSystem.js';
 import { usePartStudioStore } from '../stores/use-part-studio-store.js';
 
@@ -215,6 +221,60 @@ describe('M6-a T5：useSketchSystem', () => {
     });
     expect(LubanFeatureRpcInterface.getClient().getSketch).not.toHaveBeenCalled();
     expect(result.current.activeSketch).toBeUndefined();
+  });
+
+  // ── v1.85（S1）：externalRefs 保留 + 投影状态透出 ────────────────────────
+  it('S1：applyUpdate 未显式传 externalRefs → 保留活动草图引用；显式 [] → 清空', async () => {
+    const externalRefs: SketchExternalReferenceDto[] = [{
+      id: 1,
+      kind: 'project',
+      source: { kind: 'bodyEdge', bodyId: 'body-a', topologyRef: { nodeId: 1, entityId: 2 } },
+      entityIds: [1, 2, 3],
+    }];
+    vi.spyOn(LubanFeatureRpcInterface, 'getClient').mockReturnValue({
+      getSketch: vi.fn(async () => ({ ...solvedSketch, externalRefs })),
+    } as unknown as ReturnType<typeof LubanFeatureRpcInterface.getClient>);
+    resetStore();
+    const applyOp = vi.fn(async (_op: FeatureOp): Promise<FeatureOpResult> => ({ ok: true }));
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    const { result } = renderSketchSystem(connection, { applyOp } as never);
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await waitFor(() => expect(result.current.activeSketch?.externalRefs).toEqual(externalRefs));
+
+    const entities: SketchDto['entities'] = [{ kind: 'point', id: 1, x: 0, y: 0 }];
+    await act(async () => {
+      await result.current.applyUpdate(entities, []);
+    });
+    expect(applyOp).toHaveBeenLastCalledWith({
+      kind: 'updateSketch', sketchId: 'sk-1', entities, constraints: [], externalRefs,
+    });
+
+    await act(async () => {
+      await result.current.applyUpdate(entities, [], []);
+    });
+    expect(applyOp).toHaveBeenLastCalledWith({
+      kind: 'updateSketch', sketchId: 'sk-1', entities, constraints: [], externalRefs: [],
+    });
+  });
+
+  it('S1：projection 状态透出到 hook（读面同源）', async () => {
+    const projection: SketchProjectionStatusDto = {
+      status: 'failed',
+      failedRefIds: [1],
+      errors: [{ refId: 1, code: 'projection-source-missing' }],
+    };
+    vi.spyOn(LubanFeatureRpcInterface, 'getClient').mockReturnValue({
+      getSketch: vi.fn(async () => ({ ...solvedSketch, projection })),
+    } as unknown as ReturnType<typeof LubanFeatureRpcInterface.getClient>);
+    resetStore();
+    const connection = { key: 'conn-1', txns: { onCommitted: { addListener: vi.fn(), removeListener: vi.fn() } } };
+    const { result } = renderSketchSystem(connection, undefined);
+    act(() => {
+      usePartStudioStore.getState().enterSketch('sk-1');
+    });
+    await waitFor(() => expect(result.current.projection).toEqual(projection));
   });
 
   it('F6：scopeMode=A 时 ?model= 仍省略 scope（A 不进入 legacy scoped 读）', async () => {

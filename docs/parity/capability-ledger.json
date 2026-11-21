@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "generatedAt": "2026-11-19",
   "sources": {
-    "sharedInterfaceVersion": "1.84.0",
+    "sharedInterfaceVersion": "1.85.0",
     "sharedFile": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts",
     "uiFile": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts",
     "overridesFile": "docs/parity/capability-overrides.json",
@@ -18,7 +18,7 @@
       "partial": 69
     }
   },
-  "sourceHash": "9e89a52ea11a71a31d7d97d816e15a979aa9e7e98b5d0a46477e517660ca3c91",
+  "sourceHash": "507c31c07f07e990477c52914cf7b7727aff746b02b64cb2c1fd25309600c775",
   "rows": [
     {
       "id": "constraint.angle",
@@ -29,7 +29,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -47,7 +47,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -65,7 +65,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -83,7 +83,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -101,7 +101,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -119,7 +119,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -137,7 +137,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -155,7 +155,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -173,7 +173,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -191,7 +191,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -209,7 +209,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -227,7 +227,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -245,7 +245,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -263,7 +263,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -281,7 +281,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -323,7 +323,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -341,7 +341,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -359,7 +359,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1292",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1388",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -377,7 +377,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1284",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1380",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -395,7 +395,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1283",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1379",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -413,7 +413,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1282",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1378",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -431,7 +431,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1281",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1377",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -449,7 +449,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1288",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:1384",
       "uiRef": null,
       "backendRef": null,
       "kernelRef": null,
@@ -467,7 +467,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64",
       "backendRef": null,
       "kernelRef": null,
@@ -485,7 +485,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64",
       "backendRef": null,
       "kernelRef": null,
@@ -503,7 +503,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:64",
       "backendRef": null,
       "kernelRef": null,
@@ -521,7 +521,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:53",
       "backendRef": null,
       "kernelRef": null,
@@ -539,7 +539,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:113",
       "backendRef": null,
       "kernelRef": null,
@@ -559,7 +559,7 @@
         "线性/中面/分型线等其余拔模模式",
         "受影响 Onshape 示例 strict 晋升（当前无 strict 示例依赖 draft）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/dialogs/DraftDialog.tsx:104",
       "backendRef": "私有后端：draft registry schema + evaluator（W4 审计；证据留在私有仓）",
       "kernelRef": "docs/parity/KERNEL-BOUNDARIES.md#2-操作边界2026-11-19-v0（TaperFaces）",
@@ -580,7 +580,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48",
       "backendRef": null,
       "kernelRef": null,
@@ -598,7 +598,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:48",
       "backendRef": null,
       "kernelRef": null,
@@ -616,7 +616,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:63",
       "backendRef": null,
       "kernelRef": null,
@@ -634,7 +634,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:60",
       "backendRef": null,
       "kernelRef": null,
@@ -652,7 +652,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:49",
       "backendRef": null,
       "kernelRef": null,
@@ -670,7 +670,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:59",
       "backendRef": null,
       "kernelRef": null,
@@ -688,7 +688,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:56",
       "backendRef": null,
       "kernelRef": null,
@@ -706,7 +706,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:63",
       "backendRef": null,
       "kernelRef": null,
@@ -724,7 +724,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:108",
       "backendRef": null,
       "kernelRef": null,
@@ -742,7 +742,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:60",
       "backendRef": null,
       "kernelRef": null,
@@ -760,7 +760,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:54",
       "backendRef": null,
       "kernelRef": null,
@@ -778,7 +778,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:119",
       "backendRef": null,
       "kernelRef": null,
@@ -796,7 +796,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:65",
       "backendRef": null,
       "kernelRef": null,
@@ -814,7 +814,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:55",
       "backendRef": null,
       "kernelRef": null,
@@ -832,7 +832,7 @@
       "missing": [
         "未按七维 full 门审计（W0 基线）"
       ],
-      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:239",
+      "contractRef": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts:250",
       "uiRef": "luban-cad/apps/web/src/modules/part-studio/internal/capabilities.ts:66",
       "backendRef": null,
       "kernelRef": null,

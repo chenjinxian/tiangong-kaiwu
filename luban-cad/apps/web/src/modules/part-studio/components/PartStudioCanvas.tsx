@@ -78,7 +78,13 @@ import { sketchPlaneFromFaceHandle } from '../internal/sketch-plane-from-face.js
 import { SketchEntityPicker } from './SketchEntityPicker.js';
 import { SketchPatternGizmo } from './SketchPatternGizmo.js';
 import { SketchUseOverlay, type SketchUsePick } from './SketchUseOverlay.js';
-import { buildProjectedSketchEntity } from '../internal/sketch-use.js';
+import {
+  buildBodyEdgeExternalRefRow,
+  buildProjectedSketchEntity,
+  nextExternalRefId,
+  projectionFailureMessage,
+} from '../internal/sketch-use.js';
+import type { SketchUseBodyCandidate } from '../internal/sketch-use-candidates.js';
 import { SketchDimensionEditor } from './SketchDimensionEditor.js';
 import type { SketchEntitySelection } from '../internal/sketch-entity-picker.js';
 import { deleteSketchEntities } from '../internal/sketch-delete.js';
@@ -881,6 +887,66 @@ export function PartStudioCanvas({
     }
   }, [sketchSystem, t]);
 
+  /**
+   * 2026-11-21 S1：模型边/端点拾取 → externalRefs 行（id/实体块分配），随
+   * updateSketch 整表提交；投影几何由后端读面按快照合成（前端不写坐标）。
+   */
+  const applySketchUseBodyPick = React.useCallback(async (
+    candidate: SketchUseBodyCandidate,
+  ): Promise<void> => {
+    const system = sketchSystem;
+    const active = system?.activeSketch;
+    if (!system || !active)
+      return;
+    const externalRefs = active.externalRefs ?? [];
+    const row = buildBodyEdgeExternalRefRow({
+      id: nextExternalRefId(externalRefs),
+      bodyKey: candidate.bodyKey,
+      topologyRef: candidate.topologyRef,
+      part: candidate.part,
+      curveKind: candidate.curveKind,
+      entities: active.entities,
+      constraints: active.constraints,
+      externalRefs,
+    });
+    if ('ok' in row) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.useFailed', { message: row.error }),
+      ));
+      return;
+    }
+    const result = await system.applyUpdate(
+      active.entities,
+      active.constraints,
+      [...externalRefs, row],
+    );
+    if (!result.ok) {
+      IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+        OutputMessagePriority.Error,
+        t('partStudio.sketch.useFailed', { message: result.error ?? '' }),
+      ));
+    }
+  }, [sketchSystem, t]);
+
+  // 2026-11-21 S1：外部引用投影失败 → 最小失败提示（同码集合去重，仅发一次）。
+  const projectionFailureRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const projection = sketchSystem?.projection;
+    if (!projection || projection.status !== 'failed') {
+      projectionFailureRef.current = null;
+      return;
+    }
+    const key = [...new Set(projection.errors.map((error) => error.code))].sort().join(',');
+    if (projectionFailureRef.current === key)
+      return;
+    projectionFailureRef.current = key;
+    IModelApp.notifications.outputMessage(new NotifyMessageDetails(
+      OutputMessagePriority.Error,
+      projectionFailureMessage(t, projection),
+    ));
+  }, [sketchSystem?.projection, t]);
+
   const applySketchPattern = React.useCallback(async (
     entities: SketchEntityDto[],
     constraints: SketchConstraintDto[],
@@ -1328,19 +1394,31 @@ export function PartStudioCanvas({
           ))}
         />
       )}
-      {/* 2026-11-13：草图「使用」拾取覆盖层（仅草图源；实体边/面待后端切片 1b）。 */}
+      {/* 2026-11-13：草图「使用」拾取覆盖层（草图源 + 2026-11-21 S1 模型边/端点）。 */}
       {sketchActiveForDecorations && sketchSystem?.activeSketch && sketchUseSession && viewport && connection && (
         <SketchUseOverlay
           viewport={viewport}
           connection={connection}
           partStudioId={partStudioId}
           sourceSketchIds={sourceSketchIdsForUse}
+          bodies={bodies}
           onPick={applySketchUsePick}
+          onPickBody={applySketchUseBodyPick}
           onError={(message) => IModelApp.notifications.outputMessage(new NotifyMessageDetails(
             OutputMessagePriority.Error,
             message,
           ))}
           onCancel={cancelSketchPattern}
+        />
+      )}
+      {/* 2026-11-21 S1：外部引用投影失败观测面（失败封闭；宿主按 code 去重提示）。 */}
+      {sketchActiveForDecorations && sketchSystem?.projection?.status === 'failed' && (
+        <span
+          data-testid="sketch-projection-status"
+          data-status="failed"
+          data-error-codes={[...new Set(sketchSystem.projection.errors.map((error) => error.code))].sort().join(',')}
+          className="part-studio-plane-picker__marker"
+          aria-hidden="true"
         />
       )}
       {/* ADR-0018 S1f：活动草图面域填充观测面（e2e；绘制在 SketchCurvesDecoration）。 */}
