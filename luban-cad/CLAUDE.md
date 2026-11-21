@@ -327,8 +327,15 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
   (20,0)/DOF 0，消费三角形 400 mm³，改源宽 30 → (30,0)/600 mm³、push+冷重开；平行边
   → `projection-pierce-miss`，抑制源 → failed/无旧坐标/恢复 ok；回归 `sketch-projection-
   body`/`sketch-projection`/`sketch-use` **5 passed**；能力账本
-  `sketch.externalRefs.pierce=partial`。残：UI「穿透」工具 gated（live 选项/失败提示
-  未采）、样条 PIERCE blocked、仅源 body 变化时其他约束的整图重解待后续切片、
+  `sketch.externalRefs.pierce=partial`。**S2b 源变更整图重解（同日）**：新增共享
+  `feature/SketchSolve.ts`（写面 `solveSketchChecked` + 读面 `solveSketchForRead`），
+  源 body 变化后 `getSketch` 与消费面 `readResolvedSketch`/`requireExternalRefEntities`
+  按当前交点全草图重解（投影实体不占 DOF；ok/underconstrained 才合并解回写可见实体；
+  conflicting/failed 回退原实体表，失败语义不变），读面无副作用、隐藏行不泄漏。
+  TDD 用例：垂直线+distance 耦合点 2 随 PIERCE 点 1 由 (20,10) 联到 (30,10)，dof 0；
+  `SketchPierceFlow` **14/14**、四投影 suite **37 passed**、后端全量
+  **1233 passed + 1 expected fail + 8 skipped（124 files）**、tsc/eslint 绿。
+  残：UI「穿透」工具 gated（live 选项/失败提示未采）、样条 PIERCE blocked、
   INTERSECTED/SILHOUETTED（S4）。
   **S3 bodyFace（同日）**：平面面边界读取（`facesFromId` → Loop/ParityRegion，
   `CurveOps.isPlanar` 几何平面判据——native `isPlanarFace` 对带孔平面面返回 false，
