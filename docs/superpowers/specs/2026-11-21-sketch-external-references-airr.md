@@ -1,9 +1,10 @@
 # AIRR — 草图外部引用（模型边/面 → PROJECTED / PIERCE / INTERSECTED / SILHOUETTED）
 
-- 状态：**提议 / 未批准（2026-11-21）**。本文件是设计门禁与证据材料，**不是实现、不是绿例**；
-  未批准前不写产品代码（P0-04）。
+- 状态：**已批准（2026-11-21 用户确认）**。批准口径为 AIRR 设计及其 S0→S5 分片（S4
+  仍为条件性）；本文件是设计门禁与证据材料，**不是实现、不是绿例**；S0 证据/ADR/probe
+  通过前仍不写 S1+ 产品代码（P0-04）。
 - 日期：2026-11-21
-- Owner：用户（待签字）
+- Owner：用户（2026-11-21 确认批准）
 - 关联需求：计划 `docs/superpowers/plans/2026-11-19-onshape-full-parity.md` §5 B3（W1–W2）
   与 §4 W1 门禁；ADR-0009（已接受；切片 1a 已实现，1b/2 待实现）。
 - 关联前序设计：
@@ -13,6 +14,8 @@
   - `docs/superpowers/specs/2026-11-13-sketch-use-projection-airr.md`（已实现：草图→草图 Use UI）
   - `docs/superpowers/specs/2026-11-19-sketch-entity-constraint-expansion-airr.md`
     （S4 外部引用列为后续切片）
+  - `docs/adr/0024-sketch-external-refs-model-topology.md`（ADR-0009 增量：DTO-2/读路径 B/范围）
+  - `docs/adr/0025-solver-fixed-reference-geometry.md`（solver-neutral 固定参考几何）
 - 预计影响仓：`luban-cad/packages/shared`、私有 `luban-backend/modeling-server`、
   `luban-cad/apps/web`、`luban-cad/packages/viewer`（仅显示增强）、
   `luban-cad/packages/editor`（复用拾取/拓扑读面，原则上不改）。
@@ -40,10 +43,11 @@
 - **求解器侧需要一条新的固定参考语义**：投影/派生几何不参与 DOF，但可被约束引用；
   PIERCE 展开为「隐藏固定交点 + coincident」。该接口变更必须先过 ADR（P0-09）。
 - **S4（INTERSECTED / SILHOUETTED）存在硬证据缺口**：当前 `SolidKernel.h`/公开头文件
-  接口没有轮廓 API；面×平面精确求交也需探针（候选 `BodyFromFace` + `IntersectSheetFaces`，
-  未证明）。**未证明精确前登记 blocked-design / blocked-kernel，不做折线或采样近似。**
+  接口没有轮廓 API；面×平面精确求交也需探针（S0 已证现有面-面求交/由面建片体候选
+  不可用于柱/锥/环/拉伸面）。**未证明精确前登记 blocked-design / blocked-kernel，
+  不做折线或采样近似。**
 - 主要阻断项（影响批准）见 §9.4：solver-neutral 固定参考 ADR、精确轮廓/求交探针、
-  Use/Project live UI 证据、X-05 草图整体覆写 undo 例外。
+  Use/Project 选项/样式证据、X-05 草图整体覆写 undo 例外。
 
 ---
 
@@ -101,8 +105,17 @@ Onshape 的 Use/Project 允许把**已有实体的边、顶点或面边界**投�
 - **已实现 UI**：2026-11-13 草图源 Use（`SketchUseOverlay` + `internal/sketch-use.ts`），
   只列同 Part Studio 当前草图之前的其它草图（最近 8 张），无实体边/面候选。
 - **语料证据**：本文件 §2 的只读扫描（私有 corpus 的 sanitized 计数与参数形态）。
-- **live UI 缺口**：没有成功的 Use/Project 外部边/面对话框、投影线样式、失败提示的
-  live 采集；2026-11-13 记录的成功投影截图缺失。**UI 证据补齐前不新增外部边/面控件**。
+- **live UI 证据（2026-11-21 探针，sanitized 结论）**：
+  - Use 工具 `command-id=USE`（`u`，tooltip「使用（投影/转换）」，说明「边或面投影到活跃
+    草图平面」）；选择模型边时高亮并显示 `长度: 50.00 mm`，选择模型面时出现面选择指示。
+  - Use 组下拉还含 `INTERSECTION`「交点」（「曲面或面与活跃草图平面的交点投影」）——
+    S4a 的 live UI 入口。
+  - PIERCE 是约束工具「穿透」（`shift+g`，「使一个草图图元与活跃草图平面之外的另一个
+    图元重合」），不是独立投影命令；S2 应按约束接入。
+  - 搜索「轮廓」「投影」均无匹配：**没有独立 Project/Silhouette 工具**；S4b 仍在
+    当前 UI 无入口，继续 blocked-design/kernel。
+  - 仍缺：Use 的 offset/spacing/构造性选项、投影线样式、源删除/抑制失败提示；UI 的
+    这些子项保持 gated，不新增假控件。
 
 ### 1.4 非目标（明确不做）
 
@@ -596,7 +609,7 @@ interface ProjectionSnapshot {
 | luban-cad/packages/shared | 契约/拓扑 id | `SketchDto`/`SketchEntityDto`/`SketchProjectedMarker`/`SketchProjectionRequest`/`LubanTopologyId`/`BodyInfo` | **扩展**（判别联合 + externalRefs + 状态；版本 bump） |
 | modeling-server（私有） | 草图投影/面域/预求值/拓扑读面 | `SketchProjection`、`SketchRegions`、`FeatureEngine.preEvaluateDirty/rebuildAll/evaluateChainForPreview`、`AsyncFeatureEval`、`EvalCarrier`、`FeatureOutputCache`、`DirectEditGuard` | **扩展**（快照 provider + body refs + 固定参考展开） |
 | modeling-server/sketch（私有） | 求解器 | `SolverTypes`/`SketchWireNormalizer`/`SlvsSolver`（`fixed` point + lockedGroup） | **扩展**（fixed curve semantics；需 ADR） |
-| imodel-native / SolidKernel | 面/边/拓扑、面→曲线、面×面交线 | `GetBodyEdges/Faces/Vertices`、`GetFaceEdges`、`Create::PlanarFaceToCurveVector`、`Create::BodyFromFace`、`Modify::IntersectSheetFaces` | **候选复用**（面×平面精确交线需 probe）；**无 silhouette API** |
+| imodel-native / SolidKernel | 面/边/拓扑、面→曲线、面×面交线 | 边/面/顶点读取、平面面转曲线、由面建片体、面-面求交（S0 probe 结论见公共摘要） | **候选复用**（面×平面精确交线需新 wrapper）；**无 silhouette 产品接口** |
 | imodelhub-services | — | — | 不适用 |
 | 官方 clients/BisSchemas | 参考语义 | 官方 editor/几何 API | 参考；不新增并行 REST DTO |
 | DanQing | — | 未接入 | 不适用（不以第二渲染实现） |
@@ -611,8 +624,8 @@ interface ProjectionSnapshot {
 | 草图源投影 | `SketchProjection` 1a | 草图源 | 扩展 | 保留同步读语义，增 externalRefs | 项目自有 |
 | 异步预求值 | `preEvaluateDirty`/`rebuildAll`/`evaluateChainForPreview` | 已有 | 扩展 | 同一求值通道，不建第二套 | 项目自有 |
 | 快照缓存 | `FeatureOutputCache` 模式 | 已有先例 | 复用模式，新建草图表 | 派生、可重建、不落库 | 项目自有 |
-| 面×平面求交 | `IntersectSheetFaces` + `BodyFromFace` + 平面 sheet | **未证明** | 先 probe | 若精确可行则复用；否则 blocked | ACIS 授权内（需 probe 结论） |
-| 轮廓（silhouette） | 无公开 API | 0 | **blocked-design/blocked-kernel** | 不允许采样近似；需新 native 接口+ADR | 未授权前不接 |
+| 面×平面求交 | 现有面-面求交/由面建片体 + 平面 sheet | **S0 已证对柱/锥/环/拉伸面失败** | 需新 native 平面切片 wrapper+ADR | 若精确界面落地则复用；否则 blocked | ACIS 授权内（需 probe 结论） |
+| 轮廓（silhouette） | 无产品接口（内部接口存在） | 0 | **blocked-design/blocked-kernel** | 不允许采样近似；需新 native 接口+ADR+许可评审 | 未授权前不接 |
 | 选择/拾取 | `CanvasSelection` + `resolveEdgeRef`/`resolveFaceRef` | 边/面已有 | 复用 | 单一选择权威 | 项目自有 |
 | Use UI | `SketchUseOverlay`/`sketch.pattern` 会话 | 草图源已有 | 扩展 | 同会话槽，无第二套工具族 | 项目自有 |
 | 求解器 fixed | `fixed` point + lockedGroup | 仅 point | 扩展 | 需要 fixed curve；ADR 后实现 | libslvs 纯云 SaaS 姿态 |
@@ -661,14 +674,29 @@ interface ProjectionSnapshot {
 
 - 采集 Use/Project 外部选择 live UI 证据：边/顶点/面选择器、Use vs Project、offset/spacing、
   投影线样式/构造性、失败提示、源删除/抑制文案。
+  - **2026-11-21 已采**：Use（`USE`，`u`）接受模型边/面；Use 组下拉含 INTERSECTION「交点」；
+    PIERCE 为约束「穿透」`shift+g`；无独立 Project/Silhouette 工具（搜索无匹配）。
+  - **仍缺**：offset/spacing/构造性选项、投影线样式、失败提示、源删除/抑制文案。
 - 内核/API probe：
-  1. 面×草图平面精确交线（`BodyFromFace` + 平面 sheet + `IntersectSheetFaces` 或其它）；
-  2. silhouette（确认无 API → blocked-kernel/design）；
+  1. 面×草图平面精确交线（现有面-面求交/由面建片体，或新平面切片接口）；
+  2. silhouette（确认无产品接口 → blocked-kernel/design）；
   3. 边×平面交点（line/arc/spline）与切点行为；
   4. 固定曲线在 libslvs lockedGroup 下的 DOF/约束行为。
 - ADR：ADR-0009 增量 + solver-neutral 固定参考几何 ADR（+ native 如需要）。
 - 退出：证据与 probe 结论落私有/公共 sanitized 摘要；ADR 批准；能力 ledger 目标状态定义。
   **S0 未过，S1 不开工。**
+- **S0 结论（2026-11-21，公共摘要 `docs/architecture/SKETCH-EXTERNAL-REFS-S0-PROBES.md`）**：
+  - S1 **放行**：边/顶点投影不因内核阻塞；Use UI 入口（`USE`，`u`，边/面）已采。
+  - S2 **仅 line/arc 放行**：`appendPlaneIntersectionPoints` 需按扫掠参数过滤弧外点；
+    in-plane/切点/多交点/重根 fail closed；样条 PIERCE 因 point-on-spline 契约缺口 blocked。
+  - S3 **逐面精确性检查后放行**：现有面环读取可用，但由面建片体的圆柱端盖等被拒，
+    非平面/曲面/非精确环整面拒收。
+  - S4a INTERSECTED **blocked**：精确平面切片算法存在但未暴露，需 native wrapper + JS 线
+    + native ADR + ctest；非圆椭圆弧需 DTO 决策（拒收或扩展）。
+  - S4b SILHOUETTED **blocked-design/kernel**：无产品接口；内部面级精确轮廓接口需许可
+    评审、native ADR 与 live 语义证据；不做采样近似。
+  - UI 选项/样式（offset/spacing/构造性、投影线样式、失败提示）仍缺证据，S1 UI 这些子项
+    gated；Use 边/面入口与 PIERCE/INTERSECTION 入口可进入 live-spec。
 
 ### S1 — 模型边/顶点投影（PROJECTED USE / USE_END）+ 快照基础设施
 
@@ -850,7 +878,9 @@ interface ProjectionSnapshot {
    最多做「固定点」受限切片。
 2. **INTERSECTED/SILHOUETTED 精确算法缺证据** → S4 只能 blocked；若要求四类 full，
    AIRR 不能按当前证据批准。
-3. **Use/Project live UI 证据缺失** → UI 部分不能批准为 full；只能 gated/后端先行。
+3. **Use/Project live UI 选项/样式证据缺失** → 入口（Use/Pierce/Intersection）已采，
+   但 offset/spacing/构造性、投影线样式、失败提示未采；UI 这些子项只能 gated/后端先行，
+   不得宣称为 full。
 4. **X-05 undo 例外** → 外部引用写入复用整体覆写 op，若不能证明可撤销，必须更新例外登记，
    否则 P0-10 不允许发布。
 5. **旧客户端兼容**：必须接受「含 externalRefs 文档仅新 web/新 backend 可编辑」的发布矩阵；
@@ -896,10 +926,10 @@ interface ProjectionSnapshot {
 - 跨仓影响明确：**是**
 - P0 例外已登记：**是**（既有 **X-05** 仍开放，需复核；本能力不新增例外）
 - ADR：**需要**（ADR-0009 增量 + solver-neutral 固定参考几何 ADR；native 视 probe）
-- Owner 签字：**待用户批准**
-- 结论：**提议 / 未批准；批准前仅允许 S0 证据与探针。**
-  建议批准口径：S0 通过后按 S1→S2→S3→S4（条件性）→S5 实施；
-  S4 若 probe 失败按 blocked-design/kernel 登记，不以近似冒充 full。
+- Owner 签字：**已确认（用户 2026-11-21）**
+- 结论：**已批准；按 S0→S1→S2→S3→S4（条件性）→S5 实施。**
+  S0 未过前仅做证据/探针/ADR；S4 若 probe 失败按 blocked-design/kernel 登记，
+  不以近似冒充 full。
 
 ---
 
