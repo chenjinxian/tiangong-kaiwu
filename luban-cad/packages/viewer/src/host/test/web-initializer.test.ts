@@ -65,12 +65,12 @@ describe('startViewer（移植自 WebInitializer）', () => {
     (core.IModelApp as unknown as { initialized: boolean }).initialized = false;
   });
 
-  it('组装 socketUrl 并注入 token', async () => {
+  it('组装 socketUrl 且 token 不进 URL', async () => {
     await startViewer({ backendUrl: 'http://localhost:5401', hubUrl: 'http://localhost:5400', accessToken: 'jwt-x' });
     expect(startupMock).toHaveBeenCalledTimes(1);
     const arg = startupMock.mock.calls[0][0];
     expect(String(arg.localhostIpcApp.socketUrl)).toContain('localhost:5401');
-    expect(String(arg.localhostIpcApp.socketUrl)).toContain('token=jwt-x');
+    expect(String(arg.localhostIpcApp.socketUrl)).not.toContain('token=');
     expect(arg.iModelApp.publicPath).toBe('/');
     expect(arg.iModelApp.authorizationClient).toBeDefined();
     // 2026-11-02 Onshape 渲染对齐：禁止为每个 polyface 面片生成边线
@@ -79,7 +79,7 @@ describe('startViewer（移植自 WebInitializer）', () => {
     expect(arg.iModelApp.tileAdmin.tileStorage).toBeDefined();
   });
 
-  it('P2.8：getAccessToken 动态提供者——WS 用初值，RPC 每次取新值（过期刷新）', async () => {
+  it('P2.8：getAccessToken 动态提供者——RPC 每次取新值（过期刷新）且 token 不进 URL', async () => {
     let token = 'jwt-1';
     const provider = vi.fn(async () => token);
     await startViewer({
@@ -88,7 +88,7 @@ describe('startViewer（移植自 WebInitializer）', () => {
       getAccessToken: provider,
     });
     const arg = startupMock.mock.calls[0][0];
-    expect(String(arg.localhostIpcApp.socketUrl)).toContain('token=jwt-1');
+    expect(String(arg.localhostIpcApp.socketUrl)).not.toContain('token=');
     expect(await arg.iModelApp.authorizationClient.getAccessToken()).toBe('jwt-1');
     token = 'jwt-2';
     expect(await arg.iModelApp.authorizationClient.getAccessToken()).toBe('jwt-2');

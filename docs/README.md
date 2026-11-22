@@ -9,7 +9,7 @@
 ### 核心文档
 | 文档 | 说明 |
 |------|------|
-| [CLAUDE.md](../CLAUDE.md) | 平台总仓主文档：仓库布局、构建/测试命令、上游同步规约 |
+| [CLAUDE.md](../CLAUDE.md) | **整体架构、开发规范与参考标准入口**：P0 红线、核心架构模型、仓库布局/命令、上游同步、工程约束与文档锚点（不记录进度/测试基线） |
 | [README.md](../README.md) | 平台介绍与架构分工 |
 | [luban-cad/CLAUDE.md](../luban-cad/CLAUDE.md) | 鲁班CAD 开发准则（复用优先/工具生命周期/AI 工具注册规约） |
 
@@ -18,12 +18,19 @@
 |------|------|
 | [DEVELOPMENT-RULES.md](./DEVELOPMENT-RULES.md) | **开发规则唯一权威（v1.0，2026-11-04 生效）**：P0 平台宪法 10 条 + P1 架构/工程规则 12 条 + AIRR/例外/执行机制 |
 | [architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md](./architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md) | **产品目标与工程原则（2026-11-09 用户裁决）**：全量 Onshape 草图/约束/特征 → AI+CAD；大规模示例验证真形内核/绳墨；每个功能点检查架构合理性与闭环；持续审计 imodel-native BRepCore |
+| [architecture/G0-EXECUTION-PLAN.md](./architecture/G0-EXECUTION-PLAN.md) | **G0 执行计划（架构冻结第 0 阶段）**：16 项决策、16 个 Spike、20 个 ADR、两周日历、证据模板、G1 初始 backlog 与 Gate 验收；本阶段不写功能代码/不改 schema/native/不发布 |
+| [architecture/G0-DECISION-REGISTER.md](./architecture/G0-DECISION-REGISTER.md) | **G0 决策登记册**：16 项决策的选项/建议/失败判据/影响/owner/签字区；未签字项不得作为开发依据 |
+| [architecture/G0-SPIKE-REGISTER.md](./architecture/G0-SPIKE-REGISTER.md) | **G0 Spike 登记册**：16 个 Spike 的环境/步骤/证据/通过判据/失败动作/结果汇总；不得伪造 PASS |
+| [architecture/G1-EXECUTION-PLAN.md](./architecture/G1-EXECUTION-PLAN.md) | **G1 执行计划（平台正确性）**：会话/身份/账本/灾备/CI 的 Sprint 1–3 工作包、Sprint 1 任务单、DoD 与 G1 Gate 验收 |
+| [architecture/SESSION-ISOLATION-DESIGN.md](./architecture/SESSION-ISOLATION-DESIGN.md) | **C2/C3/C6 会话隔离实现设计**：连接权威/session 上下文、per-session briefcase、Editor/undo 所有权、路径白名单、外部 lease 接口、迁移/回滚与测试矩阵 |
+| [architecture/IDENTITY-ACL-DESIGN.md](./architecture/IDENTITY-ACL-DESIGN.md) | **B2/B3 身份与按文档授权设计**：OBO 委托/服务身份双平面、Hub PDP + MS/WA/storage PEP、groups/shares、真实归因、分阶段强制与负例矩阵 |
+| [architecture/CHECKPOINT-GENERATOR-DESIGN.md](./architecture/CHECKPOINT-GENERATOR-DESIGN.md) | **D4 checkpoint generator / D3 clone-fork 设计**：worker/queue/storage/DB 状态机、manifest/readback、retention、clone/fork 语义与 FK 修正、测试与回滚 |
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
 | [ONSHAPE-LIVE-REPLICATION.md](./ONSHAPE-LIVE-REPLICATION.md) | Onshape 示例实时复刻通道的**规则与经验**：corpus 数据边界、可编辑副本/DXF、sketchMatrix 跨列还原、精确端点+CCW、region 调试、多体 targetBodyIds、边/面选择器、shell 符号、限流和 approx 边界（逐例进度只在私有仓） |
 | [architecture/INTERFACE-FREEZE-MATRIX.md](./architecture/INTERFACE-FREEZE-MATRIX.md) | 接口冻结矩阵（公开契约层）：P0/P1 接口、owner、版本、变更流程、验收证据；后端/原生逐文件证据在私有仓 |
 | [architecture/AIRR-TEMPLATE.md](./architecture/AIRR-TEMPLATE.md) | Architecture Impact & Reuse Review 模板（功能开工门禁） |
 | [architecture/CANONICAL-SOURCES.md](./architecture/CANONICAL-SOURCES.md) | 规范来源表：能力 → 官方/参考来源 → 禁止项 |
-| [architecture/VIEWER-IPC-LIFECYCLE.md](./architecture/VIEWER-IPC-LIFECYCLE.md) | Web 查看器 IPC 生命周期（2026-11-10）：display-test-app 页面级 host 对照；路由不 shutdown IpcApp/IModelApp；后端 MS 重启用 `queryConcurrency` 8s 存活探针有界失败 + 刷新恢复；登出整页导航换 WS 身份；刷新/关闭/重入边界与回归（catalog 5/5、ipc-logout 1/1、ms-restart-recovery 1/1） |
+| [architecture/VIEWER-IPC-LIFECYCLE.md](./architecture/VIEWER-IPC-LIFECYCLE.md) | Web 查看器 IPC 生命周期：页面级 host、路由不 shutdown IpcApp/IModelApp、MS 重启存活探针与刷新恢复、登出换 WS 身份、刷新/关闭/重入边界 |
 | [architecture/EXCEPTIONS.md](./architecture/EXCEPTIONS.md) | 规则例外与债务登记（owner/失效日期/退出计划） |
 | [adr/0001-itwin-imodel-data-model.md](./adr/0001-itwin-imodel-data-model.md) | ADR：iTwin/iModel 数据模型与“文档—页签”信息架构（**已接受**；P0 前置完成；P1 spike **Go（qualified）**；**P2 实现并发布（2026-11-01，Release `backend-20261101-p28c`）**：RPC 1.18、B flag rollout/rollback、证据与残项处置；P3 旧数据迁移退役、P4 暂缓） |
 | [adr/0002-retire-legacy-edit-channel-and-unify-selection.md](./adr/0002-retire-legacy-edit-channel-and-unify-selection.md) | ADR：退役旧编辑 RPC 通道（shared 1.1.0）、草图工具族唯一、`store.canvas.selection` 单一选择权威（X-01/X-02/X-03，2026-11-04） |
@@ -45,7 +52,7 @@
 | [adr/0018-sketch-direct-manipulation.md](./adr/0018-sketch-direct-manipulation.md) | ADR（Proposed，2026-11-12；S1a–S1f 已实现）：草图直接操纵——约束着色/控制点/实体选择/拖拽/删除/尺寸改值/面域填充/相机；复用既有草图写面，无契约变更 |
 | [adr/0019-loft-multisection.md](./adr/0019-loft-multisection.md) | ADR（Proposed，2026-11-12；实现已落地未发布）：多截面放样——shared 1.69 `LoftParams.sketchIds` ≥2 有序数组 + BRepCore 原生 N-profile；真栈三截面 4000 mm³ |
 | [adr/0022-sketch-symmetric-slot.md](./adr/0022-sketch-symmetric-slot.md) | ADR（Accepted，2026-11-19）：草图对称约束（shared 1.81 `symmetric`，复用 `SLVS_C_SYMMETRIC_LINE`）+ 槽工具（S2/S2b/S2c/S2e/S2i：单线/开放链/线+弧混合链/圆弧/整圆/凸凹闭合环/多独立线共享单 Ø；旧 blocked-design 见 §2.7/§2.8）；真栈对称与槽 e2e 已绿 |
-| [adr/0023-sketch-slot-width.md](./adr/0023-sketch-slot-width.md) | ADR（Accepted，2026-11-20）：solver-neutral 槽宽约束 `slotWidth`（shared 1.83 `slotMode=concentric|ring`）——一个可见宽度同时驱动整圆槽两同心圆（隐藏径向点对+点距=w/2）与闭合直线环槽内外边界（2N 条 parallel+有符号垂距 ±w/2）；web 槽工具/尺寸标注与双击编辑；真栈整圆+闭合环改宽两侧同步/undo/redo/reload |
+| [adr/0023-sketch-slot-width.md](./adr/0023-sketch-slot-width.md) | ADR（Accepted，2026-11-20）：solver-neutral 槽宽约束 `slotWidth`（shared 1.83 `slotMode=concentric/ring`）——一个可见宽度同时驱动整圆槽两同心圆（隐藏径向点对+点距=w/2）与闭合直线环槽内外边界（2N 条 parallel+有符号垂距 ±w/2）；web 槽工具/尺寸标注与双击编辑；真栈整圆+闭合环改宽两侧同步/undo/redo/reload |
 | [adr/0024-sketch-external-refs-model-topology.md](./adr/0024-sketch-external-refs-model-topology.md) | ADR（已接受，2026-11-21，随用户 AIRR 批准；条件性）：ADR-0009 增量——模型边/面外部引用；DTO-2 `externalRefs` 唯一持久列表（legacy 1a 兼容 + omission guard + 错误码）、读路径 B（异步预求值 + 可失效进程内快照 + 同步读）、`entityIds` 块分配、USE_END=bodyEdge start/end、S1/S2/S3 已落地并真栈验收，S4 条件性（INTERSECTED blocked-kernel / SILHOUETTED blocked-design）；shared 1.85.0 已实现；S0 探针见 [架构探针结论](./architecture/SKETCH-EXTERNAL-REFS-S0-PROBES.md) |
 | [adr/0025-solver-fixed-reference-geometry.md](./adr/0025-solver-fixed-reference-geometry.md) | ADR（已接受，2026-11-21，随用户 AIRR 批准；条件性）：solver-neutral 固定参考几何——`fixedEntityIds` 进 `lockedGroup`（不计 DOF、不新增方程）、固定参考可被 coincident/distance/tangent 引用、全固定约束=检查、PIERCE 展开为隐藏固定交点+coincident；单一求解通道、libslvs 纯云 SaaS 不变；S0 探针失败→受限固定点 partial |
 | [adr/0021-acis-exposure-expansion.md](./adr/0021-acis-exposure-expansion.md) | ADR（Proposed，2026-11-19）：ACIS 暴露面扩展——仅 Modeler+Polyhedra；TaperFaces 等按“许可审计→ctest→PSBRep op→editor IPC→backend→真栈”协议产品化；ThickenSheet 维持 blocked-license、普通 DeleteFaces 维持 blocked-kernel；未批准前不接线 |
@@ -116,6 +123,10 @@
 |------|------|
 | [示例目录 `/examples`](../luban-cad/apps/web/src/modules/examples/ExamplesPage.tsx) | **全部 19 个 `replicable-now` 示例的统一公开入口**（2026-11-10）：真实封面、owner/document/PS/目标体积、strict 状态、owner 过滤与搜索；登录且唯一解析到 iModel 时直达 Part Studio，未定位/无权限回退文档中心；真栈 19 卡 + Bumper 打开 canvas 绿（2026-11-10 追加 Intro Part 4） |
 | [示例 iModel 复刻画廊](../luban-cad/apps/web/demo-artifacts/examples/index.html) | 历史本地画廊（未随 web 镜像部署）：已完成 Onshape 示例的真实 iModel 分步演示（2026-11-05：Tutorial 2、Tutorial 2 iOS、Basic Drawing、Postman、WARNING LABEL + 3 个同几何文档、Mate Connectors、Intro to CAD（cPlane UI）、Hand Brake、Sample Assignment；2026-11-06 新增 `Exercise: Element Organization` 文档级 iModel，O-Ring + Bushing 两个 Part Studio 页签；共 12 个 legacy iModel + 1 个多 PS iModel，含 runner/manifest；Sample Assignment 当前 known-red；2026-11-10 起统一入口以 `/examples` 为准） |
+| [research/onshape-help-analysis/README.md](./research/onshape-help-analysis/README.md) | **Onshape Help 全量文档分析（2026-11-22）**：527 主题 / 861,649 词 / 24 章节 / 349 工具页；14 份逐领域报告、完整目录树与工具清单、与能力账本/2026-11-19 计划的差距与范围裁决；公开脱敏，原始正文不入库 |
+| [research/lubancad-architecture-assessment/README.md](./research/lubancad-architecture-assessment/README.md) | **LubanCAD 全栈架构评估（2026-11-22）**：关联仓/运行时地图 + 逐能力 A/B/C/D 就绪矩阵 + Part Studio/协同/渲染/装配/工程图/导入导出/内核深挖 + 16 项架构裁决与路线；结论=Part Studio 级可支撑（草图/约束/特征/UI/交互渲染/单用户编辑 B），全量 Onshape 需新子系统（实时协同/分支 D、装配/工程图/PDM C、STEP D；异步多 briefcase B、checkpoint/权限为最高杠杆）；**整体可演进性见 `08-ARCHITECTURE-EXTENSIBILITY.md`；工业级目标架构见 `09-INDUSTRIAL-TARGET-ARCHITECTURE.md`；架构冻结/开发计划见 `10-ARCHITECTURE-HARDENING-PLAN.md`** |
+| [research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md](./research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md) | **工业级专业云 CAD 目标架构**：I0–I9 生产门槛、控制面/会话面/作业面/数据面/PDM 面、身份/ACL/租户、不可变账本/checkpoint/版本、Feature Manifest/图执行器、Workspace/选择、几何/渲染、装配/工程图/导入导出、灾备/发布/合规、架构不变量 |
+| [research/lubancad-architecture-assessment/10-ARCHITECTURE-HARDENING-PLAN.md](./research/lubancad-architecture-assessment/10-ARCHITECTURE-HARDENING-PLAN.md) | **架构冻结与开发计划**：G0–G5 Gate、16 项决策 + 16 个 Spike、12 个工作流约 100 个工作包、阶段/里程碑、量化验收标准、依赖与返工风险、架构适应度函数、全功能前的“架构正确”判据 |
 | [iTwin.js-Tools-Complete-Reference.md](./iTwin.js-Tools-Complete-Reference.md) | iTwin.js 工具完整参考 |
 | [ITWINJS_CORE_MODIFICATIONS.md](./ITWINJS_CORE_MODIFICATIONS.md) | iTwin.js Core 修改记录 |
 | [web-realstack-probes.md](./web-realstack-probes.md) | 前端真实栈探针标准动作（发布前必跑） |
@@ -125,12 +136,14 @@
 |------|------|
 | [Deployment-Guide.md](./Deployment-Guide.md) | 部署指南（外部体验者一键起栈：公开镜像 + 匿名产物下载，无需 GitHub 账号/docker login） |
 | [PORTS.md](./PORTS.md) | 宿主端口登记（单一事实源） |
+| [operations/BACKUP-RESTORE.md](./operations/BACKUP-RESTORE.md) | **E1/E2 备份恢复基线**：Postgres `pg_dump` + Azurite 卷快照、SHA-256 manifest、恢复顺序/HITL 闸、RPO/RTO 目标与演练清单；明确非 HA/PITR、Azurite 仅开发 |
 | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) | 上游同步指南 |
 | [WEBHOOK_CONFIG.md](./WEBHOOK_CONFIG.md) | Webhook 密钥配置说明 |
 
 ### 发布与迁移
 | 文档 | 说明 |
 |------|------|
+| [operations/RELEASE-MANIFEST.md](./operations/RELEASE-MANIFEST.md) | **release manifest 工具（J3.1）**：产物 digest/源 commit/契约版本/SBOM 指纹的生成与校验；`latest` 不可部署、契约/源提交可对账；不替代 `release-gate.ps1`/签名 |
 | [RELEASE-web-20261110b.md](./RELEASE-web-20261110b.md) | **最新 web-only 发布（2026-11-10b）**：公开 `/examples` 18 示例目录 + 页面级 IPC host + MS 重启 8s 存活探针 + 登出整页导航；web 镜像 digest `6ac74b99…`，后端/hub/WA/bff 与 `backend-20261110` 完全一致 |
 | [RELEASE-backend-20261110.md](./RELEASE-backend-20261110.md) | 后端发布说明（**shared 1.64.0 / MS 精确 faceExtrude A1/A2/A3/A4 + S3**；Bumper strict 16/16、+0.000024%；公开 strict 19 / 私有索引 18；A1/A2 backend 随发布可复现） |
 | [RELEASE-backend-20261109.md](./RELEASE-backend-20261109.md) | 历史发布说明（草图/特征能力检查点：4 个公开镜像 + MS **1.63.0** 产物；匿名冷拉/17 项全栈验收） |
@@ -149,6 +162,7 @@
 | [superpowers/specs/](./superpowers/specs/) | 保留的设计记录（架构裁决/全程序路线图/parity 设计/清理设计） |
 | [superpowers/plans/](./superpowers/plans/) | 保留的执行计划（item4 组合/hub backlog/M-A5.2 计划/本轮清理计划） |
 | [tool-integrations/](./tool-integrations/) | 工具集成方案与状态 |
+| [research/](./research/) | 研究分析（当前：Onshape Help 全量文档分析 527 主题；LubanCAD 全栈架构评估） |
 | [api-specs/](./api-specs/) | 官方 iTwin Platform REST 规格（契约对照基准） |
 
 ---
@@ -164,4 +178,4 @@
 
 现行能力状态以本目录保留文档与代码/测试实测为准（状态标记：✅/🟠/⚪/❌）。
 
-*最后更新: 2026-11-05（UI polish 完成真栈复核，并二次逐像素重做 ViewCube：DPR4 live 分析确认 cube 面边 58px、标签屏幕直立、三色轴 #cd0000/#009400/#0000d0 锚 Front 面左下、trigger 44.226×28、Home 仅自由视角；工具栏下拉 180px/父行+快捷键、ViewCube 交互对齐（可见面/隐藏面轮廓带/角点/罗盘弧 hover、180ms 相机动画、无拖拽、trigger tooltip）、左侧「图形首选项」对话框（默认 AO 20%/FOV 45°/线宽 2px/光泽度 3%）、右侧「外观」面板 + 逐 body 颜色覆盖（会话内显示，未持久化）；web **1382/1382**、tsc/lint 绿；live 证据 `ui-evidence/ui-polish-20261105` 47–54、`ui-evidence/viewcube-exact-20261105`、`ui-evidence/viewcube-interactions-20261105`；官方 iTwin ViewCube **默认** + 相机/渲染菜单（`?viewcube=onshape` 回退自研；真栈 `itwin-viewcube.spec.ts`、ui-parity、tutorial2 均绿；证据 `ui-evidence/itwin-viewcube-20261105`）。此前：cPlane Slice B1（shared 1.29.0，Intro to CAD 真栈 85157.341 mm³）；chamfer UI Slice 1/1b；converter CAP_EDGE + ScenarioReplay 2/2；12 个示例 iModel 重开通过；X-01/X-02/X-03/X-14 已关闭；ADR-0004/0005 Phase 1、ADR-0006 切片 A/A2/A3/B1 已落地）*
+> 本索引只登记文档位置与用途。能力状态、测试基线、发布证据与逐功能进度不在此维护；请查能力账本、ADR/AIRR、专题文档与代码/测试实测。

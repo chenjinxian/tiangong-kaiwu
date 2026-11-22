@@ -12,8 +12,23 @@ function tokenPayload(expOffsetSec: number): string {
 }
 
 describe('AuthSession', () => {
-  beforeEach(() => { sessionStorage.clear(); vi.restoreAllMocks(); });
+  beforeEach(() => {
+    sessionStorage.clear();
+    document.cookie = 'luban_cad_auth=; Path=/; Max-Age=0; SameSite=Lax';
+    vi.restoreAllMocks();
+  });
   afterEach(() => { vi.restoreAllMocks(); });
+
+  it('storeAuth 写入同源 WS cookie，clearAuth 清掉', () => {
+    AuthSession.storeAuth({
+      accessToken: 'jwt-cookie', refreshToken: 'r1',
+      expiresAt: Date.now() + 900_000, user: { id: '3', email: 't@e.com', name: 'T' },
+    });
+    expect(decodeURIComponent(document.cookie)).toContain('jwt-cookie');
+    AuthSession.clearAuth();
+    expect(document.cookie).not.toContain('jwt-cookie');
+    expect(document.cookie).not.toContain('luban_cad_auth=');
+  });
 
   it('login 成功存会话并返回用户', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
@@ -23,6 +38,16 @@ describe('AuthSession', () => {
     const user = await AuthSession.login('t@e.com', 'pw');
     expect(user.name).toBe('Test User');
     expect(AuthSession.getStoredAuth()?.refreshToken).toBe('r1');
+  });
+
+  it('inactive 登录映射到 accountInactive 文案', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
+      status: 422, errors: { account: 'inactive' },
+    }, 422)));
+    await expect(AuthSession.login('t@e.com', 'pw')).rejects.toMatchObject({
+      status: 422,
+      i18nKey: 'common.errors.accountInactive',
+    });
   });
 
   it('过期时单飞刷新：并发 3 请求只发 1 次 /auth/refresh', async () => {

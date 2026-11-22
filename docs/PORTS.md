@@ -17,11 +17,11 @@
 | Nginx 单入口 | **5301** | 80 | 根 `docker-compose.yml` `nginx.ports` |
 | imodelhub-services (HUB) | **5400**（仅 127.0.0.1 回环） | 4000 | compose `imodelhub.ports`（**2026-10-27 起只绑定回环**：宿主 MS/verify-stack 可直连，nginx 走容器网络 `imodelhub:4000`；禁止 0.0.0.0 发布——直连客户端可伪造 XFF 绕过限流）；`APP_PORT=4000` 不变 |
 | modeling-server (MS，宿主进程) | **5401** | 5401 | 根 `.env` `PORT=5401`；`scripts/start-ms-host.ps1` 读取 |
-| webhook-agent (WA) | **5402** | 4002 | compose `webhook-agent.ports`；`PORT=4002` 不变 |
+| webhook-agent (WA) | **5402**（仅 127.0.0.1 回环） | 4002 | compose `webhook-agent.ports`（WA 管理/基线端点不得暴露到局域网/公网）；`PORT=4002` 不变 |
 | BFF（luban-bff） | 不发布 | **5403** | `services/bff/src/config.ts`、compose `PORT=5403`、Dockerfile `EXPOSE` |
-| Azurite Blob | **10500** | 10000 | compose `ports: 10500:10000` |
-| Azurite Queue | **10501** | 10001 | compose `ports: 10501:10001` |
-| Azurite Table | **10502** | 10002 | compose `ports: 10502:10002` |
+| Azurite Blob | **10500**（仅 127.0.0.1 回环） | 10000 | compose `ports: 127.0.0.1:10500:10000`（对象存储禁止 0.0.0.0 暴露） |
+| Azurite Queue | **10501**（仅 127.0.0.1 回环） | 10001 | compose `ports: 127.0.0.1:10501:10001` |
+| Azurite Table | **10502**（仅 127.0.0.1 回环） | 10002 | compose `ports: 127.0.0.1:10502:10002` |
 | PostgreSQL / Redis / Maildev（栈内互通） | 不发布 | 5432 / 6379 / 1025、1080 | 根 `docker-compose.yml`（部署权威）；旧 `luban-cad/docker-compose.dev.yml`（宿主 55432/56379/11025/11080）已于 2026-10-29 退役 |
 | Vite preview | **4173** | 4173 | Vite 默认值；`luban-cad/apps/web/vite.config.ts` 未配置 `preview.port` |
 

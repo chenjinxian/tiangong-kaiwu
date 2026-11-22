@@ -19,6 +19,13 @@ export enum IpcWebSocketMessageType {
   Duplicate
 }
 
+/**
+ * Non-serializable connection identity attached by the backend transport.
+ * Symbol keys are ignored by JSON serialization, so it never reaches clients.
+ * @internal
+ */
+export const ipcConnection = Symbol("ipcConnection");
+
 /** @internal */
 export interface IpcWebSocketMessage {
   type: IpcWebSocketMessageType;
@@ -28,6 +35,8 @@ export interface IpcWebSocketMessage {
   method?: string;
   data?: any[];
   sequence: number;
+  /** Backend-only origin connection; never serialized. */
+  [ipcConnection]?: unknown;
 }
 
 /** @internal */
@@ -131,7 +140,10 @@ export class IpcWebSocketFrontend extends IpcWebSocket implements IpcSocketFront
 /** @internal */
 export class IpcWebSocketBackend extends IpcWebSocket implements IpcSocketBackend {
   private _handlers = new Map<string, (event: Event, methodName: string, ...args: any[]) => Promise<any>>();
-  private _processingQueue: IpcWebSocketMessage[] = [];
+  // One serial queue per connection: a slow native request from A must not
+  // block B, and handler execution must not observe another connection's task.
+  private _processingQueues = new Map<unknown, IpcWebSocketMessage[]>();
+  private static readonly _noConnection = Symbol("ipcNoConnection");
 
   public constructor() {
     super();
@@ -155,16 +167,24 @@ export class IpcWebSocketBackend extends IpcWebSocket implements IpcSocketBacken
     if (message.type !== IpcWebSocketMessageType.Invoke)
       return;
 
-    this._processingQueue.push(message);
-    await this.processMessages();
+    const connection = message[ipcConnection] ?? IpcWebSocketBackend._noConnection;
+    let queue = this._processingQueues.get(connection);
+    if (!queue) {
+      queue = [];
+      this._processingQueues.set(connection, queue);
+    }
+    queue.push(message);
+    await this.processMessages(connection);
   }
 
-  private async processMessages() {
-    if (!this._processingQueue.length) {
+  private async processMessages(connection: unknown) {
+    const queue = this._processingQueues.get(connection);
+    if (!queue?.length) {
+      this._processingQueues.delete(connection);
       return;
     }
 
-    const message = this._processingQueue.shift();
+    const message = queue.shift();
     if (message && message.method) {
       const handler = this._handlers.get(message.channel);
       if (handler) {
@@ -180,10 +200,11 @@ export class IpcWebSocketBackend extends IpcWebSocket implements IpcSocketBacken
           response: message.request,
           data: response,
           sequence: -1,
+          [ipcConnection]: message[ipcConnection],
         });
       }
     }
 
-    await this.processMessages();
+    await this.processMessages(connection);
   }
 }

@@ -5,11 +5,31 @@
 > `luban-cad/apps/web` + `luban-cad/packages/{shared,viewer,editor}`，见
 > `docs/MIGRATION-2026-10-29.md`。
 
-**最后更新**: 2026-10-29
+**最后更新**: 2026-11-22
 **基准**: upstream master 8bdef3e3cd（5.15.0-dev.2；2026-10-03 同步后基线）
 **汇总**: 20 个文件，+10,963 行 / -58 行（2026-09-22 基线快照；5.15 同步后未重算，以逐文件明细为准；不含 `luban-cad/` 与 lockfile）
 
 **统计口径**: `git diff master...dev/luban-cad --stat -- ':!luban-cad' ':!common/config/rush/pnpm-lock.yaml'`（2026-09-22 实测；旧分支名属历史口径）。汇总的 +10,963/-58 为插入/删除行；逐文件括号数字为 `--stat` 变更行数（增+删），两者关系：各文件变更行合计 11,021 = 10,963 + 58。
+
+---
+
+## 0. 2026-11-22：IPC 按连接路由响应（C1 会话隔离）
+
+**动机**：`LocalTransport.send` 向所有 WebSocket 广播；两个页面的 `requestId` 都从 1 开始，A 的响应可能被 B 当成本方结果 resolve，造成跨用户数据泄露/错误写入。
+
+**改动（3 文件）**：
+
+| 文件 | 改动 |
+|---|---|
+| `core/common/src/ipc/IpcWebSocket.ts` | 新增不可序列化 `ipcConnection` symbol；后端 Response 携带来源 connection；`IpcWebSocketBackend` 处理队列改为 per-connection，慢请求不阻塞其他连接 |
+| `core/common/src/ipc/IpcWebSocketTransport.ts` | `InSentOrder.deliver` 在消息上附加来源 connection（symbol 不被 JSON 序列化）；分片重组状态 `_assemblies` 改为 per-connection，关闭连接时清理 |
+| `core/backend/src/LocalhostIpcHost.ts` | `LocalTransport.send` 若消息带来源 connection 则只发该连接；无来源的 push 仍广播 |
+
+**边界**：本轮修 Invoke/Response 串线、分片重组与后端处理队列的跨连接共享；进度/Push 的订阅路由仍属 C1.3，未在此改动。
+
+**验证**：`rush build --to @itwin/core-backend` 通过（core-common/core-backend 重建）；双客户端真栈 e2e 仍待 G1 执行。
+
+**回滚**：回退上述三文件即可；无 schema/持久化变化。
 
 ---
 

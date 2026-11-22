@@ -15,6 +15,153 @@ import { EditCommandIpc, EditorIpc, editorIpcStrings } from "@itwin/editor-commo
 export type EditCommandType = typeof EditCommand;
 
 /**
+ * Context for one direct-edit write call (G1 C3.3).
+ *
+ * `args` is opaque client input. Gates must never log or persist it: it can
+ * contain geometry payloads and, in hardened deployments, credentials.
+ * @beta
+ */
+export interface EditWriteContext {
+  /** Registered command id (the tool/command being driven). */
+  commandId: string;
+  /** IPC method being called (e.g. `transformPlacement`, `booleanOperation`). */
+  methodName: string;
+  /** Backend key of the command's iModel. */
+  iModelKey: string;
+  /** Client-supplied arguments (never logged by the gate). */
+  args: readonly unknown[];
+}
+
+/** Result of one attempted direct-edit write, fed to the audit hook. @beta */
+export interface EditWriteOutcome {
+  ok: boolean;
+  /** Stable host error code/name when `ok` is false. */
+  errorCode?: string;
+}
+
+/**
+ * Server-side direct-edit write gate (G1 C3.3).
+ *
+ * The editor package classifies which IPC methods write (fail-closed: unknown
+ * methods are writes) but deliberately knows nothing about sessions, document
+ * ownership, leases or ACLs. A host installs this guard to require all of those
+ * before the write method runs. `beforeWrite` throws to reject; `afterWrite` is
+ * the audit hook and must not throw (the editor swallows its failures).
+ * @beta
+ */
+export interface EditWriteGuard {
+  beforeWrite(context: EditWriteContext): void | Promise<void>;
+  afterWrite?(context: EditWriteContext, outcome: EditWriteOutcome): void;
+}
+
+/**
+ * Methods that never modify persistent model state. Everything else is treated
+ * as a write: keeping this as a *read-only* whitelist means a newly added write
+ * method is gated by default (G1 C3.3).
+ */
+const NON_WRITING_METHODS = new Set<string>([
+  // EditCommand IPC basics.
+  "ping",
+  // BasicManipulationCommand queries.
+  "requestElementGeometry",
+  // SolidModelingCommand element-geometry-cache queries (process-local cache,
+  // not persistent model data).
+  "createElementGeometryCache",
+  "clearElementGeometryCache",
+  "summarizeElementGeometryCache",
+  "getSubEntityGeometry",
+  "getSubEntityParameterRange",
+  "evaluateSubEntity",
+  "isPlanarFace",
+  "isSmoothEdge",
+  "isLaminarEdge",
+  "isLinearEdge",
+  "isRedundantEdge",
+  "isSmoothVertex",
+  "isDisjointBody",
+  "isPlanarBody",
+  "isSingleFacePlanarSheet",
+  "hasOnlyPlanarFaces",
+  "hasCurvedFaceOrEdge",
+  "getBodySubEntities",
+  "getConnectedSubEntities",
+  "locateSubEntities",
+  "locateFace",
+  "getClosestSubEntity",
+  "getClosestFace",
+  "getClosestPoint",
+  "isPointInside",
+  "topologyIdFromSubEntity",
+  "facesFromId",
+  "edgesFromId",
+  "edgesFromOwnId",
+  "allTopologyIds",
+  "validateBody",
+  // Transaction lifecycle: these persist/revert work already gated at its
+  // write entry, and remain protected by the host's key-ownership check.
+  "saveChanges",
+  "abandonChanges",
+  "abandonEdits",
+  "endEdits",
+  "requestFinish",
+  "onStart",
+]);
+
+/**
+ * Solid-modeling geometry operations mutate the element only when the caller
+ * sets `opts.writeChanges`. Without it they are preview/query calls.
+ */
+const WRITE_OPTIONAL_GEOMETRY_METHODS = new Set<string>([
+  "booleanOperation",
+  "sewSheets",
+  "thickenSheets",
+  "cutSolid",
+  "embossBody",
+  "imprintBody",
+  "sweepAlongPath",
+  "loftProfiles",
+  "offsetFaces",
+  "offsetEdges",
+  "hollowFaces",
+  "sweepFaces",
+  "spinFaces",
+  "deleteSubEntities",
+  "transformSubEntities",
+  "taperFaces",
+  "blendEdges",
+  "chamferEdges",
+]);
+
+function hasWriteChanges(args: readonly unknown[]): boolean {
+  const last = args[args.length - 1];
+  return undefined !== last
+    && "object" === typeof last
+    && (last as { writeChanges?: unknown }).writeChanges === true;
+}
+
+/**
+ * Classify one `EditorIpc.callMethod` invocation as a direct-edit write.
+ * Unknown methods are writes (fail closed).
+ * @beta
+ */
+export function isEditWriteMethod(methodName: string, args: readonly unknown[]): boolean {
+  if (WRITE_OPTIONAL_GEOMETRY_METHODS.has(methodName))
+    return hasWriteChanges(args);
+  return !NON_WRITING_METHODS.has(methodName);
+}
+
+/** Stable error code/name for audit; never includes the error message. */
+function editWriteErrorCode(err: unknown): string | undefined {
+  if (undefined === err || "object" !== typeof err)
+    return undefined;
+  const code = (err as { code?: unknown }).code;
+  if ("string" === typeof code)
+    return code;
+  const name = (err as { name?: unknown }).name;
+  return "string" === typeof name ? name : undefined;
+}
+
+/**
  * An EditCommand performs an editing action on the backend.
  * Any writes to the iModel in an editing session should be done from an EditCommand:
  * - All changes to an iModel are made within a transaction (Txn).
@@ -119,71 +266,205 @@ export class EditCommand implements EditCommandIpc {
   }
 }
 
-class EditorAppHandler extends IpcHandler implements EditorIpc {
+/** @internal Exported so host applications can unit-test the IPC wrapper. */
+export class EditorAppHandler extends IpcHandler implements EditorIpc {
   public get channelName() { return editorIpcStrings.channel; }
 
   public async startCommand(commandId: string, iModelKey: string, ...args: any[]) {
-    await EditCommandAdmin.finishCommand();
-    if (commandId === "") // just kill active command, don't start another
+    const owner = EditCommandAdmin.ownerForRequest();
+    await EditCommandAdmin.finishCommandFor(owner);
+    if (commandId === "") // just kill this owner's active command, don't start another
       return;
+
+    // Ownership is checked before any db lookup so a foreign key never becomes
+    // a handle. Owner-scoped slots also mean this never finishes another
+    // session's command. This is read-level access (a foreign writable owner is
+    // still rejected); write leases are a separate gate.
+    EditCommandAdmin.assertKeyAccess(iModelKey, false);
 
     const commandClass = EditCommandAdmin.commands.get(commandId);
     if (undefined === commandClass)
       throw new IModelError(IModelStatus.NotRegistered, `Command not registered [${commandId}]`);
 
-    return EditCommandAdmin.runCommand(new commandClass(IModelDb.findByKey(iModelKey), ...args));
+    return EditCommandAdmin.runCommandFor(owner, new commandClass(IModelDb.findByKey(iModelKey), ...args));
   }
 
   public async callMethod(methodName: string, ...args: any[]) {
-    const cmd = EditCommandAdmin.activeCommand;
+    const owner = EditCommandAdmin.ownerForRequest();
+    const cmd = EditCommandAdmin.activeCommandFor(owner);
     if (!cmd)
       throw new IModelError(IModelStatus.NoActiveCommand, `No active command`, { methodName });
+
+    const write = isEditWriteMethod(methodName, args);
+    EditCommandAdmin.assertKeyAccess(cmd.iModel.key, write);
 
     const func = (cmd as any)[methodName];
     if (typeof func !== "function")
       throw new IModelError(IModelStatus.FunctionNotFound, `Method ${methodName} not found on ${cmd.ctor.commandId}`);
 
-    return func.call(cmd, ...args);
+    if (!write)
+      return func.call(cmd, ...args);
+
+    // G1 C3.3: every direct-edit write passes this single gate before touching
+    // the iModel. The guard throws to fail closed; audit is reported below.
+    const context: EditWriteContext = { commandId: cmd.ctor.commandId, methodName, iModelKey: cmd.iModel.key, args };
+    await EditCommandAdmin.beforeWrite(context);
+    try {
+      const result = await func.call(cmd, ...args);
+      EditCommandAdmin.afterWrite(context, { ok: true });
+      return result;
+    } catch (err) {
+      EditCommandAdmin.afterWrite(context, { ok: false, errorCode: editWriteErrorCode(err) });
+      throw err;
+    }
   }
+}
+
+/**
+ * Resolves the owner key (typically a server session id) for the current IPC
+ * dispatch and validates access to the command's target iModel.
+ *
+ * Host applications install this hook; the editor package itself never depends
+ * on a session implementation. Without a provider, the legacy single global
+ * slot is used for backward compatibility.
+ * @beta
+ */
+export interface EditCommandOwnerProvider {
+  /** Return the owner key for the current request. Throw to fail closed. */
+  requireOwner(): string;
+  /**
+   * Verify that the current request may drive a command on `iModelKey`.
+   * Host applications should reject keys owned by another session with a
+   * stable error code (e.g. `DocumentLocked`).
+   */
+  assertKeyAccess?(iModelKey: string, write: boolean): void;
 }
 
 /**
  * EditCommandAdmin holds a mapping between commandIds and their corresponding [[EditCommand]] class. This provides the mechanism to
  * run EditCommands by commandId.
- * It also keeps track of the currently active EditCommand. When a new EditCommand attempts to start, the active EditCommand
- * is requested to finish, and the new EditCommand cannot start until it does.
+ * It also keeps track of the currently active EditCommand **per owner** (G1 C3).
+ * One owner (a server session) starting or finishing a command can never affect
+ * another owner's active command. When no owner provider is installed, every
+ * caller maps to the legacy default slot, preserving the historical single
+ * global command behavior.
  * @beta
  */
 export class EditCommandAdmin {
   public static readonly commands = new Map<string, EditCommandType>();
 
-  private static _activeCommand?: EditCommand;
-  private static _isInitialized = false;
-  public static get activeCommand() { return this._activeCommand; }
+  /** Owner key used when no [[EditCommandOwnerProvider]] is installed. */
+  public static readonly defaultOwnerKey = "";
 
-  /** If any command is currently active, wait for it to finish.
-   * Afterward, no command will be active.
-   * This method is invoked by [[runCommand]] before starting a new command.
+  private static _activeByOwner = new Map<string, EditCommand>();
+  private static _ownerProvider?: EditCommandOwnerProvider;
+  private static _writeGuard?: EditWriteGuard;
+  private static _isInitialized = false;
+
+  /**
+   * Install (or remove, with `undefined`) the owner resolution hook used by the
+   * editor IPC wrapper. Hosts wire this to their connection/session layer.
+   */
+  public static setOwnerProvider(provider: EditCommandOwnerProvider | undefined): void {
+    this._ownerProvider = provider;
+  }
+
+  /** Resolve the owner key for the current request (fails closed if the provider throws). */
+  public static ownerForRequest(): string {
+    return this._ownerProvider ? this._ownerProvider.requireOwner() : this.defaultOwnerKey;
+  }
+
+  /** Legacy global slot (owner = [[defaultOwnerKey]]). */
+  public static get activeCommand(): EditCommand | undefined {
+    return this._activeByOwner.get(this.defaultOwnerKey);
+  }
+
+  /** Active command for one owner key (undefined when that owner has none). */
+  public static activeCommandFor(ownerKey: string): EditCommand | undefined {
+    return this._activeByOwner.get(ownerKey);
+  }
+
+  /** Verify a command target belongs to the current request's owner. */
+  public static assertKeyAccess(iModelKey: string, write: boolean): void {
+    this._ownerProvider?.assertKeyAccess?.(iModelKey, write);
+  }
+
+  /**
+   * Install (or remove, with `undefined`) the direct-edit write gate. Hosts
+   * wire this to sessions, document ownership, write leases and ACLs.
+   */
+  public static setWriteGuard(guard: EditWriteGuard | undefined): void {
+    this._writeGuard = guard;
+  }
+
+  /** Run the installed write gate; a missing guard leaves legacy behavior. */
+  public static async beforeWrite(context: EditWriteContext): Promise<void> {
+    await this._writeGuard?.beforeWrite(context);
+  }
+
+  /** Audit hook. Never throws into the edit path. */
+  public static afterWrite(context: EditWriteContext, outcome: EditWriteOutcome): void {
+    try {
+      this._writeGuard?.afterWrite?.(context, outcome);
+    } catch {
+      // Audit failures must not turn a completed (or already failed) edit into
+      // a different error. Host sinks are responsible for their own logging.
+    }
+  }
+
+  /** If this owner has an active command, wait for it to finish.
+   * Other owners are never touched.
    * @throws BackendError if the command fails to finish.
    */
-  public static async finishCommand() {
-    if (this._activeCommand) {
-      const finished = await this._activeCommand.requestFinish();
+  public static async finishCommandFor(ownerKey: string): Promise<void> {
+    const active = this._activeByOwner.get(ownerKey);
+    if (active) {
+      const finished = await active.requestFinish();
       if ("done" !== finished)
         throw new BackendError(IModelStatus.ServerTimeout, editorIpcStrings.commandBusy, finished);
     }
-    this._activeCommand = undefined;
+    this._activeByOwner.delete(ownerKey);
   }
 
-  /** Start running the specified command.
-   * The new command will not begin running until the currently-active command (if any) finishes.
-   * Afterward, the new command becomes the active command.
+  /** Finish the legacy default owner's active command (backward-compatible API). */
+  public static async finishCommand(): Promise<void> {
+    return this.finishCommandFor(this.defaultOwnerKey);
+  }
+
+  /** Start a command for one owner. Finishes only that owner's previous command.
+   * @throws BackendError if the previous command for this owner fails to finish.
+   */
+  public static async runCommandFor(ownerKey: string, cmd: EditCommand): Promise<any> {
+    this.assertKeyAccess(cmd.iModel.key, false);
+    await this.finishCommandFor(ownerKey);
+    this._activeByOwner.set(ownerKey, cmd);
+    return cmd.onStart();
+  }
+
+  /** Start running the specified command in the legacy default slot.
    * @throws BackendError if the currently-active command fails to finish.
    */
   public static async runCommand(cmd: EditCommand): Promise<any> {
-    await this.finishCommand();
-    this._activeCommand = cmd;
-    return cmd.onStart();
+    return this.runCommandFor(this.defaultOwnerKey, cmd);
+  }
+
+  /**
+   * Abandon one owner's active command (session close / disconnect). Pending
+   * edits are abandoned, never saved; other owners are untouched.
+   */
+  public static async dropOwner(ownerKey: string): Promise<void> {
+    const active = this._activeByOwner.get(ownerKey);
+    if (!active)
+      return;
+    this._activeByOwner.delete(ownerKey);
+    await active.abandonEdits();
+  }
+
+  /** @internal Test seam: forget all owners, the provider and the write guard. */
+  public static resetForTest(): void {
+    this._activeByOwner.clear();
+    this._ownerProvider = undefined;
+    this._writeGuard = undefined;
   }
 
   /**

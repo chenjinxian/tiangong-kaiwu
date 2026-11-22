@@ -2,6 +2,8 @@
   "app": { "name": "鲁班CAD" },
   "errors": {
     "loginFailed": "登录失败，请检查邮箱或密码",
+    "accountInactive": "账号尚未激活，请先确认邮箱或联系管理员",
+    "accountLocked": "账号暂时锁定，请稍后重试",
     "registerFailed": "注册失败，请稍后重试",
     "forgotPasswordFailed": "重置邮件发送失败，请稍后重试",
     "sessionExpired": "会话已过期，请重新登录",

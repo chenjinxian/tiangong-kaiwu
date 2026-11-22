@@ -1,0 +1,214 @@
+{
+ "Welcome to Onshape Help": {
+  "topics": 1,
+  "words": 265,
+  "avail": {},
+  "video": 0,
+  "images": 6
+ },
+ "Getting Started with Onshape": {
+  "topics": 24,
+  "words": 26943,
+  "avail": {
+   "Sketch, Part Studio, Assembly": 4,
+   "Sketch, Part Studio, Assembly, Drawing": 5
+  },
+  "video": 0,
+  "images": 509
+ },
+ "Documents": {
+  "topics": 28,
+  "words": 39380,
+  "avail": {
+   "Part Studio, Feature Studio": 1
+  },
+  "video": 8,
+  "images": 860
+ },
+ "Publications": {
+  "topics": 1,
+  "words": 2088,
+  "avail": {},
+  "video": 1,
+  "images": 32
+ },
+ "Model Visualization Tools": {
+  "topics": 23,
+  "words": 10686,
+  "avail": {
+   "Sketch, Part Studio, Assembly": 3,
+   "Part Studio, Assembly, Render Studio, PCB Studio": 1,
+   "Part Studio, Assembly": 14,
+   "Sketch, Part Studio": 1,
+   "Part Studio": 1
+  },
+  "video": 3,
+  "images": 251
+ },
+ "Model Evaluation Tools": {
+  "topics": 15,
+  "words": 10652,
+  "avail": {
+   "Sketch, Part Studio, Assembly, Drawing (Measure tool only)": 1,
+   "Part Studio, Assembly, Drawing": 1,
+   "Sketch, Part Studio, Assembly": 4,
+   "Sketch, Part Studio": 6,
+   "Part Studio, Assembly": 2,
+   "Part Studio": 1
+  },
+  "video": 3,
+  "images": 207
+ },
+ "Shared Modeling Concepts": {
+  "topics": 14,
+  "words": 16791,
+  "avail": {
+   "Part Studio, Assembly": 4,
+   "Part Studio, Assembly, Variable Studio": 4,
+   "Variable Studio": 1
+  },
+  "video": 2,
+  "images": 366
+ },
+ "Importing & Exporting Files": {
+  "topics": 6,
+  "words": 9439,
+  "avail": {},
+  "video": 0,
+  "images": 106
+ },
+ "Sharing and Collaboration": {
+  "topics": 8,
+  "words": 9272,
+  "avail": {},
+  "video": 0,
+  "images": 180
+ },
+ "Release Management": {
+  "topics": 9,
+  "words": 10072,
+  "avail": {},
+  "video": 0,
+  "images": 143
+ },
+ "PLM Connections": {
+  "topics": 6,
+  "words": 18329,
+  "avail": {},
+  "video": 0,
+  "images": 110
+ },
+ "Part Studios": {
+  "topics": 153,
+  "words": 189184,
+  "avail": {
+   "Part Studio": 87,
+   "Sketch, Part Studio": 5,
+   "Part Studio, Material Library": 1,
+   "Part Studio, Assembly": 2,
+   "Sketch": 52,
+   "Sketch, Drawing": 6
+  },
+  "video": 72,
+  "images": 4666
+ },
+ "Assemblies": {
+  "topics": 46,
+  "words": 64634,
+  "avail": {
+   "Assembly": 43,
+   "Part Studio, Assembly": 2
+  },
+  "video": 27,
+  "images": 1203
+ },
+ "Drawings": {
+  "topics": 67,
+  "words": 59604,
+  "avail": {
+   "Drawing": 67
+  },
+  "video": 4,
+  "images": 1419
+ },
+ "Variable Studios": {
+  "topics": 1,
+  "words": 1086,
+  "avail": {
+   "Variable Studio": 1
+  },
+  "video": 0,
+  "images": 21
+ },
+ "Feature Studios": {
+  "topics": 1,
+  "words": 1228,
+  "avail": {
+   "Feature Studio": 1
+  },
+  "video": 0,
+  "images": 37
+ },
+ "Render Studios": {
+  "topics": 24,
+  "words": 239428,
+  "avail": {
+   "Render Studio": 24
+  },
+  "video": 0,
+  "images": 869
+ },
+ "PCB Studios": {
+  "topics": 3,
+  "words": 7837,
+  "avail": {
+   "PCB Studio": 3
+  },
+  "video": 0,
+  "images": 157
+ },
+ "CAM Studios": {
+  "topics": 1,
+  "words": 4315,
+  "avail": {
+   "CAM Studio": 1
+  },
+  "video": 0,
+  "images": 58
+ },
+ "Account Menu": {
+  "topics": 43,
+  "words": 39110,
+  "avail": {},
+  "video": 0,
+  "images": 592
+ },
+ "Managing Your Onshape Account and Subscription": {
+  "topics": 50,
+  "words": 60952,
+  "avail": {},
+  "video": 0,
+  "images": 998
+ },
+ "Contact Support / Contact Us": {
+  "topics": 1,
+  "words": 563,
+  "avail": {},
+  "video": 0,
+  "images": 19
+ },
+ "Glossary": {
+  "topics": 1,
+  "words": 29390,
+  "avail": {},
+  "video": 0,
+  "images": 308
+ },
+ "Icon Glossary": {
+  "topics": 1,
+  "words": 10401,
+  "avail": {},
+  "video": 0,
+  "images": 599
+ }
+}

@@ -2,6 +2,8 @@
   "app": { "name": "LubanCAD" },
   "errors": {
     "loginFailed": "Sign in failed. Please check your email or password.",
+    "accountInactive": "This account is not active yet. Confirm your email or contact an administrator.",
+    "accountLocked": "This account is temporarily locked. Try again later.",
     "registerFailed": "Registration failed. Please try again later.",
     "forgotPasswordFailed": "Failed to send the reset email. Please try again later.",
     "sessionExpired": "Your session has expired. Please sign in again.",

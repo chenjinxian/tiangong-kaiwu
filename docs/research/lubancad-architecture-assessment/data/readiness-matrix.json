@@ -1,0 +1,552 @@
+{
+  "generatedAt": "2026-11-22",
+  "source": "docs/research/lubancad-architecture-assessment",
+  "verdictLegend": {
+    "A": "满足",
+    "B": "部分满足，可扩展",
+    "C": "不满足，需要新子系统",
+    "D": "方向性冲突，需要重构或范围裁决"
+  },
+  "rows": [
+    {
+      "id": "sketch.entities",
+      "domain": "Part Studio",
+      "capability": "Sketch entities",
+      "verdict": "B",
+      "evidence": "shared SketchEntityDto; private solver audit",
+      "gaps": "ellipse/elliptic arc/conic/text/N-point spline",
+      "slice": "DTO+solver+regions+UI per entity"
+    },
+    {
+      "id": "sketch.constraints",
+      "domain": "Part Studio",
+      "capability": "2D constraints",
+      "verdict": "B",
+      "evidence": "solver-neutral layer; 19 kinds",
+      "gaps": "normal/intersection/curvature/flow/collinear/ratio; ellipse/conic/text slots",
+      "slice": "equation+slot+glyph+conformance per kind"
+    },
+    {
+      "id": "sketch.expressions",
+      "domain": "Part Studio",
+      "capability": "Dimensions/expressions/variables",
+      "verdict": "B",
+      "evidence": "expression evaluator; variables; feature fields",
+      "gaps": "count expressions; remaining feature fields; cross-studio visibility",
+      "slice": "count expression + remaining field specs"
+    },
+    {
+      "id": "sketch.externalRefs",
+      "domain": "Part Studio",
+      "capability": "External references",
+      "verdict": "B",
+      "evidence": "sketch/edge/PIERCE/bodyFace; S4 blocked evidence",
+      "gaps": "nonparallel ellipse/arc projection; selectors/undo residual",
+      "slice": "keep blocked S4; finish UI selectors"
+    },
+    {
+      "id": "feature.core",
+      "domain": "Part Studio",
+      "capability": "Core parametric features (append-only)",
+      "verdict": "B",
+      "evidence": "21 LubanFeatureType; FeatureOp; ACIS",
+      "gaps": "all 21 partial; single output; branch coverage",
+      "slice": "one branch matrix per FeatureType"
+    },
+    {
+      "id": "kernel.profile",
+      "domain": "Kernel",
+      "capability": "Sketch profile to BRep",
+      "verdict": "A",
+      "evidence": "BRepUtil BodyFromCurveVector; closed/open/region+hole",
+      "gaps": "none in kernel; app-side welding/coplanarity",
+      "slice": "ctest for full-circle/self-intersecting/nested profiles"
+    },
+    {
+      "id": "kernel.basic",
+      "domain": "Kernel",
+      "capability": "Basic feature geometry",
+      "verdict": "B",
+      "evidence": "SolidKernel 111 APIs; PSBRep 0-37; boolean/blend/chamfer/hollow/offset/taper/imprint",
+      "gaps": "sweep smooth path approximate; fillet constant-radius only; DeleteFace blocked-kernel; silent option ignores",
+      "slice": "sweep deviation test; variable-radius fillet ctest; DeleteFace seed ctest"
+    },
+    {
+      "id": "kernel.surfaces",
+      "domain": "Kernel",
+      "capability": "Advanced surfaces/thread/sheet metal",
+      "verdict": "C",
+      "evidence": "no surface operator layer; no helix/thread; Emboss planar only",
+      "gaps": "fill/boundary/trim/extend/face blend/tolerant knit; thread/helix; sheet metal/frame",
+      "slice": "independent ADR; first licensed implemented-but-unwired op"
+    },
+    {
+      "id": "kernel.topologyIds",
+      "domain": "Kernel",
+      "capability": "Persistent topology IDs",
+      "verdict": "B",
+      "evidence": "nodeId/entityId attrib; split inheritance; own-edge-id; save roundtrip tests",
+      "gaps": "no geometric fallback after upstream topology change; no cross-version migration",
+      "slice": "upstream extrude depth change -> downstream fillet reference spec"
+    },
+    {
+      "id": "kernel.threading",
+      "domain": "Kernel",
+      "capability": "Kernel concurrency/tessellation",
+      "verdict": "B/C",
+      "evidence": "owner+per-key lanes; 8-lane stress; ACIS faceter + facet cache",
+      "gaps": "tile facet serial on owner lane; no BRep instantiation/deep copy; no 100+ body baseline; no BRep->tile native test",
+      "slice": "100-body tile cold build vs batch MT"
+    },
+    {
+      "id": "kernel.format",
+      "domain": "Kernel",
+      "capability": "Geometry format/kernel tagging",
+      "verdict": "C",
+      "evidence": "iModel stores ACIS SAB; BRepData only brepType",
+      "gaps": "no format/kernel enum/version; mixed backend undecidable",
+      "slice": "add backward-compatible format tag + old fixture"
+    },
+    {
+      "id": "kernel.mass",
+      "domain": "Kernel",
+      "capability": "Exact mass properties",
+      "verdict": "B",
+      "evidence": "native PSBRepMeasure exact channel; product uses facet tetra sum approx",
+      "gaps": "volume semantics split/approx; no cache policy",
+      "slice": "use exact channel or label approx"
+    },
+    {
+      "id": "render.pick",
+      "domain": "Rendering",
+      "capability": "Batch topology/pick",
+      "verdict": "C",
+      "evidence": "per-face getClosestPoint; per-edge IPC; process-global edit command slot",
+      "gaps": "no TopologySnapshot/PickBatch; no occurrence path; no revision key",
+      "slice": "batch read-only service + CPU BVH; 500-face p95"
+    },
+    {
+      "id": "kernel.persistence",
+      "domain": "Kernel",
+      "capability": "Geometry persistence/TrueForm switch",
+      "verdict": "C",
+      "evidence": "iModel stores ACIS SAB; TrueForm M0 version/status only",
+      "gaps": "SAB read/write vs migration vs dual-format decision; M1+ kernel",
+      "slice": "ADR on SAB compatibility before M1"
+    },
+    {
+      "id": "kernel.provenance",
+      "domain": "Kernel",
+      "capability": "Native release/freeze governance",
+      "verdict": "B",
+      "evidence": "interface-freeze CI exists but currently fails (38!=37); dist provenance older than native HEAD; Thicken exposed",
+      "gaps": "manifest hash/opCount; rebuild MS and provenance; blocked-license fail-closed; canonical checkout; ctest CI",
+      "slice": "rebuild + freeze + fail-closed + negative tests"
+    },
+    {
+      "id": "feature.graph",
+      "domain": "Part Studio",
+      "capability": "Feature graph/editability/multi-output",
+      "verdict": "C",
+      "evidence": "per-body single-source linear chain; tail-only delete; structural keys immutable",
+      "gaps": "arbitrary insert/delete/reorder/rollback; multi-output (split both sides/mirror new body/mergeScope)",
+      "slice": "feature graph executor + multi-output contract"
+    },
+    {
+      "id": "feature.breadth",
+      "domain": "Part Studio",
+      "capability": "Feature breadth (sheet metal/frame/surface/curve/MBD/...)",
+      "verdict": "C",
+      "evidence": "gated/absent; some kernel probes",
+      "gaps": "FeatureType/evaluator/kernel/UI; license/kernel blocks",
+      "slice": "independent ADR track; first narrow family"
+    },
+    {
+      "id": "feature.tree",
+      "domain": "Part Studio",
+      "capability": "Feature tree ordering/suppress/rollback",
+      "verdict": "B/C",
+      "evidence": "orderKey/suppress/reorder/delete/rename",
+      "gaps": "delete tail-only; reorder limited; rollback/Final/history partial",
+      "slice": "arbitrary delete/reorder with dependency rebuild"
+    },
+    {
+      "id": "feature.preview",
+      "domain": "Part Studio",
+      "capability": "Interactive preview",
+      "verdict": "B",
+      "evidence": "shadow eval; ghost/orange overlay; TileRpc",
+      "gaps": "coverage/latency/failure UX",
+      "slice": "unified preview pipeline"
+    },
+    {
+      "id": "feature.undo",
+      "domain": "Part Studio",
+      "capability": "Undo/redo",
+      "verdict": "B",
+      "evidence": "BriefcaseTxns; OpLog partial",
+      "gaps": "20s push clears native undo; cross-changeset undo absent",
+      "slice": "preserve undo window; extend op log"
+    },
+    {
+      "id": "feature.rebuild",
+      "domain": "Part Studio",
+      "capability": "Cold rebuild/cache/performance",
+      "verdict": "B",
+      "evidence": "FeatureOutputCache/rebuildAll/EDE; perf tests",
+      "gaps": "single-process memory; large-tree cold rebuild",
+      "slice": "large model baseline; queue/cache design"
+    },
+    {
+      "id": "ui.partstudio",
+      "domain": "UI",
+      "capability": "Part Studio UI/interaction",
+      "verdict": "B",
+      "evidence": "ribbon/tree/dialog/selection/ViewCube/context",
+      "gaps": "gated controls; live field/default differences; mobile",
+      "slice": "continue live parity waves + remove fake controls"
+    },
+    {
+      "id": "ui.scopeIsolation",
+      "domain": "UI",
+      "capability": "Part Studio scope isolation",
+      "verdict": "B/C",
+      "evidence": "URL-only scope switch; feature tree/body loaded key lacks scope; dialog not closed on tab switch",
+      "gaps": "stale tree/body on read failure; wrong-scope dialog submit; camera/undo shared",
+      "slice": "scope key + dialog rekey/close + e2e slow/failure"
+    },
+    {
+      "id": "ui.selection",
+      "domain": "UI",
+      "capability": "Selection grammar",
+      "verdict": "B",
+      "evidence": "OnshapeSelectTool; selection authority",
+      "gaps": "Create Selection/Select Other/filters gated; large assembly",
+      "slice": "selection filters + Select Other + tests"
+    },
+    {
+      "id": "ui.featureFormModel",
+      "domain": "UI",
+      "capability": "Generated feature form model",
+      "verdict": "B",
+      "evidence": "getFeatureFormModel contract exists but frontend does not consume it",
+      "gaps": "FeatureDialog monolithic hardcoding; registration points across the app",
+      "slice": "adopt form model + reduce registration points"
+    },
+    {
+      "id": "ui.identity",
+      "domain": "UI",
+      "capability": "Selection/entity identity for multi-doc/assembly",
+      "verdict": "C",
+      "evidence": "CanvasSelection = ownerBodyKey + topologyId; no occurrence path",
+      "gaps": "occurrence path; multi-viewport; large assembly identity",
+      "slice": "identity model ADR before assembly/multi-doc"
+    },
+    {
+      "id": "ui.assembly",
+      "domain": "UI",
+      "capability": "Assembly workspace",
+      "verdict": "C",
+      "evidence": "no module/route; tabs unsupported; ui.assemblyEdit gated",
+      "gaps": "instances/mates/relations/BOM/exploded/simulation",
+      "slice": "data model + instances + mate dialogs"
+    },
+    {
+      "id": "ui.drawing",
+      "domain": "UI",
+      "capability": "Drawing workspace",
+      "verdict": "C",
+      "evidence": "no module/route; create-drawing gated",
+      "gaps": "sheets/views/dimensions/GD&T/tables/DWT",
+      "slice": "basic sheet/view/dimension/table"
+    },
+    {
+      "id": "ui.collaboration",
+      "domain": "UI",
+      "capability": "Presence/Follow/comments/tasks",
+      "verdict": "D",
+      "evidence": "none; single-writer lease",
+      "gaps": "room/event model; per-user undo; conflict UX",
+      "slice": "presence spike after collaboration ADR"
+    },
+    {
+      "id": "render.interactive",
+      "domain": "Rendering",
+      "capability": "Interactive 3D rendering",
+      "verdict": "B",
+      "evidence": "iTwin WebGL; tiles; BRep overlays",
+      "gaps": "large model/assembly perf; materials/env",
+      "slice": "large model visual/perf baseline"
+    },
+    {
+      "id": "render.studio",
+      "domain": "Rendering",
+      "capability": "Render Studio / advanced render",
+      "verdict": "C",
+      "evidence": "no PBR/IBL/AxF/OpenVDB/server render; DanQing unintegrated",
+      "gaps": "render pipeline + material/env + output + assets",
+      "slice": "render ADR; display enhancements first"
+    },
+    {
+      "id": "viz.tools",
+      "domain": "Visualization",
+      "capability": "View/named views/section/hide/isolate/measure/analysis",
+      "verdict": "B",
+      "evidence": "partial iTwin viewer tools; measure",
+      "gaps": "named views/section complete; 11 analysis tools; AR/AVP",
+      "slice": "view tools then analysis tools"
+    },
+    {
+      "id": "collab.singleUserRealtime",
+      "domain": "Collaboration",
+      "capability": "Single-user real-time editing",
+      "verdict": "B",
+      "evidence": "RPC/IPC; preview; transactions",
+      "gaps": "autosave clears undo; preview coverage/latency",
+      "slice": "undo/autosave fix + preview coverage"
+    },
+    {
+      "id": "collab.asyncMultiUser",
+      "domain": "Collaboration",
+      "capability": "Async multi-briefcase collaboration",
+      "verdict": "B",
+      "evidence": "hub multi-briefcase/locks/rebase; app single briefcase + single lease; global OpLog undo",
+      "gaps": "session isolation; undo ownership; per-user briefcase; pull cache invalidation; lock conflict UI; stale lock cleanup",
+      "slice": "session isolation + undo ownership + two users/two briefcases different features"
+    },
+    {
+      "id": "collab.multiUserRealtime",
+      "domain": "Collaboration",
+      "capability": "Multi-user simultaneous editing",
+      "verdict": "D",
+      "evidence": "single-writer WriteLease; shared briefcase/file; IPC broadcast all WS; direct edit bypasses lease; no presence",
+      "gaps": "session isolation/operation stream/conflict/per-user undo/presence",
+      "slice": "session isolation + product decision then collaboration ADR/spike"
+    },
+    {
+      "id": "data.versioning",
+      "domain": "Data",
+      "capability": "Versioning",
+      "verdict": "B",
+      "evidence": "changesets; Named Version metadata only; version panel",
+      "gaps": "no checkpoint generator; fork copies latest checkpoint/empty baseline; complete no blob/checksum; no read-only version open; no restore/compare; branch/merge missing",
+      "slice": "freeze ledger + checkpoint + version open; fork semantics; restore/compare"
+    },
+    {
+      "id": "data.checkpoint",
+      "domain": "Data",
+      "capability": "Checkpoint/cold-open scale",
+      "verdict": "B/C",
+      "evidence": "baseline only; createOrUpdateForChangeset unused; cold open replays all changesets; 20s autosave",
+      "gaps": "checkpoint generation; long-history SLA; GC/compaction; active lock TTL",
+      "slice": "200-changeset cold-open baseline; checkpoint every N/NV"
+    },
+    {
+      "id": "data.permissions",
+      "domain": "Data",
+      "capability": "Sharing/permissions",
+      "verdict": "B",
+      "evidence": "iTwin roles + iModel isSecured ACL; share dialog; e2e",
+      "gaps": "groups/shares stored not enforced; no link/public/ownership; MS channel bypasses ACL",
+      "slice": "negative security tests then share execution"
+    },
+    {
+      "id": "data.auditAttribution",
+      "domain": "Data",
+      "capability": "Audit attribution",
+      "verdict": "B",
+      "evidence": "changeset metadata/OpLog/webhook delivery",
+      "gaps": "service account creator; OpLog.user=sessionId; no changeset/NV events",
+      "slice": "real userId in briefcase/changeset/OpLog + event emission"
+    },
+    {
+      "id": "data.release",
+      "domain": "Data",
+      "capability": "Release/revision/PLM",
+      "verdict": "C",
+      "evidence": "hub/app absent; events absent",
+      "gaps": "state machine/approvals/revisions/part numbers/BOM/PLM",
+      "slice": "release candidate/approval MVP + attribution"
+    },
+    {
+      "id": "data.documentModel",
+      "domain": "Data",
+      "capability": "Document/tab/branch model",
+      "verdict": "B",
+      "evidence": "iModel document; Part Studio scopes; WorkspaceRef; no typed tab",
+      "gaps": "tab identity is UserLabel prefix + JsonProperties; no tabType/listTabs; assembly/drawing tabs; branch graph (D)",
+      "slice": "typed LubanTab/TabDirectory + listTabs legacy synthesis"
+    },
+    {
+      "id": "data.scale",
+      "domain": "Data",
+      "capability": "Scale/multi-tenant",
+      "verdict": "C",
+      "evidence": "single MS process; in-memory lease/cache; single hub; no checkpoint generator; main-thread kernel",
+      "gaps": "horizontal scaling/tenancy/queue/quota/HA/GC",
+      "slice": "checkpoint + capacity model and load tests"
+    },
+    {
+      "id": "data.authorization",
+      "domain": "Data",
+      "capability": "Server-side authorization/tenant isolation",
+      "verdict": "C",
+      "evidence": "service account + X-API-Key; RPC/IPC login-only; WS token cache; IPC broadcast/shared briefcase; direct edit bypasses lease/OpLog",
+      "gaps": "per-iModel ACL; token lifecycle; download/open/FeatureOp/direct-edit auth; session isolation",
+      "slice": "session isolation + ACL + negative security tests"
+    },
+    {
+      "id": "data.releaseDrift",
+      "domain": "Data",
+      "capability": "Release/contract consistency",
+      "verdict": "B",
+      "evidence": "source shared 1.85 vs artifact 1.64; stale interface-freeze/opDsl/docs",
+      "gaps": "release reconciliation; contract freeze; doc updates",
+      "slice": "release gate + regenerate freeze"
+    },
+    {
+      "id": "import.dxf",
+      "domain": "Import/Export",
+      "capability": "Sketch DXF import",
+      "verdict": "B",
+      "evidence": "ASCII DXF LINE/CIRCLE/ARC/POINT/LWPOLYLINE/SPLINE; real-stack e2e",
+      "gaps": "DWG/blocks/insert/dimensions; document-level import",
+      "slice": "expand BLOCKS/INSERT; explicit unsupported"
+    },
+    {
+      "id": "import.step",
+      "domain": "Import/Export",
+      "capability": "STEP/IGES/Parasolid import",
+      "verdict": "D",
+      "evidence": "ACIS InterOp not licensed; no native API; no InterOp DLL in delivery",
+      "gaps": "license/converter; healing; units/assembly/PMI",
+      "slice": "license/partner decision"
+    },
+    {
+      "id": "export.mesh",
+      "domain": "Import/Export",
+      "capability": "STL/OBJ/3MF/GLTF mesh export",
+      "verdict": "B",
+      "evidence": "BodyFromPolyface/FacetEntity/exportGraphics bridges; no product writer",
+      "gaps": "writers/units/material/color; explicit mesh-not-exact wording",
+      "slice": "single-body STL binary roundtrip"
+    },
+    {
+      "id": "export.exact",
+      "domain": "Import/Export",
+      "capability": "STEP/DWG/PDF exact exchange",
+      "verdict": "D",
+      "evidence": "no InterOp; no drawing/plot engine",
+      "gaps": "license/engine",
+      "slice": "license decision"
+    },
+    {
+      "id": "assembly.structure",
+      "domain": "Assembly",
+      "capability": "Assembly occurrence/instance structure",
+      "verdict": "B",
+      "evidence": "BIS PhysicalModel/PhysicalElement/GeometryPart/ElementRefersToElements; createAssembly helper only PhysicalModel",
+      "gaps": "occurrence model; document tab; assembly RPC/tree/undo",
+      "slice": "two instances + transforms + cold reopen + mass aggregation"
+    },
+    {
+      "id": "assembly.mates",
+      "domain": "Assembly",
+      "capability": "Mates/Relations/3D DOF solver",
+      "verdict": "C",
+      "evidence": "no Mate/MateConnector model; 2D sketch solver only; corpus mates=0",
+      "gaps": "mate model/connectors/3D solver/DOF/conflict UI/evidence",
+      "slice": "Fastened+Revolute between two instances"
+    },
+    {
+      "id": "assembly.bom",
+      "domain": "Assembly",
+      "capability": "BOM/explode/display states/simulation",
+      "verdict": "C",
+      "evidence": "no BOM schema/table; no explode/display state; no simulation; corpus BOM payload absent",
+      "gaps": "part attrs/structured+flattened/table/state/simulation",
+      "slice": "ECSQL aggregation JSON/CSV first"
+    },
+    {
+      "id": "drawing.display",
+      "domain": "Drawing",
+      "capability": "Display existing Sheet/Drawing",
+      "verdict": "B",
+      "evidence": "iTwin SheetViewState/DrawingViewState/ViewCreator2d integration tests",
+      "gaps": "product tab/route/viewer wiring",
+      "slice": "read-only DrawingModel display + cold reopen"
+    },
+    {
+      "id": "drawing.core",
+      "domain": "Drawing",
+      "capability": "Drawing generation/dimensions/GD&T/tables/DWT",
+      "verdict": "C",
+      "evidence": "no projection/HLR; BIS Dimension/Table EC classes not exposed in TS/addon",
+      "gaps": "drawing engine/HLR/associative dimensions/GD&T/tables/templates/exchange",
+      "slice": "Sheet+ViewAttachment creation; static annotation; real projection as separate track"
+    },
+    {
+      "id": "mbd",
+      "domain": "MBD",
+      "capability": "MBD/PMI/tolerances/inspection",
+      "verdict": "C",
+      "evidence": "no MBD data/UI",
+      "gaps": "tolerances/GD&T/inspection/default library",
+      "slice": "dimension tolerances/GTol MVP"
+    },
+    {
+      "id": "account.enterprise",
+      "domain": "Account",
+      "capability": "Enterprise account/SSO/billing/audit",
+      "verdict": "C",
+      "evidence": "local auth + iTwin AC only",
+      "gaps": "org roles/SSO/seats/billing/analytics",
+      "slice": "platform service, separate track"
+    },
+    {
+      "id": "ai.cad",
+      "domain": "AI",
+      "capability": "AI action schema across product",
+      "verdict": "B/C",
+      "evidence": "FeatureOp/tool registry reusable",
+      "gaps": "action schema/permissions/audit/HITL for all domains",
+      "slice": "Part Studio tool specs first"
+    },
+    {
+      "id": "data.disasterRecovery",
+      "domain": "Data",
+      "capability": "Disaster recovery/PITR/backup",
+      "verdict": "C",
+      "evidence": "single Postgres/Redis/Azurite volumes; no PITR/object versioning/rehearsal/RPO-RTO; backup doc outdated",
+      "gaps": "single-volume loss = permanent history loss; no cross-store manifest; no restore drill",
+      "slice": "ledger freeze -> PITR + object versioning + cross-store restore drill"
+    },
+    {
+      "id": "data.migration",
+      "domain": "Data",
+      "capability": "Schema/params/native migration",
+      "verdict": "C",
+      "evidence": "EC schema additive only; only variables have version:1; no old .bim fixture; PartStudioMigration test-only; X-12 native provenance open",
+      "gaps": "no params version; no rollback; no production migration RPC; old BRep/native compatibility matrix missing",
+      "slice": "params/schema version registry + old fixture + dry-run/rollback CLI + native read matrix"
+    },
+    {
+      "id": "ops.ciRelease",
+      "domain": "Ops",
+      "capability": "CI/release reproducibility/provenance",
+      "verdict": "C",
+      "evidence": "CI covers types/small tests/lint; backend 123 tests only 6 in CI; native ctest absent; interface-freeze red; MS build host-path/no lockfile/tsc --noCheck; latest tags; no manifest/signature/SBOM",
+      "gaps": "releases not reproducible; source 1.85 vs artifact 1.64; upgrade deletes old tree; no staging/rollback",
+      "slice": "self-hosted CI all tests+ctest+interface gate; release manifest/digest/signature/SBOM; staging + atomic N-2 rollback"
+    },
+    {
+      "id": "ops.observability",
+      "domain": "Ops",
+      "capability": "Observability/SLO/on-call",
+      "verdict": "C",
+      "evidence": "MS/WA/BFF no metrics/trace/requestId; health static; hub metrics disabled; no Prometheus/Grafana/alerting; logs no rotation",
+      "gaps": "MTTD/MTTR depend on terminal; no SLO/error budget/on-call",
+      "slice": "OTel+Prometheus+Grafana+Alertmanager; requestId end-to-end; readiness; SLO/runbook"
+    }
+  ]
+}

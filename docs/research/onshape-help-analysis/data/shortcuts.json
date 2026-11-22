@@ -1,0 +1,422 @@
+{
+ "/Content/Home/search_tools.htm": {
+  "title": "Search Tools",
+  "section": "Getting Started with Onshape",
+  "shortcuts": [
+   "alt/opt+c"
+  ]
+ },
+ "/Content/Home/select_other.htm": {
+  "title": "Select Other",
+  "section": "Getting Started with Onshape",
+  "shortcuts": [
+   "` (grave accent key, to the left of the “1” key)"
+  ]
+ },
+ "/Content/View/hide_show.htm": {
+  "title": "Hide/Show",
+  "section": "Model Visualization Tools",
+  "shortcuts": [
+   "Hide - y / Show - Shift+y"
+  ]
+ },
+ "/Content/View/isolate.htm": {
+  "title": "Isolate",
+  "section": "Model Visualization Tools",
+  "shortcuts": [
+   "Shift+i"
+  ]
+ },
+ "/Content/View/make_transparent.htm": {
+  "title": "Make Transparent",
+  "section": "Model Visualization Tools",
+  "shortcuts": [
+   "Shift+t"
+  ]
+ },
+ "/Content/View/measure_tool.htm": {
+  "title": "Measure Tool",
+  "section": "Model Evaluation Tools",
+  "shortcuts": [
+   "["
+  ]
+ },
+ "/Content/View/curve_surface_analysis.htm": {
+  "title": "Curve/Surface Analysis",
+  "section": "Model Evaluation Tools",
+  "shortcuts": [
+   "shift+c"
+  ]
+ },
+ "/Content/View/dihedral_analysis.htm": {
+  "title": "Dihedral Analysis",
+  "section": "Model Evaluation Tools",
+  "shortcuts": [
+   "shift+d"
+  ]
+ },
+ "/Content/Sketch/sketch_tools.htm": {
+  "title": "Sketch Tools",
+  "section": "Part Studios",
+  "shortcuts": [
+   "alt/opt+c"
+  ]
+ },
+ "/Content/Sketch/line.htm": {
+  "title": "Line",
+  "section": "Part Studios",
+  "shortcuts": [
+   "l"
+  ]
+ },
+ "/Content/Sketch/corner_rectangle.htm": {
+  "title": "Corner Rectangle",
+  "section": "Part Studios",
+  "shortcuts": [
+   "g"
+  ]
+ },
+ "/Content/Sketch/center_point_rectangle.htm": {
+  "title": "Center Point Rectangle",
+  "section": "Part Studios",
+  "shortcuts": [
+   "r"
+  ]
+ },
+ "/Content/Sketch/center_point_circle.htm": {
+  "title": "Center Point Circle",
+  "section": "Part Studios",
+  "shortcuts": [
+   "c"
+  ]
+ },
+ "/Content/Sketch/3_point_arc.htm": {
+  "title": "3 Point Arc",
+  "section": "Part Studios",
+  "shortcuts": [
+   "a"
+  ]
+ },
+ "/Content/Sketch/point.htm": {
+  "title": "Point",
+  "section": "Part Studios",
+  "shortcuts": [
+   "Shift+s"
+  ]
+ },
+ "/Content/Sketch/use.htm": {
+  "title": "Use",
+  "section": "Part Studios",
+  "shortcuts": [
+   "u"
+  ]
+ },
+ "/Content/Sketch/construction.htm": {
+  "title": "Construction",
+  "section": "Part Studios",
+  "shortcuts": [
+   "q (to toggle Construction state on and off)"
+  ]
+ },
+ "/Content/Sketch/sketch_fillet.htm": {
+  "title": "Sketch Fillet",
+  "section": "Part Studios",
+  "shortcuts": [
+   "Shift+f"
+  ]
+ },
+ "/Content/Sketch/trim.htm": {
+  "title": "Trim",
+  "section": "Part Studios",
+  "shortcuts": [
+   "m"
+  ]
+ },
+ "/Content/Sketch/extend.htm": {
+  "title": "Extend",
+  "section": "Part Studios",
+  "shortcuts": [
+   "x"
+  ]
+ },
+ "/Content/Sketch/offset.htm": {
+  "title": "Offset",
+  "section": "Part Studios",
+  "shortcuts": [
+   "o"
+  ]
+ },
+ "/Content/Sketch/dimension.htm": {
+  "title": "Dimension",
+  "section": "Part Studios",
+  "shortcuts": [
+   "d"
+  ]
+ },
+ "/Content/Sketch/coincident.htm": {
+  "title": "Coincident",
+  "section": "Part Studios",
+  "shortcuts": [
+   "i"
+  ]
+ },
+ "/Content/Sketch/concentric.htm": {
+  "title": "Concentric",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+o"
+  ]
+ },
+ "/Content/Sketch/parallel.htm": {
+  "title": "Parallel",
+  "section": "Part Studios",
+  "shortcuts": [
+   "b"
+  ]
+ },
+ "/Content/Sketch/tangent.htm": {
+  "title": "Tangent",
+  "section": "Part Studios",
+  "shortcuts": [
+   "t"
+  ]
+ },
+ "/Content/Sketch/horizontal.htm": {
+  "title": "Horizontal",
+  "section": "Part Studios",
+  "shortcuts": [
+   "h"
+  ]
+ },
+ "/Content/Sketch/vertical.htm": {
+  "title": "Vertical",
+  "section": "Part Studios",
+  "shortcuts": [
+   "v"
+  ]
+ },
+ "/Content/Sketch/perpendicular.htm": {
+  "title": "Perpendicular",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+l"
+  ]
+ },
+ "/Content/Sketch/equal.htm": {
+  "title": "Equal",
+  "section": "Part Studios",
+  "shortcuts": [
+   "e"
+  ]
+ },
+ "/Content/Sketch/midpoint.htm": {
+  "title": "Midpoint",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+m"
+  ]
+ },
+ "/Content/Sketch/normal.htm": {
+  "title": "Normal",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+k"
+  ]
+ },
+ "/Content/Sketch/pierce.htm": {
+  "title": "Pierce",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+g"
+  ]
+ },
+ "/Content/Sketch/symmetric.htm": {
+  "title": "Symmetric",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+q"
+  ]
+ },
+ "/Content/Sketch/fix.htm": {
+  "title": "Fix",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+j"
+  ]
+ },
+ "/Content/Sketch/curvature.htm": {
+  "title": "Curvature",
+  "section": "Part Studios",
+  "shortcuts": [
+   "shift+u"
+  ]
+ },
+ "/Content/PartStudio/feature_tools.htm": {
+  "title": "Feature Tools",
+  "section": "Part Studios",
+  "shortcuts": [
+   "alt/opt+c"
+  ]
+ },
+ "/Content/PartStudio/extrude.htm": {
+  "title": "Extrude",
+  "section": "Part Studios",
+  "shortcuts": [
+   "Shift+e"
+  ]
+ },
+ "/Content/PartStudio/revolve.htm": {
+  "title": "Revolve",
+  "section": "Part Studios",
+  "shortcuts": [
+   "Shift+w"
+  ]
+ },
+ "/Content/PartStudio/fillet.htm": {
+  "title": "Fillet",
+  "section": "Part Studios",
+  "shortcuts": [
+   "Shift+f"
+  ]
+ },
+ "/Content/PartStudio/mate_connector.htm": {
+  "title": "Mate Connector",
+  "section": "Part Studios",
+  "shortcuts": [
+   "Ctrl+m",
+   "k (to show/hide mate connectors)"
+  ]
+ },
+ "/Content/Assembly/assembly.htm": {
+  "title": "Assemblies",
+  "section": "Assemblies",
+  "shortcuts": [
+   "alt/opt+c"
+  ]
+ },
+ "/Content/Assembly/insert_parts_and_assemblies.htm": {
+  "title": "Insert Parts and Assemblies",
+  "section": "Assemblies",
+  "shortcuts": [
+   "i"
+  ]
+ },
+ "/Content/Assembly/assembly_mate_connector.htm": {
+  "title": "Mate Connector",
+  "section": "Assemblies",
+  "shortcuts": [
+   "Ctrl+m",
+   "k (to show/hide mate connectors)"
+  ]
+ },
+ "/Content/Assembly/mates.htm": {
+  "title": "Mates",
+  "section": "Assemblies",
+  "shortcuts": [
+   "m",
+   "j (to show/hide mates)"
+  ]
+ },
+ "/Content/Assembly/snap_mode.htm": {
+  "title": "Snap Mode",
+  "section": "Assemblies",
+  "shortcuts": [
+   "Shift+s"
+  ]
+ },
+ "/Content/Assembly/show_mates_mode.htm": {
+  "title": "Show Mates",
+  "section": "Assemblies",
+  "shortcuts": [
+   "h"
+  ]
+ },
+ "/Content/Drawing/sheets.htm": {
+  "title": "Sheets",
+  "section": "Drawings",
+  "shortcuts": [
+   "Ctrl+s"
+  ]
+ },
+ "/Content/Drawing/drawing_properties.htm": {
+  "title": "Drawing Properties",
+  "section": "Drawings",
+  "shortcuts": [
+   "Right-click on an empty area in the drawing and select Drawing properties"
+  ]
+ },
+ "/Content/Drawing/projected_view.htm": {
+  "title": "Projected View",
+  "section": "Drawings",
+  "shortcuts": [
+   "p"
+  ]
+ },
+ "/Content/Drawing/drawing_dimensions.htm": {
+  "title": "Drawing Dimensions",
+  "section": "Drawings",
+  "shortcuts": [
+   "d"
+  ]
+ },
+ "/Content/Drawing/drawing_-_dimension.htm": {
+  "title": "Drawing - Dimension",
+  "section": "Drawings",
+  "shortcuts": [
+   "d"
+  ]
+ },
+ "/Content/Drawing/drawing_-_max_or_min_dimension.htm": {
+  "title": "Drawing - Maximum or Minimum Dimension",
+  "section": "Drawings",
+  "shortcuts": [
+   "ctrl+m"
+  ]
+ },
+ "/Content/Drawing/drawing_-_radial_dimension.htm": {
+  "title": "Drawing - Radial Dimension",
+  "section": "Drawings",
+  "shortcuts": [
+   "Shift+r"
+  ]
+ },
+ "/Content/Drawing/drawing_-_diameter_dimension.htm": {
+  "title": "Drawing - Diameter Dimension",
+  "section": "Drawings",
+  "shortcuts": [
+   "Shift+d"
+  ]
+ },
+ "/Content/Drawing/drawing_-_foreshorten_dimension.htm": {
+  "title": "Drawing - Foreshorten Dimension",
+  "section": "Drawings",
+  "shortcuts": [
+   "Shift+h"
+  ]
+ },
+ "/Content/Drawing/note.htm": {
+  "title": "Note",
+  "section": "Drawings",
+  "shortcuts": [
+   "n"
+  ]
+ },
+ "/Content/Drawing/drawing_sketch_tools.htm": {
+  "title": "Drawing Sketch Tools",
+  "section": "Drawings",
+  "shortcuts": [
+   "L",
+   "c",
+   "g",
+   "r",
+   "m"
+  ]
+ },
+ "/Content/Drawing/updating_a_drawing.htm": {
+  "title": "Updating a Drawing",
+  "section": "Drawings",
+  "shortcuts": [
+   "Ctrl+q"
+  ]
+ }
+}

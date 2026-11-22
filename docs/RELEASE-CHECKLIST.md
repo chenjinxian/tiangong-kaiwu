@@ -8,7 +8,8 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 - [ ] public / backend / hub 三仓工作区干净，main 已推送；发布用的 public 提交
       固定记录在 ADR（不钉文档提交 HEAD）。
-- [ ] `@luban-cad/shared` 契约版本与 MS 产物一致（当前 **1.64.0**）；RPC
+- [ ] `@luban-cad/shared` 契约版本与 MS 产物/前端运行时一致；不得硬编码历史版本，
+      以 shared 源码、MS `/rpc/metadata` 与镜像 label 三方对账为准。RPC
       interfaceName 只有 `LubanRpcInterface` / `LubanFeatureRpcInterface`。
 - [ ] legacy schema 退役状态已同步（旧数据审计零命中；现行代码不再读写）。
 
@@ -28,11 +29,10 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 ## 3. 单元 / 集成门
 
-- [ ] backend 全量 `pnpm test`（本机完整构建；当前基线 **910 passed /
-      1 expected fail / 8 skipped**，shared 1.64 实测）；注意全量 feature 测试
-      不进入托管 CI，属发布前本地门。
-- [ ] public：shared **171**、viewer **130**、editor **29**、web
-      **1537**（2026-11-10 web-20261110b 基线；新增测试后以实际为准）。
+- [ ] backend 全量 `pnpm test`（本机完整构建）：以本次实际结果记录，必须 0 失败
+      （已登记 expected fail 除外）；注意全量 feature 测试不进入托管 CI，属发布前本地门。
+- [ ] public：shared / viewer / editor / web 的测试以本次实际结果记录并全绿；
+      禁止沿用历史计数，新增测试后以实际为准。
 - [ ] 各包 `tsc` / `lint` 0 错；e2e `typecheck:e2e` 0 错。
 
 ## 4. 真栈 e2e（需干净限流窗口）
@@ -41,9 +41,9 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 - [ ] 全量 Playwright 使用**测试专用限流覆盖**并在发布记录中披露：
       `$env:LUBAN_RPC_RATE_LIMIT_MAX='2000'; $env:LUBAN_RPC_RATE_LIMIT_WINDOW_MS='900000'`
       （默认 100 req/15min 不适合长套件）。
-- [ ] 源码 dev server 全量（`VITE_E2E_HOOKS=true`）**54 passed / 1 skipped
-      （55 total）**；或发布镜像 test-observation 镜像全量同口径（生产 hook-off
-      镜像不承载 editor-spec 观测面）。
+- [ ] 源码 dev server 全量（`VITE_E2E_HOOKS=true`）以 `npx playwright test --list`
+      当前 spec 列表为准，全绿并记录实际 passed/skipped；禁止沿用历史计数。发布镜像
+      test-observation 镜像同口径全量（生产 hook-off 镜像不承载 editor-spec 观测面）。
 - [ ] Tutorial 2 严格鼠标级复刻门：`npx playwright test e2e/tutorial2.spec.ts`
       通过——草图字面 18/48/9（直方图对齐 gold）+ 六特征 UI 对话框 +
       四短竖棱 fillet 4 chips/status 0；体积与去材见
@@ -62,7 +62,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 ## 5. 发布镜像验收
 
-- [ ] `scripts/verify-stack.ps1` **17/17**：
+- [ ] `scripts/verify-stack.ps1` 全绿（不得跳过）：
       Step D 产物 provenance 可见；Step E web revision 与 web 源一致；Step F hub
       revision 与 hub HEAD 一致且无宿主 dist 挂载。
 - [ ] web revision 落后源码时先 `rebuild-web.ps1` 再 `docker compose up -d web`；
@@ -90,7 +90,7 @@ hash / 限流姿态 / web·hub 镜像标签，并可串联
 
 ## 7. 发布后
 
-- [ ] 生产 web 镜像 hooks off、B on；验证 `verify-stack` 17/17。
+- [ ] 生产 web 镜像 hooks off、B on；验证 `verify-stack` 全绿。
 - [ ] 限流恢复生产默认（见 §4）。
 - [ ] 把本轮新发现的 waiver/backlog 写入 ADR 残项表，标明 owner 与下一步。
 

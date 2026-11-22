@@ -37,6 +37,26 @@ export interface StoredAuth {
   user: AuthUser;
 }
 
+/**
+ * Same-origin WS auth cookie. The viewer must not put the access token in the
+ * WebSocket URL (it would leak into nginx/APM logs and browser history); MS/BFF
+ * already accept this cookie shape. JS-set cookie is not HttpOnly by design
+ * (the browser client owns the session), but it removes the URL/log surface.
+ */
+const AUTH_COOKIE_NAME = 'luban_cad_auth';
+
+function writeAuthCookie(accessToken?: string): void {
+  if (typeof document === 'undefined')
+    return;
+  if (!accessToken) {
+    document.cookie = `${AUTH_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+    return;
+  }
+  const value = encodeURIComponent(JSON.stringify({ accessToken }));
+  const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${AUTH_COOKIE_NAME}=${value}; Path=/; SameSite=Lax${secure}`;
+}
+
 /** hub 登录/刷新响应的 user 段：`{id,email,name}` 为主形态，
  * 兼容旧后端 firstName/lastName/photo 拼装（移植自 convertUser）。 */
 interface BackendUser {
@@ -120,10 +140,12 @@ export class AuthSession {
 
   public static storeAuth(auth: StoredAuth): void {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(auth));
+    writeAuthCookie(auth.accessToken);
   }
 
   public static clearAuth(): void {
     sessionStorage.removeItem(SESSION_KEY);
+    writeAuthCookie();
   }
 
   // ---- API ----
@@ -139,11 +161,20 @@ export class AuthSession {
     });
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({})) as { message?: string };
+      const body = await response.json().catch(() => ({})) as {
+        message?: string;
+        errors?: Record<string, string>;
+      };
+      const accountError = body.errors?.account;
+      const i18nKey = accountError === 'inactive'
+        ? 'common.errors.accountInactive'
+        : accountError?.startsWith('accountLocked')
+          ? 'common.errors.accountLocked'
+          : 'common.errors.loginFailed';
       throw new ApiClientError({
         status: response.status,
         code: 'AUTH_LOGIN_FAILED',
-        i18nKey: 'common.errors.loginFailed',
+        i18nKey,
         message: body.message ?? `Login failed (status ${response.status})`,
         retryAfterSeconds: AuthSession.parseRetryAfter(response),
       });

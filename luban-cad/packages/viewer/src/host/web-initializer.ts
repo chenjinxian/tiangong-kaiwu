@@ -135,11 +135,17 @@ async function doStartViewer(options: StartViewerOptions): Promise<void> {
     // WS 握手 token：动态提供者优先（这里取一次初值；之后的 RPC/tile 请求由
     // authorizationClient 每次重取，token 过期可经 AuthSession 单飞刷新）。
     const socketToken = getAccessToken ? await getAccessToken() : accessToken;
-    if (socketToken) {
-      socketUrl.searchParams.set('token', socketToken);
+    if (socketToken && typeof document !== 'undefined') {
+      // Same-origin cookie is sent on the WS upgrade; the token never enters the
+      // URL/console/nginx access log. MS/BFF extractTokenFromCookie accepts this
+      // shape ({accessToken} or {tokens:{accessToken}}).
+      const value = encodeURIComponent(JSON.stringify({ accessToken: socketToken }));
+      const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `luban_cad_auth=${value}; Path=/; SameSite=Lax${secure}`;
     }
+    // 只记录 origin/path；token 不得进入 console/日志。
     // eslint-disable-next-line no-console
-    console.log(`[WebInitializer] IPC WebSocket URL: ${socketUrl.toString()}`);
+    console.log(`[WebInitializer] IPC WebSocket: ${socketUrl.origin}${socketUrl.pathname}`);
 
     // Create iModel client for hub access
     const iModelClient = new IModelsClient({

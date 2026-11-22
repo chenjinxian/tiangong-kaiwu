@@ -8,7 +8,7 @@
 
 import * as ws from "ws";
 import {
-  InterceptedRpcRequest, IpcWebSocket, IpcWebSocketBackend, IpcWebSocketMessage, IpcWebSocketTransport, rpcOverIpcStrings, RpcSessionInvocation,
+  InterceptedRpcRequest, IpcWebSocket, IpcWebSocketBackend, IpcWebSocketMessage, IpcWebSocketTransport, ipcConnection, rpcOverIpcStrings, RpcSessionInvocation,
 } from "@itwin/core-common";
 import { IModelHostOptions } from "./IModelHost";
 import { IpcHandler, IpcHost } from "./IpcHost";
@@ -34,12 +34,24 @@ class LocalTransport extends IpcWebSocketTransport {
   }
 
   public send(message: IpcWebSocketMessage): void {
-    this._connections.forEach((last, connection) => {
+    // Responses carry the originating connection (set by the transport). Never
+    // broadcast a response: two clients use overlapping request IDs.
+    const target = message[ipcConnection] as ws | undefined;
+    // A targeted response must never fall back to broadcast (the connection may
+    // have closed). Only messages without an origin (push) may broadcast.
+    const connections = target
+      ? (this._connections.has(target) ? [target] : [])
+      : [...this._connections.keys()];
+
+    for (const connection of connections) {
+      const last = this._connections.get(connection);
+      if (last === undefined)
+        continue;
       message.sequence = last + 1;
       this._connections.set(connection, message.sequence);
       const parts = this.serialize(message);
       parts.forEach((part) => connection.send(part));
-    });
+    }
   }
 
   public connect(connection: ws) {

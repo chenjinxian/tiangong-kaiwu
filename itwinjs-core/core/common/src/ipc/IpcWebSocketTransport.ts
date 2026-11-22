@@ -6,7 +6,7 @@
  * @module IpcSocket
  */
 
-import { IpcWebSocketMessage } from "./IpcWebSocket";
+import { IpcWebSocketMessage, ipcConnection } from "./IpcWebSocket";
 
 function isBuffer(val: any): boolean {
   return val && typeof (val.constructor) !== "undefined" && typeof (val.constructor.isBuffer) === "function" && val.constructor.isBuffer(val);
@@ -14,11 +14,17 @@ function isBuffer(val: any): boolean {
 
 let parts: any[] = [];
 
+interface IncomingAssembly {
+  partial?: string;
+  received: any[];
+  outstanding: number;
+}
+
 /** @internal */
 export abstract class IpcWebSocketTransport {
-  private _partial?: string;
-  private _received: any[] = [];
-  private _outstanding = 0;
+  // Chunked-message state is per connection. A shared buffer can interleave two
+  // clients' binary messages and deliver a spliced payload to the wrong one.
+  private _assemblies = new Map<any, IncomingAssembly>();
 
   public abstract send(message: IpcWebSocketMessage): void;
 
@@ -27,15 +33,15 @@ export abstract class IpcWebSocketTransport {
   }
 
   protected async notifyIncoming(data: any, connection: any): Promise<IpcWebSocketMessage> {
-    if (this._partial) {
-      this._received.push(data);
-      --this._outstanding;
+    let assembly = this._assemblies.get(connection);
+    if (assembly?.partial) {
+      assembly.received.push(data);
+      --assembly.outstanding;
 
-      if (this._outstanding === 0) {
-        const partial = this._partial;
-        const received = this._received;
-        this._partial = undefined;
-        this._received = [];
+      if (assembly.outstanding === 0) {
+        const partial = assembly.partial;
+        const received = assembly.received;
+        this._assemblies.delete(connection);
         await Promise.all(received.map(async (v, i, a) => a[i] = await this.unwrap(v)));
 
         parts = received;
@@ -43,21 +49,19 @@ export abstract class IpcWebSocketTransport {
         parts.length = 0;
 
         return InSentOrder.deliver(message, connection);
-      } else {
-        return IpcWebSocketMessage.internal();
       }
-    } else {
-      const [serialized, followers] = JSON.parse(data);
-
-      if (followers) {
-        this._partial = serialized;
-        this._outstanding = followers;
-        return IpcWebSocketMessage.internal();
-      } else {
-        const message: IpcWebSocketMessage = JSON.parse(serialized, reviver);
-        return InSentOrder.deliver(message, connection);
-      }
+      return IpcWebSocketMessage.internal();
     }
+
+    const [serialized, followers] = JSON.parse(data);
+    if (followers) {
+      assembly = { partial: serialized, received: [], outstanding: followers };
+      this._assemblies.set(connection, assembly);
+      return IpcWebSocketMessage.internal();
+    }
+
+    const message: IpcWebSocketMessage = JSON.parse(serialized, reviver);
+    return InSentOrder.deliver(message, connection);
   }
 
   protected serialize(data: IpcWebSocketMessage): any[] {
@@ -69,6 +73,7 @@ export abstract class IpcWebSocketTransport {
   }
 
   protected notifyClose(connection: any) {
+    this._assemblies.delete(connection);
     InSentOrder.close(connection);
   }
 }
@@ -162,7 +167,9 @@ class InSentOrder {
       }
     }
 
-    return entry.message;
+    const delivered = await entry.message;
+    (delivered as any)[ipcConnection] = connection;
+    return delivered;
   }
 
   public static close(connection: any) {

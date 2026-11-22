@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "tag": "backend-20261122",
+  "sourceCommit": "b92a2d8fa4cf4ba5e3a01415edd956ff3622adb8",
+  "builtAt": "2026-11-22T00:00:00.000Z",
+  "contractVersion": "1.85.0",
+  "images": [
+    {
+      "name": "ghcr.io/chenjinxian/imodelhub-public",
+      "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "name": "ghcr.io/chenjinxian/luban-bff-public",
+      "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "name": "ghcr.io/chenjinxian/luban-web-public",
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "name": "ghcr.io/chenjinxian/luban-webhook-agent-public",
+      "digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+    }
+  ],
+  "sbomDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nativeProvenance": {
+    "path": "dist-backend/modeling-server/node_modules/@bentley/imodeljs-native/native-provenance.json",
+    "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  }
+}

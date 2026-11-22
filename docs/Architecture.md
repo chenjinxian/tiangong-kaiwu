@@ -1,8 +1,10 @@
 # 鲁班CAD 架构设计（luban-cad，天工开物平台）
 
-> **代码归属（后端私有化，2026-10-01）**：本文所述后端服务 `modeling-server`（:5401）与 `webhook-agent`（:5402）的源码在私有仓 **luban-backend**，文中 `modeling-server/src/...` 等代码路径均指该私有仓。本仓公开侧只**消费产物**：imodelhub / webhook-agent 以 **GHCR 镜像**进栈（`docker-compose.yml` 零后端 build），MS 以 **GitHub Releases 产物**（`scripts/fetch-backend.ps1` → `dist-backend\`）+ `scripts/start-ms-host.ps1` 宿主运行。
+> **文档定位**：本文描述当前运行时组件、通信协议与数据流，是系统架构参考，不是能力状态账本，也不记录工作进度。工业级目标架构见 `research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md`，架构冻结/开发 Gate 见同目录 `10-ARCHITECTURE-HARDENING-PLAN.md`；若本文与代码或目标架构冲突，以代码与 09/10 为准。
 >
-> **几何内核**：平台使用**真形（TrueForm）几何内核**（私有仓 `D:\Github\trueform`），只经 `SolidKernel.h` 契约接入；不使用第二套几何内核。
+> **代码归属**：本文所述后端服务 `modeling-server`（:5401）与 `webhook-agent`（:5402）的源码在私有仓 **luban-backend**，文中 `modeling-server/src/...` 等代码路径均指该私有仓。本仓公开侧只**消费产物**：imodelhub / webhook-agent 以 **GHCR 镜像**进栈（`docker-compose.yml` 零后端 build），MS 以 **GitHub Releases 产物**（`scripts/fetch-backend.ps1` → `dist-backend\`）+ `scripts/start-ms-host.ps1` 宿主运行。
+>
+> **几何内核**：平台使用**真形（TrueForm）几何内核**（私有仓），只经 `SolidKernel.h` 契约接入；不使用第二套几何内核。
 
 ## 系统架构
 
@@ -505,5 +507,4 @@ Docker Compose（根 docker-compose.yml）:
 
 ---
 
-*文档版本: 3.3*
-*最后更新: 2026-10-29（前端目录收敛为 `luban-cad/apps/web`，web 镜像 Dockerfile 路径同步；后端私有化/部署链路沿用 2026-10-01 口径）*
+*维护规则：本文只描述稳定的运行时组件/协议/数据流；目录、端口、镜像或契约变化时同步修订；能力状态、测试基线、发布证据不写入本文。*

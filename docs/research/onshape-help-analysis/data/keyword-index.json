@@ -1,0 +1,2913 @@
+{
+ "assembly": {
+  "topics": 231,
+  "mentions": 2606,
+  "bySection": {
+   "Getting Started with Onshape": 19,
+   "Documents": 15,
+   "Publications": 1,
+   "Model Visualization Tools": 21,
+   "Model Evaluation Tools": 8,
+   "Shared Modeling Concepts": 10,
+   "Importing & Exporting Files": 3,
+   "Sharing and Collaboration": 6,
+   "Release Management": 6,
+   "PLM Connections": 5,
+   "Part Studios": 19,
+   "Assemblies": 46,
+   "Drawings": 18,
+   "Variable Studios": 1,
+   "Render Studios": 15,
+   "PCB Studios": 3,
+   "CAM Studios": 1,
+   "Account Menu": 13,
+   "Managing Your Onshape Account and Subscription": 19,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 304
+   },
+   {
+    "title": "Assemblies",
+    "url": "/Content/Assembly/assembly.htm",
+    "count": 148
+   },
+   {
+    "title": "Modeling In-Context",
+    "url": "/Content/Assembly/modeling_in_context.htm",
+    "count": 130
+   },
+   {
+    "title": "Insert Parts and Assemblies",
+    "url": "/Content/Assembly/insert_parts_and_assemblies.htm",
+    "count": 107
+   },
+   {
+    "title": "Instances List",
+    "url": "/Content/Assembly/instances_list.htm",
+    "count": 93
+   }
+  ]
+ },
+ "drawing": {
+  "topics": 178,
+  "mentions": 1864,
+  "bySection": {
+   "Getting Started with Onshape": 11,
+   "Documents": 13,
+   "Publications": 1,
+   "Model Visualization Tools": 1,
+   "Model Evaluation Tools": 3,
+   "Shared Modeling Concepts": 1,
+   "Importing & Exporting Files": 2,
+   "Sharing and Collaboration": 4,
+   "Release Management": 5,
+   "PLM Connections": 4,
+   "Part Studios": 21,
+   "Assemblies": 8,
+   "Drawings": 67,
+   "Render Studios": 1,
+   "CAM Studios": 1,
+   "Account Menu": 14,
+   "Managing Your Onshape Account and Subscription": 19,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 277
+   },
+   {
+    "title": "Custom Templates",
+    "url": "/Content/Drawing/custom_drawing_templates.htm",
+    "count": 68
+   },
+   {
+    "title": "Creating a Drawing",
+    "url": "/Content/Drawing/creating_a_drawing.htm",
+    "count": 55
+   },
+   {
+    "title": "Note",
+    "url": "/Content/Drawing/note.htm",
+    "count": 50
+   },
+   {
+    "title": "Typical Release Workflow",
+    "url": "/Content/Release/typical_release_workflow.htm",
+    "count": 49
+   }
+  ]
+ },
+ "version": {
+  "topics": 142,
+  "mentions": 1510,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 6,
+   "Documents": 20,
+   "Publications": 1,
+   "Model Visualization Tools": 1,
+   "Shared Modeling Concepts": 3,
+   "Importing & Exporting Files": 3,
+   "Sharing and Collaboration": 3,
+   "Release Management": 7,
+   "PLM Connections": 3,
+   "Part Studios": 15,
+   "Assemblies": 14,
+   "Drawings": 12,
+   "Variable Studios": 1,
+   "Feature Studios": 1,
+   "Render Studios": 11,
+   "PCB Studios": 2,
+   "CAM Studios": 1,
+   "Account Menu": 10,
+   "Managing Your Onshape Account and Subscription": 25,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Versioning and Branching",
+    "url": "/Content/Document/versions_and_history.htm",
+    "count": 199
+   },
+   {
+    "title": "Updating References",
+    "url": "/Content/Assembly/updating_references.htm",
+    "count": 96
+   },
+   {
+    "title": "Document Management",
+    "url": "/Content/Document/document_management.htm",
+    "count": 90
+   },
+   {
+    "title": "Add Custom Features",
+    "url": "/Content/PartStudio/add_custom_features.htm",
+    "count": 49
+   },
+   {
+    "title": "Where Used",
+    "url": "/Content/Document/where_used.htm",
+    "count": 43
+   }
+  ]
+ },
+ "enterprise": {
+  "topics": 142,
+  "mentions": 1406,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 3,
+   "Documents": 16,
+   "Publications": 1,
+   "Shared Modeling Concepts": 2,
+   "Sharing and Collaboration": 5,
+   "Release Management": 6,
+   "PLM Connections": 5,
+   "Part Studios": 7,
+   "Assemblies": 6,
+   "Drawings": 4,
+   "Render Studios": 3,
+   "PCB Studios": 2,
+   "Account Menu": 34,
+   "Managing Your Onshape Account and Subscription": 44,
+   "Contact Support / Contact Us": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 188
+   },
+   {
+    "title": "Managing Your Onshape Educator Subscription",
+    "url": "/Content/Plans/managing_your_onshape_educator_subscription.htm",
+    "count": 107
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Users",
+    "url": "/Content/Plans/enterprise_settings_users.htm",
+    "count": 76
+   },
+   {
+    "title": "Managing Your Onshape Account And Subscription",
+    "url": "/Content/Plans/managing_your_onshape_account_and_subscription.htm",
+    "count": 53
+   },
+   {
+    "title": "Enterprise Settings - Global Permissions",
+    "url": "/Content/Plans/enterprise_settings_global_permissions.htm",
+    "count": 46
+   }
+  ]
+ },
+ "release": {
+  "topics": 135,
+  "mentions": 1545,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 2,
+   "Documents": 15,
+   "Publications": 1,
+   "Shared Modeling Concepts": 5,
+   "Importing & Exporting Files": 2,
+   "Sharing and Collaboration": 3,
+   "Release Management": 9,
+   "PLM Connections": 5,
+   "Part Studios": 16,
+   "Assemblies": 12,
+   "Drawings": 17,
+   "Variable Studios": 1,
+   "Render Studios": 3,
+   "CAM Studios": 1,
+   "Account Menu": 19,
+   "Managing Your Onshape Account and Subscription": 21,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Typical Release Workflow",
+    "url": "/Content/Release/typical_release_workflow.htm",
+    "count": 208
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Release Management",
+    "url": "/Content/Plans/enterprise_settings_release_management.htm",
+    "count": 106
+   },
+   {
+    "title": "Syncing Release Management",
+    "url": "/Content/Plans/syncing_release_management.htm",
+    "count": 101
+   },
+   {
+    "title": "Designing Release Management Processes",
+    "url": "/Content/Release/designing_release_management_processes.htm",
+    "count": 100
+   },
+   {
+    "title": "Reviewing, Approving, Rejecting Candidates",
+    "url": "/Content/Release/reviewing_approving_rejecting_candidates.htm",
+    "count": 86
+   }
+  ]
+ },
+ "surface": {
+  "topics": 131,
+  "mentions": 1895,
+  "bySection": {
+   "Getting Started with Onshape": 4,
+   "Model Visualization Tools": 5,
+   "Model Evaluation Tools": 10,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 2,
+   "Sharing and Collaboration": 1,
+   "PLM Connections": 1,
+   "Part Studios": 64,
+   "Assemblies": 10,
+   "Drawings": 12,
+   "Render Studios": 14,
+   "PCB Studios": 2,
+   "CAM Studios": 1,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Surface modeling",
+    "url": "/Content/PartStudio/surface_modeling.htm",
+    "count": 122
+   },
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 121
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 103
+   },
+   {
+    "title": "Flatten Surfaces",
+    "url": "/Content/View/flatten_surfaces.htm",
+    "count": 85
+   },
+   {
+    "title": "Fill",
+    "url": "/Content/PartStudio/fill.htm",
+    "count": 81
+   }
+  ]
+ },
+ "material": {
+  "topics": 119,
+  "mentions": 1937,
+  "bySection": {
+   "Documents": 5,
+   "Publications": 1,
+   "Model Visualization Tools": 1,
+   "Model Evaluation Tools": 5,
+   "Shared Modeling Concepts": 3,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "Release Management": 1,
+   "PLM Connections": 5,
+   "Part Studios": 46,
+   "Assemblies": 10,
+   "Drawings": 8,
+   "Render Studios": 12,
+   "PCB Studios": 1,
+   "CAM Studios": 1,
+   "Account Menu": 11,
+   "Managing Your Onshape Account and Subscription": 4,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 1150
+   },
+   {
+    "title": "Customizing Part Materials",
+    "url": "/Content/PartStudio/customizing_part_materials.htm",
+    "count": 99
+   },
+   {
+    "title": "Extrude",
+    "url": "/Content/PartStudio/extrude.htm",
+    "count": 34
+   },
+   {
+    "title": "Simulation",
+    "url": "/Content/Assembly/simulation.htm",
+    "count": 30
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 30
+   }
+  ]
+ },
+ "curve": {
+  "topics": 118,
+  "mentions": 2061,
+  "bySection": {
+   "Getting Started with Onshape": 7,
+   "Model Visualization Tools": 1,
+   "Model Evaluation Tools": 7,
+   "Shared Modeling Concepts": 1,
+   "Importing & Exporting Files": 3,
+   "Sharing and Collaboration": 1,
+   "Part Studios": 80,
+   "Assemblies": 2,
+   "Drawings": 10,
+   "Render Studios": 2,
+   "CAM Studios": 1,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Edit Curve",
+    "url": "/Content/PartStudio/edit_curve.htm",
+    "count": 196
+   },
+   {
+    "title": "Routing Curve",
+    "url": "/Content/PartStudio/routing_curve.htm",
+    "count": 164
+   },
+   {
+    "title": "Trim Curve",
+    "url": "/Content/PartStudio/trim_curve.htm",
+    "count": 112
+   },
+   {
+    "title": "Projected Curve",
+    "url": "/Content/PartStudio/projected_curve.htm",
+    "count": 109
+   },
+   {
+    "title": "Surface modeling",
+    "url": "/Content/PartStudio/surface_modeling.htm",
+    "count": 107
+   }
+  ]
+ },
+ "share": {
+  "topics": 118,
+  "mentions": 671,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 5,
+   "Documents": 17,
+   "Publications": 1,
+   "Model Visualization Tools": 2,
+   "Shared Modeling Concepts": 4,
+   "Sharing and Collaboration": 6,
+   "Release Management": 2,
+   "PLM Connections": 2,
+   "Part Studios": 21,
+   "Assemblies": 6,
+   "Drawings": 7,
+   "PCB Studios": 1,
+   "Account Menu": 15,
+   "Managing Your Onshape Account and Subscription": 25,
+   "Contact Support / Contact Us": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Share Documents",
+    "url": "/Content/Collaboration/share_documents.htm",
+    "count": 77
+   },
+   {
+    "title": "Folders",
+    "url": "/Content/Document/folders.htm",
+    "count": 35
+   },
+   {
+    "title": "Permission Dashboards",
+    "url": "/Content/Plans/permissions_reports.htm",
+    "count": 27
+   },
+   {
+    "title": "Documents Page",
+    "url": "/Content/Document/documents_page.htm",
+    "count": 25
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Users",
+    "url": "/Content/Plans/enterprise_settings_users.htm",
+    "count": 20
+   }
+  ]
+ },
+ "import": {
+  "topics": 116,
+  "mentions": 974,
+  "bySection": {
+   "Getting Started with Onshape": 3,
+   "Documents": 11,
+   "Publications": 1,
+   "Model Visualization Tools": 2,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 3,
+   "Importing & Exporting Files": 6,
+   "Release Management": 2,
+   "PLM Connections": 1,
+   "Part Studios": 32,
+   "Assemblies": 3,
+   "Drawings": 11,
+   "Variable Studios": 1,
+   "Feature Studios": 1,
+   "Render Studios": 17,
+   "PCB Studios": 3,
+   "CAM Studios": 1,
+   "Account Menu": 9,
+   "Managing Your Onshape Account and Subscription": 6,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Importing Files",
+    "url": "/Content/Document/importing_files.htm",
+    "count": 180
+   },
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 115
+   },
+   {
+    "title": "Working with Imported CAD",
+    "url": "/Content/Document/working_with_imported_cad.htm",
+    "count": 70
+   },
+   {
+    "title": "PCB Studio",
+    "url": "/Content/PCBStudio/pcb_studios.htm",
+    "count": 38
+   },
+   {
+    "title": "Icon Glossary",
+    "url": "/Content/Home/icon_glossary.htm",
+    "count": 25
+   }
+  ]
+ },
+ "mate": {
+  "topics": 114,
+  "mentions": 2319,
+  "bySection": {
+   "Getting Started with Onshape": 7,
+   "Documents": 2,
+   "Model Visualization Tools": 8,
+   "Model Evaluation Tools": 3,
+   "Shared Modeling Concepts": 5,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "Part Studios": 45,
+   "Assemblies": 36,
+   "PCB Studios": 2,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Mates",
+    "url": "/Content/Assembly/mates.htm",
+    "count": 249
+   },
+   {
+    "title": "Mate Connector",
+    "url": "/Content/PartStudio/mate_connector.htm",
+    "count": 140
+   },
+   {
+    "title": "Mate Connector",
+    "url": "/Content/Assembly/assembly_mate_connector.htm",
+    "count": 140
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 118
+   },
+   {
+    "title": "Instances List",
+    "url": "/Content/Assembly/instances_list.htm",
+    "count": 97
+   }
+  ]
+ },
+ "permission": {
+  "topics": 112,
+  "mentions": 1003,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Documents": 17,
+   "Publications": 1,
+   "Model Visualization Tools": 1,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 1,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 7,
+   "Release Management": 6,
+   "PLM Connections": 5,
+   "Part Studios": 10,
+   "Assemblies": 6,
+   "Drawings": 2,
+   "Render Studios": 4,
+   "PCB Studios": 1,
+   "Account Menu": 19,
+   "Managing Your Onshape Account and Subscription": 26,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Onshape Arena Glossary",
+    "url": "/Content/Plans/onshape_arena_glossary.htm",
+    "count": 141
+   },
+   {
+    "title": "Permission Dashboards",
+    "url": "/Content/Plans/permissions_reports.htm",
+    "count": 79
+   },
+   {
+    "title": "Project Roles and Permission Schemes",
+    "url": "/Content/Plans/project_roles_and_permission_schemes.htm",
+    "count": 77
+   },
+   {
+    "title": "Managing Your Onshape Educator Subscription",
+    "url": "/Content/Plans/managing_your_onshape_educator_subscription.htm",
+    "count": 71
+   },
+   {
+    "title": "Enterprise Settings - Global Permissions",
+    "url": "/Content/Plans/enterprise_settings_global_permissions.htm",
+    "count": 56
+   }
+  ]
+ },
+ "mobile": {
+  "topics": 110,
+  "mentions": 522,
+  "bySection": {
+   "Getting Started with Onshape": 11,
+   "Documents": 12,
+   "Model Visualization Tools": 8,
+   "Model Evaluation Tools": 2,
+   "Shared Modeling Concepts": 6,
+   "Importing & Exporting Files": 3,
+   "Sharing and Collaboration": 4,
+   "Release Management": 1,
+   "Part Studios": 26,
+   "Assemblies": 10,
+   "Drawings": 2,
+   "Variable Studios": 1,
+   "Account Menu": 8,
+   "Managing Your Onshape Account and Subscription": 16
+  },
+  "top": [
+   {
+    "title": "Getting Started with Onshape",
+    "url": "/Content/Home/getting_started_with_onshape.htm",
+    "count": 27
+   },
+   {
+    "title": "Feature and Part Lists",
+    "url": "/Content/PartStudio/features_and_parts_lists.htm",
+    "count": 18
+   },
+   {
+    "title": "Documents Page",
+    "url": "/Content/Document/documents_page.htm",
+    "count": 17
+   },
+   {
+    "title": "Viewing Models with Apple Vision Pro",
+    "url": "/Content/Mobile/viewing_models_with_apple_vision_pro.htm",
+    "count": 15
+   },
+   {
+    "title": "Educator Interface",
+    "url": "/Content/Plans/educator_interface.htm",
+    "count": 15
+   }
+  ]
+ },
+ "workspace": {
+  "topics": 107,
+  "mentions": 809,
+  "bySection": {
+   "Getting Started with Onshape": 4,
+   "Documents": 17,
+   "Publications": 1,
+   "Model Visualization Tools": 2,
+   "Model Evaluation Tools": 2,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 6,
+   "Release Management": 5,
+   "PLM Connections": 5,
+   "Part Studios": 9,
+   "Assemblies": 14,
+   "Drawings": 10,
+   "Variable Studios": 1,
+   "Feature Studios": 1,
+   "Render Studios": 2,
+   "PCB Studios": 3,
+   "Account Menu": 9,
+   "Managing Your Onshape Account and Subscription": 11,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Versioning and Branching",
+    "url": "/Content/Document/versions_and_history.htm",
+    "count": 102
+   },
+   {
+    "title": "Onshape Arena Glossary",
+    "url": "/Content/Plans/onshape_arena_glossary.htm",
+    "count": 59
+   },
+   {
+    "title": "Document Management",
+    "url": "/Content/Document/document_management.htm",
+    "count": 47
+   },
+   {
+    "title": "Configuring Arena and Onshape",
+    "url": "/Content/Plans/configuring_arena_and_onshape.htm",
+    "count": 47
+   },
+   {
+    "title": "Merging",
+    "url": "/Content/Document/merging.htm",
+    "count": 45
+   }
+  ]
+ },
+ "export": {
+  "topics": 95,
+  "mentions": 839,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Documents": 9,
+   "Publications": 1,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 5,
+   "Sharing and Collaboration": 2,
+   "Release Management": 2,
+   "PLM Connections": 2,
+   "Part Studios": 14,
+   "Assemblies": 5,
+   "Drawings": 10,
+   "Render Studios": 1,
+   "PCB Studios": 3,
+   "CAM Studios": 1,
+   "Account Menu": 9,
+   "Managing Your Onshape Account and Subscription": 24,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 201
+   },
+   {
+    "title": "Exporting a Drawing",
+    "url": "/Content/Drawing/exporting_a_drawing.htm",
+    "count": 55
+   },
+   {
+    "title": "Inspection Item",
+    "url": "/Content/Drawing/inspection_item.htm",
+    "count": 35
+   },
+   {
+    "title": "Getting Started as a Light User",
+    "url": "/Content/Plans/getting_started_as_a_light_user.htm",
+    "count": 34
+   },
+   {
+    "title": "Flatten Surfaces",
+    "url": "/Content/View/flatten_surfaces.htm",
+    "count": 24
+   }
+  ]
+ },
+ "measure": {
+  "topics": 94,
+  "mentions": 396,
+  "bySection": {
+   "Getting Started with Onshape": 5,
+   "Documents": 2,
+   "Model Visualization Tools": 4,
+   "Model Evaluation Tools": 7,
+   "Shared Modeling Concepts": 1,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "PLM Connections": 2,
+   "Part Studios": 34,
+   "Assemblies": 4,
+   "Drawings": 18,
+   "Variable Studios": 1,
+   "Render Studios": 7,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Measure Tool",
+    "url": "/Content/View/measure_tool.htm",
+    "count": 105
+   },
+   {
+    "title": "Mass Properties Tool",
+    "url": "/Content/View/mass_properties_tool.htm",
+    "count": 19
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 16
+   },
+   {
+    "title": "Face Blend",
+    "url": "/Content/PartStudio/face_blend.htm",
+    "count": 14
+   },
+   {
+    "title": "Getting Started as a Light User",
+    "url": "/Content/Plans/getting_started_as_a_light_user.htm",
+    "count": 13
+   }
+  ]
+ },
+ "configuration": {
+  "topics": 79,
+  "mentions": 788,
+  "bySection": {
+   "Getting Started with Onshape": 5,
+   "Documents": 5,
+   "Model Visualization Tools": 1,
+   "Shared Modeling Concepts": 9,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 3,
+   "Release Management": 1,
+   "PLM Connections": 3,
+   "Part Studios": 15,
+   "Assemblies": 13,
+   "Drawings": 2,
+   "Variable Studios": 1,
+   "Render Studios": 2,
+   "PCB Studios": 2,
+   "CAM Studios": 1,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 10,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Part Studio and Assembly Configurations",
+    "url": "/Content/PartStudio/part_studio_and_assembly_configurations.htm",
+    "count": 138
+   },
+   {
+    "title": "Managing Configurations",
+    "url": "/Content/PartStudio/managing_configurations.htm",
+    "count": 82
+   },
+   {
+    "title": "Variable Studio Configurations",
+    "url": "/Content/VariableStudio/variable_studio_configurations.htm",
+    "count": 61
+   },
+   {
+    "title": "Configurations",
+    "url": "/Content/PartStudio/configurations.htm",
+    "count": 44
+   },
+   {
+    "title": "Visibility Conditions",
+    "url": "/Content/PartStudio/visibility_conditions.htm",
+    "count": 42
+   }
+  ]
+ },
+ "pattern": {
+  "topics": 78,
+  "mentions": 1841,
+  "bySection": {
+   "Getting Started with Onshape": 3,
+   "Model Visualization Tools": 1,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 1,
+   "PLM Connections": 2,
+   "Part Studios": 30,
+   "Assemblies": 8,
+   "Drawings": 18,
+   "Variable Studios": 1,
+   "Render Studios": 6,
+   "CAM Studios": 1,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 1129
+   },
+   {
+    "title": "Circular Pattern",
+    "url": "/Content/PartStudio/circular_pattern.htm",
+    "count": 100
+   },
+   {
+    "title": "Linear Pattern",
+    "url": "/Content/PartStudio/linear_pattern.htm",
+    "count": 88
+   },
+   {
+    "title": "Curve Pattern",
+    "url": "/Content/PartStudio/curve_pattern.htm",
+    "count": 82
+   },
+   {
+    "title": "Circular Sketch Pattern",
+    "url": "/Content/Sketch/sketch_circular_pattern.htm",
+    "count": 35
+   }
+  ]
+ },
+ "render": {
+  "topics": 77,
+  "mentions": 806,
+  "bySection": {
+   "Getting Started with Onshape": 6,
+   "Documents": 2,
+   "Model Visualization Tools": 15,
+   "Model Evaluation Tools": 2,
+   "Shared Modeling Concepts": 1,
+   "Sharing and Collaboration": 1,
+   "Part Studios": 6,
+   "Assemblies": 2,
+   "Drawings": 2,
+   "Render Studios": 24,
+   "PCB Studios": 1,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 10,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 169
+   },
+   {
+    "title": "Render Studio Interface - Scene List",
+    "url": "/Content/RenderStudio/render_studio_interface_scene_list.htm",
+    "count": 87
+   },
+   {
+    "title": "Render Studio Interface - Render Options",
+    "url": "/Content/RenderStudio/render_studio_interface_render_options.htm",
+    "count": 60
+   },
+   {
+    "title": "Render Studio Basics",
+    "url": "/Content/RenderStudio/render_studio_basics.htm",
+    "count": 44
+   },
+   {
+    "title": "Render Studio Interface - Toolbar",
+    "url": "/Content/RenderStudio/render_studio_interface_toolbar.htm",
+    "count": 37
+   }
+  ]
+ },
+ "variable": {
+  "topics": 75,
+  "mentions": 833,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 3,
+   "Model Evaluation Tools": 2,
+   "Shared Modeling Concepts": 6,
+   "Release Management": 4,
+   "Part Studios": 45,
+   "Assemblies": 6,
+   "Drawings": 1,
+   "Variable Studios": 1,
+   "Feature Studios": 1,
+   "Account Menu": 2,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Variable",
+    "url": "/Content/PartStudio/variable.htm",
+    "count": 125
+   },
+   {
+    "title": "Variable Table (Part Studio)",
+    "url": "/Content/PartStudio/variable_table.htm",
+    "count": 99
+   },
+   {
+    "title": "Assembly Variable Table",
+    "url": "/Content/Assembly/assembly_variable_table.htm",
+    "count": 80
+   },
+   {
+    "title": "Query Variable",
+    "url": "/Content/PartStudio/query_variable.htm",
+    "count": 75
+   },
+   {
+    "title": "Variable Studios",
+    "url": "/Content/VariableStudio/variable_studio.htm",
+    "count": 71
+   }
+  ]
+ },
+ "revision": {
+  "topics": 67,
+  "mentions": 723,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 1,
+   "Documents": 11,
+   "Publications": 1,
+   "Shared Modeling Concepts": 3,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 1,
+   "Release Management": 8,
+   "PLM Connections": 5,
+   "Part Studios": 3,
+   "Assemblies": 4,
+   "Drawings": 8,
+   "Render Studios": 1,
+   "Account Menu": 11,
+   "Managing Your Onshape Account and Subscription": 6,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Revision Table",
+    "url": "/Content/Drawing/revision_table.htm",
+    "count": 64
+   },
+   {
+    "title": "Onshape Arena Glossary",
+    "url": "/Content/Plans/onshape_arena_glossary.htm",
+    "count": 51
+   },
+   {
+    "title": "Updating References",
+    "url": "/Content/Assembly/updating_references.htm",
+    "count": 51
+   },
+   {
+    "title": "Typical Release Workflow",
+    "url": "/Content/Release/typical_release_workflow.htm",
+    "count": 47
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Release Management",
+    "url": "/Content/Plans/enterprise_settings_release_management.htm",
+    "count": 41
+   }
+  ]
+ },
+ "hole": {
+  "topics": 64,
+  "mentions": 549,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Model Visualization Tools": 1,
+   "Shared Modeling Concepts": 5,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "Part Studios": 16,
+   "Assemblies": 8,
+   "Drawings": 22,
+   "Render Studios": 3,
+   "PCB Studios": 2,
+   "CAM Studios": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Hole",
+    "url": "/Content/PartStudio/hole.htm",
+    "count": 160
+   },
+   {
+    "title": "Hole Table",
+    "url": "/Content/Drawing/drawing_hole_table.htm",
+    "count": 39
+   },
+   {
+    "title": "Drawing - Hole/Thread Callout",
+    "url": "/Content/Drawing/hole_thread_callout.htm",
+    "count": 37
+   },
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 31
+   },
+   {
+    "title": "Hole Table",
+    "url": "/Content/PartStudio/hole_table.htm",
+    "count": 27
+   }
+  ]
+ },
+ "STEP": {
+  "topics": 63,
+  "mentions": 159,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Documents": 2,
+   "Model Visualization Tools": 1,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 3,
+   "PLM Connections": 4,
+   "Part Studios": 16,
+   "Assemblies": 7,
+   "Drawings": 10,
+   "Render Studios": 3,
+   "PCB Studios": 1,
+   "CAM Studios": 1,
+   "Account Menu": 5,
+   "Managing Your Onshape Account and Subscription": 6
+  },
+  "top": [
+   {
+    "title": "Exploded Views",
+    "url": "/Content/Assembly/exploded_views.htm",
+    "count": 20
+   },
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 17
+   },
+   {
+    "title": "CAM Studios",
+    "url": "/Content/CAMStudio/cam_studios.htm",
+    "count": 10
+   },
+   {
+    "title": "Create Selection",
+    "url": "/Content/Home/create_selection.htm",
+    "count": 8
+   },
+   {
+    "title": "Supported File Formats",
+    "url": "/Content/File/supported_file_formats.htm",
+    "count": 8
+   }
+  ]
+ },
+ "sheet metal": {
+  "topics": 60,
+  "mentions": 1052,
+  "bySection": {
+   "Documents": 1,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 1,
+   "Importing & Exporting Files": 2,
+   "Sharing and Collaboration": 2,
+   "PLM Connections": 2,
+   "Part Studios": 34,
+   "Assemblies": 4,
+   "Drawings": 5,
+   "Render Studios": 1,
+   "PCB Studios": 1,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Sheet Metal Model",
+    "url": "/Content/PartStudio/sheet_metal_model.htm",
+    "count": 151
+   },
+   {
+    "title": "Finish Sheet Metal Model",
+    "url": "/Content/PartStudio/finish_sheet_metal_model.htm",
+    "count": 74
+   },
+   {
+    "title": "Sheet Metal Table and Flat View",
+    "url": "/Content/PartStudio/sheet_metal_table.htm",
+    "count": 66
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 61
+   },
+   {
+    "title": "Sheet Metal Form",
+    "url": "/Content/PartStudio/sheet_metal_form.htm",
+    "count": 60
+   }
+  ]
+ },
+ "comment": {
+  "topics": 57,
+  "mentions": 434,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Documents": 5,
+   "Model Visualization Tools": 1,
+   "Sharing and Collaboration": 4,
+   "Release Management": 3,
+   "PLM Connections": 1,
+   "Part Studios": 7,
+   "Assemblies": 3,
+   "Drawings": 1,
+   "PCB Studios": 1,
+   "Account Menu": 8,
+   "Managing Your Onshape Account and Subscription": 19,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Commenting in Workspaces and Versions",
+    "url": "/Content/Collaboration/comments_on_workspaces.htm",
+    "count": 155
+   },
+   {
+    "title": "Getting Started as a Light User",
+    "url": "/Content/Plans/getting_started_as_a_light_user.htm",
+    "count": 28
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 25
+   },
+   {
+    "title": "My Account - Notifications",
+    "url": "/Content/Plans/my_account_notifications.htm",
+    "count": 18
+   },
+   {
+    "title": "Monitoring User Activity",
+    "url": "/Content/Plans/monitoring_user_activity.htm",
+    "count": 17
+   }
+  ]
+ },
+ "tolerance": {
+  "topics": 56,
+  "mentions": 734,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 1,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "Part Studios": 31,
+   "Assemblies": 1,
+   "Drawings": 11,
+   "Render Studios": 1,
+   "CAM Studios": 1,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Default Tolerances Library",
+    "url": "/Content/Library/default_tolerances_library.htm",
+    "count": 126
+   },
+   {
+    "title": "Geometric Tolerances",
+    "url": "/Content/Drawing/geometric_tolerance.htm",
+    "count": 104
+   },
+   {
+    "title": "Inspection table",
+    "url": "/Content/PartStudio/inspection_table.htm",
+    "count": 101
+   },
+   {
+    "title": "Tolerance options",
+    "url": "/Content/Home/tolerance_options.htm",
+    "count": 82
+   },
+   {
+    "title": "Onshape Default Tolerances Library",
+    "url": "/Content/Library/onshape_default_tolerances_library.htm",
+    "count": 36
+   }
+  ]
+ },
+ "appearance": {
+  "topics": 52,
+  "mentions": 5768,
+  "bySection": {
+   "Getting Started with Onshape": 3,
+   "Documents": 1,
+   "Publications": 1,
+   "Model Visualization Tools": 1,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "Part Studios": 7,
+   "Assemblies": 1,
+   "Drawings": 7,
+   "Render Studios": 22,
+   "Account Menu": 1,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 4271
+   },
+   {
+    "title": "Render Studio Interface - Appearances Library",
+    "url": "/Content/RenderStudio/render_studio_interface_appearances_library.htm",
+    "count": 334
+   },
+   {
+    "title": "Render Studio Examples and Resources",
+    "url": "/Content/RenderStudio/render_studio_examples_and_resources.htm",
+    "count": 183
+   },
+   {
+    "title": "Render Studio Interface - Scene List",
+    "url": "/Content/RenderStudio/render_studio_interface_scene_list.htm",
+    "count": 157
+   },
+   {
+    "title": "Appearance Functions",
+    "url": "/Content/RenderStudio/appearance_functions.htm",
+    "count": 120
+   }
+  ]
+ },
+ "merge": {
+  "topics": 44,
+  "mentions": 437,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 5,
+   "Importing & Exporting Files": 1,
+   "Part Studios": 32,
+   "Assemblies": 1,
+   "Drawings": 1,
+   "Render Studios": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Merging",
+    "url": "/Content/Document/merging.htm",
+    "count": 118
+   },
+   {
+    "title": "Loft",
+    "url": "/Content/PartStudio/loft.htm",
+    "count": 39
+   },
+   {
+    "title": "Revolve",
+    "url": "/Content/PartStudio/revolve.htm",
+    "count": 36
+   },
+   {
+    "title": "Sweep",
+    "url": "/Content/PartStudio/sweep.htm",
+    "count": 33
+   },
+   {
+    "title": "Extrude",
+    "url": "/Content/PartStudio/extrude.htm",
+    "count": 30
+   }
+  ]
+ },
+ "BOM": {
+  "topics": 37,
+  "mentions": 427,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Shared Modeling Concepts": 1,
+   "Sharing and Collaboration": 1,
+   "Release Management": 1,
+   "PLM Connections": 4,
+   "Part Studios": 2,
+   "Assemblies": 9,
+   "Drawings": 7,
+   "PCB Studios": 1,
+   "Account Menu": 6,
+   "Managing Your Onshape Account and Subscription": 2,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "BOM Table",
+    "url": "/Content/Drawing/bom_table.htm",
+    "count": 72
+   },
+   {
+    "title": "Bill of Materials",
+    "url": "/Content/Assembly/bill_of_material.htm",
+    "count": 70
+   },
+   {
+    "title": "Working with the BOM Table",
+    "url": "/Content/Assembly/working_with_the_bom_table.htm",
+    "count": 61
+   },
+   {
+    "title": "Syncing Parts, Assemblies, and BOMs",
+    "url": "/Content/Plans/syncing_parts_assemblies_and_boms.htm",
+    "count": 36
+   },
+   {
+    "title": "Callout (Balloon)",
+    "url": "/Content/Drawing/callout_balloon.htm",
+    "count": 21
+   }
+  ]
+ },
+ "mesh": {
+  "topics": 36,
+  "mentions": 287,
+  "bySection": {
+   "Model Visualization Tools": 2,
+   "Model Evaluation Tools": 2,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 4,
+   "Part Studios": 17,
+   "Assemblies": 2,
+   "Render Studios": 5,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 145
+   },
+   {
+    "title": "Working with Imported CAD",
+    "url": "/Content/Document/working_with_imported_cad.htm",
+    "count": 24
+   },
+   {
+    "title": "Mixed Modeling",
+    "url": "/Content/PartStudio/mixed_modeling.htm",
+    "count": 24
+   },
+   {
+    "title": "Render Studio Examples and Resources",
+    "url": "/Content/RenderStudio/render_studio_examples_and_resources.htm",
+    "count": 13
+   },
+   {
+    "title": "Constrained Surface",
+    "url": "/Content/PartStudio/constrained_surface.htm",
+    "count": 10
+   }
+  ]
+ },
+ "environment": {
+  "topics": 35,
+  "mentions": 294,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Model Visualization Tools": 2,
+   "Model Evaluation Tools": 1,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 1,
+   "PLM Connections": 2,
+   "Part Studios": 2,
+   "Render Studios": 16,
+   "Account Menu": 2,
+   "Managing Your Onshape Account and Subscription": 5,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Render Studio Interface - Environments Library",
+    "url": "/Content/RenderStudio/render_studio_interface_environments_library.htm",
+    "count": 63
+   },
+   {
+    "title": "Render Studio Interface - Environment Panel",
+    "url": "/Content/RenderStudio/render_studio_interface_environment_panel.htm",
+    "count": 56
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 35
+   },
+   {
+    "title": "Render Studio Interface",
+    "url": "/Content/RenderStudio/render_studio_interface.htm",
+    "count": 29
+   },
+   {
+    "title": "Render Studio Advanced",
+    "url": "/Content/RenderStudio/render_studio_advanced.htm",
+    "count": 24
+   }
+  ]
+ },
+ "FeatureScript": {
+  "topics": 35,
+  "mentions": 181,
+  "bySection": {
+   "Getting Started with Onshape": 5,
+   "Documents": 5,
+   "Shared Modeling Concepts": 5,
+   "Sharing and Collaboration": 1,
+   "Part Studios": 9,
+   "Assemblies": 1,
+   "Drawings": 1,
+   "Feature Studios": 1,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 2,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Add Custom Features",
+    "url": "/Content/PartStudio/add_custom_features.htm",
+    "count": 26
+   },
+   {
+    "title": "Feature Studios",
+    "url": "/Content/FeatureStudio/feature_studios.htm",
+    "count": 18
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 18
+   },
+   {
+    "title": "Creating a Customized Release Workflow",
+    "url": "/Content/Release/creating_a_customized_release_workflow.htm",
+    "count": 14
+   },
+   {
+    "title": "Icon Glossary",
+    "url": "/Content/Home/icon_glossary.htm",
+    "count": 12
+   }
+  ]
+ },
+ "branch": {
+  "topics": 31,
+  "mentions": 358,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 1,
+   "Documents": 10,
+   "Sharing and Collaboration": 1,
+   "Release Management": 3,
+   "PLM Connections": 2,
+   "Part Studios": 4,
+   "Assemblies": 5,
+   "Render Studios": 1,
+   "Account Menu": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Versioning and Branching",
+    "url": "/Content/Document/versions_and_history.htm",
+    "count": 115
+   },
+   {
+    "title": "Merging",
+    "url": "/Content/Document/merging.htm",
+    "count": 74
+   },
+   {
+    "title": "Workspace Protections",
+    "url": "/Content/Document/workspace_protections.htm",
+    "count": 60
+   },
+   {
+    "title": "Document Management",
+    "url": "/Content/Document/document_management.htm",
+    "count": 20
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 13
+   }
+  ]
+ },
+ "derived": {
+  "topics": 29,
+  "mentions": 223,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Documents": 3,
+   "Model Visualization Tools": 1,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 1,
+   "Release Management": 1,
+   "Part Studios": 7,
+   "Assemblies": 5,
+   "Drawings": 2,
+   "Render Studios": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Derived",
+    "url": "/Content/PartStudio/derived.htm",
+    "count": 95
+   },
+   {
+    "title": "Assembly Mirror",
+    "url": "/Content/Assembly/assembly_mirror.htm",
+    "count": 36
+   },
+   {
+    "title": "Sketch Basics",
+    "url": "/Content/Sketch/sketch_basics.htm",
+    "count": 14
+   },
+   {
+    "title": "Performance Considerations",
+    "url": "/Content/Home/performance_considerations.htm",
+    "count": 11
+   },
+   {
+    "title": "Model-Based Definition (MBD)",
+    "url": "/Content/PartStudio/model_based_definition.htm",
+    "count": 11
+   }
+  ]
+ },
+ "undo": {
+  "topics": 28,
+  "mentions": 48,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Documents": 1,
+   "Sharing and Collaboration": 1,
+   "Release Management": 1,
+   "Part Studios": 8,
+   "Assemblies": 5,
+   "Drawings": 3,
+   "Feature Studios": 1,
+   "Render Studios": 4,
+   "Account Menu": 1,
+   "Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Feature Tools",
+    "url": "/Content/PartStudio/feature_tools.htm",
+    "count": 5
+   },
+   {
+    "title": "User Interface Basics",
+    "url": "/Content/Home/user_interface_basics.htm",
+    "count": 3
+   },
+   {
+    "title": "Part Studios",
+    "url": "/Content/PartStudio/part_studios.htm",
+    "count": 3
+   },
+   {
+    "title": "Routing Curve",
+    "url": "/Content/PartStudio/routing_curve.htm",
+    "count": 3
+   },
+   {
+    "title": "Feature Studios",
+    "url": "/Content/FeatureStudio/feature_studios.htm",
+    "count": 3
+   }
+  ]
+ },
+ "DXF": {
+  "topics": 28,
+  "mentions": 94,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Model Evaluation Tools": 1,
+   "Importing & Exporting Files": 4,
+   "PLM Connections": 2,
+   "Part Studios": 6,
+   "Drawings": 9,
+   "Account Menu": 3,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 16
+   },
+   {
+    "title": "Insert DXF or DWG",
+    "url": "/Content/Sketch/insert_dwg_or_dxf.htm",
+    "count": 12
+   },
+   {
+    "title": "Sheet Metal Table and Flat View",
+    "url": "/Content/PartStudio/sheet_metal_table.htm",
+    "count": 7
+   },
+   {
+    "title": "Insert DXF or DWG",
+    "url": "/Content/Drawing/insert_dxf_or_dwg.htm",
+    "count": 6
+   },
+   {
+    "title": "Exporting a Drawing",
+    "url": "/Content/Drawing/exporting_a_drawing.htm",
+    "count": 6
+   }
+  ]
+ },
+ "role": {
+  "topics": 28,
+  "mentions": 207,
+  "bySection": {
+   "Documents": 1,
+   "Release Management": 3,
+   "PLM Connections": 1,
+   "Account Menu": 9,
+   "Managing Your Onshape Account and Subscription": 14
+  },
+  "top": [
+   {
+    "title": "Project Roles and Permission Schemes",
+    "url": "/Content/Plans/project_roles_and_permission_schemes.htm",
+    "count": 59
+   },
+   {
+    "title": "Managing Projects",
+    "url": "/Content/Plans/managing_projects.htm",
+    "count": 23
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Users",
+    "url": "/Content/Plans/enterprise_settings_users.htm",
+    "count": 20
+   },
+   {
+    "title": "Specifying Approvers",
+    "url": "/Content/Release/specifying_approvers.htm",
+    "count": 17
+   },
+   {
+    "title": "Onshape Arena Glossary",
+    "url": "/Content/Plans/onshape_arena_glossary.htm",
+    "count": 13
+   }
+  ]
+ },
+ "PCB": {
+  "topics": 27,
+  "mentions": 364,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 2,
+   "Model Visualization Tools": 3,
+   "Part Studios": 4,
+   "Render Studios": 1,
+   "PCB Studios": 3,
+   "Account Menu": 2,
+   "Managing Your Onshape Account and Subscription": 9,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "PCB Studio",
+    "url": "/Content/PCBStudio/pcb_studios.htm",
+    "count": 101
+   },
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 72
+   },
+   {
+    "title": "Flex PCB Model",
+    "url": "/Content/PartStudio/flex_pcb_model.htm",
+    "count": 47
+   },
+   {
+    "title": "Rigid-Flex PCB",
+    "url": "/Content/PCBStudio/rigid_flex_pcb.htm",
+    "count": 34
+   },
+   {
+    "title": "Icon Glossary",
+    "url": "/Content/Home/icon_glossary.htm",
+    "count": 26
+   }
+  ]
+ },
+ "collaboration": {
+  "topics": 27,
+  "mentions": 73,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 2,
+   "Documents": 3,
+   "Sharing and Collaboration": 5,
+   "PLM Connections": 2,
+   "Part Studios": 2,
+   "Assemblies": 3,
+   "Render Studios": 1,
+   "PCB Studios": 1,
+   "Account Menu": 4,
+   "Managing Your Onshape Account and Subscription": 2,
+   "Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Collaboration",
+    "url": "/Content/Collaboration/collaboration.htm",
+    "count": 14
+   },
+   {
+    "title": "Sharing and Collaboration",
+    "url": "/Content/Collaboration/sharing_and_collaboration.htm",
+    "count": 11
+   },
+   {
+    "title": "Getting Started with Onshape",
+    "url": "/Content/Home/getting_started_with_onshape.htm",
+    "count": 6
+   },
+   {
+    "title": "Documents",
+    "url": "/Content/Document/documents.htm",
+    "count": 6
+   },
+   {
+    "title": "Share Documents",
+    "url": "/Content/Collaboration/share_documents.htm",
+    "count": 3
+   }
+  ]
+ },
+ "cloud": {
+  "topics": 27,
+  "mentions": 68,
+  "bySection": {
+   "Getting Started with Onshape": 5,
+   "Documents": 3,
+   "Model Evaluation Tools": 1,
+   "Importing & Exporting Files": 3,
+   "PLM Connections": 2,
+   "Assemblies": 1,
+   "Render Studios": 1,
+   "PCB Studios": 2,
+   "Account Menu": 6,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Importing Files",
+    "url": "/Content/Document/importing_files.htm",
+    "count": 10
+   },
+   {
+    "title": "Altium 365 Integration",
+    "url": "/Content/PCBStudio/altium_365_integration.htm",
+    "count": 7
+   },
+   {
+    "title": "My Account - Developer",
+    "url": "/Content/Plans/my_account_developer.htm",
+    "count": 4
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Developer",
+    "url": "/Content/Plans/enterprise_settings_developer.htm",
+    "count": 4
+   },
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 3
+   }
+  ]
+ },
+ "expression": {
+  "topics": 25,
+  "mentions": 178,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Shared Modeling Concepts": 2,
+   "PLM Connections": 1,
+   "Part Studios": 8,
+   "Assemblies": 4,
+   "Variable Studios": 1,
+   "Feature Studios": 1,
+   "Account Menu": 4,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Text",
+    "url": "/Content/Sketch/text.htm",
+    "count": 26
+   },
+   {
+    "title": "Managing Configurations",
+    "url": "/Content/PartStudio/managing_configurations.htm",
+    "count": 21
+   },
+   {
+    "title": "Variable",
+    "url": "/Content/PartStudio/variable.htm",
+    "count": 19
+   },
+   {
+    "title": "Sketch Basics",
+    "url": "/Content/Sketch/sketch_basics.htm",
+    "count": 18
+   },
+   {
+    "title": "Numeric Fields",
+    "url": "/Content/Home/numeric_fields.htm",
+    "count": 17
+   }
+  ]
+ },
+ "DWG": {
+  "topics": 25,
+  "mentions": 91,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Importing & Exporting Files": 4,
+   "Part Studios": 5,
+   "Drawings": 10,
+   "Account Menu": 3,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 17
+   },
+   {
+    "title": "Insert DXF or DWG",
+    "url": "/Content/Sketch/insert_dwg_or_dxf.htm",
+    "count": 11
+   },
+   {
+    "title": "Exporting a Drawing",
+    "url": "/Content/Drawing/exporting_a_drawing.htm",
+    "count": 8
+   },
+   {
+    "title": "Sheet Metal Table and Flat View",
+    "url": "/Content/PartStudio/sheet_metal_table.htm",
+    "count": 7
+   },
+   {
+    "title": "Custom Templates",
+    "url": "/Content/Drawing/custom_drawing_templates.htm",
+    "count": 6
+   }
+  ]
+ },
+ "in-context": {
+  "topics": 25,
+  "mentions": 119,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 1,
+   "Model Visualization Tools": 3,
+   "Shared Modeling Concepts": 3,
+   "Part Studios": 4,
+   "Assemblies": 5,
+   "Drawings": 5,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Modeling In-Context",
+    "url": "/Content/Assembly/modeling_in_context.htm",
+    "count": 63
+   },
+   {
+    "title": "Create Part Studio in Context",
+    "url": "/Content/Assembly/create_part_studio_in_context.htm",
+    "count": 14
+   },
+   {
+    "title": "Icon Glossary",
+    "url": "/Content/Home/icon_glossary.htm",
+    "count": 8
+   },
+   {
+    "title": "Instances List",
+    "url": "/Content/Assembly/instances_list.htm",
+    "count": 7
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 3
+   }
+  ]
+ },
+ "custom feature": {
+  "topics": 24,
+  "mentions": 169,
+  "bySection": {
+   "Getting Started with Onshape": 3,
+   "Documents": 1,
+   "Shared Modeling Concepts": 4,
+   "Sharing and Collaboration": 1,
+   "Part Studios": 8,
+   "Feature Studios": 1,
+   "Account Menu": 1,
+   "Managing Your Onshape Account and Subscription": 3,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Add Custom Features",
+    "url": "/Content/PartStudio/add_custom_features.htm",
+    "count": 95
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Preferences",
+    "url": "/Content/Plans/enterprise_settings_preferences.htm",
+    "count": 25
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 9
+   },
+   {
+    "title": "Versioning and Branching",
+    "url": "/Content/Document/versions_and_history.htm",
+    "count": 5
+   },
+   {
+    "title": "Feature Studios",
+    "url": "/Content/FeatureStudio/feature_studios.htm",
+    "count": 4
+   }
+  ]
+ },
+ "inspection": {
+  "topics": 24,
+  "mentions": 268,
+  "bySection": {
+   "Model Evaluation Tools": 1,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "Part Studios": 6,
+   "Assemblies": 1,
+   "Drawings": 8,
+   "PCB Studios": 1,
+   "Account Menu": 1,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Inspection Item",
+    "url": "/Content/Drawing/inspection_item.htm",
+    "count": 110
+   },
+   {
+    "title": "Inspection table",
+    "url": "/Content/PartStudio/inspection_table.htm",
+    "count": 34
+   },
+   {
+    "title": "Model-Based Definition (MBD)",
+    "url": "/Content/PartStudio/model_based_definition.htm",
+    "count": 24
+   },
+   {
+    "title": "Drawing Properties - Inspection",
+    "url": "/Content/Drawing/drawing_properties_-_inspection.htm",
+    "count": 23
+   },
+   {
+    "title": "Default Tolerances Library",
+    "url": "/Content/Library/default_tolerances_library.htm",
+    "count": 13
+   }
+  ]
+ },
+ "mirror": {
+  "topics": 23,
+  "mentions": 345,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 1,
+   "Shared Modeling Concepts": 2,
+   "Part Studios": 10,
+   "Assemblies": 2,
+   "Drawings": 1,
+   "Render Studios": 4,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Assembly Mirror",
+    "url": "/Content/Assembly/assembly_mirror.htm",
+    "count": 208
+   },
+   {
+    "title": "Mirror",
+    "url": "/Content/PartStudio/mirror.htm",
+    "count": 51
+   },
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 18
+   },
+   {
+    "title": "Sketch Mirror",
+    "url": "/Content/Sketch/sketch_mirror.htm",
+    "count": 14
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 11
+   }
+  ]
+ },
+ "thread": {
+  "topics": 22,
+  "mentions": 347,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Sharing and Collaboration": 1,
+   "Part Studios": 2,
+   "Assemblies": 4,
+   "Drawings": 9,
+   "Render Studios": 2,
+   "CAM Studios": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 149
+   },
+   {
+    "title": "External Thread",
+    "url": "/Content/PartStudio/external_thread.htm",
+    "count": 69
+   },
+   {
+    "title": "Drawing - Hole/Thread Callout",
+    "url": "/Content/Drawing/hole_thread_callout.htm",
+    "count": 32
+   },
+   {
+    "title": "Hole",
+    "url": "/Content/PartStudio/hole.htm",
+    "count": 23
+   },
+   {
+    "title": "Render Studio Interface - Scene List",
+    "url": "/Content/RenderStudio/render_studio_interface_scene_list.htm",
+    "count": 14
+   }
+  ]
+ },
+ "REST": {
+  "topics": 20,
+  "mentions": 27,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 1,
+   "Shared Modeling Concepts": 1,
+   "Release Management": 2,
+   "PLM Connections": 1,
+   "Part Studios": 1,
+   "Drawings": 9,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 1
+  },
+  "top": [
+   {
+    "title": "Shell",
+    "url": "/Content/PartStudio/shell.htm",
+    "count": 2
+   },
+   {
+    "title": "Table",
+    "url": "/Content/Drawing/table.htm",
+    "count": 2
+   },
+   {
+    "title": "BOM Table",
+    "url": "/Content/Drawing/bom_table.htm",
+    "count": 2
+   },
+   {
+    "title": "Cut List Table",
+    "url": "/Content/Drawing/cut_list_table.htm",
+    "count": 2
+   },
+   {
+    "title": "Hole Table",
+    "url": "/Content/Drawing/drawing_hole_table.htm",
+    "count": 2
+   }
+  ]
+ },
+ "mass properties": {
+  "topics": 20,
+  "mentions": 75,
+  "bySection": {
+   "Documents": 2,
+   "Model Evaluation Tools": 3,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 1,
+   "Sharing and Collaboration": 2,
+   "PLM Connections": 1,
+   "Part Studios": 4,
+   "Assemblies": 2,
+   "Account Menu": 1,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Mass Properties Tool",
+    "url": "/Content/View/mass_properties_tool.htm",
+    "count": 19
+   },
+   {
+    "title": "Getting Started as a Light User",
+    "url": "/Content/Plans/getting_started_as_a_light_user.htm",
+    "count": 12
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 8
+   },
+   {
+    "title": "Using the View Only Toolbar",
+    "url": "/Content/Collaboration/using_the_view_only_toolbar.htm",
+    "count": 5
+   },
+   {
+    "title": "Part Studios",
+    "url": "/Content/PartStudio/part_studios.htm",
+    "count": 4
+   }
+  ]
+ },
+ "SSO": {
+  "topics": 17,
+  "mentions": 239,
+  "bySection": {
+   "Documents": 1,
+   "PLM Connections": 1,
+   "Account Menu": 3,
+   "Managing Your Onshape Account and Subscription": 12
+  },
+  "top": [
+   {
+    "title": "Integrating with OneLogin",
+    "url": "/Content/Plans/integrating_with_onelogin.htm",
+    "count": 31
+   },
+   {
+    "title": "Integrating with a Custom Identity Provider via SAML 2.0",
+    "url": "/Content/Plans/integrating_with_a_custom_idp_via_saml.htm",
+    "count": 29
+   },
+   {
+    "title": "Microsoft ADFS",
+    "url": "/Content/Plans/integrating_with_microsoft_adfs.htm",
+    "count": 28
+   },
+   {
+    "title": "Integrating with PingOne",
+    "url": "/Content/Plans/integrating_with_pingone.htm",
+    "count": 27
+   },
+   {
+    "title": "Integrating with ClassLink",
+    "url": "/Content/Plans/integrating_with_classlink.htm",
+    "count": 27
+   }
+  ]
+ },
+ "GD&T": {
+  "topics": 16,
+  "mentions": 116,
+  "bySection": {
+   "Sharing and Collaboration": 2,
+   "Part Studios": 3,
+   "Drawings": 8,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Inspection table",
+    "url": "/Content/PartStudio/inspection_table.htm",
+    "count": 41
+   },
+   {
+    "title": "Geometric Tolerances",
+    "url": "/Content/Drawing/geometric_tolerance.htm",
+    "count": 38
+   },
+   {
+    "title": "Datum",
+    "url": "/Content/Drawing/datum.htm",
+    "count": 11
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 5
+   },
+   {
+    "title": "Drawing Properties - Annotations",
+    "url": "/Content/Drawing/drawing_properties_-_annotations.htm",
+    "count": 4
+   }
+  ]
+ },
+ "redo": {
+  "topics": 13,
+  "mentions": 24,
+  "bySection": {
+   "Getting Started with Onshape": 2,
+   "Release Management": 1,
+   "Part Studios": 6,
+   "Feature Studios": 1,
+   "Render Studios": 2,
+   "Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Feature Tools",
+    "url": "/Content/PartStudio/feature_tools.htm",
+    "count": 5
+   },
+   {
+    "title": "User Interface Basics",
+    "url": "/Content/Home/user_interface_basics.htm",
+    "count": 3
+   },
+   {
+    "title": "Feature Studios",
+    "url": "/Content/FeatureStudio/feature_studios.htm",
+    "count": 3
+   },
+   {
+    "title": "Typical Release Workflow",
+    "url": "/Content/Release/typical_release_workflow.htm",
+    "count": 2
+   },
+   {
+    "title": "Part Studios",
+    "url": "/Content/PartStudio/part_studios.htm",
+    "count": 2
+   }
+  ]
+ },
+ "simulation": {
+  "topics": 13,
+  "mentions": 609,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 1,
+   "Sharing and Collaboration": 1,
+   "Assemblies": 5,
+   "Managing Your Onshape Account and Subscription": 3,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Simulation",
+    "url": "/Content/Assembly/simulation.htm",
+    "count": 256
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 177
+   },
+   {
+    "title": "Asynchronous Simulation",
+    "url": "/Content/Assembly/asynchronous_simulation.htm",
+    "count": 92
+   },
+   {
+    "title": "Modal Simulation",
+    "url": "/Content/Assembly/modal_simulation.htm",
+    "count": 44
+   },
+   {
+    "title": "Rigid Body",
+    "url": "/Content/Assembly/rigid_body.htm",
+    "count": 16
+   }
+  ]
+ },
+ "AI": {
+  "topics": 13,
+  "mentions": 53,
+  "bySection": {
+   "Welcome to Onshape Help": 1,
+   "Getting Started with Onshape": 1,
+   "Documents": 1,
+   "Shared Modeling Concepts": 3,
+   "Feature Studios": 1,
+   "Render Studios": 1,
+   "Account Menu": 2,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "AI Advisor",
+    "url": "/Content/Home/ai_advisor.htm",
+    "count": 27
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 7
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings - Preferences",
+    "url": "/Content/Plans/enterprise_settings_preferences.htm",
+    "count": 3
+   },
+   {
+    "title": "Icon Glossary",
+    "url": "/Content/Home/icon_glossary.htm",
+    "count": 3
+   },
+   {
+    "title": "Onshape Help",
+    "url": "/Content/Home/home.htm",
+    "count": 2
+   }
+  ]
+ },
+ "API": {
+  "topics": 11,
+  "mentions": 136,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "PLM Connections": 2,
+   "Account Menu": 6,
+   "Managing Your Onshape Account and Subscription": 1,
+   "Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Company/Classroom/Enterprise Settings - Developer",
+    "url": "/Content/Plans/enterprise_settings_developer.htm",
+    "count": 58
+   },
+   {
+    "title": "My Account - Developer",
+    "url": "/Content/Plans/my_account_developer.htm",
+    "count": 50
+   },
+   {
+    "title": "Configuring Arena and Onshape",
+    "url": "/Content/Plans/configuring_arena_and_onshape.htm",
+    "count": 7
+   },
+   {
+    "title": "App Store FAQs",
+    "url": "/Content/Home/app_store_faqs.htm",
+    "count": 4
+   },
+   {
+    "title": "Onshape Arena Glossary",
+    "url": "/Content/Plans/onshape_arena_glossary.htm",
+    "count": 3
+   }
+  ]
+ },
+ "PLM": {
+  "topics": 11,
+  "mentions": 42,
+  "bySection": {
+   "Documents": 1,
+   "PLM Connections": 3,
+   "Account Menu": 4,
+   "Managing Your Onshape Account and Subscription": 2,
+   "Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Release Dashboards",
+    "url": "/Content/Plans/release_reports.htm",
+    "count": 24
+   },
+   {
+    "title": "Configuring Arena and Onshape",
+    "url": "/Content/Plans/configuring_arena_and_onshape.htm",
+    "count": 6
+   },
+   {
+    "title": "PLM Connections",
+    "url": "/Content/Plans/plm_connections.htm",
+    "count": 3
+   },
+   {
+    "title": "Onshape Arena Glossary",
+    "url": "/Content/Plans/onshape_arena_glossary.htm",
+    "count": 2
+   },
+   {
+    "title": "In-app Notifications",
+    "url": "/Content/Document/in_app_notifications.htm",
+    "count": 1
+   }
+  ]
+ },
+ "wrap": {
+  "topics": 9,
+  "mentions": 33,
+  "bySection": {
+   "Model Evaluation Tools": 1,
+   "PLM Connections": 1,
+   "Part Studios": 2,
+   "Render Studios": 3,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Wrap",
+    "url": "/Content/Sketch/wrap.htm",
+    "count": 13
+   },
+   {
+    "title": "Render Studio Libraries",
+    "url": "/Content/RenderStudio/render_studio_libraries.htm",
+    "count": 5
+   },
+   {
+    "title": "AxF Appearance (Render Studio Advanced)",
+    "url": "/Content/RenderStudio/axf_appearance.htm",
+    "count": 4
+   },
+   {
+    "title": "Appearance Functions",
+    "url": "/Content/RenderStudio/appearance_functions.htm",
+    "count": 3
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 3
+   }
+  ]
+ },
+ "decal": {
+  "topics": 9,
+  "mentions": 143,
+  "bySection": {
+   "Model Evaluation Tools": 1,
+   "Part Studios": 1,
+   "Drawings": 1,
+   "Render Studios": 2,
+   "PCB Studios": 2,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "Decal",
+    "url": "/Content/PartStudio/decal.htm",
+    "count": 66
+   },
+   {
+    "title": "Render Studio Interface - Scene List",
+    "url": "/Content/RenderStudio/render_studio_interface_scene_list.htm",
+    "count": 43
+   },
+   {
+    "title": "Flatten Surfaces",
+    "url": "/Content/View/flatten_surfaces.htm",
+    "count": 12
+   },
+   {
+    "title": "Altium 365 Integration",
+    "url": "/Content/PCBStudio/altium_365_integration.htm",
+    "count": 8
+   },
+   {
+    "title": "Rigid-Flex PCB",
+    "url": "/Content/PCBStudio/rigid_flex_pcb.htm",
+    "count": 5
+   }
+  ]
+ },
+ "STL": {
+  "topics": 8,
+  "mentions": 38,
+  "bySection": {
+   "Documents": 1,
+   "Model Evaluation Tools": 1,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 3,
+   "Account Menu": 1
+  },
+  "top": [
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 22
+   },
+   {
+    "title": "Mixed Modeling",
+    "url": "/Content/PartStudio/mixed_modeling.htm",
+    "count": 5
+   },
+   {
+    "title": "Supported File Formats",
+    "url": "/Content/File/supported_file_formats.htm",
+    "count": 4
+   },
+   {
+    "title": "Flatten Surfaces",
+    "url": "/Content/View/flatten_surfaces.htm",
+    "count": 2
+   },
+   {
+    "title": "Importing Files",
+    "url": "/Content/Document/importing_files.htm",
+    "count": 2
+   }
+  ]
+ },
+ "OBJ": {
+  "topics": 8,
+  "mentions": 38,
+  "bySection": {
+   "Documents": 1,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 4,
+   "Managing Your Onshape Account and Subscription": 1
+  },
+  "top": [
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 22
+   },
+   {
+    "title": "Supported File Formats",
+    "url": "/Content/File/supported_file_formats.htm",
+    "count": 6
+   },
+   {
+    "title": "Mixed Modeling",
+    "url": "/Content/PartStudio/mixed_modeling.htm",
+    "count": 4
+   },
+   {
+    "title": "Importing Files",
+    "url": "/Content/Document/importing_files.htm",
+    "count": 2
+   },
+   {
+    "title": "Documents Page",
+    "url": "/Content/Document/documents_page.htm",
+    "count": 1
+   }
+  ]
+ },
+ "audit": {
+  "topics": 7,
+  "mentions": 28,
+  "bySection": {
+   "Documents": 1,
+   "Managing Your Onshape Account and Subscription": 6
+  },
+  "top": [
+   {
+    "title": "Audit Dashboards",
+    "url": "/Content/Plans/audit_reports.htm",
+    "count": 12
+   },
+   {
+    "title": "Creating a Customized Release Workflow",
+    "url": "/Content/Release/creating_a_customized_release_workflow.htm",
+    "count": 9
+   },
+   {
+    "title": "Release Dashboards",
+    "url": "/Content/Plans/release_reports.htm",
+    "count": 3
+   },
+   {
+    "title": "Document Management",
+    "url": "/Content/Document/document_management.htm",
+    "count": 1
+   },
+   {
+    "title": "Analytics",
+    "url": "/Content/Plans/analytics.htm",
+    "count": 1
+   }
+  ]
+ },
+ "3MF": {
+  "topics": 6,
+  "mentions": 16,
+  "bySection": {
+   "Documents": 2,
+   "Shared Modeling Concepts": 2,
+   "Importing & Exporting Files": 2
+  },
+  "top": [
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 8
+   },
+   {
+    "title": "Supported File Formats",
+    "url": "/Content/File/supported_file_formats.htm",
+    "count": 4
+   },
+   {
+    "title": "In-app Notifications",
+    "url": "/Content/Document/in_app_notifications.htm",
+    "count": 1
+   },
+   {
+    "title": "Documents Page",
+    "url": "/Content/Document/documents_page.htm",
+    "count": 1
+   },
+   {
+    "title": "Working with Imported CAD",
+    "url": "/Content/Document/working_with_imported_cad.htm",
+    "count": 1
+   }
+  ]
+ },
+ "CAM": {
+  "topics": 6,
+  "mentions": 59,
+  "bySection": {
+   "Getting Started with Onshape": 1,
+   "Documents": 1,
+   "Importing & Exporting Files": 1,
+   "CAM Studios": 1,
+   "Glossary": 1,
+   "Icon Glossary": 1
+  },
+  "top": [
+   {
+    "title": "CAM Studios",
+    "url": "/Content/CAMStudio/cam_studios.htm",
+    "count": 48
+   },
+   {
+    "title": "Icon Glossary",
+    "url": "/Content/Home/icon_glossary.htm",
+    "count": 4
+   },
+   {
+    "title": "Document Tabs",
+    "url": "/Content/Document/document_tabs.htm",
+    "count": 3
+   },
+   {
+    "title": "Glossary",
+    "url": "/Content/Home/glossary.htm",
+    "count": 2
+   },
+   {
+    "title": "App Store FAQs",
+    "url": "/Content/Home/app_store_faqs.htm",
+    "count": 1
+   }
+  ]
+ },
+ "IGES": {
+  "topics": 5,
+  "mentions": 17,
+  "bySection": {
+   "Documents": 1,
+   "Shared Modeling Concepts": 1,
+   "Importing & Exporting Files": 3
+  },
+  "top": [
+   {
+    "title": "Supported File Formats",
+    "url": "/Content/File/supported_file_formats.htm",
+    "count": 6
+   },
+   {
+    "title": "Exporting Files",
+    "url": "/Content/File/exporting_files.htm",
+    "count": 6
+   },
+   {
+    "title": "Importing Files",
+    "url": "/Content/Document/importing_files.htm",
+    "count": 3
+   },
+   {
+    "title": "Documents Page",
+    "url": "/Content/Document/documents_page.htm",
+    "count": 1
+   },
+   {
+    "title": "Mixed Modeling",
+    "url": "/Content/PartStudio/mixed_modeling.htm",
+    "count": 1
+   }
+  ]
+ },
+ "webhook": {
+  "topics": 2,
+  "mentions": 32,
+  "bySection": {
+   "Account Menu": 2
+  },
+  "top": [
+   {
+    "title": "Company/Classroom/Enterprise Settings - Webhooks",
+    "url": "/Content/Plans/enterprise_settings_webhooks.htm",
+    "count": 27
+   },
+   {
+    "title": "Company/Classroom/Enterprise Settings",
+    "url": "/Content/Plans/enterprise_settings.htm",
+    "count": 5
+   }
+  ]
+ },
+ "FEA": {
+  "topics": 1,
+  "mentions": 4,
+  "bySection": {
+   "Assemblies": 1
+  },
+  "top": [
+   {
+    "title": "Simulation",
+    "url": "/Content/Assembly/simulation.htm",
+    "count": 4
+   }
+  ]
+ },
+ "offline": {
+  "topics": 0,
+  "mentions": 0,
+  "bySection": {},
+  "top": []
+ }
+}

@@ -1,0 +1,1166 @@
+{
+ "nodes": 527,
+ "edges": 2671,
+ "pairs": [
+  [
+   "Part Studios -> Part Studios",
+   750
+  ],
+  [
+   "Glossary -> Part Studios",
+   148
+  ],
+  [
+   "Icon Glossary -> Part Studios",
+   123
+  ],
+  [
+   "Drawings -> Drawings",
+   117
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Managing Your Onshape Account and Subscription",
+   105
+  ],
+  [
+   "Render Studios -> Render Studios",
+   86
+  ],
+  [
+   "Account Menu -> Account Menu",
+   71
+  ],
+  [
+   "Assemblies -> Assemblies",
+   65
+  ],
+  [
+   "Glossary -> Drawings",
+   59
+  ],
+  [
+   "Documents -> Documents",
+   57
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Account Menu",
+   50
+  ],
+  [
+   "Glossary -> Assemblies",
+   38
+  ],
+  [
+   "Icon Glossary -> Drawings",
+   38
+  ],
+  [
+   "Model Visualization Tools -> Model Visualization Tools",
+   33
+  ],
+  [
+   "Icon Glossary -> Assemblies",
+   32
+  ],
+  [
+   "Shared Modeling Concepts -> Shared Modeling Concepts",
+   27
+  ],
+  [
+   "Drawings -> Part Studios",
+   21
+  ],
+  [
+   "Getting Started with Onshape -> Getting Started with Onshape",
+   18
+  ],
+  [
+   "Getting Started with Onshape -> Part Studios",
+   18
+  ],
+  [
+   "Part Studios -> Model Evaluation Tools",
+   18
+  ],
+  [
+   "Part Studios -> Getting Started with Onshape",
+   17
+  ],
+  [
+   "Account Menu -> Managing Your Onshape Account and Subscription",
+   17
+  ],
+  [
+   "Glossary -> Documents",
+   16
+  ],
+  [
+   "Documents -> Account Menu",
+   15
+  ],
+  [
+   "Glossary -> Model Evaluation Tools",
+   15
+  ],
+  [
+   "Glossary -> Model Visualization Tools",
+   15
+  ],
+  [
+   "Model Evaluation Tools -> Model Evaluation Tools",
+   14
+  ],
+  [
+   "Glossary -> Getting Started with Onshape",
+   14
+  ],
+  [
+   "Glossary -> Render Studios",
+   14
+  ],
+  [
+   "Getting Started with Onshape -> Documents",
+   13
+  ],
+  [
+   "Documents -> Sharing and Collaboration",
+   13
+  ],
+  [
+   "PLM Connections -> Account Menu",
+   13
+  ],
+  [
+   "Part Studios -> Documents",
+   12
+  ],
+  [
+   "Part Studios -> Assemblies",
+   12
+  ],
+  [
+   "Assemblies -> Part Studios",
+   12
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Sharing and Collaboration",
+   11
+  ],
+  [
+   "Shared Modeling Concepts -> Part Studios",
+   10
+  ],
+  [
+   "Sharing and Collaboration -> Sharing and Collaboration",
+   10
+  ],
+  [
+   "Assemblies -> Documents",
+   10
+  ],
+  [
+   "PCB Studios -> Part Studios",
+   10
+  ],
+  [
+   "Account Menu -> Assemblies",
+   10
+  ],
+  [
+   "Documents -> Assemblies",
+   9
+  ],
+  [
+   "Sharing and Collaboration -> Part Studios",
+   9
+  ],
+  [
+   "Assemblies -> Shared Modeling Concepts",
+   9
+  ],
+  [
+   "Account Menu -> Sharing and Collaboration",
+   9
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Contact Support / Contact Us",
+   9
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Documents",
+   9
+  ],
+  [
+   "Getting Started with Onshape -> Account Menu",
+   8
+  ],
+  [
+   "Documents -> Part Studios",
+   8
+  ],
+  [
+   "Documents -> Importing & Exporting Files",
+   8
+  ],
+  [
+   "Part Studios -> Account Menu",
+   8
+  ],
+  [
+   "Part Studios -> Sharing and Collaboration",
+   8
+  ],
+  [
+   "Assemblies -> Sharing and Collaboration",
+   8
+  ],
+  [
+   "Account Menu -> Release Management",
+   8
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Getting Started with Onshape",
+   8
+  ],
+  [
+   "Glossary -> Managing Your Onshape Account and Subscription",
+   8
+  ],
+  [
+   "Glossary -> Account Menu",
+   8
+  ],
+  [
+   "Getting Started with Onshape -> Model Visualization Tools",
+   7
+  ],
+  [
+   "Importing & Exporting Files -> Importing & Exporting Files",
+   7
+  ],
+  [
+   "PLM Connections -> PLM Connections",
+   7
+  ],
+  [
+   "Part Studios -> Shared Modeling Concepts",
+   7
+  ],
+  [
+   "Part Studios -> Drawings",
+   7
+  ],
+  [
+   "Render Studios -> Account Menu",
+   7
+  ],
+  [
+   "Render Studios -> Importing & Exporting Files",
+   7
+  ],
+  [
+   "Account Menu -> Getting Started with Onshape",
+   7
+  ],
+  [
+   "Account Menu -> PLM Connections",
+   7
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Part Studios",
+   7
+  ],
+  [
+   "Glossary -> Shared Modeling Concepts",
+   7
+  ],
+  [
+   "Documents -> Getting Started with Onshape",
+   6
+  ],
+  [
+   "Assemblies -> Getting Started with Onshape",
+   6
+  ],
+  [
+   "Render Studios -> Part Studios",
+   6
+  ],
+  [
+   "Account Menu -> Shared Modeling Concepts",
+   6
+  ],
+  [
+   "Documents -> Managing Your Onshape Account and Subscription",
+   5
+  ],
+  [
+   "Model Visualization Tools -> Getting Started with Onshape",
+   5
+  ],
+  [
+   "Sharing and Collaboration -> Account Menu",
+   5
+  ],
+  [
+   "Part Studios -> Importing & Exporting Files",
+   5
+  ],
+  [
+   "Assemblies -> Account Menu",
+   5
+  ],
+  [
+   "Drawings -> Managing Your Onshape Account and Subscription",
+   5
+  ],
+  [
+   "Drawings -> Assemblies",
+   5
+  ],
+  [
+   "Drawings -> Documents",
+   5
+  ],
+  [
+   "PCB Studios -> PCB Studios",
+   5
+  ],
+  [
+   "Account Menu -> Documents",
+   5
+  ],
+  [
+   "Getting Started with Onshape -> Assemblies",
+   4
+  ],
+  [
+   "Documents -> Drawings",
+   4
+  ],
+  [
+   "Model Evaluation Tools -> Part Studios",
+   4
+  ],
+  [
+   "Sharing and Collaboration -> Managing Your Onshape Account and Subscription",
+   4
+  ],
+  [
+   "Release Management -> Release Management",
+   4
+  ],
+  [
+   "Assemblies -> Managing Your Onshape Account and Subscription",
+   4
+  ],
+  [
+   "Assemblies -> Release Management",
+   4
+  ],
+  [
+   "Render Studios -> Documents",
+   4
+  ],
+  [
+   "Render Studios -> Getting Started with Onshape",
+   4
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Assemblies",
+   4
+  ],
+  [
+   "Glossary -> Sharing and Collaboration",
+   4
+  ],
+  [
+   "Icon Glossary -> Render Studios",
+   4
+  ],
+  [
+   "Documents -> Release Management",
+   3
+  ],
+  [
+   "Documents -> Publications",
+   3
+  ],
+  [
+   "Model Visualization Tools -> Shared Modeling Concepts",
+   3
+  ],
+  [
+   "Importing & Exporting Files -> Account Menu",
+   3
+  ],
+  [
+   "Importing & Exporting Files -> Managing Your Onshape Account and Subscription",
+   3
+  ],
+  [
+   "Sharing and Collaboration -> Assemblies",
+   3
+  ],
+  [
+   "Release Management -> Managing Your Onshape Account and Subscription",
+   3
+  ],
+  [
+   "Release Management -> Account Menu",
+   3
+  ],
+  [
+   "PLM Connections -> Assemblies",
+   3
+  ],
+  [
+   "PLM Connections -> Release Management",
+   3
+  ],
+  [
+   "Part Studios -> Managing Your Onshape Account and Subscription",
+   3
+  ],
+  [
+   "Part Studios -> PCB Studios",
+   3
+  ],
+  [
+   "Assemblies -> Model Evaluation Tools",
+   3
+  ],
+  [
+   "Assemblies -> Icon Glossary",
+   3
+  ],
+  [
+   "Assemblies -> Model Visualization Tools",
+   3
+  ],
+  [
+   "Assemblies -> Drawings",
+   3
+  ],
+  [
+   "Drawings -> Release Management",
+   3
+  ],
+  [
+   "Drawings -> Account Menu",
+   3
+  ],
+  [
+   "Render Studios -> Model Visualization Tools",
+   3
+  ],
+  [
+   "Account Menu -> Part Studios",
+   3
+  ],
+  [
+   "Account Menu -> Drawings",
+   3
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Importing & Exporting Files",
+   3
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Release Management",
+   3
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Model Evaluation Tools",
+   3
+  ],
+  [
+   "Welcome to Onshape Help -> Getting Started with Onshape",
+   2
+  ],
+  [
+   "Welcome to Onshape Help -> Documents",
+   2
+  ],
+  [
+   "Getting Started with Onshape -> Importing & Exporting Files",
+   2
+  ],
+  [
+   "Getting Started with Onshape -> Sharing and Collaboration",
+   2
+  ],
+  [
+   "Getting Started with Onshape -> Shared Modeling Concepts",
+   2
+  ],
+  [
+   "Getting Started with Onshape -> Contact Support / Contact Us",
+   2
+  ],
+  [
+   "Getting Started with Onshape -> Release Management",
+   2
+  ],
+  [
+   "Getting Started with Onshape -> Render Studios",
+   2
+  ],
+  [
+   "Documents -> Feature Studios",
+   2
+  ],
+  [
+   "Documents -> Shared Modeling Concepts",
+   2
+  ],
+  [
+   "Model Visualization Tools -> Account Menu",
+   2
+  ],
+  [
+   "Model Visualization Tools -> Part Studios",
+   2
+  ],
+  [
+   "Model Visualization Tools -> Model Evaluation Tools",
+   2
+  ],
+  [
+   "Shared Modeling Concepts -> Assemblies",
+   2
+  ],
+  [
+   "Shared Modeling Concepts -> Model Visualization Tools",
+   2
+  ],
+  [
+   "Shared Modeling Concepts -> Account Menu",
+   2
+  ],
+  [
+   "Shared Modeling Concepts -> Importing & Exporting Files",
+   2
+  ],
+  [
+   "Importing & Exporting Files -> Shared Modeling Concepts",
+   2
+  ],
+  [
+   "Importing & Exporting Files -> Drawings",
+   2
+  ],
+  [
+   "Sharing and Collaboration -> Documents",
+   2
+  ],
+  [
+   "Release Management -> Shared Modeling Concepts",
+   2
+  ],
+  [
+   "Part Studios -> Model Visualization Tools",
+   2
+  ],
+  [
+   "Part Studios -> Feature Studios",
+   2
+  ],
+  [
+   "Part Studios -> Variable Studios",
+   2
+  ],
+  [
+   "Assemblies -> Importing & Exporting Files",
+   2
+  ],
+  [
+   "Variable Studios -> Release Management",
+   2
+  ],
+  [
+   "PCB Studios -> Model Visualization Tools",
+   2
+  ],
+  [
+   "Account Menu -> PCB Studios",
+   2
+  ],
+  [
+   "Glossary -> PCB Studios",
+   2
+  ],
+  [
+   "Icon Glossary -> Shared Modeling Concepts",
+   2
+  ],
+  [
+   "Welcome to Onshape Help -> Sharing and Collaboration",
+   1
+  ],
+  [
+   "Welcome to Onshape Help -> Release Management",
+   1
+  ],
+  [
+   "Getting Started with Onshape -> Managing Your Onshape Account and Subscription",
+   1
+  ],
+  [
+   "Getting Started with Onshape -> PLM Connections",
+   1
+  ],
+  [
+   "Getting Started with Onshape -> Variable Studios",
+   1
+  ],
+  [
+   "Documents -> Render Studios",
+   1
+  ],
+  [
+   "Documents -> PCB Studios",
+   1
+  ],
+  [
+   "Documents -> CAM Studios",
+   1
+  ],
+  [
+   "Documents -> Variable Studios",
+   1
+  ],
+  [
+   "Documents -> Contact Support / Contact Us",
+   1
+  ],
+  [
+   "Documents -> Model Visualization Tools",
+   1
+  ],
+  [
+   "Documents -> Model Evaluation Tools",
+   1
+  ],
+  [
+   "Publications -> Documents",
+   1
+  ],
+  [
+   "Publications -> Sharing and Collaboration",
+   1
+  ],
+  [
+   "Model Visualization Tools -> Managing Your Onshape Account and Subscription",
+   1
+  ],
+  [
+   "Model Visualization Tools -> PCB Studios",
+   1
+  ],
+  [
+   "Model Visualization Tools -> Importing & Exporting Files",
+   1
+  ],
+  [
+   "Model Visualization Tools -> Assemblies",
+   1
+  ],
+  [
+   "Model Evaluation Tools -> Getting Started with Onshape",
+   1
+  ],
+  [
+   "Shared Modeling Concepts -> Release Management",
+   1
+  ],
+  [
+   "Shared Modeling Concepts -> Sharing and Collaboration",
+   1
+  ],
+  [
+   "Shared Modeling Concepts -> Documents",
+   1
+  ],
+  [
+   "Importing & Exporting Files -> Getting Started with Onshape",
+   1
+  ],
+  [
+   "Importing & Exporting Files -> Assemblies",
+   1
+  ],
+  [
+   "Importing & Exporting Files -> Part Studios",
+   1
+  ],
+  [
+   "Sharing and Collaboration -> Model Visualization Tools",
+   1
+  ],
+  [
+   "Sharing and Collaboration -> Shared Modeling Concepts",
+   1
+  ],
+  [
+   "Sharing and Collaboration -> Model Evaluation Tools",
+   1
+  ],
+  [
+   "Release Management -> Drawings",
+   1
+  ],
+  [
+   "Release Management -> Documents",
+   1
+  ],
+  [
+   "Release Management -> Importing & Exporting Files",
+   1
+  ],
+  [
+   "PLM Connections -> Getting Started with Onshape",
+   1
+  ],
+  [
+   "Part Studios -> Release Management",
+   1
+  ],
+  [
+   "Part Studios -> Render Studios",
+   1
+  ],
+  [
+   "Assemblies -> Variable Studios",
+   1
+  ],
+  [
+   "Drawings -> Importing & Exporting Files",
+   1
+  ],
+  [
+   "Drawings -> Feature Studios",
+   1
+  ],
+  [
+   "Variable Studios -> Shared Modeling Concepts",
+   1
+  ],
+  [
+   "Variable Studios -> Part Studios",
+   1
+  ],
+  [
+   "Feature Studios -> Part Studios",
+   1
+  ],
+  [
+   "Feature Studios -> Documents",
+   1
+  ],
+  [
+   "Feature Studios -> Shared Modeling Concepts",
+   1
+  ],
+  [
+   "Render Studios -> Assemblies",
+   1
+  ],
+  [
+   "PCB Studios -> Account Menu",
+   1
+  ],
+  [
+   "PCB Studios -> Shared Modeling Concepts",
+   1
+  ],
+  [
+   "Account Menu -> Model Evaluation Tools",
+   1
+  ],
+  [
+   "Account Menu -> Model Visualization Tools",
+   1
+  ],
+  [
+   "Account Menu -> Feature Studios",
+   1
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Feature Studios",
+   1
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Model Visualization Tools",
+   1
+  ],
+  [
+   "Managing Your Onshape Account and Subscription -> Shared Modeling Concepts",
+   1
+  ],
+  [
+   "Contact Support / Contact Us -> Sharing and Collaboration",
+   1
+  ],
+  [
+   "Glossary -> Contact Support / Contact Us",
+   1
+  ],
+  [
+   "Glossary -> Importing & Exporting Files",
+   1
+  ],
+  [
+   "Glossary -> Welcome to Onshape Help",
+   1
+  ],
+  [
+   "Glossary -> Publications",
+   1
+  ],
+  [
+   "Glossary -> Release Management",
+   1
+  ],
+  [
+   "Glossary -> Variable Studios",
+   1
+  ],
+  [
+   "Icon Glossary -> Model Evaluation Tools",
+   1
+  ]
+ ],
+ "topInbound": [
+  {
+   "url": "/Content/PartStudio/feature_tools.htm",
+   "title": "Feature Tools",
+   "inbound": 33,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/Plans/my_account_preferences.htm",
+   "title": "My Account - Preferences",
+   "inbound": 28,
+   "section": "Account Menu"
+  },
+  {
+   "url": "/Content/Document/versions_and_history.htm",
+   "title": "Versioning and Branching",
+   "inbound": 25,
+   "section": "Documents"
+  },
+  {
+   "url": "/Content/Collaboration/share_documents.htm",
+   "title": "Share Documents",
+   "inbound": 25,
+   "section": "Sharing and Collaboration"
+  },
+  {
+   "url": "/Content/PartStudio/sheet_metal_table.htm",
+   "title": "Sheet Metal Table and Flat View",
+   "inbound": 21,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/Sketch/sketch_tools.htm",
+   "title": "Sketch Tools",
+   "inbound": 20,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/sheet_metal_form.htm",
+   "title": "Sheet Metal Form",
+   "inbound": 20,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/Release/release_management.htm",
+   "title": "Release Management",
+   "inbound": 19,
+   "section": "Release Management"
+  },
+  {
+   "url": "/Content/Plans/managing_your_onshape_account_and_subscription.htm",
+   "title": "Managing Your Onshape Account And Subscription",
+   "inbound": 19,
+   "section": "Managing Your Onshape Account and Subscription"
+  },
+  {
+   "url": "/Content/PartStudio/sheet_metal_corner_break.htm",
+   "title": "Sheet Metal Corner Break",
+   "inbound": 18,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/Document/importing_files.htm",
+   "title": "Importing Files",
+   "inbound": 17,
+   "section": "Importing & Exporting Files"
+  },
+  {
+   "url": "/Content/PartStudio/surface_modeling.htm",
+   "title": "Surface modeling",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/enclose.htm",
+   "title": "Enclose",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/fill.htm",
+   "title": "Fill",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/move_boundary.htm",
+   "title": "Move Boundary",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/routing_curve.htm",
+   "title": "Routing Curve",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/finish_sheet_metal_model.htm",
+   "title": "Finish Sheet Metal Model",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/sheet_metal_flange.htm",
+   "title": "Sheet Metal Flange",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/sheet_metal_hem.htm",
+   "title": "Sheet Metal Hem",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/sheet_metal_bend.htm",
+   "title": "Sheet Metal Bend",
+   "inbound": 17,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/configurations.htm",
+   "title": "Configurations",
+   "inbound": 16,
+   "section": "Shared Modeling Concepts"
+  },
+  {
+   "url": "/Content/PartStudio/isoparametric_curve.htm",
+   "title": "Isoparametric Curve",
+   "inbound": 16,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/File/exporting_files.htm",
+   "title": "Exporting Files",
+   "inbound": 16,
+   "section": "Importing & Exporting Files"
+  },
+  {
+   "url": "/Content/PartStudio/bridging_curve.htm",
+   "title": "Bridging Curve",
+   "inbound": 16,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/composite_curve.htm",
+   "title": "Composite Curve",
+   "inbound": 16,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/boundary_surface.htm",
+   "title": "Boundary Surface",
+   "inbound": 16,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/thicken.htm",
+   "title": "Thicken",
+   "inbound": 16,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/fillet.htm",
+   "title": "Fillet",
+   "inbound": 16,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/face_blend.htm",
+   "title": "Face Blend",
+   "inbound": 16,
+   "section": "Part Studios"
+  },
+  {
+   "url": "/Content/PartStudio/delete_face.htm",
+   "title": "Delete Face",
+   "inbound": 16,
+   "section": "Part Studios"
+  }
+ ],
+ "orphans": [
+  {
+   "title": "Graphics Area Display Data",
+   "url": "/Content/Home/graphics_area_display_data.htm",
+   "section": "Getting Started with Onshape"
+  },
+  {
+   "title": "Printing",
+   "url": "/Content/Home/printing_part_studios_and_assemblies.htm",
+   "section": "Getting Started with Onshape"
+  },
+  {
+   "title": "Create Menu",
+   "url": "/Content/Document/create_menu.htm",
+   "section": "Documents"
+  },
+  {
+   "title": "Labels",
+   "url": "/Content/Document/labels.htm",
+   "section": "Documents"
+  },
+  {
+   "title": "Integrations",
+   "url": "/Content/Document/doc_integrations.htm",
+   "section": "Documents"
+  },
+  {
+   "title": "Documents Page Panels",
+   "url": "/Content/Document/panels.htm",
+   "section": "Documents"
+  },
+  {
+   "title": "Mobile Touch Interface Navigation",
+   "url": "/Content/Mobile/mobile_touch_interface_videos.htm",
+   "section": "Model Visualization Tools"
+  },
+  {
+   "title": "Viewing Models with Augmented Reality",
+   "url": "/Content/Mobile/viewing_models_with_augmented_reality.htm",
+   "section": "Model Visualization Tools"
+  },
+  {
+   "title": "Shared Modeling Concepts",
+   "url": "/Content/Home/shared_modeling_concepts.htm",
+   "section": "Shared Modeling Concepts"
+  },
+  {
+   "title": "Importing & Exporting Files",
+   "url": "/Content/File/importing_and_exporting_files.htm",
+   "section": "Importing & Exporting Files"
+  },
+  {
+   "title": "Specifying Approvers",
+   "url": "/Content/Release/specifying_approvers.htm",
+   "section": "Release Management"
+  },
+  {
+   "title": "Cloning a Release Package",
+   "url": "/Content/Release/cloning_a_release_package.htm",
+   "section": "Release Management"
+  },
+  {
+   "title": "PLM Connections",
+   "url": "/Content/Plans/plm_connections.htm",
+   "section": "PLM Connections"
+  },
+  {
+   "title": "Onshape Arena Glossary",
+   "url": "/Content/Plans/onshape_arena_glossary.htm",
+   "section": "PLM Connections"
+  },
+  {
+   "title": "Onshape Material Library",
+   "url": "/Content/Library/onshape_material_library.htm",
+   "section": "Part Studios"
+  },
+  {
+   "title": "Onshape Standard Content Library",
+   "url": "/Content/Library/onshape_standard_content_library.htm",
+   "section": "Assemblies"
+  },
+  {
+   "title": "Drawing Basics",
+   "url": "/Content/Drawing/drawing_basics.htm",
+   "section": "Drawings"
+  },
+  {
+   "title": "Printing a Drawing",
+   "url": "/Content/Drawing/printing_a_drawing.htm",
+   "section": "Drawings"
+  },
+  {
+   "title": "Render Studio Basics",
+   "url": "/Content/RenderStudio/render_studio_basics.htm",
+   "section": "Render Studios"
+  },
+  {
+   "title": "Account Menu",
+   "url": "/Content/Plans/inactive_onshape_account_policy.htm",
+   "section": "Account Menu"
+  },
+  {
+   "title": "Subscriptions and Payment FAQs",
+   "url": "/Content/Plans/subscriptions_and_payment_faqs.htm",
+   "section": "Managing Your Onshape Account and Subscription"
+  },
+  {
+   "title": "Educator Concepts and Terminology",
+   "url": "/Content/Plans/educator_concepts_and_terminology.htm",
+   "section": "Managing Your Onshape Account and Subscription"
+  },
+  {
+   "title": "EDU Enterprise Dashboards",
+   "url": "/Content/Plans/edu_enterprise_dashboards.htm",
+   "section": "Managing Your Onshape Account and Subscription"
+  },
+  {
+   "title": "Designing Release Management Processes",
+   "url": "/Content/Release/designing_release_management_processes.htm",
+   "section": "Managing Your Onshape Account and Subscription"
+  },
+  {
+   "title": "Public Documents",
+   "url": "/Content/Plans/public_documents.htm",
+   "section": "Managing Your Onshape Account and Subscription"
+  },
+  {
+   "title": "Glossary",
+   "url": "/Content/Home/glossary.htm",
+   "section": "Glossary"
+  }
+ ],
+ "unresolved": [
+  [
+   "/Content/Resources/Images/assembly/mate-values-edit.png",
+   1
+  ],
+  [
+   "/Content/Resources/Images/drawings/centermark-03.png",
+   1
+  ],
+  [
+   "/Content/Resources/Images/render-studio/date-and-time-04a.png",
+   1
+  ],
+  [
+   "/Content/Resources/Images/icons-master/decal-button@1x.png",
+   1
+  ]
+ ]
+}

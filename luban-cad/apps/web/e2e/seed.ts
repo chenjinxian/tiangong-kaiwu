@@ -311,7 +311,23 @@ export async function resetFixtureImodel(
   expect(complete.ok(), `夹具 baseline 确认失败：HTTP ${complete.status()}`).toBeTruthy();
 
   // 原始 .bim → CloudSqlite 由 WA 转换（hub 不再自动触发用户 baseline 转换）。
+  // G1 B2：WA `/baseline/process` 要求内部 API key；从进程环境或仓库根 .env
+  // 读取，避免把密钥写进测试代码/日志。
+  const internalApiKey =
+    process.env.IMODELHUB_API_KEY ??
+    process.env.AGENT_API_KEY ??
+    (() => {
+      try {
+        const line = readFileSync(resolve(process.cwd(), '../../../.env'), 'utf8')
+          .split(/\r?\n/)
+          .find((entry) => entry.startsWith('IMODELHUB_API_KEY='));
+        return line?.slice('IMODELHUB_API_KEY='.length);
+      } catch {
+        return undefined;
+      }
+    })();
   const processed = await request.post('http://localhost:5402/baseline/process', {
+    headers: internalApiKey ? { 'x-api-key': internalApiKey } : undefined,
     data: {
       iModelId: imodelId,
       iTwinId: itwinId,

@@ -103,16 +103,16 @@ services:
       AZURITE_ACCOUNT_NAME: devstoreaccount1
       # 与根 .env 同源注入（缺省 Azurite well-known key）
       AZURITE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:-Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==}
-      AZURITE_CORS_ALLOWED_ORIGINS: "*"
+      AZURITE_CORS_ALLOWED_ORIGINS: "http://localhost:5300,http://localhost:5301"
       AZURITE_CORS_ALLOWED_METHODS: "GET,PUT,POST,DELETE,OPTIONS,HEAD"
       AZURITE_CORS_ALLOWED_HEADERS: "*"
       AZURITE_CORS_MAX_AGE_SECONDS: "86400"
     ports:
-      # 宿主发布 10500-10502（容器内仍 10000-10002）；供宿主 MS（briefcase/baseline
-      # 下载）、FE 直连调试使用。专用段避免与 itwinjs-core/其他本地工具冲突。
-      - "0.0.0.0:10500:10000"
-      - "0.0.0.0:10501:10001"
-      - "0.0.0.0:10502:10002"
+      # 宿主回环发布 10500-10502（容器内仍 10000-10002）；供宿主 MS（briefcase/baseline
+      # 下载）、FE 本地调试使用。禁止 0.0.0.0 暴露对象存储。
+      - "127.0.0.1:10500:10000"
+      - "127.0.0.1:10501:10001"
+      - "127.0.0.1:10502:10002"
     volumes:
       - azurite-data:/data
     healthcheck:
@@ -226,7 +226,8 @@ services:
   webhook-agent:
     image: ghcr.io/chenjinxian/luban-webhook-agent-public:latest
     ports:
-      - "0.0.0.0:5402:4002"
+      # 仅宿主回环；WA 管理/基线端点不得直接暴露到局域网/公网。
+      - "127.0.0.1:5402:4002"
     env_file:
       - .env
     environment:
