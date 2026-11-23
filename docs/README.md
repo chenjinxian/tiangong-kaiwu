@@ -25,6 +25,17 @@
 | [architecture/SESSION-ISOLATION-DESIGN.md](./architecture/SESSION-ISOLATION-DESIGN.md) | **C2/C3/C6 会话隔离实现设计**：连接权威/session 上下文、per-session briefcase、Editor/undo 所有权、路径白名单、外部 lease 接口、迁移/回滚与测试矩阵 |
 | [architecture/IDENTITY-ACL-DESIGN.md](./architecture/IDENTITY-ACL-DESIGN.md) | **B2/B3 身份与按文档授权设计**：OBO 委托/服务身份双平面、Hub PDP + MS/WA/storage PEP、groups/shares、真实归因、分阶段强制与负例矩阵 |
 | [architecture/CHECKPOINT-GENERATOR-DESIGN.md](./architecture/CHECKPOINT-GENERATOR-DESIGN.md) | **D4 checkpoint generator / D3 clone-fork 设计**：worker/queue/storage/DB 状态机、manifest/readback、retention、clone/fork 语义与 FK 修正、测试与回滚 |
+| [architecture/ADR-G0-04-ledger-version-checkpoint.md](./architecture/ADR-G0-04-ledger-version-checkpoint.md) | **ADR-G0-04（Proposed，未 ARB 签字）**：不可变账本/字节校验、Version→真实 checkpoint 绑定、Duplicate vs Fork-with-history、迁移与回滚不变量 |
+| [architecture/AIRR-2026-11-23-D4-CHECKPOINT-CONTROL-PLANE.md](./architecture/AIRR-2026-11-23-D4-CHECKPOINT-CONTROL-PLANE.md) | **AIRR：G1 D4 checkpoint 控制面（Hub 切片）**：D1.4/D1.7/D2/D6a/D4 范围、复用矩阵、schema/outbox/lease、flag 关闭、测试与延期项（真实 worker/D3/D5） |
+| [architecture/AIRR-2026-11-23-D4B-CHECKPOINT-WORKER.md](./architecture/AIRR-2026-11-23-D4B-CHECKPOINT-WORKER.md) | **AIRR：G1 D4b 真实 checkpoint worker（作业面）**：独立 `luban-backend/checkpoint-worker`、Hub 幂等 claim/heartbeat/complete/fail、native 生成/上传/独立回读、凭据边界（X-23 storage-token bridge、X-24 claim iTwinId/chainHash 缺口）、fake Hub 编排测试；容器化 blocked，未跑真栈/native |
+| [architecture/ADR-G0-16-identity-attribution.md](./architecture/ADR-G0-16-identity-attribution.md) | **ADR-G0-16（Proposed under owner directive 2026-11-23；未 ARB 签字）**：用户路径 OBO、后台 service identity、Hub 唯一 PDP、真实归因、分阶段强制与 B1.2 阻塞项 |
+| [architecture/AIRR-2026-11-23-B2-OBO-B3-ACL.md](./architecture/AIRR-2026-11-23-B2-OBO-B3-ACL.md) | **AIRR：G1 B2/B3 P0 shadow**：OBO delegation handle、shadow decision、PEP 覆盖清单与 fail-closed 启动断言、additive token/audit schema、shadow→enforce 分阶段；未签字、未勾 Gate |
+| [architecture/AIRR-2026-11-23-B5-TOKEN-TRANSPORT.md](./architecture/AIRR-2026-11-23-B5-TOKEN-TRANSPORT.md) | **AIRR：G1 B5a query-token 退役与 URL/日志最小化**：MS/BFF 默认拒绝 `?token=`、`SESSION_TOKEN_VIA_QUERY` 回滚开关（X-18）、method+pathname 日志与脱敏测试；B1.2a/B1.2b 明确顺延 |
+| [architecture/AIRR-2026-11-23-B1.2-SESSION-REVOCATION.md](./architecture/AIRR-2026-11-23-B1.2-SESSION-REVOCATION.md) | **AIRR：G1 B1.2a Hub 会话绑定 access token 撤销**：`sessionId`+`sessionHash` 绑定、logout/refresh 轮换/改密/重置/停用后下一请求 401、旧 token 失败关闭（无兼容开关）；单元 + 隔离 relational Hub e2e 绿（18/18 + session 7/7）；MS WS 真栈待部署 |
+| [architecture/AIRR-2026-11-23-B1.2b-WS-REVALIDATION.md](./architecture/AIRR-2026-11-23-B1.2b-WS-REVALIDATION.md) | **AIRR：G1 B1.2b MS WS 会话复验 + B1.2c 正缓存默认关闭**：Hub 内部 session-status 探针、`hubSessionId` 分组、周期复验（默认 30s；既有 socket X-20）、撤销关闭 4401、429/5xx 保活；BFF/MS `AUTH_TOKEN_CACHE_TTL_MS` 默认 0，负结果永不缓存；Hub 探针隔离 e2e 绿（18+7 用例）；MS WebSocket 真栈待部署 |
+| [architecture/AIRR-2026-11-23-J1-CI-CONTRACT-RELEASE-GATES.md](./architecture/AIRR-2026-11-23-J1-CI-CONTRACT-RELEASE-GATES.md) | **AIRR：G1 J1.2/J1.3a/J1.5/J3.1g public CI 与发布门**：shared 契约冻结门、web 生产 build + BFF 测试、release manifest 实际文件字节校验、Playwright e2e 基线；明确未跑 CI/未发布、不构成 Gate 通过 |
+| [architecture/AIRR-2026-11-23-C6-SESSION-PATH-HTTP-RPC.md](./architecture/AIRR-2026-11-23-C6-SESSION-PATH-HTTP-RPC.md) | **AIRR：G1 C6 配置脱敏与有状态 HTTP RPC 关闭**：`getConfiguration` 移除宿主 `cacheDir`、`HTTP_STATEFUL_RPC_MODE=deny/allow`（默认 deny，X-19 回滚窗口）、HTTP 有状态操作 403/400 且不查 Hub、`saveChanges/pushChanges` 写租约校验；单元证据与真栈待执行 |
+| [architecture/G1-WAVE2-STATUS-2026-11-23.md](./architecture/G1-WAVE2-STATUS-2026-11-23.md) | **G1 第二波状态（非 Gate 通过）**：C6/B5a/B1.2/B2 shadow/D1-D2-D4 控制面/D4b worker/J1-J3 门禁的实际证据、未完成项与下一步；G0/G1 Gate 仍未签字/未勾选 |
 | [Architecture.md](./Architecture.md) | 系统架构详细设计 |
 | [ONSHAPE-LIVE-REPLICATION.md](./ONSHAPE-LIVE-REPLICATION.md) | Onshape 示例实时复刻通道的**规则与经验**：corpus 数据边界、可编辑副本/DXF、sketchMatrix 跨列还原、精确端点+CCW、region 调试、多体 targetBodyIds、边/面选择器、shell 符号、限流和 approx 边界（逐例进度只在私有仓） |
 | [architecture/INTERFACE-FREEZE-MATRIX.md](./architecture/INTERFACE-FREEZE-MATRIX.md) | 接口冻结矩阵（公开契约层）：P0/P1 接口、owner、版本、变更流程、验收证据；后端/原生逐文件证据在私有仓 |
@@ -143,13 +154,13 @@
 ### 发布与迁移
 | 文档 | 说明 |
 |------|------|
-| [operations/RELEASE-MANIFEST.md](./operations/RELEASE-MANIFEST.md) | **release manifest 工具（J3.1）**：产物 digest/源 commit/契约版本/SBOM 指纹的生成与校验；`latest` 不可部署、契约/源提交可对账；不替代 `release-gate.ps1`/签名 |
+| [operations/RELEASE-MANIFEST.md](./operations/RELEASE-MANIFEST.md) | **release manifest 工具（J3.1/J3.1g）**：产物 digest/源 commit/契约版本/SBOM 指纹的生成与校验；`verify-files` 重算 nativeProvenance/artifacts 实际文件字节；`latest` 不可部署、契约/源提交可对账；不替代 `release-gate.ps1`/签名 |
 | [RELEASE-web-20261110b.md](./RELEASE-web-20261110b.md) | **最新 web-only 发布（2026-11-10b）**：公开 `/examples` 18 示例目录 + 页面级 IPC host + MS 重启 8s 存活探针 + 登出整页导航；web 镜像 digest `6ac74b99…`，后端/hub/WA/bff 与 `backend-20261110` 完全一致 |
 | [RELEASE-backend-20261110.md](./RELEASE-backend-20261110.md) | 后端发布说明（**shared 1.64.0 / MS 精确 faceExtrude A1/A2/A3/A4 + S3**；Bumper strict 16/16、+0.000024%；公开 strict 19 / 私有索引 18；A1/A2 backend 随发布可复现） |
 | [RELEASE-backend-20261109.md](./RELEASE-backend-20261109.md) | 历史发布说明（草图/特征能力检查点：4 个公开镜像 + MS **1.63.0** 产物；匿名冷拉/17 项全栈验收） |
 | [RELEASE-backend-20261106.md](./RELEASE-backend-20261106.md) | 历史发布说明（外部本地部署：4 个公开镜像 + MS 1.32 产物；匿名冷拉/17 项全栈验收） |
 | [RELEASE-backend-20261101-p28c.md](./RELEASE-backend-20261101-p28c.md) | 历史发布说明（B 数据模型 P2 / 命名迁移 / legacy schema 退役） |
-| [RELEASE-CHECKLIST.md](./RELEASE-CHECKLIST.md) | 发布检查清单（产物 hash / native provenance / 限流姿态 / 镜像标签 / 公开可见性 / verify-stack） |
+| [RELEASE-CHECKLIST.md](./RELEASE-CHECKLIST.md) | 发布检查清单（契约冻结门 / 产物 hash / native provenance / manifest 文件字节 / 限流姿态 / 镜像标签 / 公开可见性 / e2e 基线 / verify-stack） |
 | [RELEASE-backend-20261028c.md](./RELEASE-backend-20261028c.md) | 历史发布说明（MS #45 redo 栈修复） |
 | [MIGRATION-2026-10-29.md](./MIGRATION-2026-10-29.md) | 2026-10-29 项目总目录整理迁移记录 |
 | [HISTORY.md](./HISTORY.md) | 已删除文档历史索引 |

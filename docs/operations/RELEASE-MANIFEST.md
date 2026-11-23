@@ -5,9 +5,15 @@
 GET 外不访问网络，也不替代 `scripts/release-gate.ps1` 或
 `scripts/verify-stack.ps1`。真实发布仍以发布门 + 全栈验收为准。
 
+J3.1g 起支持**实际文件字节校验**（`verify-files`）：清单声明的
+`nativeProvenance` 与 `artifacts[]` 会用本地文件重新计算 SHA-256 并与声明值
+比较，不再只校验“digest 字符串格式”。镜像 registry digest、OCI label、SBOM
+生成/签名仍属外部发布环境职责（见文末「CI/发布门集成现状」）。
+
 - 工具：`scripts/release-manifest.mjs`（Node ESM，无第三方依赖）
 - Schema：`docs/architecture/release-manifest.schema.json`（JSON Schema draft 2020-12）
-- 示例：`scripts/fixtures/release-manifest.example.json`
+- 示例：`scripts/fixtures/release-manifest.example.json`（**仅结构 fixture**；digest 为占位值，
+  `verify-files` 对它会失败——真实发布必须用 registry/构建输出替换所有 digest）
 - 测试：`scripts/release-manifest.test.mjs`（`node:test`）
 
 ## 清单字段
@@ -20,11 +26,14 @@ GET 外不访问网络，也不替代 `scripts/release-gate.ps1` 或
 | `builtAt` | 构建时缺省为当前时间 | 带时区的 ISO-8601 时间 |
 | `contractVersion` | 是 | `LubanFeatureRpcInterface.interfaceVersion`（`MAJOR.MINOR.PATCH`，当前 1.85.0） |
 | `images` | 是（至少 1 项） | `{name, digest}`；`name` 不得含 `:latest`，名称唯一 |
-| `sbomDigest` | 否 | `sha256:<64 hex>` 或裸 64-hex |
-| `nativeProvenance` | 否 | `{path, sha256}`，指向 native provenance 文件并记录其哈希 |
+| `sbomDigest` | 否 | `sha256:<64 hex>` 或裸 64-hex（只校验格式；SBOM 文件生成/签名在外部） |
+| `nativeProvenance` | 否（schema）；发布策略必填 | `{path, sha256}`，指向 native provenance 文件并记录其哈希；含 backend/native 产物的发布必须用 `--require-native-provenance` 强制要求 |
+| `artifacts` | 否 | `[{path, sha256}]`，发布产物实际文件及其 SHA-256；`verify-files` 会重算字节 |
 
 构建输出会规范化：digest 统一为 `sha256:<小写 hex>`，`sourceCommit` 转小写，
-`images` 按 `name` 排序；相同输入输出逐字节一致（仅未提供 `builtAt` 时使用当前时间）。
+`images` 按 `name` 排序、`artifacts` 按 `path` 排序；相同输入输出逐字节一致
+（仅未提供 `builtAt` 时使用当前时间）。`artifacts` 为空数组会被拒绝；省略该键
+等价于“未声明文件产物”。
 
 ## 构建
 
@@ -46,11 +55,17 @@ node scripts/release-manifest.mjs build \
   --contract-version 1.85.0 \
   --image ghcr.io/chenjinxian/luban-web-public=sha256:<64 hex> \
   --image ghcr.io/chenjinxian/luban-bff-public=<64 hex> \
+  --artifact dist-out/luban-cad-deploy-backend-20261122.zip \
   --sbom-digest <64 hex> \
   --native-provenance dist-backend/modeling-server/node_modules/@bentley/imodeljs-native/native-provenance.json \
   --native-provenance-sha256 <64 hex> \
   --out release-manifest.json
 ```
+
+`--artifact <path>` 可重复，**读取实际文件字节**计算 SHA-256 后写入
+`artifacts[]`；不接受调用方声明的 digest。文件不可读为用法错误（exit `2`）。
+`--native-provenance` 仍要求与 `--native-provenance-sha256` 成对提供（声明值由
+发布方从 provenance 生成记录取得；`verify-files` 稍后核对实际字节）。
 
 不传 `--out` 时清单写到 stdout。`--input` 不能与其他字段参数混用。
 
@@ -63,13 +78,46 @@ node scripts/release-manifest.mjs verify --file scripts/fixtures/release-manifes
 node scripts/release-manifest.mjs verify \
   --file release-manifest.json \
   --expected-source-commit <40/64-hex> \
-  --expected-contract-version 1.85.0
+  --expected-contract-version 1.85.0 \
+  --require-native-provenance
 ```
 
 校验内容：必填字段与类型、digest 格式、`latest` 拒绝、镜像名唯一、
-未知字段拒绝，以及可选的源 commit / 契约版本一致性。
-退出码：`0` 通过，`1` 清单字段/结构无效，`2` 用法错误（含清单文件不可读/
-非法 JSON）。
+`artifacts` 路径/重复/未知字段拒绝、未知字段拒绝，以及可选的源 commit /
+契约版本一致性。`--require-native-provenance` 按发布策略要求
+`nativeProvenance` 必须存在（当前所有含 modeling-server/native 产物的发布都应
+带此参数）；缺省保持 schema 级可选，避免破坏仅做结构校验的旧调用。
+退出码：`0` 通过，`1` 清单字段/结构无效或策略要求缺失，`2` 用法错误（含清单
+文件不可读/非法 JSON）。
+
+## 文件字节校验（G1 J3.1g）
+
+```bash
+node scripts/release-manifest.mjs verify-files \
+  --file release-manifest.json \
+  --root . \
+  --require-native-provenance
+# file OK: nativeProvenance dist-backend/.../native-provenance.json (sha256:...)
+# file OK: artifacts[0] dist-out/luban-cad-deploy-backend-20261122.zip (sha256:...)
+# release manifest files OK: 2 file(s) match declared SHA-256
+```
+
+行为：
+
+- 先按 `verify` 规则校验清单结构与 native 策略，再对
+  `nativeProvenance.path` 与每个 `artifacts[].path` 读取本地文件、重新计算
+  SHA-256，与声明值逐字节比较。
+- 相对路径按 `--root` 解析（缺省当前工作目录）；绝对路径原样使用。发布记录
+  建议从仓根执行并显式 `--root .`。
+- **没有任何文件条目**（无 `nativeProvenance` 且无 `artifacts[]`）时退出 `1`，
+  拒绝“空校验假绿”。
+- 文件缺失/不可读/字节不符 → `1`，逐条打印标签、路径、声明值与实际值；
+  用法错误 → `2`。
+- 本命令**不**校验 `images[].digest`（registry 侧 digest）、镜像 OCI label、
+  `sbomDigest` 对应的实际 SBOM 文件，也不访问网络/docker。这些必须在发布环境
+  另行核对并写入发布记录。
+- `scripts/release-gate.ps1 -ManifestPath <file> -VerifyManifestFiles` 已接入本
+  命令；未提供 `-ManifestPath` 时为 WARN，不伪造清单。
 
 ## 运行时契约对账（G1 J3.2）
 
@@ -126,16 +174,33 @@ node --test scripts/release-manifest.test.mjs
 ```
 
 覆盖：合法构建/校验、缺必填字段、坏 digest、`latest` 拒绝、源 commit 与契约
-版本不匹配；`verify-runtime` 的一致性/不匹配/接口选择/版本冲突/非法 JSON/
+版本不匹配；`--artifact` 实际字节哈希、`verify-files` 的字节一致/篡改/缺文件/
+声明不符/空文件集、`--require-native-provenance` 策略、`artifacts` 结构拒绝与
+用法错误；`verify-runtime` 的一致性/不匹配/接口选择/版本冲突/非法 JSON/
 HTTP 失败/连接失败/超时/用法错误，全部使用 `127.0.0.1` 回环 HTTP 服务，无外部
-网络。
+网络。用例数随代码变化，以 `node --test` 实际运行为准，禁止沿用历史计数。
 
-## CI 集成点（待接线）
+## CI/发布门集成现状
 
-1. 镜像推送完成后，从发布输出收集 `name`/`digest`，生成清单并作为 Release 资产归档。
-2. 发布前用 `verify --expected-source-commit <pipeline commit>` 和
-   `--expected-contract-version <pinned>` 阻断错版/漂移。
-3. J3.2 运行时契约对账已实现（`verify-runtime`：manifest ↔ `/rpc/metadata`）；
-   镜像 OCI label 的 commit/digest 对账仍需 CI 侧接线（本工具不调用 docker/gh）。
-4. 仍需补齐：SBOM 生成与签名、provenance/attestation 签名、清单自身签名及
-   Release 上传自动化；本工具只负责清单结构与一致性校验。
+已接入：
+
+1. `scripts/release-gate.ps1` 支持可选 `-ManifestPath <file>` 与
+   `-VerifyManifestFiles`：前者强制执行 `verify --require-native-provenance`，
+   后者追加 `verify-files --root <repo> --require-native-provenance`。未提供
+   `-ManifestPath` 时为 WARN（不生成假清单）。
+2. public CI（`.github/workflows/ci.yml`）运行本工具全部 `node:test` 用例与
+   J1.2 契约门；CI 不生成真实 release manifest（无真实镜像/registry 环境）。
+3. 发布前用 `verify --expected-source-commit <pipeline commit>` 和
+   `--expected-contract-version <pinned>` 阻断错版/漂移；J3.2 的
+   `verify-runtime` 可与 `/rpc/metadata` 对账。
+
+仍需外部发布环境补齐（**不得伪造**）：
+
+1. 镜像推送后从发布输出收集真实 `name`/`digest`（registry 侧 digest，不是本地
+   `docker inspect` 声明），生成清单并作为 Release 资产归档。
+2. 镜像 OCI label（`org.opencontainers.image.revision` 等）与清单
+   `sourceCommit`/digest 的三方对账；本工具不调用 docker/gh。
+3. SBOM 生成、签名与 `sbomDigest` 实际文件核对；provenance/attestation 签名。
+4. 清单自身签名、Release 上传自动化、发布记录归档。
+5. 真实发布清单未创建、真实 digest 未填写前，本工具只证明“清单结构与本地文件
+   字节一致”，不证明发布就绪。

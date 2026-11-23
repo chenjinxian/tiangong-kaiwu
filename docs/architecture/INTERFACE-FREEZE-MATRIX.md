@@ -38,6 +38,8 @@
 | 真形（TrueForm）公共 API | TrueForm/平台 | **0.1.0（M0，未接入）**；私有仓 `D:\Github\trueform` | P0（接入前冻结） | ADR + SemVer + `SolidKernel.h` 适配层 + 一致性套件 | trueform ctest + 下游真栈回归 |
 | Solver-neutral 合同 | 后端/求解器 | `SolverTypes` 接口 | P0 | ADR + 双跑一致性语料 | 求解器 conformance + 矛盾/欠定/弧/样条 |
 | Hub REST | Hub/平台 | 官方 clients + `docs/api-specs/*.json` + hub Swagger | P0 | 官方契约优先；本地实现不得私改语义 | 官方 client 契约测试、hub e2e |
+| Hub internal checkpoint agent API | Hub/平台 | `/internal/imodels/:iModelId/checkpoints/{:checkpointId/claim,heartbeat,complete,failed}`；仅 `AgentApiKeyGuard` 服务鉴权；`:checkpointId` = outbox job id；不接受容器/URL/SAS；`complete` 必须携带 worker readback | P1（内部作业面） | 只服务 checkpoint worker；变更需更新 AIRR `2026-11-23-D4-CHECKPOINT-CONTROL-PLANE` 与 hub 单测；不得复用为公共 API | fake-worker 单测（丢消息/重复投递/lease/complete 冲突）；真实 worker 联调为后续门 |
+| Hub internal session-status probe | Hub/平台 | `GET /internal/auth/sessions/:sessionId/status?userId=<id>`；仅 `AgentApiKeyGuard`（`X-API-Key`）服务鉴权；只返回 `{active:boolean}`；不接受/返回 token 或 PII；不是用户认证路径 | P1（内部身份面） | 只服务 modeling-server WS 周期复验；变更需更新 AIRR `2026-11-23-B1.2b-WS-REVALIDATION` 与 hub/MS 单测；不得复用为公共 API 或用户鉴权 | hub `session-status.controller.spec.ts`；隔离 relational Hub e2e（probe active/mismatch/revoked；18/18 + session 7/7）；MS `hubSessionStatus`/`wsSessionRevalidation` 单测；MS 真栈 WS 撤销为后续门 |
 | Webhook events/signature | WA/平台 | 官方 samples + `docs/WEBHOOK_CONFIG.md` | P0 | 双仓同 PR；版本化事件名/头 | validator/forwarder 测试、真栈 e2e |
 | IPC channels | 平台 | `luban-ipc` / `ipc-app` | P0 | 名称冻结；双端发布门 | 真栈 IPC e2e |
 | 端口/环境键 | 平台 | `docs/PORTS.md` | P1 | 先登记后使用 | verify-stack |
@@ -56,20 +58,39 @@
 
 ---
 
-## 4. CI 执行现状（2026-11-04）
+## 4. CI 执行现状（2026-11-04；2026-11-23 更新 public 契约门）
 
 | 范围 | 已接入 | 仍是缺口 |
 |---|---|---|
-| Public | `CI (public)`：shared/editor/viewer/web 单测 + lint + tsc；新增 `LubanFeatureType` 穷举 DSL 测试（防 `FEATURE_TYPES` 漏同步） | 真栈 e2e 仍归发布/手工门 |
-| Backend | `CI (backend)`：tsc + middleware 单测；新增 `.github/workflows/interface-freeze.yml`（SolverTypes/LubanCAD schema hash 冻结） | feature 全量、native ctest 未进托管 CI（X-09） |
-| Native | 新增 `.github/workflows/interface-freeze.yml`（SolidKernel/PSBRep op surface hash 冻结） | CMake/ctest 需 ACIS/BisSchemas/Windows，尚未进 CI（X-09） |
-| 发布 | `docs/RELEASE-CHECKLIST.md` + `verify-stack` | 测试基线需改为脚本生成，禁止手写数字 |
+| Public | `CI (public)`：shared/editor/viewer/web 单测 + lint + tsc；`LubanFeatureType` 穷举 DSL 测试（防 `FEATURE_TYPES` 漏同步）；**2026-11-23 起**：`scripts/check-contract-freeze.mjs` 冻结 Feature RPC/`LubanRpcInterface` 版本与导出表面 hash、`@luban-cad/web` 生产 build、BFF typecheck/单测、scripts `node:test` | 真栈 e2e 仍归发布/手工门 |
+| Backend | `CI (backend)`：tsc + middleware 单测；`.github/workflows/interface-freeze.yml`（SolverTypes/LubanCAD schema hash 冻结） | feature 全量、native ctest 未进托管 CI（X-09） |
+| Native | `.github/workflows/interface-freeze.yml`（SolidKernel/PSBRep op surface hash 冻结） | CMake/ctest 需 ACIS/BisSchemas/Windows，尚未进 CI（X-09） |
+| 发布 | `docs/RELEASE-CHECKLIST.md` + `verify-stack` + `scripts/release-manifest.mjs`（清单结构/策略/文件字节） | 真栈 e2e 基线需发布候选实跑生成；镜像 registry/label/SBOM/attestation 需外部环境 |
+
+> 上表是**工作流接线状态**，不等于已通过：2026-11-23 的 G1 分支 public CI 尚未实际运行；
+> 真栈 e2e/`verify-stack` 也未复跑（审计基线 15/17）。发布前必须附实际 CI/验收证据。
 
 冻结 hash 清单在私有仓：`imodel-native/docs/architecture/interface-freeze.json`、`luban-backend/docs/architecture/interface-freeze.json`。改动接口必须同 PR 更新清单并 bump 版本/ADR。
 
+### 4.1 Public 契约冻结清单（J1.2，2026-11-23）
+
+- 清单：`docs/architecture/contract-freeze.json`（committed；当前冻结
+  `LubanFeatureRpcInterface` **1.85.0** 与 `LubanRpcInterface` **1.1.0**）。
+- 工具：`scripts/check-contract-freeze.mjs`（只读、无网络）。CI `unit` job 在
+  workspace install 后执行；单测 `scripts/check-contract-freeze.test.mjs`。
+- 哈希定义（`typescript-exported-declarations-token-stream/v1`）：对接口源文件
+  **顶层 export 声明**的 token 流（TypeScript scanner，跳过注释/空白，token 用
+  U+001F 连接）取 SHA-256。只改注释/缩进/换行不改变 hash；字段、类型、方法签名、
+  导出常量/集合变化会改变 hash。
+- 变更流程：bump `interfaceVersion` → `node scripts/check-contract-freeze.mjs
+  --update` → 与 backend/web 配对 PR 同批提交。`--update` 不在 CI 运行；单独改
+  清单掩盖未配对变更视为 P0-07 违规。
+- 私有仓 `interface-freeze.json` 与本清单互补：前者覆盖后端/原生内部接口，后者
+  覆盖 shared 跨仓公开契约。
+
 ## 5. 冻结验收规则
 
-- **版本化**：P0 接口每次变更 bump 版本；`shared` 与后端声明兼容范围；web 启动/连接时做运行时校验。
+- **版本化**：P0 接口每次变更 bump 版本；`shared` 与后端声明兼容范围；web 启动/连接时做运行时校验。公开契约变更必须同 PR 更新 `docs/architecture/contract-freeze.json`（J1.2 门禁）。
 - **单源生成**：`FeatureOp`、`FEATURE_TYPES`、表单 schema、opDsl 白名单由单一 schema 生成；禁止手写多份。
 - **双端发布**：RPC/契约/IPC/schema 变更必须 shared → backend → web 同批次；PR 互相链接。
 - **旧数据**：schema/params 变更必须带迁移与旧数据 fixture；没有迁移数据不得合并。

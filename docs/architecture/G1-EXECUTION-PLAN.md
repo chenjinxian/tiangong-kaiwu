@@ -1,6 +1,8 @@
 # G1 执行计划：平台正确性
 
 > 状态：**Proposed / 待 G0 GO**（2026-11-22）
+> 2026-11-23 实施快照（非 Gate 通过，含证据与未完成项）：
+> `G1-WAVE2-STATUS-2026-11-23.md`。
 > 入口：`G0-EXECUTION-PLAN.md` 通过 G0 Gate（GO 或 CONDITIONAL GO 且无 blocking 单行道）
 > 目标：把会话、身份/ACL、账本/版本、灾备、CI/契约基线做到可验证，再进入 G2 契约冻结。
 > 原则：**G1 期间不铺 Part Studio 新功能、不对外分享、不做多用户生产承诺。**
@@ -81,7 +83,7 @@ J1 ── J2/J3 ── J4
 | ID | 任务 | 交付/验收 | 依赖 | 规模 |
 |---|---|---|---|---|
 | B1.1 | 账号生命周期 | inactive/locked/deleted 在登录/RPC/WS 全入口拒绝 | — | M |
-| B1.2 | token/WS 基线 | 登出失效 access + 关闭 WS；连接后复验；jti/denylist 设计 | B1.1 | L |
+| B1.2 | token/WS 基线 | 登出失效 access + 关闭 WS；连接后复验；jti/denylist 设计。**2026-11-23 落地（unit + 隔离 relational Hub e2e）**：B1.2a Hub access token 绑定 `sessionId`+`sessionHash`，logout/轮换/改密/重置/停用后下一请求 401（jti/denylist 未采用；无 schema 迁移）；B1.2b MS WS 周期 session-status 复验，撤销关闭 4401，429/5xx 保活；B1.2c BFF/MS 正 token 缓存默认 0（`AUTH_TOKEN_CACHE_TTL_MS`），新连接/HTTP/BFF 下一请求回源，既有 WS 延迟登记 X-20（默认 30s+探针）。隔离 `tests` 栈 18/18 + session 7/7 绿（含 OIDC 拒绝；未触碰 live DB）；MS WebSocket 真栈待部署新 Hub+MS | B1.1 | L |
 | B2.1 | on-behalf-of 设计 | 用户路径 token exchange/短时委托；后台 service identity 拆权 | B1.2 | M |
 | B2.2 | 真实归因 | changeset/briefcase/OpLog/audit 写入真实 user/session | B2.1 | L |
 | B3.1 | 入口清单/PEP | 下载/打开/读树/FeatureOp/直改/push/export/checkpoint/tile 全入口 | B2.1 | M |
@@ -129,7 +131,7 @@ J1 ── J2/J3 ── J4
 | D3 clone/fork | Duplicate/Fork with history 双语义；mid-history checkpoint 不 FK 失败 | clone 内容正确；History 语义可验证 |
 | D4 checkpoint worker | 每 N（100–500）/Version 异步生成；manifest/readback/per-iModel 串行 | 200/1000 changeset 冷开基线 |
 | D5 version open | openCheckpoint/version 参数；按 changesetId/versionId 只读打开 | 版本几何/树正确，head 不变 |
-| B5 token 全生命周期 | URL/console/log 零 token；登出/撤权/改密即时生效 | 旧 token/旧 WS 下一次请求 403 |
+| B5 token 全生命周期 | URL/console/log 零 token；登出/撤权/改密即时生效 | 旧 token/旧 WS 下一次请求 403。**2026-11-23 部分落地（B5a）**：MS/BFF 默认拒绝 `?token=`，MS 401/429/安全/RPC 日志只记 method+pathname；登出/撤权/改密与旧 WS 关闭仍阻塞于 Hub B1.2 |
 | B6 secrets/KMS | 移除 well-known 密钥；DB/对象存储 TLS；按服务拆权 | 扫描无泄露；轮换演练 |
 | B7 审计 v1 | append-only/WORM/hash chain；高风险操作阻断 | 按 user/doc/time 可查；篡改可检测 |
 | C5 外部 lease/fencing | 写租约外置；session router/tie-break | 双实例不双写 |

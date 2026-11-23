@@ -127,10 +127,12 @@ WS upgrade (/ipc 或 /ws)
    回调读取；如果 express-ws 的 req 对象不能保证同一引用，则用按 token 哈希的
    短 TTL principal 缓存（不按 IP）。不得在 handler 内重新信任客户端传来的用户字段。
 2. **query token 兼容**：enforce 模式拒绝 `?token=`（会进 nginx/访问日志）；legacy 模式
-   允许但记录脱敏告警。B5 负责最终移除。
+   允许但记录脱敏告警。**B5a（2026-11-23）已默认拒绝**：MS/BFF 仅在显式
+   `SESSION_TOKEN_VIA_QUERY=allow` 回滚窗口接受（`EXCEPTIONS.md` X-18）；
+   `Authorization`/cookie 传输不变。
 3. token 过期/撤销：`SessionRecord` 保存 `expiresAt`/`lastValidatedAt`；在
    `openBriefcase`、`acquireWriteLease`、`pushChanges` 等敏感入口和周期性心跳处
-   复验（可复用现有 60s 正缓存，负结果不得毒化）。失效则 `401/4401 SessionExpired`
+   复验（B1.2c 默认每次回源；如显式 opt-in 正缓存，负结果不得毒化）。失效则 `401/4401 SessionExpired`
    并关闭连接。
 4. `/ipc` 与 `/ws` 都建立 session；若两者属于同一浏览器登录，可用服务端签发的
    HttpOnly reconnect cookie 绑定到同一逻辑会话。否则至少按 user 做进度 ACL，
@@ -700,7 +702,8 @@ LeaseGrant {
 | `EXTERNAL_LEASE_MODE` | `off / shadow / enforce` | C5；shadow 只观测 epoch 不阻断 |
 | `SESSION_RECONNECT_GRACE_MS` | 数值 | 断线保留窗口 |
 | `SESSION_FILE_RETENTION_MS` | 数值 | dirty 文件保留窗口 |
-| `SESSION_TOKEN_VIA_QUERY` | `allow / deny` | 兼容期 query token |
+| `SESSION_TOKEN_VIA_QUERY` | `allow / deny` | 兼容期 query token；B5a 起默认 `deny`，`allow` 仅作已登记回滚窗口（X-18） |
+| `HTTP_STATEFUL_RPC_MODE` | `deny / allow` | C6：有状态 HTTP RPC 默认拒绝（403 `HttpStatefulRpcDenied`，先于认证/协议处理，不查 Hub）；`allow` 仅作已登记回滚窗口（X-19） |
 
 开关只由服务端配置决定；客户端不能请求某模式。非法组合（如 `per-session` +
 `off` 的 owner 校验）启动时拒绝。
@@ -968,6 +971,11 @@ LeaseGrant {
    为旧行补 author（若可证明单用户/单文件来源）？不允许伪造。
 8. **HTTP RPC**：是否彻底关闭有状态 HTTP RPC（推荐），还是保留带 session binding 的
    只读面？`/rpc/metadata` 继续开放是否可接受。
+   **C6 决策（2026-11-23，实施切片）**：有状态 HTTP RPC 默认关闭
+   （`HTTP_STATEFUL_RPC_MODE=deny`，403 `HttpStatefulRpcDenied`，先于认证/协议处理，
+   不查 Hub、不触 briefcase）；保留上游 read/tile 只读面与两个纯静态操作
+   （`getConfiguration`、`getFeatureFormModel`）；`allow` 仅作已登记的 X-19 回滚窗口。
+   详见 `AIRR-2026-11-23-C6-SESSION-PATH-HTTP-RPC.md`。
 9. **直改租约粒度**：所有直改 `callMethod` 都要求写租约，还是只在写方法门禁处要求？
    查询方法是否需要 ACL/所有权（本设计：需要 session 所有权，不需要写租约）。
 10. **长操作与租约 TTL**：服务端 `beginOperation` 的预算上限、是否允许越过 30s TTL、

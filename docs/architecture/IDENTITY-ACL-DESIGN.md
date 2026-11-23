@@ -1,6 +1,6 @@
 # G1 B2/B3 身份与按文档授权设计
 
-> 状态：**Proposed**（2026-11-22）
+> 状态：**Proposed**（2026-11-22）；**实现状态（2026-11-23）**：B5a（query-token 默认拒绝 + MS 日志脱敏）、B1.2a（Hub access token 绑定 session，logout/轮换/改密/重置/停用后下一请求 401）、B1.2b（MS WS 周期 session-status 复验，撤销关闭 4401）与 B1.2c（BFF/MS 正 token 缓存默认 0；既有 WS 延迟登记 X-20）按 owner 指令落地。B1.2a + Hub 内部探针的**隔离 relational Hub e2e 绿**（18/18 + session 7/7，含 OIDC 拒绝；独立 `tests` 栈，未触碰 live DB）；MS WebSocket 真栈仍需部署新 Hub+MS。见 `AIRR-2026-11-23-B5-TOKEN-TRANSPORT.md`、`AIRR-2026-11-23-B1.2-SESSION-REVOCATION.md`、`AIRR-2026-11-23-B1.2b-WS-REVALIDATION.md`；OBO/ACL/真实归因均未实现。
 > 范围：`G1-EXECUTION-PLAN.md` WS-B 的 B2（on-behalf-of / 真实归因）与 B3（入口清单 / per-doc ACL 骨架）。
 > 目标：用户触发的每条路径都使用 **on-behalf-of**；Hub 是 **PDP**；Modeling Server（MS）、Webhook Agent（WA）、Storage/Tile 是 **PEP**；changeset/briefcase/OpLog/audit 写入真实用户。
 > 非目标：实时协同、评论/presence、装配/工程图、PDM、完整多租户 SaaS 承诺（B10）、ABAC 策略语言、外部 IdP 联邦。
@@ -47,8 +47,8 @@
 | 7 | OpLog.user 是客户端 sessionId | **确认**。写入点是 `writeLeases.holderUser()`；`acquire(key, sessionId, user=sessionId)` 缺省把 sessionId 当 user；前端每次挂载生成随机 `crypto.randomUUID()`，且调用 `acquireWriteLease(iModelKey, sessionId)` 不传 user。 | `modeling-server/src/feature/WriteLease.ts`、`feature/FeatureService.ts`（各 `insertOpLogEntry` 调用）、`luban-cad/apps/web/src/modules/part-studio/hooks/useEditorSession.ts` |
 | 8 | Storage 直接暴露面 | **确认存在**。changeset 下载 SAS 10 分钟、checkpoint 容器 SAS 15 分钟；WA 生成 baseline 容器 SAS 目前可达 30 天（Hub 读回时重新签名但不改变 WA 侧姿态）；部署 nginx 有 `/azurite/` 通用直通与 tiles 专用直通。 | `imodelhub-services/src/imodels/changeset-download-url.util.ts`、`common/storage/domain/storage.port.ts`；`luban-backend/webhook-agent/src/baseline-generator.ts`；`deploy/default.conf.template` |
 | 9 | WA 入口鉴权 | **确认但不完整**。`/webhook/events` 有 HMAC 验签；`/baseline/process` 无鉴权；debug GET 路由无鉴权。 | `luban-backend/webhook-agent/src/webhook-server.ts`、`validator.ts` |
-| 10 | 会话生命周期 | **确认存在缺口**。Hub logout 删除 session 行，但 JWT 策略不查 session；多个控制器只有 `AuthGuard('jwt')`，没有 `JwtUserValidationGuard`；MS WS 只在升级时验一次，缓存 60s，连接建立后不复查；`/ws` 进度广播给所有已连接客户端。 | `imodelhub-services/src/auth/strategies/jwt.strategy.ts`、`common/guards/jwt-user-validation.guard.ts`、各控制器；`modeling-server/src/middleware/wsAuth.ts`、`main.ts` |
-| 11 | 前端 JWT 生命周期与 MS 传输 | **确认**。`AuthSession` 存 sessionStorage 单键，refresh 单飞并在过期前 5 分钟刷新；WS `/ipc` 升级用同源 `luban_cad_auth` cookie；HTTP RPC/tile 的 `IModelApp.authorizationClient` 在生产传入**裸 JWT**（`LubanAuthorizationClient` 仅测试引用），Header 是否带 `Bearer ` 依赖 BFF/MS 的兼容解析；BFF 仍保留 `?token=` fallback。 | `luban-cad/apps/web/src/clients/auth/AuthSession.ts`、`clients/auth/LubanAuthorizationClient.ts`、`packages/viewer/src/host/web-initializer.ts`、`services/bff/src/auth.ts` |
+| 10 | 会话生命周期 | **Hub 侧已修（B1.2a）**：access token 绑定 `sessionId` + `sessionHash`，JWT 策略每请求校验 session/owner/hash + 账号状态；logout/refresh 轮换/改密（其他会话）/重置/停用后下一请求 401。**MS WS 侧已修（B1.2b）**：升级时保存 Hub sessionId，每 `WS_AUTH_REVALIDATE_INTERVAL_MS`（默认 30s）调内部 session-status 探针，撤销时关闭同一 Hub 会话的全部 socket（4401）；429/5xx/网络保持连接。**B1.2c**：BFF/MS 正 token 缓存默认 `AUTH_TOKEN_CACHE_TTL_MS=0`，新连接/HTTP/BFF `/api` 下一请求回源；既有 WS socket 的周期撤销延迟登记 X-20。**仍存缺口**：`/ws` 进度广播给所有已连接客户端；既有 socket 仍非下一请求（X-20）。 | `imodelhub-services/src/auth/strategies/jwt.strategy.ts`、`auth.service.ts`、`session/**`；`modeling-server/src/middleware/wsAuth.ts`、`session/{hubSessionStatus,wsSessionRevalidation}.ts`、`main.ts`；`services/bff/src/auth.ts` |
+| 11 | 前端 JWT 生命周期与 MS 传输 | **确认**。`AuthSession` 存 sessionStorage 单键，refresh 单飞并在过期前 5 分钟刷新；WS `/ipc` 升级用同源 `luban_cad_auth` cookie；HTTP RPC/tile 的 `IModelApp.authorizationClient` 在生产传入**裸 JWT**（`LubanAuthorizationClient` 仅测试引用），Header 是否带 `Bearer ` 依赖 BFF/MS 的兼容解析；B5a 起 MS 与 BFF **默认拒绝** `?token=`，仅 `SESSION_TOKEN_VIA_QUERY=allow` 回滚窗口接受（X-18）。 | `luban-cad/apps/web/src/clients/auth/AuthSession.ts`、`clients/auth/LubanAuthorizationClient.ts`、`packages/viewer/src/host/web-initializer.ts`、`services/bff/src/auth.ts` |
 | 12 | 前端权限门 | **确认存在安全不对称**。`usePermissions` 对**非 403** 查询错误回退 `editable`（availability-first）；`DocumentDetailsPage`/分享门等管理动作是 fail-closed。 | `luban-cad/apps/web/src/modules/part-studio/hooks/usePermissions.ts`、`modules/document-details/DocumentDetailsPage.tsx` |
 | 13 | FeatureOp 身份信封 | **确认缺失**。shared `FeatureOp` 没有 `opId`/`userId`/`baseChangeset` 字段，与 `luban-cad/CLAUDE.md` 的目标信封不一致；MS 只能从连接 principal 取身份，不能信任 op 内字段。 | `luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts`；`luban-cad/CLAUDE.md` |
 | 14 | 契约版本握手 | **确认缺口**。`@luban-cad/shared` package 版本为 `1.0.0`，而 `LubanFeatureRpcInterface.interfaceVersion=1.85.0`、`LubanRpcInterface.interfaceVersion=1.1.0`；`EXCEPTIONS.md` X-11 记录无运行时 handshake。 | `luban-cad/packages/shared/package.json`、`src/rpc/LubanFeatureRpcInterface.ts`、`docs/architecture/EXCEPTIONS.md` |
@@ -88,7 +88,7 @@
 6. **存储旁路**：SAS 与 `/azurite` 直通绕过 Hub/MS 的 PEP；tile 路径公开可猜。
 7. **分享语义假实现**：UI 的分享 = 成员 + 显式 iModel ACL；`access_control_shares`/groups 未参与解析；无链接分享。G1 Gate 要求“真正执行或删除”，不能保留假分享。
 8. **前端可用性优先的权限回退**：`usePermissions` 对非 403 错误回退 `editable`，把“权限查询失败”变成“可编辑 UI”；服务端必须拒绝，但 UI 会先呈现可写入口，属于安全相关的错误语义。
-9. **身份传输形态不统一**：WS 用 cookie、Hub REST 用 Bearer、HTTP RPC/tile 生产传裸 JWT，BFF 还接受 `?token=`；没有任何一处把“连接 → 用户 → iModel”的绑定固定下来。
+9. **身份传输形态不统一**：WS 用 cookie、Hub REST 用 Bearer、HTTP RPC/tile 生产传裸 JWT；`?token=` 已在 B5a 默认拒绝（兼容开关仅回滚用），但 bearer 形态统一与“连接 → 用户 → iModel”绑定仍未完成。
 10. **契约与信封缺口**：FeatureOp 无身份/幂等信封；shared 包版本与 interfaceVersion 不一致；无运行时版本握手。跨仓升级无法自动发现 MS/shared 不匹配。
 
 ---
@@ -195,7 +195,7 @@ OBO token 推荐**不透明令牌**（256-bit 随机值，服务端存哈希与 
 
 | 事件 | 处理 | 生效窗口 |
 |---|---|---|
-| 用户 logout | 删除 Hub session；删除所有 `sid` 对应 OBO；MS 下次操作/心跳发现 401 后关闭连接 | 下一次 Hub 调用立即；MS 本地写 ≤5s、读 ≤30s（见缓存） |
+| 用户 logout | 删除 Hub session；删除所有 `sid` 对应 OBO；MS 下次操作/心跳发现 401 后关闭连接。**B1.2a 已实现 Hub 侧**：access token 绑定 session，旧 token 下一次 Hub 请求即 401。**B1.2b 已实现 MS WS 侧**：周期 session-status 探针发现 active=false 后关闭同一 Hub 会话的全部 socket（4401）。**B1.2c**：正 token 缓存默认 0，BFF/MS 新请求下一请求回源；既有 WS 的周期延迟登记 X-20 | 下一次 Hub 调用立即；既有 MS WS 在 ≤1 个复验间隔（默认 30s）+ 探针 ≤5s 内关闭（X-20）；BFF/新连接不延迟 |
 | 密码修改 | 删除其他 session；撤销对应 OBO；bump user `authzVersion` | 下次请求 |
 | 账号 inactive/locked/deleted | 登录拒绝；Hub 每次 token 校验查状态；撤销 OBO/service 绑定 | 下次请求 |
 | 成员移除/角色变更 | bump iTwin/user `authzVersion`；清除决策缓存 | 下一次 PDP/写检查；OBO 因版本落后被 Hub 拒绝 |
@@ -215,7 +215,7 @@ OBO token 推荐**不透明令牌**（256-bit 随机值，服务端存哈希与 
 ### 2.5 传输与存储
 
 - 浏览器：REST 用 `Authorization: Bearer`；WS 推荐一次性 ticket（`Sec-WebSocket-Protocol` 或短期 query/ticket），不再把 15m access token 放进 cookie。过渡期保留 cookie 时，MS 必须对每个连接做周期性 session 复查。
-- Token 不得进入 URL（现有 `?token=` fallback 标记为 deprecated，enforce 模式关闭）、console、nginx access log、错误体。
+- Token 不得进入 URL、console、nginx access log、错误体。B5a 已把 MS/BFF 的 `?token=` 默认关闭；仅显式 `SESSION_TOKEN_VIA_QUERY=allow` 回滚窗口接受（登记 X-18），并记录脱敏告警。
 - MS 内存中的 OBO 按连接分键，连接关闭即清除；不得写入 briefcase 文件、iModel、数据库或 OpLog。
 - Hub 只存 OBO 哈希、claims、状态、`jti`、`exp`；service client secret 只存哈希；所有密钥可轮换。
 
@@ -253,9 +253,9 @@ OBO token 推荐**不透明令牌**（256-bit 随机值，服务端存哈希与 
 
 | 入口 | 当前 | 目标 |
 |---|---|---|
-| `/ipc` WebSocket 升级 | 只验 token 有效；不保存 principal；token cache 60s | 验 ticket/token + 账号/session；建立 `ConnectionContext`；周期性复查；logout 关闭连接 |
+| `/ipc` WebSocket 升级 | 升级时验 token（B1.2c 默认每次回源，无正缓存）；建立 `SessionRecord` 保存 principal + Hub sessionId；每 30s（可配）调内部 session-status 复验，撤销时关闭 4401；既有 socket 的延迟登记 X-20 | 验 ticket/token + 账号/session；建立 `ConnectionContext`；周期性复查；logout 关闭连接（B1.2b 已提供 session-status 复验/关闭；一次性 ticket 仍未实现） |
 | `/ws` WebSocket | 同样验 token；进度广播给所有连接 | 按 iModel 订阅；只向有 `doc.read` 的连接推送 |
-| **BFF `/api/*`**（`services/bff`） | 接受 `Authorization: Bearer`、`luban_cad_auth` cookie、`?token=` fallback；作为 `/api` 的 JWT 终止面 | BFF 是 PEP/身份转发点：只解析用户 token，不把 service 凭据升级为用户；移除 `?token=`；转发 principal 用签名头/短 token，不转发浏览器原 token 到下游日志 |
+| **BFF `/api/*`**（`services/bff`） | 接受 `Authorization: Bearer`、`luban_cad_auth` cookie；`?token=` 自 B5a 起默认拒绝（仅 `SESSION_TOKEN_VIA_QUERY=allow` 回滚窗口接受）；作为 `/api` 的 JWT 终止面 | BFF 是 PEP/身份转发点：只解析用户 token，不把 service 凭据升级为用户；保持移除 `?token=`；转发 principal 用签名头/短 token，不转发浏览器原 token 到下游日志 |
 | HTTP RPC `/:title/:version/mode/*` | `rpcGuard` 只验 token；前端生产 `authorizationClient` 传裸 JWT，Header 是否带 `Bearer ` 依赖兼容解析 | 统一 `Authorization: Bearer <jwt>`；绑定 principal；按调用的 iModel 做 PDP；`/rpc/metadata` 保持公开 |
 | `luban-ipc downloadBriefcase` | 无 ACL；全局缓存；无 owner | 校验 iTwin/iModel 一致性；读/写分别判定；per-principal cache key；记录 owner |
 | `ipc-app openBriefcase` | 按 key 打开任意文件/关闭他人 DB | 只允许该 principal 已下载且登记的 briefcase；禁止跨会话关闭；路径规范化白名单 |
@@ -496,7 +496,7 @@ X-Service-Name: modeling-server
 
 - `authz:imodel:{iModelId}` 目前 60s 且无标签，iModel 转移/删除不会失效。
 - 显式 iModel grant/revoke 不经过权限缓存（`checkIModelAccess` 直查库），但 `PermissionsService` 的 UI 投影与 `isSecured` 读取路径需要统一版本。
-- MS 的 WS token cache 60s 只缓存 valid/invalid，不缓存用户/权限；不能作为授权缓存。
+- MS 的 WS token cache 默认已禁用（`AUTH_TOKEN_CACHE_TTL_MS=0`）；若显式 opt-in 只缓存 valid（负结果永不缓存），且不能作为授权缓存。
 - 负缓存必须 ≤5s，否则“刚授权仍 403”。
 
 ---
@@ -833,7 +833,7 @@ Link guest（L）走与 V 相同的读入口，但只对链接绑定的 iModel�
 | `luban-cad/packages/shared/src/index.ts`、`package.json` | 导出新接口；shared 版本 bump；对齐 package 版本与 interfaceVersion；加运行时版本握手（X-11） | build/test/contract |
 | `luban-cad/apps/web/src/clients/auth/LubanAuthorizationClient.ts` | 生产接入或删除；统一 `Authorization: Bearer` 形态 | frontend 单测 |
 | `luban-cad/apps/web/src/modules/part-studio/hooks/usePermissions.ts` | 非 403 错误改为 fail-closed；与服务端 PDP 错误码对齐 | hook 测试 |
-| `services/bff/src/auth.ts` | BFF PEP：用户 token 解析、principal 转发、移除 `?token=`、不升级 service 凭据 | BFF 单测/e2e |
+| `services/bff/src/auth.ts` | BFF PEP：用户 token 解析、principal 转发、移除 `?token=`（B5a 已默认拒绝，X-18 为回滚开关）、不升级 service 凭据 | BFF 单测/e2e |
 | `luban-cad/packages/viewer/src/host/web-initializer.ts` | WS 改 ticket；startup 后 `beginSession`；token 刷新走 `refreshSession`；不再把 15m token 写 cookie 作为长期凭据 | viewer 单测 |
 | `luban-cad/packages/viewer/src/connection/use-briefcase-connection.ts` | 确保 auth session 就绪后再 download/open；401/403 状态映射；不重试越权 | hook 单测 |
 | `luban-cad/apps/web/src/clients/auth/AuthSession.ts` | 暴露 refresh 事件/回调；登出撤销 session；不把 token 写 URL | AuthSession 测试 |
@@ -895,7 +895,7 @@ Link guest（L）走与 V 相同的读入口，但只对链接绑定的 iModel�
 
 ### 8.5 契约/发布顺序
 
-0. 统一身份传输与版本门：BFF/MS 只接受 `Authorization: Bearer`；移除 `?token=`；shared/MS 运行时 interfaceVersion 握手；`LubanAuthorizationClient` 生产接入或删除；前端权限查询 fail-closed。
+0. 统一身份传输与版本门：BFF/MS 只接受 `Authorization: Bearer`；移除 `?token=`（B5a 已完成默认拒绝，回滚开关 X-18）；shared/MS 运行时 interfaceVersion 握手；`LubanAuthorizationClient` 生产接入或删除；前端权限查询 fail-closed。
 1. Hub token/PDP + migrations（先 shadow）。
 2. shared 新 auth IPC + 版本 bump；editor/viewer/web 重建。
 3. MS 连接 principal/OBO/PEP（先 shadow）。
