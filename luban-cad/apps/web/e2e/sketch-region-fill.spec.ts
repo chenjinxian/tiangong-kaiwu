@@ -16,8 +16,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -44,7 +43,7 @@ test.describe('草图面域填充（ADR-0018 S1f）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -58,7 +57,7 @@ test.describe('草图面域填充（ADR-0018 S1f）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });

@@ -5,7 +5,7 @@
  * 拉伸 10：面积 400−π·25 = 321.4602，体积 3214.602 mm³。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -59,7 +59,7 @@ test.describe('live imprintRegions', () => {
     expect(Math.abs(volume - EXPECTED) / EXPECTED).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'live imprintRegions smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

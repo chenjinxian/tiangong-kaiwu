@@ -14,8 +14,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
@@ -68,7 +67,7 @@ test.describe('MoveFace UI（ADR-0014）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -168,7 +167,7 @@ test.describe('MoveFace UI（ADR-0014）', () => {
     });
 
     await pushExampleChanges(page, 'moveFace UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'moveFace']);

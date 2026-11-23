@@ -4,7 +4,7 @@
  */
 import { expect, test } from '@playwright/test';
 import type { SketchEntityDto } from '@luban-cad/shared';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 import { runScenario } from './replay/run.js';
@@ -81,7 +81,7 @@ for (const { operation, expected } of CASES) {
         'sketch', 'extrude', 'sketch', 'extrude', 'booleanBodies',
       ]);
 
-      await page.reload();
+      await reloadWithFlush(page);
       await openExampleEditor(page, ids);
       const tree = await getFeatureTreeRpc(ctx, token);
       expect(tree.map((row) => row.featureType)).toEqual([
@@ -95,7 +95,7 @@ for (const { operation, expected } of CASES) {
       expect(Math.abs(volume - expected) / expected).toBeLessThan(0.005);
 
       await pushExampleChanges(page, `booleanBodies ${operation}`);
-      await page.reload();
+      await reloadWithFlush(page);
       await openExampleEditor(page, ids);
       const reopened = await getFeatureTreeRpc(ctx, token);
       expect(reopened.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));

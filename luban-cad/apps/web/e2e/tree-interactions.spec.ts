@@ -13,8 +13,7 @@ import {
   borrowWriteLease,
   getApiToken,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -87,7 +86,7 @@ test.describe('特征树交互对拍（S2）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -109,7 +108,7 @@ test.describe('特征树交互对拍（S2）', () => {
     const extrudeId = extrudeResult.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const tree = page.getByTestId('part-studio-tree');
     const featureList = page.getByTestId('part-studio-feature-list');

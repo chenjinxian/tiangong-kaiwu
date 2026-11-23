@@ -74,8 +74,52 @@
 - 预期名称（不是硬编码依赖）：`tiangong-kaiwu-postgres-1`、`tiangong-kaiwu-azurite-1`。
 - Azurite 数据挂载：容器内 `/data` 且类型必须是 **Docker 命名卷**；预期卷名
   `tiangong-kaiwu_azurite-data`。脚本从 `docker inspect` 读取实际卷名；绑定挂载会直接报错。
+- **Azurite 必须显式 `--location /data`**：官方镜像的 WORKDIR 是 `/opt/azurite`，不传
+  `--location` 时数据写容器可写层，`/data` 命名卷始终为空——容器重建即丢全部 blob，
+  备份也只是一个空 tar（2026-11-22 迁移演练实证）。根 compose 已固化该参数。
+- **空卷哨兵**：备份 tar 必须含 `__azurite_db_blob__.json`，否则脚本默认失败；仅当
+  全新栈从未写入对象时才用 `-AllowEmptyAzurite` 显式放行。恢复前先用
+  `tar -tzf azurite-data.tar.gz` 确认 blob 元数据文件存在。
 - 恢复假设目标 compose 栈已创建数据库/角色（`docker compose up -d postgres` 即可），
   本基线不负责 `CREATE ROLE` / `CREATE DATABASE`。
+
+#### 2.3.1 旧容器层 → 命名卷一次性迁移
+
+适用：2026-11-22 之前启动、未传 `--location` 的 `tiangong-kaiwu-azurite-1`（数据在
+容器层 `/opt/azurite`）。**先迁移再让 compose 重建容器**，否则旧层随容器删除而丢失。
+
+```powershell
+# 1) 停写者（宿主 MS 也停）；确认旧容器仍在
+docker compose stop webhook-agent imodelhub azurite
+# 2) 启动旧容器（不要 compose up——新配置会重建并删除旧层）
+docker start tiangong-kaiwu-azurite-1
+# 3) 容器内复制（同一 VM，避免 docker cp 大卷的 EOF/500）；先确认 /data 为空
+docker exec tiangong-kaiwu-azurite-1 sh -c 'ls -A /data; rm -rf /data/*; cp -a /opt/azurite/. /data/; sync'
+# 4) 校验：两侧文件数与字节数一致，且 /data/__azurite_db_blob__.json 存在
+docker exec tiangong-kaiwu-azurite-1 sh -c 'du -sb /opt/azurite /data; find /opt/azurite -type f | wc -l; find /data -type f | wc -l'
+# 5) 停旧容器，按新 compose 启动（此时数据已在卷中）
+docker stop tiangong-kaiwu-azurite-1
+docker compose up -d azurite
+# 6) 写者仍停时重跑备份，确认 tar 内含 __azurite_db_blob__.json
+powershell -File scripts/backup-stack.ps1
+```
+
+禁止 `docker compose down -v`（删除命名卷）。迁移前可用
+`__azurite_db_blob_extent__.json` 的 extents 数核对 `__blobstorage__` 文件数；
+2026-11-22 实测旧容器为 593 extents / 约 38 GB。
+
+**大对象卷的本地备份**：`backup-stack.ps1` 的 tar 经 Docker Desktop 绑定挂载写出，
+实测约 2.5 MB/s（38 GB 卷需数小时），不适合大卷。开发机可用同 VM 内命名卷克隆：
+
+```powershell
+docker volume create tiangong-kaiwu_azurite-backup-<date>
+docker run --rm -v tiangong-kaiwu_azurite-data:/src:ro `
+  -v tiangong-kaiwu_azurite-backup-<date>:/dst alpine:3.20 `
+  sh -c 'cp -a /src/. /dst/ && sync'
+# 校验：两侧文件数一致 + 全量内容哈希一致
+```
+
+这只是同盘快照，不是异地备份；生产仍需对象存储版本化/跨区复制。
 
 ---
 

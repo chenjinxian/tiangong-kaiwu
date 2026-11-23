@@ -15,8 +15,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  getSketchRpc,
-} from './helpers.js';
+  getSketchRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -62,7 +61,7 @@ test.describe('cPlane LINE_POINT（ADR-0013 切片 2）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -142,7 +141,7 @@ test.describe('cPlane LINE_POINT（ADR-0013 切片 2）', () => {
     expect(result.centroid.z).toBeCloseTo(10 * S + 5 * S, 3);
 
     await pushExampleChanges(page, 'cPlane LINE_POINT acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopenedCtx = await openWithRetry();
     tree = await getFeatureTreeRpc(reopenedCtx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['cPlane', 'sketch', 'extrude']);

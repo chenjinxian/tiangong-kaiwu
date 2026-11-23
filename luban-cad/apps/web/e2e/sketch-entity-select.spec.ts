@@ -13,8 +13,7 @@ import {
   borrowWriteLease,
   getApiToken,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -54,7 +53,7 @@ test.describe('草图实体选择（ADR-0018 S1b）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -68,7 +67,7 @@ test.describe('草图实体选择（ADR-0018 S1b）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });
@@ -109,10 +108,14 @@ test.describe('草图实体选择（ADR-0018 S1b）', () => {
     await page.keyboard.up('Control');
     await expect.poll(async () => (await readSelection(page)).length, { timeout: 10_000 }).toBe(0);
 
-    // 再次选中后点空白（画布左上角）→ 清空。
+    // 再次选中后点空白 → 清空。
+    // 点位选画布**底边中央**：草图编辑浮动面板（「草图 1」参数框）叠在画布
+    // 左上角，点左上会命中面板而非 canvas——SketchEntityPicker 的 startsOnCanvas
+    // 守卫会忽略该手势（产品既有语义：浮层点击不得清空预选），旧左上点位属
+    // 陈旧前提。底边中央远离曲线（y=0 过画布中心）、浮层与状态读数。
     await page.mouse.click(center.x, center.y);
     await expect.poll(async () => (await readSelection(page)).length, { timeout: 10_000 }).toBe(1);
-    await page.mouse.click(box!.x + 20, box!.y + 20);
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height - 40);
     await expect.poll(async () => (await readSelection(page)).length, { timeout: 10_000 }).toBe(0);
 
     // 退出草图（对话框 ✗）→ 草图条目不得残留。

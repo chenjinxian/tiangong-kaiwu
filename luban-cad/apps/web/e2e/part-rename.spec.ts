@@ -12,8 +12,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getBodiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -57,7 +56,7 @@ test.describe('v1.70 特征/零件重命名（Onshape 树内联）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -124,7 +123,7 @@ test.describe('v1.70 特征/零件重命名（Onshape 树内联）', () => {
     await expect(row).toContainText('Housing A', { timeout: 30_000 });
 
     await pushExampleChanges(page, 'part rename acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId('part-studio-part-list')).toBeVisible({ timeout: 60_000 });
     await expect(page.getByTestId(`tree-row-${bodyKey}`)).toContainText('Housing A', { timeout: 60_000 });
@@ -138,7 +137,7 @@ test.describe('v1.70 特征/零件重命名（Onshape 树内联）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -183,7 +182,7 @@ test.describe('v1.70 特征/零件重命名（Onshape 树内联）', () => {
     await expect(sketchRow).toContainText('Base Sketch', { timeout: 30_000 });
 
     await pushExampleChanges(page, 'feature rename acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${featureId}`)).toContainText('Housing Extrude', { timeout: 60_000 });
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toContainText('Base Sketch', { timeout: 60_000 });

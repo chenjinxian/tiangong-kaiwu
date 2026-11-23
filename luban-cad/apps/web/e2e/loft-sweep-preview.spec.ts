@@ -14,8 +14,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -95,7 +94,7 @@ test.describe('loft/sweep 插入预览（2026-11-08）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -129,7 +128,7 @@ test.describe('loft/sweep 插入预览（2026-11-08）', () => {
     await releaseWriteLease(ctx, lease, token);
 
     // 刷新 UI 树/草图选项（RPC 建链后）。
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const featureList = page.getByTestId('part-studio-feature-list');
 
@@ -172,7 +171,7 @@ test.describe('loft/sweep 插入预览（2026-11-08）', () => {
     expect(volume).toBeGreaterThan(2000); // 10×10→20×20 棱台 2333.33 mm³ + 内含圆柱并集
 
     await pushExampleChanges(page, 'loft/sweep preview acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual([

@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import {
   ensureExampleImodel,
@@ -101,7 +101,7 @@ test.describe('Sample Assignment scenario rebuild', () => {
     expect(cutHolesStep?.notes.join(' ')).toContain('profileArea=205.21652903448657mm² → 面域 0,1');
     expect(cutHolesStep?.notes.some((note) => note.includes('regionRisk'))).toBe(false);
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual([
@@ -115,7 +115,7 @@ test.describe('Sample Assignment scenario rebuild', () => {
     expect(Math.abs(volume - expected) / expected).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'T1 sample assignment scenario');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));

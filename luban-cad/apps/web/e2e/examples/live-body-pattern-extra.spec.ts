@@ -6,7 +6,7 @@
  * 2) 同盒线性 3 实例、间距 20、反向 → 3000 mm³、1 body。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -77,7 +77,7 @@ async function verify(spec: LiveSpec, page: Parameters<typeof runLiveSpec>[0], r
   expect(Math.abs(volume - expected) / expected).toBeLessThan(0.005);
 
   await pushExampleChanges(page, `live ${spec.id}`);
-  await page.reload();
+  await reloadWithFlush(page);
   await openExampleEditor(page, result.ids);
   expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
   expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

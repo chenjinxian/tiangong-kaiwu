@@ -28,7 +28,10 @@ param(
     [string]$BackupRoot = 'backups',
     [switch]$WhatIf,
     [int]$KeepDays = 0,
-    [string]$TarImage = 'alpine:3.20'
+    [string]$TarImage = 'alpine:3.20',
+    # 全新栈（从未写入对象）允许空卷归档；已有数据的栈默认拒绝空卷，
+    # 防止“备份成功但 Azurite 数据根本没落卷”的假绿。
+    [switch]$AllowEmptyAzurite
 )
 
 $ErrorActionPreference = 'Stop'
@@ -539,6 +542,27 @@ try {
         } else {
             $tail = @($tarResult.Output | Select-Object -Last 12) -join ' | '
             throw "Azurite 卷 tar 失败（exit $($tarResult.ExitCode)）：$tail"
+        }
+    }
+    # 卷内容哨兵：compose 若未给 azurite 传 --location，数据写镜像 WORKDIR
+    # （/opt/azurite）而非命名卷，tar 仅几十字节——备份“成功”但对象存储全丢
+    #（2026-11-22 迁移演练实证）。默认拒绝空卷归档；全新栈用 -AllowEmptyAzurite 放行。
+    $listing = Invoke-DockerCapture -Arguments @(
+        'run', '--rm',
+        '-v', "${stageDir}:/backup:ro",
+        $TarImage,
+        'tar', '-tzf', '/backup/azurite-data.tar.gz'
+    )
+    if ($listing.ExitCode -ne 0) {
+        $tail = @($listing.Output | Select-Object -Last 12) -join ' | '
+        throw "Azurite 归档校验失败（exit $($listing.ExitCode)）：$tail"
+    }
+    $hasAzuriteDb = @($listing.Output | Where-Object { $_ -match '(^|/)__azurite_db_blob__\.json$' }).Count -gt 0
+    if (-not $hasAzuriteDb) {
+        if ($AllowEmptyAzurite) {
+            Write-Warn 'Azurite 卷为空；-AllowEmptyAzurite 已显式放行（仅适用于从未写入对象的新栈）。'
+        } else {
+            throw 'Azurite 卷归档不含 __azurite_db_blob__.json：对象存储数据未落在 /data 卷。检查 compose azurite 命令是否含 --location /data；全新栈确需空归档时显式加 -AllowEmptyAzurite。'
         }
     }
     Write-Info "完成：azurite-data.tar.gz（$([math]::Round(($azEnd - $azStart).TotalSeconds, 1)) s）。"

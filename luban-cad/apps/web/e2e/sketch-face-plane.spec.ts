@@ -16,8 +16,7 @@ import {
   getFeatureTreeRpc,
   getMassPropertiesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
 import { pushExampleChanges } from './examples/imodel.js';
@@ -94,7 +93,7 @@ test.describe('草图落在模型面（ADR-0017 Stage D）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -122,7 +121,7 @@ test.describe('草图落在模型面（ADR-0017 Stage D）', () => {
       '板拉伸',
     );
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
 
     // ── 2) 视口拾取顶面（选择工具在草图对话框中保持可用）────────────────────
@@ -190,7 +189,7 @@ test.describe('草图落在模型面（ADR-0017 Stage D）', () => {
       '面平面圆',
     );
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
 
     // ── 5) UI 拉伸 2 mm → 2056.549 mm³ ──────────────────────────────────────
@@ -209,7 +208,7 @@ test.describe('草图落在模型面（ADR-0017 Stage D）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3)).toBeLessThan(1);
 
     await pushExampleChanges(page, 'sketch on model face acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.every((row) => row.status === 0)).toBe(true);

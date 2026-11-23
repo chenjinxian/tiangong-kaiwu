@@ -20,8 +20,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -70,7 +69,7 @@ const TOP_PLANE = {
 };
 
 test.describe('featurePattern 树行抑制/删除（W2.10）', () => {
-  test('抑制 16240→16080 → 取消抑制 → 删除树行（body 不更新，M1 已登记）→ push+重开', async ({ page, request }) => {
+  test('抑制 16240→16080 → 取消抑制 → 删除树行（会话内 body 不更新）→ push+冷重开重算 16080', async ({ page, request }) => {
     test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 900_000);
     const token = await getApiToken();
     const ids = await ensureExampleImodel(request, token, 'E2E - Feature Pattern Tree Ops', { reset: true });
@@ -78,7 +77,7 @@ test.describe('featurePattern 树行抑制/删除（W2.10）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -162,13 +161,15 @@ test.describe('featurePattern 树行抑制/删除（W2.10）', () => {
     }).toEqual(['sketch', 'extrude', 'sketch', 'extrude']);
     expect(await mass(), 'M1 删除语义：会话内不再生').toBeCloseTo(16240, 0);
 
-    // 持久化后树形一致；body 仍为删除前形态（冷重开同样不再生 → 16240）。
+    // 持久化 + 冷重开（C2 新会话）：特征树无 pattern，body 必须按持久 params
+    // 从链重算为 16080。会话内不更新（M1 已登记）与冷重开重算是两个语义，
+    // 不得用旧“复用 briefcase 缓存”的会话内结果冒充冷重开结果。
     await pushExampleChanges(page, 'featurePattern tree ops acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     expect((await getFeatureTreeRpc(ctx, token)).map((r) => r.featureType))
       .toEqual(['sketch', 'extrude', 'sketch', 'extrude']);
-    expect(await mass(), 'M1 删除语义：冷重开仍不再生').toBeCloseTo(16240, 0);
+    expect(await mass(), '冷重开必须按无 pattern 的树重算为 16080').toBeCloseTo(16080, 0);
   });
 
   test('KNOWN-RED：删除 pattern 后 body 应重算为 16080', async ({ page, request }) => {

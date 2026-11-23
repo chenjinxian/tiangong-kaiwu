@@ -14,8 +14,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -67,7 +66,7 @@ test.describe('零件段逐 body 体积（W1.5b）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -123,7 +122,7 @@ test.describe('零件段逐 body 体积（W1.5b）', () => {
 
     await releaseWriteLease(ctx, lease, token);
     await pushExampleChanges(page, 'per-body volume UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await assertVolumes();
   });

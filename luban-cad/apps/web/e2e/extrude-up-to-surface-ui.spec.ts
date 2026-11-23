@@ -17,8 +17,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
@@ -72,7 +71,7 @@ test.describe('Extrude 成形到面 UI（ADR-0005 Phase 5）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -104,7 +103,7 @@ test.describe('Extrude 成形到面 UI（ADR-0005 Phase 5）', () => {
     );
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
 
     // 顶面完整可见 → 点选顶面（为 ribbon 路由提供面快照）。
@@ -161,7 +160,7 @@ test.describe('Extrude 成形到面 UI（ADR-0005 Phase 5）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'extrude upToSurface UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(TREE_TYPES);

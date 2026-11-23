@@ -14,8 +14,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { activate, clickWorld, finishSketch } from './tutorial2-helpers';
 
@@ -50,7 +49,7 @@ test.describe('草图同心约束（Sketch.Constraint.Concentric）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };
@@ -63,7 +62,7 @@ test.describe('草图同心约束（Sketch.Constraint.Concentric）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });

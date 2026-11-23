@@ -13,8 +13,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getBodiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor } from './examples/imodel.js';
 
@@ -56,7 +55,7 @@ test.describe('2026-11-13 零件删除（NEW-body 驱动特征首切片）', () 
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };

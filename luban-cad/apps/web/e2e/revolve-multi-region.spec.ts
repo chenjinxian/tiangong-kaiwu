@@ -6,7 +6,7 @@
  * 两矩形分别绕 x 轴成环柱 π(10²−5²)·10 + π(20²−15²)·10 = 2500π mm³。
  */
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from './helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 import { runScenario } from './examples/replay/run.js';
@@ -60,7 +60,7 @@ test.describe('v1.30 revolve multi-region UI', () => {
     const ctx = await openExampleEditor(page, ids);
     await runScenario(ctx, sketchScenario(), token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     // StandardViewIndex.Top=1（X 右、Y 上）；草图在 XY 平面，必须正对而非侧视。
     await frameStandardView(page, 1, RANGE, { left: 0.1, right: 0.1, top: 0.1, bottom: 0.1 });
@@ -82,7 +82,7 @@ test.describe('v1.30 revolve multi-region UI', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'v1.30 revolve multi-region UI');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'revolve']);

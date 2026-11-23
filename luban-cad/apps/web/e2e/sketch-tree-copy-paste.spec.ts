@@ -32,8 +32,7 @@ import {
   getFeatureTreeRpc,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { chooseSketchPlaneInViewport, finishSketch } from './tutorial2-helpers.js';
 
@@ -128,7 +127,7 @@ test.describe('W41 S10 / W44 S13：草图复制与粘贴（树/草图内）', ()
     const sketchAId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const rowA = page.getByTestId(`tree-row-${sketchAId}`);
     await expect(rowA).toBeVisible({ timeout: 60_000 });
@@ -194,7 +193,7 @@ test.describe('W41 S10 / W44 S13：草图复制与粘贴（树/草图内）', ()
 
     // ── 6) 完成草图 → reload 重开 → B 持久 ───────────────────────────
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openSeedImodelEditor(page, seed);
     await expectRectangleCopy(reopened, sketchBId, token);
   });
@@ -226,7 +225,7 @@ test.describe('W41 S10 / W44 S13：草图复制与粘贴（树/草图内）', ()
     const sketchBId = createdB.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     await expect(page.getByTestId(`tree-row-${sketchAId}`)).toBeVisible({ timeout: 60_000 });
     await expect(page.getByTestId(`tree-row-${sketchBId}`)).toBeVisible({ timeout: 60_000 });
@@ -283,7 +282,7 @@ test.describe('W41 S10 / W44 S13：草图复制与粘贴（树/草图内）', ()
     }, { timeout: 40_000, intervals: [600, 1000, 2000, 3000] }).toBe(true);
 
     // ── 4) reload 重开 → B 持久 ────────────────────────────────────────
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openSeedImodelEditor(page, seed);
     await expectRectangleCopy(reopened, sketchBId, token);
   });

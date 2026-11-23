@@ -24,8 +24,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import {
   chooseProfileRegionsInViewport,
   disableSnap,
@@ -167,9 +166,13 @@ async function uiExtrude(
     await dialog.getByLabel('深度').fill(options.distance, { timeout: 10_000 });
   }
   if (options.directionBackward) {
-    // 方向段默认展开（SECTIONS.direction.defaultExpanded=true）；再点标题会折叠。
-    await dialog.getByRole('button', { name: '方向', exact: true }).click();
-    await dialog.getByLabel('方向').selectOption('backward', { timeout: 10_000 });
+    // ADR-0017 Stage E（2026-11-15 live）：方向不再是折叠段下拉；“方向”复选
+    // 只读禁用，反向由终止行右侧双向翻转钮承担（aria-pressed 表达反向态）。
+    // 显式 timeout：控件缺失时必须快速报错，不能无限等待拖死整块。
+    const flip = dialog.locator('.part-studio-feature-dialog__direction-flip');
+    await expect(flip).toBeVisible({ timeout: 10_000 });
+    await flip.click({ timeout: 10_000 });
+    await expect(flip).toHaveAttribute('aria-pressed', 'true', { timeout: 10_000 });
   }
   if (options.targetBodyName) {
     await expect(dialog.getByTestId('part-studio-feature-dialog-target-body')).toBeVisible({ timeout: 20_000 });
@@ -201,7 +204,7 @@ test.describe('示例 iModel：Mate Connectors', () => {
 
     // ── Sketch 1 (x=0) → Extrude NEW 2 ─────────────────────────────────────
     await insertSketch(ctx, token, SKETCH_1, frontPlane(0), 'Sketch 1');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_SKETCH_1);
     await demoShot(page, {
@@ -217,7 +220,7 @@ test.describe('示例 iModel：Mate Connectors', () => {
 
     // ── Sketch 2 (x=2) → Extrude NEW 2（圆头槽并集面域） ────────────────────
     await insertSketch(ctx, token, SKETCH_2, frontPlane(2), 'Sketch 2');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_SKETCH_2);
     await demoShot(page, {
@@ -238,7 +241,7 @@ test.describe('示例 iModel：Mate Connectors', () => {
     if (!secondBody) throw new Error('未找到第 2 个拉伸的 body');
     console.log(`[mate-example] target body=${secondBody.name} key=${secondBody.bodyKey}`);
     await insertSketch(ctx, token, SKETCH_3, frontPlane(4), 'Sketch 3');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_SKETCH_3);
     await demoShot(page, {
@@ -282,7 +285,7 @@ test.describe('示例 iModel：Mate Connectors', () => {
       title: '9. 推送到 hub', detail: '示例 changeset 已持久化。',
     });
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'sketch', 'extrude']);

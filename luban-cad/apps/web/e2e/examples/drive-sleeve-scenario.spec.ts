@@ -23,7 +23,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 import { DEFAULT_DATA_ROOT, isExampleDataAvailable } from './registry.js';
@@ -69,7 +69,7 @@ async function runDriveSleeveCase(
   expect(patternStep?.notes.some((note) => note.includes('featurePattern'))).toBe(true);
   expect(built.notes.some((note) => note.includes('constraints=dropped'))).toBe(true);
 
-  await page.reload();
+  await reloadWithFlush(page);
   await openExampleEditor(page, ids);
   const tree = await getFeatureTreeRpc(ctx, token);
   console.log('[drive-sleeve-scenario] tree=' + JSON.stringify(
@@ -90,7 +90,7 @@ async function runDriveSleeveCase(
   expect(Math.abs(volume - expected) / expected).toBeLessThan(0.005);
 
   await pushExampleChanges(page, 'Drive Sleeve FACE circular pattern scenario');
-  await page.reload();
+  await reloadWithFlush(page);
   await openExampleEditor(page, ids);
   const reopened = await getFeatureTreeRpc(ctx, token);
   expect(reopened.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));

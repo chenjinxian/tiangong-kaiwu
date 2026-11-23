@@ -15,8 +15,7 @@ import {
   getApiToken,
   getBodiesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { chooseSketchPlaneInViewport, finishSketch } from './tutorial2-helpers';
 
@@ -64,7 +63,7 @@ async function setupBox(page: Page, request: Parameters<typeof resetBModelSeed>[
     try {
       return await openSeedImodelEditor(page, seed);
     } catch {
-      await page.reload();
+      await reloadWithFlush(page);
       return await openSeedImodelEditor(page, seed);
     }
   };
@@ -85,7 +84,7 @@ async function setupBox(page: Page, request: Parameters<typeof resetBModelSeed>[
   expect(body).toBeDefined();
   await releaseWriteLease(ctx, lease, token);
 
-  await page.reload();
+  await reloadWithFlush(page);
   ctx = await openWithRetry();
   await expect(page.getByTestId(`tree-row-${extrude.featureId!}`)).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('part-studio-part-count')).toHaveText('(1)', { timeout: 60_000 });

@@ -14,8 +14,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -73,7 +72,7 @@ test.describe('Extrude upToVertex（ADR-0005 Phase 7）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -144,7 +143,7 @@ test.describe('Extrude upToVertex（ADR-0005 Phase 7）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'extrude upToVertex acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(TREE_TYPES);

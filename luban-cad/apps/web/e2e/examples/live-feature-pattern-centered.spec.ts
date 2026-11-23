@@ -5,7 +5,7 @@
  * 凸台位于 −12/−6/0/6/12，16000 + 5×80 = 16400 mm³、1 body。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -81,7 +81,7 @@ test.describe('live featurePattern centered', () => {
     expect(Math.abs(volume - 16400) / 16400).toBeLessThan(0.01);
 
     await pushExampleChanges(page, 'live centered featurePattern smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

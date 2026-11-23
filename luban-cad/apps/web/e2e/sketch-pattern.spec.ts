@@ -15,8 +15,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -44,7 +43,7 @@ async function openPatternSketch(
     try {
       return await openSeedImodelEditor(page, seed);
     } catch {
-      await page.reload();
+      await reloadWithFlush(page);
       return await openSeedImodelEditor(page, seed);
     }
   };
@@ -61,7 +60,7 @@ async function openPatternSketch(
   const sketchId = created.featureId!;
   await releaseWriteLease(ctx, lease, token);
 
-  await page.reload();
+  await reloadWithFlush(page);
   ctx = await openWithRetry();
   const row = page.getByTestId(`tree-row-${sketchId}`);
   await expect(row).toBeVisible({ timeout: 60_000 });

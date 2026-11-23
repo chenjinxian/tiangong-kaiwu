@@ -404,6 +404,20 @@ tile storage key、`EvalCarrier` 的临时文件（已用 safeName，但仍按 s
   - active：永不被 sweeper 删除。
 - **崩溃恢复**：启动时扫描 `sessions/` 的 manifest；`provisioning/opening` 视为半成品，
   删除并释放 briefcaseId；`draining` 按 TTL 到期处理；不自动把旧文件交给新 session。
+- **已知语义变化（reload/unload）**：浏览器 reload 建立新 session，不续用旧本地文件；
+  自动保存防抖窗口（默认 20s）内的未推送编辑会丢失。旧的共享 briefcase 会“碰巧”
+  保留它们，不能作为产品承诺。C7 之前需要 beforeunload 未保存提示或 session 恢复
+  （同用户串行复用，见下条）；e2e 在 reload 前必须显式落库（`pushExampleChanges` /
+  `reloadWithFlush`），不得依赖旧本地文件。
+- **整页 scope 导航同理**：多 Part Studio 文档中，用 `page.goto` 直接打开另一个
+  `?model=<scope>` 也是新 session，不会续用当前 scope 的未推送编辑；e2e 的
+  `openBModelEditor/openBModelPartStudio` 现在导航前调用 `flushPendingChanges`
+  （Element Organization 的 O-Ring 曾因此丢失）。产品内的 SPA 页签切换复用同一
+  briefcase，不触发该语义；若要支持 URL 直开跨 scope，需 C7 的会话恢复/提示。
+- **冷重开必须按持久图/params 重算**：新 session 的 `FeatureOutputCache` 为冷，
+  `rebuildAll` 不得依赖上一个 session 的热缓存。中间 faceExtrude 的 body 目标
+  由 Feature→Feature 后裔图证明恢复（见私有 AIRR 2026-11-23），不再把
+  “同一 briefcase 的热结果”当作冷重开事实。
 - **briefcaseId 配额**：每写 session 一个 ID 会消耗 hub 配额；干净关闭尽快 release；
   长期 dirty 文件占 ID。若配额成为问题，C2 可增加“同用户单写 briefcase 串行复用”的
   池化策略（见开放问题）。

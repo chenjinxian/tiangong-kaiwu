@@ -19,8 +19,7 @@ import {
   gotoDocuments,
   readModelScopeId,
   readOpenBriefcaseInfo,
-  waitEditorReady,
-} from './helpers';
+  waitEditorReady, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed';
 
 /** 侧栏作用域：星标钮（收藏）等卡片按钮与导航项同名，禁全局 byRole。 */
@@ -105,7 +104,7 @@ test('表格/网格切换 + localStorage 记忆', async ({ page }) => {
   await page.getByRole('button', { name: '列表视图' }).click();
   await expect(table).toBeVisible();
   await expect(page.evaluate(() => localStorage.getItem('luban-next-documents-view'))).resolves.toBe('table');
-  await page.reload();
+  await reloadWithFlush(page);
   await expect(page.locator('.documents-body .documents-table')).toBeVisible();
   await page.getByRole('button', { name: '网格视图' }).click();
   await expect(page.locator('.document-tile').first()).toBeVisible();

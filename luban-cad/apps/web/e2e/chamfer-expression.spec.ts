@@ -38,8 +38,7 @@ import {
   getMassPropertiesRpc,
   getVariablesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { pushExampleChanges } from './examples/imodel.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
@@ -94,7 +93,7 @@ async function openWithRetry(
   try {
     return await openSeedImodelEditor(page, seed);
   } catch {
-    await page.reload();
+    await reloadWithFlush(page);
     return await openSeedImodelEditor(page, seed);
   }
 }
@@ -182,7 +181,7 @@ test.describe('ADR-0020 S7 倒角距离-角度表达式（真栈）', () => {
       await releaseWriteLease(ctx, lease, token);
     }
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId(`tree-row-${extrudeId}`)).toBeVisible({ timeout: 60_000 });
     const boxVolume = await volumeOf(ctx, token);
@@ -347,7 +346,7 @@ test.describe('ADR-0020 S7 倒角距离-角度表达式（真栈）', () => {
 
     // 5) push + 冷重开：表达式/物化值/几何保持。
     await pushExampleChanges(page, 'chamfer distance-angle expression UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId(`tree-row-${chamferId}`)).toBeVisible({ timeout: 60_000 });
     tree = await getFeatureTreeRpc(ctx, token);

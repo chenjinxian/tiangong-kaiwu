@@ -19,8 +19,7 @@ import {
   getFeatureTreeRpc,
   getMassPropertiesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { pushExampleChanges } from './examples/imodel.js';
 
@@ -71,7 +70,7 @@ test.describe('特征对话框 Onshape 参数行（Stage E）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -85,7 +84,7 @@ test.describe('特征对话框 Onshape 参数行（Stage E）', () => {
     await releaseWriteLease(ctx, lease, token);
     assertFeatureOpOk(result, '草图');
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
 
     // ── UI 拉伸：方向=反向 + 起始偏移 2 ─────────────────────────────────────
@@ -136,7 +135,7 @@ test.describe('特征对话框 Onshape 参数行（Stage E）', () => {
 
     // ── push + 冷重开 ──────────────────────────────────────────────────────
     await pushExampleChanges(page, 'feature dialog parity acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.every((row) => row.status === 0)).toBe(true);

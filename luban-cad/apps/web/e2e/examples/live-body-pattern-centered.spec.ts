@@ -5,7 +5,7 @@
  * 3000 mm³、产品 1 body、质心 x=0。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -62,7 +62,7 @@ test.describe('live body pattern centered', () => {
     expect(result.mass[0]?.centroid.x).toBeCloseTo(0, 3);
 
     await pushExampleChanges(page, 'live centered body pattern smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

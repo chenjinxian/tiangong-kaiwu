@@ -15,8 +15,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -70,7 +69,7 @@ test.describe('Mirror operation UI（ADR-0011 切片 2c）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -96,7 +95,7 @@ test.describe('Mirror operation UI（ADR-0011 切片 2c）', () => {
       '盒体拉伸',
     );
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await page.getByRole('button', { name: '镜像', exact: true }).click({ timeout: 30_000 });
     const dialog = page.getByTestId('part-studio-feature-dialog');
@@ -126,7 +125,7 @@ test.describe('Mirror operation UI（ADR-0011 切片 2c）', () => {
     expect(Math.abs(volume - 2000)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'mirror operation UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'mirror']);

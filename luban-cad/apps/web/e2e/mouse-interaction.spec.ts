@@ -14,8 +14,7 @@ import {
   borrowWriteLease,
   getApiToken,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -55,7 +54,7 @@ async function openEditor(page: Page, request: Parameters<typeof resetBModelSeed
   try {
     await openSeedImodelEditor(page, seed);
   } catch {
-    await page.reload();
+    await reloadWithFlush(page);
     await openSeedImodelEditor(page, seed);
   }
   await expect(page.getByRole('toolbar', { name: '特征工具' })).toBeVisible({ timeout: 60_000 });
@@ -120,7 +119,7 @@ test.describe('Onshape 草图框选', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };
@@ -143,7 +142,7 @@ test.describe('Onshape 草图框选', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });

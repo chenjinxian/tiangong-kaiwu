@@ -322,6 +322,9 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   // 草图通道：草图自动取最近一张 → 面域读回（getSketch.regions）。闭环成败在此
   // 亮牌——regions=0 → 「草图无可拉伸面域」+ ✓ 恒禁用（断言超时红=吸附闭环失败，
   // 按纪律停在此处如实记录，不掩盖）。
+  // KNOWN-RED（2026-11-23 真栈复跑）：弧段已真实上屏（全画布差分 8260 px），
+  // 但 line+arc 闭环未产生任何面域，对话框无「草图 1 的面」——既有产品缺口
+  //（草图闭环成域），非本用例陈旧合同。断言保持，待内核/闭环修复后转绿。
   await expect(dialog.getByText('草图 1 的面', { exact: true })).toBeVisible({ timeout: 20_000 });
   const profileChips = dialog.getByTestId('part-studio-feature-dialog-profile-field').locator('button[data-region-index]');
   console.log(`[t8] 拉伸已选面域数=${await profileChips.count()}（1=单面域自动 regionIndex=0）`);

@@ -15,8 +15,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 
@@ -78,7 +77,7 @@ test.describe('featurePattern centered 真栈验收（v1.49）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -155,7 +154,7 @@ test.describe('featurePattern centered 真栈验收（v1.49）', () => {
     expect(Math.abs(result.centroid.x)).toBeLessThan(0.02);
 
     await pushExampleChanges(page, 'featurePattern centered acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual([

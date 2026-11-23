@@ -13,8 +13,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -64,7 +63,7 @@ test.describe('草图修剪（Onshape 对拍）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -78,7 +77,7 @@ test.describe('草图修剪（Onshape 对拍）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });
@@ -144,7 +143,7 @@ test.describe('草图修剪 — 三次贝塞尔样条（Onshape Trim 支持 Bezi
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };
@@ -167,7 +166,7 @@ test.describe('草图修剪 — 三次贝塞尔样条（Onshape Trim 支持 Bezi
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });

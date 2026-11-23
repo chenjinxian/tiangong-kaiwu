@@ -195,10 +195,10 @@ export class AuthSession {
    * （端点对齐旧应用 client.ts register）。错误语义同 login：非 2xx 抛
    * ApiClientError，429 取 Retry-After-auth 头透出 retryAfterSeconds。
    * 成功（2xx，**不解析 body**——真实后端注册成功返回 204 No Content 空体，
-   * 空体 `.json()` 会抛 SyntaxError）后直接转 login(email, password) 落会话，
-   * 返回类型与 login 同（注册即登录，跳转 /documents 后姿态一致；
-   * 「先注册后登录」两段式对齐旧应用 client.ts:250-272）。 */
-  public static async register(email: string, password: string, firstName: string, lastName: string): Promise<AuthUser> {
+   * 空体 `.json()` 会抛 SyntaxError）只代表创建了**待确认**账号：hub 将自助
+   * 注册用户置为 inactive 并发确认邮件，确认前登录会被 422 拒绝（G1 B1.1）。
+   * 因此这里不再自动 login；调用方呈现「查收邮件/待确认」态。 */
+  public static async register(email: string, password: string, firstName: string, lastName: string): Promise<void> {
     const response = await fetch(`${env.hubUrl}/auth/email/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -216,8 +216,7 @@ export class AuthSession {
       });
     }
 
-    // 注册成功即登录（旧应用姿态）；204 空体无 token 可落，会话由 login 段建立。
-    return AuthSession.login(email, password);
+    // 204 空体无 token 可落；账号仍待邮箱确认，不得建立会话。
   }
 
   /** 登出：`POST ${hubUrl}/auth/logout`，头 `Authorization: Bearer <accessToken>`

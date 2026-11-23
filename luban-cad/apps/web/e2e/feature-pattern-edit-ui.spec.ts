@@ -15,8 +15,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -73,7 +72,7 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -182,7 +181,7 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     expect(tree[4]?.params).toMatchObject({ sourceFeatureId: bossFeatureId, count: 4, spacing: 6 });
 
     await pushExampleChanges(page, 'featurePattern edit UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'featurePattern']);
@@ -209,7 +208,7 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     expect(tree[4]?.params).toMatchObject({ sourceFeatureId: bossFeatureId, count: 5, spacing: 6, centered: true });
 
     await pushExampleChanges(page, 'featurePattern centered edit acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree[4]?.params).toMatchObject({ count: 5, centered: true });
@@ -224,7 +223,7 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -329,7 +328,7 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     });
 
     await pushExampleChanges(page, 'featurePattern second direction edit acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'featurePattern']);
@@ -346,7 +345,7 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -446,7 +445,7 @@ test.describe('featurePattern 编辑 UI（ADR-0007 切片 8）', () => {
     expect(tree[6]?.params).not.toHaveProperty('sourceFeatureId');
 
     await pushExampleChanges(page, 'featurePattern multi-source edit acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType))

@@ -26,8 +26,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { activate, dataPoint, finishSketch } from './tutorial2-helpers.js';
 
@@ -126,7 +125,7 @@ test.describe('草图「穿透」约束（Sketch.Constraint.Pierce UI 真栈）'
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };
@@ -163,7 +162,7 @@ test.describe('草图「穿透」约束（Sketch.Constraint.Pierce UI 真栈）'
     const targetSketchId = target.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const row = page.getByTestId(`tree-row-${targetSketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });

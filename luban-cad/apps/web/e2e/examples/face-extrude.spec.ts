@@ -20,8 +20,7 @@ import {
   getBodiesRpc,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  msRpc,
-} from '../helpers.js';
+  msRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 
@@ -79,7 +78,7 @@ test.describe('faceExtrude 真栈验收', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -161,7 +160,7 @@ test.describe('faceExtrude 真栈验收', () => {
     expect(Math.abs(volume - 48)).toBeLessThan(0.48);
 
     await pushExampleChanges(page, 'faceExtrude synthetic acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'faceExtrude']);
@@ -185,7 +184,7 @@ test.describe('faceExtrude 真栈验收', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -269,7 +268,7 @@ test.describe('faceExtrude 真栈验收', () => {
     expect(Math.abs(volume - 657_764.787)).toBeLessThan(657_764.787 * 0.001);
 
     await pushExampleChanges(page, 'faceExtrude A1 draft baseline acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const reopenedTree = await getFeatureTreeRpc(reopened, token);
     expect(reopenedTree.every((row) => row.status === 0)).toBe(true);
@@ -296,7 +295,7 @@ test.describe('faceExtrude 真栈验收', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -398,7 +397,7 @@ test.describe('faceExtrude 真栈验收', () => {
     expect(edgeKinds.filter((kind) => kind === 'line')).toHaveLength(20);
 
     await pushExampleChanges(page, 'faceExtrude A2 analytic-edge acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const reopenedTree = await getFeatureTreeRpc(reopened, token);
     expect(reopenedTree.every((row) => row.status === 0)).toBe(true);

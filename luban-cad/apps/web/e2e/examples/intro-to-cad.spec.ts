@@ -20,8 +20,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  getSketchRpc,
-} from '../helpers.js';
+  getSketchRpc, reloadWithFlush } from '../helpers';
 import {
   chooseProfileRegionsInViewport,
   disableSnap,
@@ -163,7 +162,7 @@ test.describe('示例 iModel：Intro to CAD 1.2-1.4', () => {
     });
 
     await insertSketch(ctx, token, SKETCH_1, PLANE_1, 'Sketch 1');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_SKETCH_1);
     await demoShot(page, {
@@ -217,7 +216,7 @@ test.describe('示例 iModel：Intro to CAD 1.2-1.4', () => {
     expect(stored?.plane?.normal).toEqual(PLANE_2.normal);
     expect(stored?.plane?.xDir).toEqual(PLANE_2.xDir);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_SKETCH_2);
     await demoShot(page, {
@@ -249,7 +248,7 @@ test.describe('示例 iModel：Intro to CAD 1.2-1.4', () => {
       title: '9. 推送到 hub', detail: '示例 changeset 已持久化（含 cPlane 特征）。',
     });
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'cPlane', 'sketch']);

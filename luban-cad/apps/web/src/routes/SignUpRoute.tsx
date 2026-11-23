@@ -11,11 +11,12 @@
 //   特殊字符各 +1，clamp 0..4；颜色走 iTwinUI 语义 token
 //   （≤1 负向 / =2 警告 / ≥3 正向），data-testid="password-strength"。
 // - 提交：AuthSession.register(email, password, firstName, lastName)
-//   → 成功由 useAuthForm 的 navigateAfterSuccess 回跳（location.state.from
-//   ?? '/documents'，终审 I5）；429 → auth.signUp.tooManyRequests
-//   （seconds 插值）；其它 → message 透传（错误按形状解包，兼容裸对象）。
+//   → 成功只创建待确认账号（hub 发确认邮件，确认前 inactive 登录 422，
+//   G1 B1.1），本页切「查收邮件」态，不自动登录/不回跳；429 →
+//   auth.signUp.tooManyRequests（seconds 插值）；其它 → message 透传
+//   （错误按形状解包，兼容裸对象）。
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button, Checkbox } from '@itwin/itwinui-react';
@@ -95,10 +96,13 @@ export function SignUpRoute(): React.JSX.Element {
     return errors;
   }, [t]);
 
+  const [confirmationSent, setConfirmationSent] = useState(false);
+
   const onSubmit = useCallback(async (values: SignUpValues) => {
     setFormError(null);
     try {
       await AuthSession.register(values.email, values.password, values.firstName, values.lastName);
+      setConfirmationSent(true);
     } catch (error) {
       const { status, retryAfterSeconds } = (error ?? {}) as { status?: number; retryAfterSeconds?: number };
       if (status === 429 && typeof retryAfterSeconds === 'number') {
@@ -112,13 +116,13 @@ export function SignUpRoute(): React.JSX.Element {
     }
     // deps 不含 setFormError：它由下方 useAuthForm 返回，是 React 保证稳定的
     // useState setter（此处若在 deps 引用会命中 TDZ——声明在后）。
-  }, [t]);
+  }, [t, setConfirmationSent]);
 
   const { values, errors, touched, submitting, formError, setFormError, setValue, submit } = useAuthForm<SignUpValues>({
     initialValues: { firstName: '', lastName: '', email: '', password: '', confirmPassword: '', terms: false },
     validate,
     onSubmit,
-    navigateAfterSuccess: true,
+    navigateAfterSuccess: false,
   });
 
   const strength = useMemo(() => computeStrength(values.password), [values.password]);
@@ -134,6 +138,14 @@ export function SignUpRoute(): React.JSX.Element {
         <div className="signup__logo" aria-hidden="true">{t('common.app.name')}</div>
         <h1 className="signup__title">{t('auth.signUp.title')}</h1>
         <p className="signup__subtitle">{t('auth.signUp.subtitle')}</p>
+        {confirmationSent ? (
+          <div className="signup__success" role="status" data-testid="signup-confirmation">
+            <div className="signup__success-message">
+              {t('auth.signUp.confirmationSent', { email: values.email })}
+            </div>
+            <Link className="signup__link" to="/login">{t('auth.signUp.backToLogin')}</Link>
+          </div>
+        ) : (
         <form className="signup__form" onSubmit={handleSubmit} noValidate>
           {formError && (
             <div className="signup__error" role="alert">{formError}</div>
@@ -220,6 +232,7 @@ export function SignUpRoute(): React.JSX.Element {
             <Link className="signup__link" to="/login">{t('auth.signUp.signIn')}</Link>
           </div>
         </form>
+        )}
       </div>
     </AuthPageShell>
   );

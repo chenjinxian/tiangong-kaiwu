@@ -16,8 +16,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import {
   chooseProfileRegionsInViewport,
   disableSnap,
@@ -100,7 +99,7 @@ test.describe('示例 iModel：Postman', () => {
     console.log(`[postman-example] sketch=${sketchId} entities=${exactEntities().length}`);
 
     // 重新加载以让前端同步服务端已提交的精确草图。
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await canvasHub(page);
     const featureList = page.getByTestId('part-studio-feature-list');
@@ -165,7 +164,7 @@ test.describe('示例 iModel：Postman', () => {
       title: '5. 推送到 hub', detail: '示例 changeset 已持久化。',
     });
 
-    await page.reload();
+    await reloadWithFlush(page);
     await canvasHub(page);
     await page.waitForTimeout(4_000);
     await frameStandardView(page, 6, {

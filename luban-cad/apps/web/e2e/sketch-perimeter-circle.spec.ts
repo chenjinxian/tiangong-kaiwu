@@ -7,7 +7,7 @@
  */
 import { expect, test } from '@playwright/test';
 import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
-import { getApiToken, getFeatureTreeRpc, getSketchRpc, openSeedImodelEditor } from './helpers.js';
+import { getApiToken, getFeatureTreeRpc, getSketchRpc, openSeedImodelEditor, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import {
   P,
@@ -75,7 +75,7 @@ test.describe('周边圆工具（Sketch.PerimeterCircle）', () => {
     await finishSketch(page);
     expect((await getFeatureTreeRpc(ctx, token)).some((row) => row.featureType === 'sketch')).toBe(true);
 
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openSeedImodelEditor(page, seed);
     const persisted = await latestSketch(reopened, token);
     expect(persisted.entities.filter((e) => e.kind === 'circle')).toHaveLength(1);

@@ -20,8 +20,7 @@ import { expect, test } from '@playwright/test';
 import type { SketchConstraintDto, SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc, assertFeatureOpOk, borrowWriteLease, getApiToken,
-  getFeatureTreeRpc, getMassPropertiesRpc,
-} from '../helpers.js';
+  getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import {
   chooseProfileRegionsInViewport, dataPoint, disableSnap, frameStandardView, projectWorld,
 } from '../tutorial2-helpers.js';
@@ -128,8 +127,11 @@ async function openExtrude(
     await dialog.getByLabel('深度').fill(options.distance ?? '', { timeout: 10_000 });
   }
   if (options.directionBackward) {
-    await dialog.getByRole('button', { name: '方向', exact: true }).click();
-    await dialog.getByLabel('方向').selectOption('backward', { timeout: 10_000 });
+    // ADR-0017 Stage E：方向为只读复选框，反向由终止行翻转钮承担。
+    const flip = dialog.locator('.part-studio-feature-dialog__direction-flip');
+    await expect(flip).toBeVisible({ timeout: 10_000 });
+    await flip.click({ timeout: 10_000 });
+    await expect(flip).toHaveAttribute('aria-pressed', 'true', { timeout: 10_000 });
   }
   await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 20_000 });
 }
@@ -162,7 +164,7 @@ test.describe('示例 iModel：Sample Assignment', () => {
 
     // ── Sketch 1 → Extrude NEW 6.35 ────────────────────────────────────────
     await insertSketch(ctx, token, SKETCH_1, PLANE_0, 'Sketch 1（外框）');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE);
     await demoShot(page, {
@@ -184,7 +186,7 @@ test.describe('示例 iModel：Sample Assignment', () => {
 
     // ── Sketch 2 → Cut 2 × ⌀11.43 half notches ─────────────────────────────
     await insertSketch(ctx, token, SKETCH_2, PLANE_TOP, 'Sketch 2（⌀11.43）');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_TOP);
     await demoShot(page, {
@@ -201,7 +203,7 @@ test.describe('示例 iModel：Sample Assignment', () => {
 
     // ── Sketch 3 → Cut 2 × ⌀6.35 half notches ──────────────────────────────
     await insertSketch(ctx, token, SKETCH_3, PLANE_TOP, 'Sketch 3（⌀6.35）');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_TOP);
     await demoShot(page, {
@@ -218,7 +220,7 @@ test.describe('示例 iModel：Sample Assignment', () => {
 
     // ── Sketch 4 → Cut the rounded slot ────────────────────────────────────
     await insertSketch(ctx, token, SKETCH_4, PLANE_TOP, 'Sketch 4（圆头槽）');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, RANGE_TOP);
     await demoShot(page, {
@@ -288,7 +290,7 @@ test.describe('示例 iModel：Sample Assignment', () => {
       throw new Error(`倒角拒收: ${await chamferDialog.getByTestId('part-studio-feature-dialog-error').textContent()}`);
     await expect(chamferDialog).toBeHidden({ timeout: 30_000 });
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await page.waitForTimeout(3_000);
     await frameStandardView(page, 6, RANGE, { left: 0.1, right: 0.1, top: 0.1, bottom: 0.1 });
@@ -315,7 +317,7 @@ test.describe('示例 iModel：Sample Assignment', () => {
       title: '13. 推送到 hub', detail: '示例 changeset 已持久化。',
     });
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual([

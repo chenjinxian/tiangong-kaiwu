@@ -13,8 +13,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
@@ -68,7 +67,7 @@ test.describe('Draft UI（ADR-0021 AX-01）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -198,7 +197,7 @@ test.describe('Draft UI（ADR-0021 AX-01）', () => {
     });
 
     await pushExampleChanges(page, 'draft UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'draft']);

@@ -23,8 +23,7 @@ import {
   getFeatureTreeRpc,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import {
   P,
@@ -261,7 +260,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     }).toBeCloseTo(15, 3);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const persisted = await readSketch();
     assertSlotGeometry(persisted, 15);
@@ -365,7 +364,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
 
     // finish + reload：两个槽宽度持久（r15×2 + r5×2；diameter 10/30）。
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const persistedRadii = await arcRadii();
     expect(persistedRadii).toHaveLength(4);
@@ -410,7 +409,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -504,7 +503,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     expect(hasWidened({ x: HUB.x - 15, y: HUB.y })).toBe(true);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const persisted = await readSketch();
     expect(persisted.entities.filter((e) => e.kind === 'line')).toHaveLength(9);
@@ -620,7 +619,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     assertChainSlotGeometry(await readSketch(), centerlineIds, 15);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const persisted = await readSketch();
     assertChainSlotGeometry(persisted, centerlineIds, 15);
@@ -653,7 +652,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -703,7 +702,7 @@ test.describe('草图槽工具（Sketch.Slot，ADR-0022 S2 首切片）', () => 
     assertArcSlotGeometry(await readSketch(), 30, initialConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertArcSlotGeometry(await readSketch(), 30, initialConstraintIds);
   });
@@ -853,7 +852,7 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -916,7 +915,7 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     await expect.poll(innerRadius, { timeout: 20_000, intervals: [1000, 2000, 5000] }).toBeCloseTo(15, 3);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertCircleSlotGeometry(await readSketch(), 30, 30, 2);
   });
@@ -944,7 +943,7 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -1023,7 +1022,7 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
 
     // reload 持久：表达式与几何（25/30/35）保持。
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertCircleSlotGeometry(await readSketch(), 30, 10, 2);
     expect((await readSketch()).constraints.find((c) => c.kind === 'slotWidth')?.expression).toBe('5*2');
@@ -1061,7 +1060,7 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -1150,7 +1149,7 @@ test.describe('草图槽工具：整圆/闭合环（ADR-0023 slotWidth）', () =
     assertRingSlotGeometry(await readSketch(), centerlineIds, 30);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertRingSlotGeometry(await readSketch(), centerlineIds, 30);
   });
@@ -1312,7 +1311,7 @@ test.describe('草图槽工具：多独立线共享单 Ø（ADR-0022 §2.8）', 
     assertMultiSlotGeometry(await readSketch(), centerlineIds, 15, beforeConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertMultiSlotGeometry(await readSketch(), centerlineIds, 15, beforeConstraintIds);
   });
@@ -1346,7 +1345,7 @@ test.describe('草图槽工具：凹多边形闭合环（ADR-0022 §2.9）', () 
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -1424,7 +1423,7 @@ test.describe('草图槽工具：凹多边形闭合环（ADR-0022 §2.9）', () 
     assertRingSlotGeometry(await readSketch(), centerlineIds, 30);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertRingSlotGeometry(await readSketch(), centerlineIds, 30);
   });
@@ -1522,7 +1521,7 @@ test.describe('草图槽工具：线+弧混合链（ADR-0022 §2.10）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -1594,7 +1593,7 @@ test.describe('草图槽工具：线+弧混合链（ADR-0022 §2.10）', () => {
     assertMixedSlotGeometry(await readSketch(), 30, 3, 5, beforeConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertMixedSlotGeometry(await readSketch(), 30, 3, 5, beforeConstraintIds);
   });
@@ -1696,7 +1695,7 @@ test.describe('草图槽工具：单毂分支链（ADR-0022 §2.11）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -1770,7 +1769,7 @@ test.describe('草图槽工具：单毂分支链（ADR-0022 §2.11）', () => {
     assertBranchSlotGeometry(await readSketch(), 30, sourceIds, beforeConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertBranchSlotGeometry(await readSketch(), 30, sourceIds, beforeConstraintIds);
   });
@@ -1869,7 +1868,7 @@ test.describe('草图槽工具：闭合 line+arc 混合环（ADR-0022 §2.12 / v
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -1947,7 +1946,7 @@ test.describe('草图槽工具：闭合 line+arc 混合环（ADR-0022 §2.12 / v
     assertClosedMixedRingGeometry(await readSketch(), 30, beforeConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertClosedMixedRingGeometry(await readSketch(), 30, beforeConstraintIds);
   });
@@ -2027,7 +2026,7 @@ test.describe('草图槽工具：宽缺口分支线树（ADR-0022 §2.11 扩展 
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -2099,7 +2098,7 @@ test.describe('草图槽工具：宽缺口分支线树（ADR-0022 §2.11 扩展 
     assertWideGapTreeSlotGeometry(await readSketch(), 30, beforeConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertWideGapTreeSlotGeometry(await readSketch(), 30, beforeConstraintIds);
   });
@@ -2158,7 +2157,7 @@ test.describe('草图槽工具：多连通分量共享单 Ø（ADR-0022 §2.8 �
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -2228,7 +2227,7 @@ test.describe('草图槽工具：多连通分量共享单 Ø（ADR-0022 §2.8 �
     assertComponentsSlotGeometry(await readSketch(), 30, beforeConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertComponentsSlotGeometry(await readSketch(), 30, beforeConstraintIds);
   });
@@ -2272,7 +2271,7 @@ test.describe('草图槽工具：slotWidth 变量驱动（ADR-0020 S2r / ADR-002
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, sketchLease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const variableRow = page.getByTestId('tree-variable-v-w');
     await expect(variableRow).toContainText('#w = 10 mm', { timeout: 60_000 });
@@ -2348,7 +2347,7 @@ test.describe('草图槽工具：slotWidth 变量驱动（ADR-0020 S2r / ADR-002
     const relabel = page.locator(`[data-testid="sketch-dimension-label"][data-constraint-id="${slot.id}"]`);
     await expect(relabel).toHaveAttribute('data-text', 'ƒ 30', { timeout: 30_000 });
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertCircleSlotGeometry(await readSketch(), 30, 30, 2);
     expect((await readSketch()).constraints.find((c) => c.kind === 'slotWidth')?.expression).toBe('#w*2');
@@ -2427,7 +2426,7 @@ test.describe('草图槽工具：含圆弧的混合线树（ADR-0022 §2.15 / S2
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -2496,7 +2495,7 @@ test.describe('草图槽工具：含圆弧的混合线树（ADR-0022 §2.15 / S2
     assertArcBranchSlotGeometry(await readSketch(), 15, beforeConstraintIds);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertArcBranchSlotGeometry(await readSketch(), 15, beforeConstraintIds);
   });
@@ -2565,7 +2564,7 @@ test.describe('草图槽工具：多弧臂混合线树（ADR-0022 §2.15 扩展 
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -2655,7 +2654,7 @@ test.describe('草图槽工具：多弧臂混合线树（ADR-0022 §2.15 扩展 
     assertGeometry(await readSketch(), 15);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertGeometry(await readSketch(), 15);
   });
@@ -2714,7 +2713,7 @@ test.describe('草图槽工具：纯弧臂线树（ADR-0022 §2.15 扩展 / S2u3
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -2804,7 +2803,7 @@ test.describe('草图槽工具：纯弧臂线树（ADR-0022 §2.15 扩展 / S2u3
     assertGeometry(await readSketch(), 15);
 
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     assertGeometry(await readSketch(), 15);
   });
@@ -2846,7 +2845,7 @@ test.describe('草图槽工具：粘滞宽度回退（review finding 1）', () =
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -2942,7 +2941,7 @@ test.describe('草图槽工具：粘滞宽度回退（review finding 1）', () =
 
     // ④ finish + reload 持久（回退宽度 20 已提交）。
     await finishSketch(page);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const persisted = await readSketch();
     expect(persisted.entities.filter((e) => e.kind === 'circle').length).toBe(3);

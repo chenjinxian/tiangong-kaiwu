@@ -20,8 +20,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -75,7 +74,7 @@ test.describe('Feature mirror UI（ADR-0011 切片 4）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -123,7 +122,9 @@ test.describe('Feature mirror UI（ADR-0011 切片 4）', () => {
       '凸台拉伸',
     );
 
-    await page.reload();
+    // C2 per-session briefcase：reload 前先落库，避免新会话空树。
+    await pushExampleChanges(page, 'feature mirror UI pre-reload');
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await page.getByRole('button', { name: '镜像', exact: true }).click({ timeout: 30_000 });
     const dialog = page.getByTestId('part-studio-feature-dialog');
@@ -164,7 +165,7 @@ test.describe('Feature mirror UI（ADR-0011 切片 4）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'feature mirror UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(TREE_TYPES);

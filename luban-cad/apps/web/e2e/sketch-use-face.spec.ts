@@ -27,8 +27,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 function centeredRectangleSketch(width: number, height: number): {
@@ -138,7 +137,7 @@ async function openUseFaceScene(
     try {
       return await openSeedImodelEditor(page, seed);
     } catch {
-      await page.reload();
+      await reloadWithFlush(page);
       return await openSeedImodelEditor(page, seed);
     }
   };
@@ -174,7 +173,7 @@ async function openUseFaceScene(
   assertFeatureOpOk(targetSketch, '目标草图 @z=10');
   await releaseWriteLease(ctx, lease, token);
 
-  await page.reload();
+  await reloadWithFlush(page);
   ctx = await openWithRetry();
   const row = page.getByTestId(`tree-row-${targetSketch.featureId!}`);
   await expect(row).toBeVisible({ timeout: 60_000 });

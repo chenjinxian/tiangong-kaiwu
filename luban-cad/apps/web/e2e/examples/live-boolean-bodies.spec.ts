@@ -6,7 +6,7 @@
  * 标准 booleanBodies FeatureOp 的完整通道。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -87,7 +87,7 @@ test.describe('live booleanBodies 通道', () => {
     expect(Math.abs(volume - 4500) / 4500).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'live booleanBodies smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

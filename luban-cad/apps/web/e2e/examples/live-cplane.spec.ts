@@ -6,7 +6,7 @@
  * 草图按名引用平面快照（sourceFeatureId）与冷重开。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -73,7 +73,7 @@ test.describe('live cPlane 通道', () => {
     expect(result.mass[0]?.centroid.z).toBeCloseTo(15, 3);
 
     await pushExampleChanges(page, 'live cPlane smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

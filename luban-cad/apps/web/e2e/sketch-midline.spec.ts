@@ -13,8 +13,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import {
   P,
@@ -59,7 +58,7 @@ test.describe('草图中点线（Sketch.Midline）', () => {
     assertFeatureOpOk(created, '草图');
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });

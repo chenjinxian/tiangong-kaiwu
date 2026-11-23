@@ -48,6 +48,78 @@ const SHARE_USER = {
   lastName: 'B',
 } as const;
 
+// B1.1 起 `/auth/email/register` 只创建 inactive 账号并发送确认邮件；旧写法
+// “注册后直接登录”必然 401。Maildev 的 HTTP API 在宿主 127.0.0.1:1080
+// （compose `maildev.ports`），测试进程读取确认链接里的 hash 后调用
+// `/auth/email/confirm` 完成激活。可用 E2E_MAILDEV_URL 覆盖。
+const MAILDEV_URL = process.env.E2E_MAILDEV_URL ?? 'http://127.0.0.1:1080';
+
+interface MaildevEmail {
+  id?: string | number;
+  time?: string;
+  to?: Array<{ address?: string }>;
+  subject?: string;
+  text?: string;
+  html?: string;
+}
+
+function maildevRecipient(email: MaildevEmail): string[] {
+  return (email.to ?? []).map((to) => (to.address ?? '').toLowerCase()).filter(Boolean);
+}
+
+function extractConfirmHash(email: MaildevEmail): string | null {
+  const text = `${email.text ?? ''}\n${email.html ?? ''}`;
+  const match = /[?&](?:amp;)?hash=([^&"'\s<>]+)/.exec(text);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
+/** 轮询 Maildev 取该邮箱最近一封带确认 hash 的邮件，完成账号激活。 */
+async function confirmRegisteredEmail(
+  request: APIRequestContext,
+  email: string,
+  sentAfterMs: number,
+): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  let lastError = 'Maildev 未返回邮件';
+  while (Date.now() < deadline) {
+    const inbox = await request.get(`${MAILDEV_URL}/api/email`).catch(() => null);
+    if (inbox?.ok()) {
+      const emails = (await inbox.json().catch(() => [])) as MaildevEmail[];
+      const candidates = emails
+        .filter((mail) => maildevRecipient(mail).includes(email.toLowerCase()))
+        .filter((mail) => {
+          const sentAt = mail.time ? Date.parse(mail.time) : Number.NaN;
+          return Number.isNaN(sentAt) || sentAt >= sentAfterMs - 5_000;
+        })
+        .sort((a, b) => {
+          const at = a.time ? Date.parse(a.time) : 0;
+          const bt = b.time ? Date.parse(b.time) : 0;
+          return bt - at;
+        });
+      for (const mail of candidates) {
+        const hash = extractConfirmHash(mail);
+        if (!hash) continue;
+        const confirmed = await request.post('/auth/email/confirm', { data: { hash } });
+        if (confirmed.ok()) return;
+        lastError = `确认接口 HTTP ${confirmed.status()}：${(await confirmed.text()).slice(0, 200)}`;
+        break;
+      }
+      if (candidates.length > 0) lastError = '确认邮件里没有可用的 hash';
+    } else {
+      lastError = `Maildev 不可达（${MAILDEV_URL}）：${inbox ? `HTTP ${inbox.status()}` : '连接失败'}`;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(
+    `${email} 注册后等待确认邮件超时：${lastError}——测试栈需发布 Maildev 1080（compose maildev.ports）`,
+  );
+}
+
 /**
  * 未注册邀请目标：永不注册；**每轮唯一**（hub 成员删除为软删，且
  * `@Unique(iTwinId,userId)` 不排除软删行——复用同一 email 再邀请会 500
@@ -136,7 +208,9 @@ async function registerRequest(
 
 /**
  * 取 B 用户独立会话：缓存 access token 有效 → 直接复用；过期 → refresh；
- * refresh 失效 → 登录；登录报「邮箱不存在」→ 注册一次再登录。
+ * refresh 失效 → 登录；登录失败 → 注册一次（B1.1：注册为 inactive）→ 从
+ * Maildev 取确认邮件激活 → 再登录。已有但未激活的旧账号无法重发确认邮件，
+ * 此时显式报错而不是把 401 当产品失败。
  * 429 一律显式抛错（不把限流伪装成产品失败，也不在限流下继续注册）。
  */
 async function getShareUserSession(request: APIRequestContext): Promise<ShareUserSession> {
@@ -181,6 +255,7 @@ async function getShareUserSession(request: APIRequestContext): Promise<ShareUse
     );
   }
   if (login.status !== 200) {
+    const registerStartedAt = Date.now();
     const registered = await registerRequest(request);
     if (registered.status === 429) {
       throw new Error(
@@ -189,9 +264,12 @@ async function getShareUserSession(request: APIRequestContext): Promise<ShareUse
     }
     if (registered.status !== 204) {
       throw new Error(
-        `B 用户不存在且注册失败（HTTP ${registered.status}）：${registered.text.slice(0, 200)}`,
+        `B 用户不存在且注册失败（HTTP ${registered.status}）：${registered.text.slice(0, 200)}` +
+          '——若为 422 且账号已存在，说明该固定账号仍是 B1.1 之前的未激活残留；' +
+          '请删除该测试账号后重跑（注册→Maildev 确认的激活路径已覆盖全新栈）',
       );
     }
+    await confirmRegisteredEmail(request, SHARE_USER.email, registerStartedAt);
     login = await loginRequest(request, SHARE_USER.email, SHARE_USER.password);
     if (login.status === 429) {
       throw new Error(

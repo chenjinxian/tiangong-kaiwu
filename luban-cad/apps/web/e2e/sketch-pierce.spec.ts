@@ -38,8 +38,7 @@ import {
   getSketchRpc,
   msRpc,
   type BSeedEditorContext,
-  type WriteLease,
-} from './helpers.js';
+  type WriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 import { readBodyEdgeHandles, type EdgeHandle } from './examples/replay/edge-resolver.js';
@@ -227,7 +226,7 @@ test.describe('草图外部引用 S2（PIERCE 真栈）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -365,7 +364,7 @@ test.describe('草图外部引用 S2（PIERCE 真栈）', () => {
 
     // 4) push + 冷重开：PIERCE 是读时派生，冷重建后仍 ok/坐标 30,0/面积 150/体积 600。
     await pushExampleChanges(page, 'sketch pierce acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expectVolume(box.bodyKey, 6000);
     await expectVolume(consumerBody.bodyKey, 600);
@@ -401,7 +400,7 @@ test.describe('草图外部引用 S2（PIERCE 真栈）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };

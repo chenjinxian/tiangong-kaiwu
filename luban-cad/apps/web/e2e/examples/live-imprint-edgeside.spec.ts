@@ -7,7 +7,7 @@
  * 单一实现（+1=left / −1=right），此处验证 live runner 的接线与冷重开。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -63,7 +63,7 @@ test.describe('live imprintRegions edgeSide', () => {
     expect(Math.abs(centroidX - 5)).toBeLessThan(0.01);
 
     await pushExampleChanges(page, 'live imprint edgeSide smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

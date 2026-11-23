@@ -14,8 +14,7 @@ import {
   assertFeatureOpOk,
   borrowWriteLease,
   getApiToken,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -68,7 +67,7 @@ test.describe('mirror 任意世界平面（ADR-0011 切片 1）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -146,7 +145,7 @@ test.describe('mirror 任意世界平面（ADR-0011 切片 1）', () => {
     expect(result.centroid.y).toBeCloseTo(1, 3);
 
     await pushExampleChanges(page, 'mirror planeLine acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     const reopened = await mass();
     expect(reopened.volume).toBeCloseTo(16, 3);

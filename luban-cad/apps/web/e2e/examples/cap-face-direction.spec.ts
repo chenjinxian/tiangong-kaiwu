@@ -21,8 +21,7 @@ import {
   getBodiesRpc,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  msRpc,
-} from '../helpers.js';
+  msRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 
@@ -82,7 +81,7 @@ test.describe('faceExtrude 产品面法向符号（S3 review）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -181,7 +180,7 @@ test.describe('faceExtrude 产品面法向符号（S3 review）', () => {
     expect(Math.abs(volume - 15_000)).toBeLessThan(75);
 
     await pushExampleChanges(page, 'S3 inward product-normal direction acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const reopenedTree = await getFeatureTreeRpc(reopened, token);
     expect(reopenedTree.every((row) => row.status === 0)).toBe(true);

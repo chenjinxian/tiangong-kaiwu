@@ -9,8 +9,7 @@ import { expect, test } from '@playwright/test';
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 import { runScenario } from './replay/run.js';
@@ -111,7 +110,7 @@ test.describe('transform 多体目标回放真栈验收', () => {
       expect(Math.abs(item.volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.01);
 
     await pushExampleChanges(page, 'transform target multi-body');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual([

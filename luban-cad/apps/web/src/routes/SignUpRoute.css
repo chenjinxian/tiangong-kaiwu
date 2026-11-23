@@ -42,6 +42,22 @@
   border: 1px solid var(--iui-color-border-negative);
 }
 
+/* 注册成功但账号待邮箱确认：替换表单，避免误认为已登录。 */
+.signup__success {
+  display: grid;
+  gap: var(--lx-size-m, 16px);
+  padding: 16px;
+  border-radius: var(--lx-radius, 2px);
+  font-size: var(--lx-font-size-body, 13px);
+  color: var(--iui-color-text-positive);
+  background: var(--iui-color-background-positive);
+  border: 1px solid var(--iui-color-border-positive);
+}
+
+.signup__success-message {
+  margin: 0;
+}
+
 /* 强度条：四段式，段色与文案同色（语义 token 随强度档位切换）。 */
 .signup__strength {
   display: grid;

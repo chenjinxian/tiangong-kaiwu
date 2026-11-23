@@ -19,8 +19,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import {
   chooseProfileRegionsInViewport,
   disableSnap,
@@ -157,7 +156,7 @@ test.describe('示例 iModel：WARNING LABEL', () => {
 
     // ── Sketch 3 → Extrude NEW ─────────────────────────────────────────────
     await insertSketch(ctx, token, SKETCH_BASE, 'Sketch 3（底座）');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, {
       low: { x: -0.2, y: -0.2, z: -0.02 }, high: { x: 0.2, y: 0.2, z: 0.02 },
@@ -175,7 +174,7 @@ test.describe('示例 iModel：WARNING LABEL', () => {
 
     // ── Sketch 2（仅轮廓，不拉伸） ──────────────────────────────────────────
     await insertSketch(ctx, token, SKETCH_LABEL, 'Sketch 2（标签轮廓）');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, {
       low: { x: -18, y: -12, z: -2 }, high: { x: 18, y: 18, z: 2 },
@@ -188,7 +187,7 @@ test.describe('示例 iModel：WARNING LABEL', () => {
 
     // ── Sketch 1 → Extrude ADD ─────────────────────────────────────────────
     await insertSketch(ctx, token, SKETCH_PANEL, 'Sketch 1（标签面板）');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await openNewestSketch(page, {
       low: { x: -16, y: -10, z: -2 }, high: { x: 16, y: 10, z: 2 },
@@ -233,7 +232,7 @@ test.describe('示例 iModel：WARNING LABEL', () => {
       title: '8. 推送到 hub', detail: '示例 changeset 已持久化。',
     });
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'sketch', 'extrude']);

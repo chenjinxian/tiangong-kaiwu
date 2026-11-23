@@ -15,8 +15,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { openSeedImodelEditor } from './helpers.js';
 import { pushExampleChanges } from './examples/imodel.js';
@@ -73,7 +72,7 @@ test.describe('Extrude 成形到顶点 UI（Stage G1）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -114,7 +113,7 @@ test.describe('Extrude 成形到顶点 UI（Stage G1）', () => {
     );
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
 
     // ── UI 拉伸：移除 + 成形到顶点 + 目标顶点 ─────────────────────────────
@@ -145,7 +144,7 @@ test.describe('Extrude 成形到顶点 UI（Stage G1）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'extrude upToVertex UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.every((row) => row.status === 0)).toBe(true);

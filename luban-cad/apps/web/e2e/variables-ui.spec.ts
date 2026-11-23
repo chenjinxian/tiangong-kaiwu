@@ -50,8 +50,7 @@ import {
   getSketchRpc,
   getVariablesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { setStandardView } from './tutorial2-helpers.js';
 import { pushExampleChanges } from './examples/imodel.js';
@@ -114,7 +113,7 @@ test.describe('ADR-0020 S3b Part Studio 变量 UI（真栈）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };
@@ -148,7 +147,9 @@ test.describe('ADR-0020 S3b Part Studio 变量 UI（真栈）', () => {
     }
 
     // 2) 词库/树桥就绪后重开：变量命令 → 新建 width=10（长度）。
-    await page.reload();
+    // C2 per-session briefcase：reload 前先落库，否则新会话空树。
+    await pushExampleChanges(page, 'variables UI pre-reload');
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toBeVisible({ timeout: 60_000 });
 
@@ -296,7 +297,7 @@ test.describe('ADR-0020 S3b Part Studio 变量 UI（真栈）', () => {
 
     // 8) push + 冷重开：变量表（宽度/高度表达式）与树行/几何保持。
     await pushExampleChanges(page, 'variables UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId('part-studio-variable-list')).toContainText('#width = 20 mm', {
       timeout: 60_000,

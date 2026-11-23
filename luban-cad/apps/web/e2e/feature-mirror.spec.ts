@@ -5,7 +5,7 @@
  * 镜像孔 (30,20)：去材 2×90π → 期望 16000−180π ≈ 15434.513 mm³；push+重开一致。
  */
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from './helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 import { runScenario } from './examples/replay/run.js';
@@ -158,7 +158,7 @@ test.describe('featureMirror（合成全链）', () => {
     let ctx = await openExampleEditor(page, ids);
     await runScenario(ctx, featureMirrorScenario(), token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     let tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'featureMirror']);
@@ -173,7 +173,7 @@ test.describe('featureMirror（合成全链）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'featureMirror acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'featureMirror']);
@@ -192,7 +192,7 @@ test.describe('featureMirror（合成全链）', () => {
       'sketch', 'extrude', 'sketch', 'extrude', 'sketch', 'extrude', 'featureMirror',
     ]);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     let tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual([
@@ -209,7 +209,7 @@ test.describe('featureMirror（合成全链）', () => {
     expect(Math.abs(volume - EXPECTED_MULTI_VOLUME_MM3) / EXPECTED_MULTI_VOLUME_MM3).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'featureMirror multi-source acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual([

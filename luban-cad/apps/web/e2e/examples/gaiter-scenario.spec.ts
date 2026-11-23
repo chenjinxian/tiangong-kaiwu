@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 import { DEFAULT_DATA_ROOT, isExampleDataAvailable } from './registry.js';
@@ -56,7 +56,7 @@ test.describe('Gaiter scenario rebuild', () => {
     expect(shellStep?.notes.join(' ')).toContain('shell faces=');
     expect(built.notes.some((note) => note.includes('constraints=dropped'))).toBe(true);
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(EXPECTED_TREE);
@@ -68,7 +68,7 @@ test.describe('Gaiter scenario rebuild', () => {
     expect(Math.abs(volume - EXPECTED_TOTAL_MM3) / EXPECTED_TOTAL_MM3).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'Gaiter shell end-face scenario');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));

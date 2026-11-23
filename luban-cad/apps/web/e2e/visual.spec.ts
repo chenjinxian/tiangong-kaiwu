@@ -190,13 +190,17 @@ test('视觉钉版：文档中心网格（亮色，flag-on B/A 双区）', async
   await expect(projects.getByRole('button', { name: VISUAL_A_PROJECT })).toHaveCount(0);
   await expect(legacyBody.locator('.document-tile')).toHaveCount(1);
   await expect(projects.locator('.documents-projects__row')).toHaveCount(1);
-  // 夹具每轮新建：tile「修改于」日期随日漂移——遮蔽日期文本（白底 mask
-  // 与卡片同色，只去日期不遮整卡）。
+  // 夹具每轮新建：tile 与 Projects 行的「修改于」日期都随日漂移——两处都遮蔽
+  // （白底 mask 与卡片同色，只去日期不遮整卡）。B 夹具以 Project 行渲染后，
+  // 其日期在 `.documents-projects__modified`，不在旧 tile mask 范围内
+  //（2026-11-23 实测 89px 日期漂移 diff 的唯一来源）。
   const modifiedLabels = page.locator('.document-tile').getByText(/^修改于/);
   await expect(modifiedLabels).toHaveCount(1);
+  const projectModified = projects.locator('.documents-projects__modified');
+  await expect(projectModified).toHaveCount(1);
   await settleFonts(page);
   await expect(page).toHaveScreenshot('documents-grid-light.png', {
-    mask: await modifiedLabels.all(),
+    mask: [...(await modifiedLabels.all()), ...(await projectModified.all())],
     maskColor: 'rgb(255, 255, 255)',
   });
 });
@@ -258,9 +262,15 @@ test('视觉钉版：编辑器五区 A 只读态（亮色，画布 mask）', asy
   await expect(page.getByTestId('part-studio-part-count')).toHaveText('(0)', {
     timeout: 60_000,
   });
+  // Onshape 语义：零件数 (0) 时不渲染「暂无零件」占位行（FeatureTree.tsx
+  // count===0 抑制；PartStudioPage/FeatureTree 单测同口径）。旧「暂无零件可见」
+  // 断言是占位行时代的陈旧合同；改为「空零件段无任何体行」。
   await expect(
     page.getByTestId('part-studio-part-list').getByText('暂无零件'),
-  ).toBeVisible({ timeout: 60_000 });
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId('part-studio-part-list').locator('.part-studio-tree-row'),
+  ).toHaveCount(0);
   await settleFonts(page);
   await expect(page).toHaveScreenshot('editor-read-only-light.png', {
     // 编辑器可能叠加多个 canvas（主视口/选区/网格覆盖层）；全部 mask，视觉门只钉 UI 铬。
@@ -287,8 +297,10 @@ test('视觉钉版：编辑器五区 B 默认页签（亮色，画布 mask）', 
   const activeTab = tabStrip.getByRole('tab', { name: 'Part Studio 1' });
   await expect(activeTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('part-studio-viewport').locator('canvas').first()).toBeVisible();
-  // P2.6c2 F3：连接级可写位显式断言；零件段（getBodies 异步读面）落定后再截图
-  // ——快照声明 `零件 (1) Body 1`，未等待时慢栈可能截到 `零件 (0) / 暂无零件`。
+  // P2.6c2 F3：连接级可写位显式断言；零件段（getBodies 异步读面）落定后再截图。
+  // ADR-0017：空 Part Studio 的后端 init BodySolid 占位体不进入 UI 投影——
+  // 干净 B 种子的真实口径是 `零件 (0)` 且无 Body 行（旧基线 `(1) Body 1`
+  // 是占位体透传时代的陈旧钉面）。
   const bInfo = await readOpenBriefcaseInfo(page);
   expect(bInfo.key, 'B 文档应打开 briefcase').toBeTruthy();
   expect(bInfo.isReadonly, 'B 文档连接应为可写').toBe(false);
@@ -300,12 +312,15 @@ test('视觉钉版：编辑器五区 B 默认页签（亮色，画布 mask）', 
   await expect(
     page.getByTestId('part-studio-feature-list').getByText('暂无特征'),
   ).toHaveCount(0);
-  await expect(page.getByTestId('part-studio-part-count')).toHaveText('(1)', {
+  await expect(page.getByTestId('part-studio-part-count')).toHaveText('(0)', {
     timeout: 60_000,
   });
   await expect(
     page.getByTestId('part-studio-part-list').getByRole('button', { name: 'Body 1', exact: true }),
-  ).toBeVisible({ timeout: 60_000 });
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId('part-studio-part-list').locator('.part-studio-tree-row'),
+  ).toHaveCount(0);
   await settleFonts(page);
   await expect(page).toHaveScreenshot('editor-b-default-light.png', {
     mask: await page.getByTestId('part-studio-viewport').locator('canvas').all(),

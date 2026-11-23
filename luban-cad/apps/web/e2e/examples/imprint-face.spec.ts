@@ -8,7 +8,7 @@
  * 本 spec 会暴露回退（树仍是 extrude）。
  */
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 import { resolveImprintFaceRef } from './replay/imprint-face-resolver.js';
@@ -98,7 +98,7 @@ test.describe('imprintFace A1（整面匹配 → faceExtrude）', () => {
     ]);
     expect(built.steps.at(-1)?.notes.some((note) => note.includes('imprintFace→实体面'))).toBe(true);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     let tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'faceExtrude']);
@@ -108,7 +108,7 @@ test.describe('imprintFace A1（整面匹配 → faceExtrude）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'imprintFace A1 faceExtrude acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'faceExtrude']);

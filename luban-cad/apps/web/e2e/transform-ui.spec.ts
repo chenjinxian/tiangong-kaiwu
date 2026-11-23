@@ -16,8 +16,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -72,7 +71,7 @@ test.describe('Transform UI（ADR-0010）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -181,7 +180,7 @@ test.describe('Transform UI（ADR-0010）', () => {
     expect(tree[2]?.params).not.toHaveProperty('copy');
 
     await pushExampleChanges(page, 'transform UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'transform']);

@@ -20,8 +20,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 function rectangleSketch(width: number, height: number, x0 = 0, y0 = 0): { entities: SketchEntityDto[]; constraints: SketchConstraintDto[] } {
@@ -119,7 +118,7 @@ test.describe('草图创建对话框 Onshape 对齐（f4/f5）', () => {
       '盒体拉伸',
     );
     await releaseWriteLease(ctx, lease, token);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const sketchCount = async (): Promise<number> =>
       (await getFeatureTreeRpc(ctx, token)).filter((row) => row.featureType === 'sketch').length;

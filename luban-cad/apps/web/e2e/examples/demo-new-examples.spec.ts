@@ -9,7 +9,7 @@
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor } from './imodel.js';
 import { DEFAULT_DATA_ROOT, isExampleDataAvailable } from './registry.js';
@@ -107,7 +107,7 @@ test.describe('新严格绿示例演示素材采集', () => {
       const raw = JSON.parse(readFileSync(scenarioPath, 'utf8')) as ParityScenario;
       await runScenario(ctx, raw, token, { skipSketchConstraints: true });
 
-      await page.reload();
+      await reloadWithFlush(page);
       await openExampleEditor(page, ids);
       const tree = await getFeatureTreeRpc(ctx, token);
       const mass = await getMassPropertiesRpc(ctx, token);

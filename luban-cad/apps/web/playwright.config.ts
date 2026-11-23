@@ -47,6 +47,11 @@ export default defineConfig({
     locale: 'zh-CN',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+    // Playwright actions default to no timeout (0). A missing/renamed control
+    // then hangs until the whole-test budget, masking a fast, actionable
+    // contract failure and stalling the whole file/chunk. 30s is above the
+    // slowest observed UI action but bounded.
+    actionTimeout: 30_000,
   },
 
   /* 视觉钉版基线（M5-T6，visual.spec.ts）：快照落 e2e/__screenshots__/

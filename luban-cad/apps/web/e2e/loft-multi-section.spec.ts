@@ -14,8 +14,7 @@ import {
   getMassPropertiesRpc,
   getFeatureTreeRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 function rectangleSketch(width: number, height: number): { entities: SketchEntityDto[]; constraints: SketchConstraintDto[] } {
@@ -72,7 +71,7 @@ test.describe('多截面 loft（shared v1.69）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -130,7 +129,7 @@ test.describe('多截面 loft（shared v1.69）', () => {
     await releaseWriteLease(ctx, lease, token);
 
     // 冷重开：树行 status=0、零件体积 4,000 mm³。
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${loftId}`)).toBeVisible({ timeout: 60_000 });
     const rows = await getFeatureTreeRpc(ctx, token);

@@ -31,8 +31,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { activate, clickBlank, dataPoint, projectWorld, setStandardView } from './tutorial2-helpers.js';
 
@@ -119,7 +118,7 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -133,7 +132,7 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });
@@ -478,7 +477,7 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -498,7 +497,7 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });
@@ -541,7 +540,7 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };
@@ -555,7 +554,7 @@ test.describe('草图尺寸双击改值（ADR-0018 S1e）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });

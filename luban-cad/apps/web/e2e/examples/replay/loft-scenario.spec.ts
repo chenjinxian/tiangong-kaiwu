@@ -16,8 +16,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../imodel.js';
 import { runScenario } from './run.js';
@@ -167,7 +166,7 @@ test.describe('loft scenario（通用 channel）', () => {
     expect(Math.abs(volumes[0]! - FRUSTUM_VOLUME_MM3)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'loft frustum scenario acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     const reopenedTree = await getFeatureTreeRpc(ctx, token);
     expect(reopenedTree.map((row) => row.featureType)).toEqual(['sketch', 'sketch', 'loft']);
@@ -205,7 +204,7 @@ test.describe('loft scenario（通用 channel）', () => {
     expect(Math.abs(volumes[1]! - 8000)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'loft multi-body anchor acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     expect((await getFeatureTreeRpc(ctx, token)).every((row) => row.status === 0)).toBe(true);
     const reopenedBodies = (await getBodiesRpc(ctx, token))

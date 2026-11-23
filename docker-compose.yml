@@ -91,14 +91,20 @@ services:
     networks: [stack]
 
   maildev:
-    # HUB 的 SMTP 出口（内网栈内自足；无需对外暴露）
+    # HUB 的 SMTP 出口（内网栈内自足）。只绑定回环：e2e 需要读取注册确认邮件
+    # 完成账号激活（B1.1 注册默认 inactive），Maildev 的 HTTP API/UI 在 1080；
+    # 不对外暴露，仅供本机测试进程访问。
     image: maildev/maildev:latest
+    ports:
+      - "127.0.0.1:${MAIL_CLIENT_PORT:-1080}:1080"
     restart: unless-stopped
     networks: [stack]
 
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
-    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    # --location /data 必填：镜像 WORKDIR 是 /opt/azurite，不指定时数据写容器层，
+    # 命名卷挂载形同虚设（2026-11-22 迁移演练实证：/data 为空、容器重建即丢 blob）。
+    command: azurite --location /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
     environment:
       AZURITE_ACCOUNT_NAME: devstoreaccount1
       # 与根 .env 同源注入（缺省 Azurite well-known key）

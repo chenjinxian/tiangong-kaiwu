@@ -24,8 +24,7 @@ import {
   borrowWriteLease,
   getApiToken,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { finishSketch } from './tutorial2-helpers.js';
 
@@ -81,7 +80,7 @@ test.describe('W45 S15：草图打开态树菜单变体', () => {
     const sketchBId = createdB.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const rowA = page.getByTestId(`tree-row-${sketchAId}`);
     const rowB = page.getByTestId(`tree-row-${sketchBId}`);
@@ -223,7 +222,7 @@ test.describe('W47 S17：关闭态特征行菜单', () => {
     const extrudeId = createdExtrude.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openSeedImodelEditor(page, seed);
     const featureRow = page.getByTestId(`tree-row-${extrudeId}`);
     await expect(featureRow).toBeVisible({ timeout: 60_000 });

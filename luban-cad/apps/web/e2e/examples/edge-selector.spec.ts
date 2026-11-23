@@ -16,8 +16,7 @@ import { expect, test } from '@playwright/test';
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import {
   ensureExampleImodel,
@@ -129,7 +128,7 @@ test.describe('T2 edge selector replay', () => {
     // 边解析必须真的发生（不允许空 refs 冒充通过）。
     expect(built.notes.some((note) => note.includes('edgeResolver=Chamfer 1'))).toBe(true);
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'chamfer']);
@@ -146,7 +145,7 @@ test.describe('T2 edge selector replay', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.02);
 
     await pushExampleChanges(page, 'T2 edge selector replay');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));
@@ -190,7 +189,7 @@ test.describe('T2 edge selector replay', () => {
     expect(imprintStep?.notes.join(' ')).toContain('有向边左/右侧精确选择');
     expect(built.notes.some((note) => note.includes('edgeResolver=Chamfer 1'))).toBe(true);
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'extrude', 'chamfer']);
@@ -202,7 +201,7 @@ test.describe('T2 edge selector replay', () => {
     expect(Math.abs(volume - expected) / expected).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'T2/T4 iOS imprint + cap edge');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));

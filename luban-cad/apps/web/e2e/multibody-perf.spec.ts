@@ -20,8 +20,7 @@ import {
   getApiToken,
   msRpc,
   openSeedImodelEditor,
-  waitEditorReady,
-} from './helpers';
+  waitEditorReady, reloadWithFlush } from './helpers';
 import { resetBModelSeed } from './seed';
 
 const N = Number(process.env.PERF_MULTIBODY_N ?? 20);
@@ -83,7 +82,7 @@ test('多体基线：tree/edit/fit/FPS/tile（opt-in）', async ({ page, request
 
   const partList = page.getByTestId('part-studio-part-list');
   const treeStart = Date.now();
-  await page.reload();
+  await reloadWithFlush(page);
   await waitEditorReady(page);
   await expect.poll(async () => partList.locator('.part-studio-tree-row').count(),
     { timeout: 90_000 }).toBe(N);

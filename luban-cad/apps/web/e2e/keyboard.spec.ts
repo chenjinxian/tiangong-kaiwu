@@ -68,15 +68,23 @@ test('纯键盘：Tab 到创建 → 建文档（焦点路径断言）', async ({
   await page.keyboard.type(KEYBOARD_DOC_NAME);
   await expect(dialog.getByPlaceholder('输入文档名称')).toHaveValue(KEYBOARD_DOC_NAME);
 
-  // Tab 走焦到提交钮（名称→编号→取消→创建）→ Enter 提交
-  await focusViaTab(page, dialog.getByRole('button', { name: '创建', exact: true }));
+  // Tab 走焦到提交钮（名称→编号→取消→创建公开文档）→ Enter 提交。
+  // Free 订阅仅允许公开数据，CreateDocumentDialog 的提交文案为「创建公开文档」
+  //（i18n documents.createDocument.submit；旧「创建」已不存在——当前 UI 契约）。
+  await focusViaTab(page, dialog.getByRole('button', { name: '创建公开文档', exact: true }));
   await page.keyboard.press('Enter');
 
-  // 建成：对话框收合 + 文档落「我的文档」列表
+  // 建成：对话框收合 + 文档落文档中心 Projects 区（当前 IA：新建文档以 Project
+  // 行呈现；「由我所有」表格保留 A 旧文档投影，不再是新文档的唯一/必然落点）。
+  // 作用域限定 projects-section——recent 卡是同一文档的第二投影，全局
+  // getByRole 会 strict 双命中。
   await expect(dialog).toBeHidden({ timeout: 20_000 });
-  await expect(page.getByRole('button', { name: KEYBOARD_DOC_NAME })).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(
+    page.getByTestId('projects-section').getByRole('button', {
+      name: KEYBOARD_DOC_NAME,
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 20_000 });
 });
 
 test('纯键盘：开 iModel 进编辑器 → alt+/ 真激活倒角 → Escape 分层', async ({ page, request }) => {

@@ -34,8 +34,7 @@ import {
   getMassPropertiesRpc,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { activate, clickBlank, dataPoint, projectWorld, setStandardView } from './tutorial2-helpers.js';
 
@@ -110,7 +109,7 @@ test.describe('ADR-0020 S2 草图尺寸表达式 UI（真栈）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -163,7 +162,7 @@ test.describe('ADR-0020 S2 草图尺寸表达式 UI（真栈）', () => {
     }
 
     // 4) 打开方形草图（词库/树桥就绪后双击树行）。
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });

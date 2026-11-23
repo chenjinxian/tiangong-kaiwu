@@ -13,8 +13,7 @@ import type { FeatureOp, SketchConstraintDto, SketchEntityDto } from '@luban-cad
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor } from './imodel.js';
 import { runScenario } from './replay/run.js';
@@ -98,7 +97,7 @@ test.describe('shell 移除面真栈验收', () => {
       try {
         return await openExampleEditor(page, target);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, target);
       }
     };
@@ -120,7 +119,7 @@ test.describe('shell 移除面真栈验收', () => {
     console.log(`[shell-face] volume=${volume.toFixed(3)} expected=${EXPECTED_VOLUME_MM3.toFixed(3)}`);
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.01);
 
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openWithRetry({ itwinId: ids.itwinId, imodelId: ids.imodelId });
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'revolve', 'shell']);
@@ -230,7 +229,7 @@ test.describe('shell capFace 多体真栈验收', () => {
     expect(Math.abs(volumes[0]! - EXPECTED_SHELLED_MM3) / EXPECTED_SHELLED_MM3).toBeLessThan(0.01);
     expect(Math.abs(volumes[1]! - EXPECTED_SOLID_MM3) / EXPECTED_SOLID_MM3).toBeLessThan(0.01);
 
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'shell']);

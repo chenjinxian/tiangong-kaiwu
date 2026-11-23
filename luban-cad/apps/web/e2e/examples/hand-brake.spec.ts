@@ -15,8 +15,7 @@ import { expect, test } from '@playwright/test';
 import type { SketchEntityDto, SketchPlaneDto } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc, assertFeatureOpOk, borrowWriteLease, getApiToken,
-  getFeatureTreeRpc, getMassPropertiesRpc,
-} from '../helpers.js';
+  getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import {
   chooseProfileRegionsInViewport, dataPoint, disableSnap, frameStandardView, projectWorld,
 } from '../tutorial2-helpers.js';
@@ -62,7 +61,7 @@ test.describe('示例 iModel：Hand Brake Update', () => {
       kind: 'insertSketch', entities: ENTITIES, constraints: [], plane: PLANE,
     }, lease, token);
     assertFeatureOpOk(sketch, 'Hand Brake Sketch');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     const featureList = page.getByTestId('part-studio-feature-list');
     const sketchRow = featureList.getByRole('button', { name: /草图/ }).last();
@@ -154,7 +153,7 @@ test.describe('示例 iModel：Hand Brake Update', () => {
     if ((await chamferDialog.getByTestId('part-studio-feature-dialog-error').count()) > 0)
       throw new Error(`倒角拒收: ${await chamferDialog.getByTestId('part-studio-feature-dialog-error').textContent()}`);
     await expect(chamferDialog).toBeHidden({ timeout: 30_000 });
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     await page.waitForTimeout(2_500);
     await frameStandardView(page, 6, RANGE, { left: 0.1, right: 0.1, top: 0.1, bottom: 0.1 });
@@ -179,7 +178,7 @@ test.describe('示例 iModel：Hand Brake Update', () => {
       title: '7. 推送到 hub', detail: '示例 changeset 已持久化。',
     });
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'revolve', 'chamfer']);

@@ -7,7 +7,7 @@
  * 两者均验证 live step → 标准 FeatureOp 与冷重开。
  */
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
 import type { LiveSpec } from './live/live-spec.js';
@@ -92,7 +92,7 @@ test.describe('live loft / sweep 通道', () => {
     expect(Math.abs(volume - 7000 / 3) / (7000 / 3)).toBeLessThan(0.01);
 
     await pushExampleChanges(page, 'live loft smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);
@@ -110,7 +110,7 @@ test.describe('live loft / sweep 通道', () => {
     expect(Math.abs(volume - 2000) / 2000).toBeLessThan(0.01);
 
     await pushExampleChanges(page, 'live sweep smoke');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, result.ids);
     expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
     expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);

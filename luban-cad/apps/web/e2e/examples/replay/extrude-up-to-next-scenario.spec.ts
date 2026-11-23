@@ -6,7 +6,7 @@
  * up_to_next 静态近似为 blind，push+重开一致。
  */
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc } from '../../helpers.js';
+import { getApiToken, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../imodel.js';
 import { runScenario } from './run.js';
@@ -91,7 +91,7 @@ test.describe('extrude upToNext scenario（v1.53）', () => {
     let ctx = await openExampleEditor(page, ids);
     await runScenario(ctx, scenario(), token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude']);
@@ -102,7 +102,7 @@ test.describe('extrude upToNext scenario（v1.53）', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3)).toBeLessThan(0.5);
 
     await pushExampleChanges(page, 'extrude upToNext scenario acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     const reopened = (await getMassPropertiesRpc(ctx, token)).reduce((sum, item) => sum + item.volume, 0);
     expect(Math.abs(reopened - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.005);

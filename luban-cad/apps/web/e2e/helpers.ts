@@ -492,11 +492,30 @@ export interface EditorReadyOptions {
   canvasTimeoutMs?: number;
 }
 
+/**
+ * C2 per-session briefcase：整页导航（page.goto）会建立新服务端会话，旧会话
+ * 未推送的编辑会丢。helper 在全页打开/切 scope 前先冲刷当前页的 autosave；
+ * 无连接/no-op 时返回 false，不制造空 changeset。
+ */
+export async function flushPendingChanges(
+  page: Page,
+  description = 'e2e pre-navigation',
+): Promise<void> {
+  await page.evaluate(async (desc) => {
+    const host = (window as unknown as {
+      __lubanE2EApp?: { flushAutoPush?: (d: string) => Promise<boolean> };
+    }).__lubanE2EApp;
+    await host?.flushAutoPush?.(desc);
+  }, description).catch(() => undefined);
+}
+
 export async function openBModelEditor(
   page: Page,
   ids: SeedImodelIds,
   options?: EditorReadyOptions,
 ): Promise<BSeedEditorContext> {
+  activePage = undefined;
+  await flushPendingChanges(page);
   await loginWithSession(page);
   await gotoRoute(page, `/documents/${ids.itwinId}/${ids.imodelId}`, 'part-studio-page');
   try {
@@ -514,6 +533,7 @@ export async function openBModelEditor(
     );
   }
   const dbKey = (await readBriefcaseKey(page)) ?? briefcaseDbKey(ids.imodelId);
+  activePage = page;
   return { ...ids, scopeId, dbKey };
 }
 
@@ -528,6 +548,10 @@ export async function openBModelPartStudio(
   scopeId: string,
   options?: EditorReadyOptions,
 ): Promise<BSeedEditorContext> {
+  activePage = undefined;
+  // Full navigation to another scope under C2 must persist the current scope's
+  // edits first; otherwise the new session loses them (multi-PS examples).
+  await flushPendingChanges(page, 'e2e pre-scope-navigation');
   await loginWithSession(page);
   await gotoRoute(
     page,
@@ -539,6 +563,7 @@ export async function openBModelPartStudio(
   if (actual !== scopeId)
     throw new Error(`开 Part Studio 未落位：期望 ${scopeId}，实际 ${actual ?? '<none>'}（URL=${page.url()}）`);
   const dbKey = (await readBriefcaseKey(page)) ?? briefcaseDbKey(ids.imodelId);
+  activePage = page;
   return { ...ids, scopeId, dbKey };
 }
 
@@ -566,6 +591,16 @@ export async function openSeedImodelEditor(
  * 演示/罗盘 15° 步进的 e2e 必须显式回退；sessionStorage v2 key 与
  * `internal/viewcube-mode.ts` 同步，reload 后由 `readViewCubeMode` 读取。
  */
+export async function reloadWithFlush(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const host = (window as unknown as {
+      __lubanE2EApp?: { flushAutoPush?: (d: string) => Promise<boolean> };
+    }).__lubanE2EApp;
+    await host?.flushAutoPush?.('e2e pre-reload');
+  }).catch(() => undefined);
+  await page.reload();
+}
+
 export async function forceOnshapeViewCube(page: Page): Promise<void> {
   await page.evaluate(() => sessionStorage.setItem('luban.viewcubeMode.v2', 'onshape'));
   await page.reload();
@@ -583,6 +618,7 @@ export async function openLegacySeedEditor(
   ids?: SeedImodelIds,
 ): Promise<LegacySeedEditorContext> {
   const target = ids ?? (await resolveSeedImodelIds('A'));
+  activePage = undefined;
   await loginWithSession(page);
   await gotoRoute(page, `/documents/${target.itwinId}/${target.imodelId}`, 'part-studio-page');
   await waitEditorReady(page);
@@ -773,6 +809,30 @@ export async function msRpc(
   return parsed;
 }
 
+/**
+ * 当前打开的编辑器页（单 worker 串行）。C2 起写租约归服务端 WS 会话，
+ * 客户端传 sessionId 不授权；e2e 写面必须经页面自己的 /ipc WS 调用，
+ * 不能再用独立 HTTP RPC 借页面租约（holder 现在是主体标签，不再是会话 id）。
+ */
+let activePage: Page | undefined;
+
+/** 经页面 E2E 桥调用特征 RPC（仅 VITE_E2E_HOOKS=true 的 dev server 暴露）。 */
+async function callFeatureRpcViaPage(method: string, args: unknown[]): Promise<unknown> {
+  const page = activePage;
+  if (!page || page.isClosed()) {
+    throw new Error(`E2E 页面特征 RPC 不可用（${method}）：未打开编辑器或页面已关闭`);
+  }
+  return page.evaluate(async ({ method: m, args: a }) => {
+    const host = (window as unknown as {
+      __lubanE2EApp?: { callFeatureRpc?: (method: string, args: unknown[]) => Promise<unknown> };
+    }).__lubanE2EApp;
+    if (!host?.callFeatureRpc) {
+      throw new Error('window.__lubanE2EApp.callFeatureRpc 不可用（需 VITE_E2E_HOOKS=true）');
+    }
+    return host.callFeatureRpc(m, a);
+  }, { method, args });
+}
+
 /** 写租约借用（页面在持会话：探测 holder 并沿用——单持有者语义，租约不另发）。 */
 export interface WriteLease {
   sessionId: string;
@@ -803,6 +863,10 @@ export async function borrowWriteLease(
   accessToken: string,
   label: string,
 ): Promise<WriteLease> {
+  // C2：页面（WS 会话）持有租约，helper 不得也不能借；写面经 callFeatureRpcViaPage。
+  if (activePage && !activePage.isClosed()) {
+    return { sessionId: `${label}-page-session`, borrowed: true };
+  }
   const probeId = `${label}-probe-${Math.random().toString(36).slice(2)}`;
   const probe = (await msRpc(
     ctx.itwinId,
@@ -836,6 +900,14 @@ export async function applyFeatureOpRpc(
   accessToken: string,
   scopeId: string = ctx.scopeId,
 ): Promise<FeatureOpResult> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('applyFeatureOp', [
+      ctx.dbKey,
+      op,
+      lease.sessionId,
+      scopeId,
+    ])) as FeatureOpResult;
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -865,6 +937,12 @@ export async function getFeatureTreeRpc(
   accessToken: string,
   scopeId: string = ctx.scopeId,
 ): Promise<FeatureTreeEntry[]> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('getFeatureTree', [
+      ctx.dbKey,
+      scopeId,
+    ])) as FeatureTreeEntry[];
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -880,6 +958,9 @@ export async function getBodiesRpc(
   accessToken: string,
   scopeId: string = ctx.scopeId,
 ): Promise<BodyInfo[]> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('getBodies', [ctx.dbKey, scopeId])) as BodyInfo[];
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -895,6 +976,12 @@ export async function getMassPropertiesRpc(
   accessToken: string,
   scopeId: string = ctx.scopeId,
 ): Promise<{ bodyKey: string; volume: number; centroid: { x: number; y: number; z: number }; surfaceArea?: number }[]> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('getMassProperties', [
+      ctx.dbKey,
+      scopeId,
+    ])) as { bodyKey: string; volume: number; centroid: { x: number; y: number; z: number }; surfaceArea?: number }[];
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -909,6 +996,9 @@ export async function listPartStudiosRpc(
   ctx: Pick<BSeedEditorContext, 'itwinId' | 'imodelId' | 'dbKey'>,
   accessToken: string,
 ): Promise<PartStudioInfo[]> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('listPartStudios', [ctx.dbKey])) as PartStudioInfo[];
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -925,6 +1015,13 @@ export async function createPartStudioRpc(
   lease: WriteLease,
   accessToken: string,
 ): Promise<PartStudioInfo> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('createPartStudio', [
+      ctx.dbKey,
+      name,
+      lease.sessionId,
+    ])) as PartStudioInfo;
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -942,6 +1039,14 @@ export async function renamePartStudioRpc(
   lease: WriteLease,
   accessToken: string,
 ): Promise<PartStudioInfo> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('renamePartStudio', [
+      ctx.dbKey,
+      partStudioId,
+      name,
+      lease.sessionId,
+    ])) as PartStudioInfo;
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -958,6 +1063,13 @@ export async function getSketchRpc(
   accessToken: string,
   scopeId: string = ctx.scopeId,
 ): Promise<SketchDto | undefined> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('getSketch', [
+      ctx.dbKey,
+      sketchId,
+      scopeId,
+    ])) as SketchDto | undefined;
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,
@@ -973,6 +1085,12 @@ export async function getVariablesRpc(
   accessToken: string,
   scopeId: string = ctx.scopeId,
 ): Promise<VariableDto[]> {
+  if (activePage && !activePage.isClosed()) {
+    return (await callFeatureRpcViaPage('getVariables', [
+      ctx.dbKey,
+      scopeId,
+    ])) as VariableDto[];
+  }
   return (await msRpc(
     ctx.itwinId,
     ctx.imodelId,

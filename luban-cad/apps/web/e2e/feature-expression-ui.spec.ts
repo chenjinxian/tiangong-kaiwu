@@ -39,8 +39,7 @@ import {
   getMassPropertiesRpc,
   getVariablesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { pushExampleChanges } from './examples/imodel.js';
 
@@ -94,7 +93,7 @@ test.describe('ADR-0020 S4b 拉伸深度表达式（真栈）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };
@@ -128,7 +127,7 @@ test.describe('ADR-0020 S4b 拉伸深度表达式（真栈）', () => {
       await releaseWriteLease(ctx, lease, token);
     }
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toBeVisible({ timeout: 60_000 });
 
@@ -300,7 +299,7 @@ test.describe('ADR-0020 S4b 拉伸深度表达式（真栈）', () => {
 
     // 8) push + 冷重开：表达式/物化距离/体积保持；重开编辑仍失焦 10、聚焦 `#depth`。
     await pushExampleChanges(page, 'feature expression UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${extrudeId}`)).toBeVisible({ timeout: 60_000 });
     tree = await getFeatureTreeRpc(ctx, token);

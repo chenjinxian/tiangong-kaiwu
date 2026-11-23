@@ -17,13 +17,15 @@
  *  4) 同一 BriefcaseConnection / `connection.key` 不变；页签切换不新建
  *     `/ipc` 或 `/ws` WebSocket；MS `/health` `websocket.connectedClients` 稳定；
  *     视口对象身份（window 上打标）不变。
- *  5) 真实选择隔离：注入 ps-1 body 进 `selectionSet` → 切 ps-2（清空
- *     selectionSet + store + 活动工具）→ Delete/Move 不触碰 ps-1；ps-1
- *     元素 placement/模型范围/特征树逐项不变。
+ *  5) 真实选择隔离：经零件树选中 ps-1 body（store→selectionSet 单向投影，
+ *     X-03 唯一选择权威）→ 切 ps-2（清空 selectionSet + store + 活动工具）
+ *     → Delete/Move 不触碰 ps-1；ps-1 元素 placement/模型范围/特征树逐项不变。
+ *     不直写 `iModel.selectionSet`：产品已移除 selectionSet→store 反向订阅，
+ *     直写不再代表用户选择（X-03 选择权威合同）。
  *  6) 活动 Move/Rotate 跨页签：工具在切 scope 时被默认工具替换（R3 真栈），
  *     切后补完整手势也不得提交 ps-1 变更。
  *  7) R4 真栈：无关渲染（invalidateScene）与文档级 undo/redo 不得清掉选择。
- *  8) 快速 K1→K2→K1 ×20：页面内给 `createQueryReader` 注入 600ms 延迟并记录
+ *  8) 快速 K1→K2→K1 ×20：页面内给 `createQueryReader` 注入 3s 延迟并记录
  *     每查询 start/end 事件；**等 K2 的查询确实在途**（end=0）才点回 K1，切回
  *     后等全部延迟查询落定，再以 4×100ms 稳定窗断言 URL/selector/settings/相机
  *     仍为 K1。事件证据要求「K2 查询在点回 K1 后才结束」+「K1 重放查询已启动」
@@ -70,6 +72,7 @@
  */
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { RENDER_DEFAULTS } from '@luban-cad/shared';
 import type {
   BodyInfo,
   FeatureOp,
@@ -83,6 +86,7 @@ import {
   authHeaders,
   borrowWriteLease,
   collectConsoleErrors,
+  flushPendingChanges,
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
@@ -135,8 +139,12 @@ interface StoreProbe {
 
 interface TileCall { method: string; text: string; t: number }
 
-/** 测试侧 ECSQL 延迟（快速切回门：保证 K2 apply 在途；恢复后无影响）。 */
-const QUERY_DELAY_MS = 600;
+/** 测试侧 ECSQL 延迟（快速切回门：保证 K2 apply 在途；恢复后无影响）。
+ * 2026-11-23 实测：Playwright 定位器点击的 actionability/往返从查询 start 到
+ * 页签 pointerdown 可耗 ~1.9s；600ms 注入窗会让查询在点击前就结束——这是
+ * 测量竞态，不是产品早退。3s 窗保证「用户点回 K1 时 K2 查询确实在途」，
+ * 同时不改变产品切换速度（只模拟慢 ECSQL）。 */
+const QUERY_DELAY_MS = 3_000;
 
 interface QueryEvent { id: number; start: number; end: number; failed: boolean }
 
@@ -256,10 +264,19 @@ async function readDefaultRenderStyle(page: Page): Promise<DefaultRenderStyle> {
 }
 
 /**
- * 默认渲染基线（2026-11-03，常规套件必跑）：
- * - 灯光/环境 = iTwin core 默认（LightSettings 默认值 toJSON() === undefined）；
+ * 默认渲染基线（2026-11-03，常规套件必跑；2026-11-22 C2 后刷新）：
+ * - 灯光 = 产品规范 profile（`packages/viewer/src/viewport/render-profile.ts`
+ *   `canonicalLights()`）：core 默认方向之外显式写 solar alwaysEnabled +
+ *   shared `RENDER_DEFAULTS.lights.solarDirection`，高光取 shared
+ *   specularIntensity；其余强度与 core 默认等值，toJSON 省略。
+ *   不再断言 `lights === null`——那是旧「core 默认灯光」契约，产品已主动收敛
+ *   到可复现的 Onshape 哑光基线。
+ * - 环境 = iTwin core 默认（displaySky=false）；
  * - 不覆盖子类别材质（subCategoryOverrides 0）；
- * - AO 默认关、白底、MSAA 4。
+ * - 应用显示设置默认值 = shared `RENDER_DEFAULTS`（AO 开、强度 20%）；
+ *   viewer 的 render-profile 先置 AO 关，随后 useDisplaySettings 以产品默认
+ *   落 AO=true——终值口径以 shared 为准。
+ * - 白底、MSAA 4。
  * 视口创建 → render baseline → useDisplaySettings effect 是异步链，先轮询
  * 背景落白底再逐项断言（避免首帧旧值）。
  */
@@ -271,12 +288,23 @@ async function expectDefaultRenderStyle(page: Page): Promise<void> {
   const style = await readDefaultRenderStyle(page);
   console.log(`[b-viewport] default render=${JSON.stringify(style)}`);
   expect(style.theme, '默认渲染断言要求亮色主题（白底）').toBe('light');
-  expect(style.lights).toBeNull(); // LightSettings 默认值 toJSON() === undefined
+  // 与 render-profile.ts 的 canonical 落库形态逐项对齐：solar intensity=1、
+  // ambient=0.2、hemisphere=0、portrait=0.3 均与 core 默认等值，toJSON 省略；
+  // direction 非默认值 + alwaysEnabled + 非默认高光必须显式在场。
+  expect(style.lights, '默认渲染应写产品规范灯光 profile（非 core 空默认）').toEqual({
+    solar: {
+      alwaysEnabled: true,
+      direction: [...RENDER_DEFAULTS.lights.solarDirection],
+    },
+    specularIntensity: RENDER_DEFAULTS.lights.specularIntensity,
+  });
   expect(style.environmentSky).toBe(false);
   expect(style.subCategoryOverrideCount).toBe(0);
-  expect(style.ambientOcclusion).toBe(false);
+  // useDisplaySettings 以 shared 产品默认落 AO（RENDER_DEFAULTS.ambientOcclusion）；
+  // 不再沿用旧「core 默认 AO 关」断言。
+  expect(style.ambientOcclusion).toBe(RENDER_DEFAULTS.ambientOcclusion);
   expect(style.backgroundColor).toBe('#ffffff');
-  expect(style.antialiasSamples).toBe(4);
+  expect(style.antialiasSamples).toBe(RENDER_DEFAULTS.antialiasSamples);
 }
 
 /** 页面内读 briefcase 事务面（C6 守卫「不发事务」的真栈观测；走 /ipc WS）。 */
@@ -301,17 +329,6 @@ async function readSelectionSet(page: Page): Promise<string[]> {
     if (!vp?.iModel?.selectionSet) throw new Error('selectionSet：viewport/iModel 未就绪');
     return Array.from(vp.iModel.selectionSet.elements).map(String);
   });
-}
-
-/** 页面内注入/清空 selectionSet（模拟陈旧/外部选择；真实 UI pick 另测）。 */
-async function setSelectionSet(page: Page, ids: string[]): Promise<void> {
-  await page.evaluate(async (elementIds: string[]) => {
-    const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
-    const vp = cf.IModelApp.viewManager.getFirstOpenView();
-    if (!vp) throw new Error('selectionSet 注入：viewport 未就绪');
-    if (elementIds.length === 0) vp.iModel.selectionSet.emptyAll();
-    else vp.iModel.selectionSet.replace(elementIds);
-  }, ids);
 }
 
 /** 页面内取某物理模型的 world 中心 + 投影屏幕坐标（CSS px，相对 canvas 左上）。 */
@@ -516,6 +533,31 @@ async function clearQueryEvents(page: Page): Promise<void> {
   });
 }
 
+/** 在页签元素上安装一次性 pointerdown 时间戳（真实用户点击时刻）。
+ *
+ * 为何不能用 Node 侧 `page.evaluate(performance.now)` 充当点击时刻：定位器
+ * click 的 actionability/往返可能耗时 ~1.9s，最长可超过注入延迟——
+ * 若 K2 查询在 Playwright 真正派发点击前已结束，比较 `end > 该时间戳` 会
+ * 即使产品正确也假红（测量竞态，非产品回归）。pointerdown 在浏览器内与点击
+ * 同一事件循环落点，才是「点回 K1 时 K2 查询是否仍在途」的诚实测量点。 */
+async function armTabClickTimestamp(page: Page, scopeId: string): Promise<void> {
+  await tab(page, scopeId).evaluate((el) => {
+    const w = window as any;
+    w.__e2eTabClickAt = 0;
+    el.addEventListener(
+      'pointerdown',
+      () => {
+        w.__e2eTabClickAt = performance.now();
+      },
+      { capture: true, once: true },
+    );
+  });
+}
+
+async function readTabClickTimestamp(page: Page): Promise<number> {
+  return page.evaluate(() => ((window as any).__e2eTabClickAt as number) ?? 0);
+}
+
 /** 页面内包装 iModel.models.load：对目标物理模型 id 拒绝（load 失败变体）。
  * 原实现由 `__e2eModelsLoadOrig` 保存；`restoreModelsLoad` 在 finally 解包。 */
 async function injectModelsLoadFailure(page: Page, targetPhysModelId: string): Promise<void> {
@@ -588,6 +630,7 @@ async function clearPageProbes(page: Page): Promise<void> {
     delete w.__e2eQueryOrig;
     delete w.__e2eQueryEvents;
     delete w.__e2eQuerySeq;
+    delete w.__e2eTabClickAt;
     delete w.__e2eModelsLoadOrig;
     delete w.__e2eToolRunOrig;
     delete w.__e2eToolRuns;
@@ -1100,12 +1143,12 @@ async function toolAcrossSwitch(
   await expectViewportScope(page, from.physModelId, `${label}-from`);
   const treeBefore = await readTree(ctx, token, from.id);
   const propsBefore = await readElementProps(page, bodyKey);
+  // C2 自动保存（20s 防抖）可能在观察窗内推送此前造数的合法 pending 变更；
+  // 先 flush 再取 changeset 基线，观察窗只衡量本段工具切换是否产生新变更。
+  await flushPendingChanges(page, `e2e ${label} tool-switch baseline`);
   const csBefore = await latestChangeset(request, ctx.imodelId, token);
 
-  await setSelectionSet(page, [bodyKey]);
-  await expect.poll(async () => (await readStore(page)).canvasSelection.join(','), {
-    timeout: 20_000,
-  }).toBe(bodyKey);
+  await selectBodyViaPartsList(page, bodyKey, label);
   const started = await page.evaluate(async (id: string) => {
     const cf = ((window as any).__lubanE2E?.coreFrontend) as any;
     return cf.IModelApp.tools.run(id) as Promise<boolean>;
@@ -1147,7 +1190,9 @@ async function toolAcrossSwitch(
     { count: csAfter.count, index: csAfter.lastIndex, id: csAfter.lastId },
     `${label} 不得产生新 changeset`,
   ).toEqual({ count: csBefore.count, index: csBefore.lastIndex, id: csBefore.lastId });
-  await setSelectionSet(page, []);
+  // 选择清理走产品权威：空白画布单击 → Onshape 工具写空选择 → 投影清空
+  // selectionSet（不直写 selectionSet）。
+  await clearCanvasSelection(page);
 }
 
 // ============================================================================
@@ -1183,7 +1228,8 @@ test.describe('P2.5 真栈视口门', () => {
     const world = await openTwoStudioWorld(page, seed, 'viewport');
     const { ctx, k1, k2, body1, body2 } = world;
 
-    // Task 7 默认渲染基线：core 默认灯光/环境、无子类别覆盖、白底、AO 关、MSAA 4。
+    // 默认渲染基线：产品规范灯光 profile、core 默认环境、无子类别覆盖、白底、
+    // shared 显示默认 AO 开、MSAA 4。
     await expectDefaultRenderStyle(page);
 
     // 视口身份基线：先打标，之后所有 sameViewport 断言才是真断言（review F4）。
@@ -1336,9 +1382,14 @@ test.describe('P2.5 真栈视口门', () => {
     const tabs3 = page.getByTestId('part-studio-tab-strip').locator('[data-studio-id]');
     await page.getByTestId('part-studio-new-tab-button').click();
     await page.getByRole('menu').getByRole('menuitem', { name: '创建 Part Studio' }).click();
-    await expect(tabs3).toHaveCount(2, { timeout: 60_000 });
+    // K1/K2 已在场：新建 K3 后页签数必须为 3（旧「2」是 K3 页签尚未渲染的
+    // 瞬时值——会让下一步切 K1 与 K3 建页导航竞态，URL 被 K3 回写）。
+    await expect(tabs3).toHaveCount(3, { timeout: 60_000 });
     const k3Id = readModelScopeId(page);
     expect(k3Id, 'K3 URL scope').toBeTruthy();
+    // 等 K3 建页导航落定（URL + aria-selected）再切回 K1；不等待会把
+    // 「新建后自动激活 K3」的异步导航与用户切页签名成假失败。
+    await expectActiveScope(page, k3Id as string);
     await tab(page, k1.id).click();
     await expectActiveScope(page, k1.id);
     await expectViewportScope(page, k1.physModelId, 'K1-during-k3-build');
@@ -1521,12 +1572,15 @@ test.describe('P2.5 真栈视口门', () => {
     expect(await readTree(ctx, token, k1.id), 'undo/redo 不得改动 ps-1 树').toEqual(tree1Before);
     await clearCanvasSelection(page);
 
-    // ── D) 真实选择隔离：注入 ps-1 body → 切 ps-2 → Delete/Move 不触碰 ps-1
+    // ── D) 真实选择隔离：经零件树选中 ps-1 body（唯一权威）→ 切 ps-2 →
+    //    Delete/Move 不触碰 ps-1。树选择同步投影到 connection.selectionSet，
+    //    与标准元素集工具的输入契约一致；不再直写 selectionSet（无反向桥）。
+    // 同上：造数（createBody RPC）留下的 pending 变更由 C2 自动保存在 20s
+    // 防抖后自行推送；先 flush 再取基线，否则 40s+ 的隔离用例会把一次合法的
+    // 自动保存误判成「Delete/Move 产生新 changeset」。
+    await flushPendingChanges(page, 'e2e isolation baseline');
     const csBeforeIsolation = await latestChangeset(request, ctx.imodelId, token);
-    await setSelectionSet(page, [body1.bodyKey]);
-    await expect.poll(async () => (await readStore(page)).canvasSelection.join(','), {
-      timeout: 20_000,
-    }).toBe(body1.bodyKey);
+    await selectBodyViaPartsList(page, body1.bodyKey, 'D-K1');
 
     await tab(page, k2.id).click();
     await expectActiveScope(page, k2.id);
@@ -1593,7 +1647,9 @@ test.describe('P2.5 真栈视口门', () => {
       id: csC6.lastId,
     });
     console.log('[b-viewport] C6 global-Delete guard: warning + zero transaction OK');
-    await setSelectionSet(page, []);
+    // 产品权威清空（工具启动时 store 已清、selectionSet 按 ElementSetTool 契约
+    // 保留）：空白单击让默认 Onshape 工具按 store 重投影 → selectionSet 归空。
+    await clearCanvasSelection(page);
     await removeToolRunProbe(page);
     expect(await readSelectionSet(page), 'Delete/Move 后 selectionSet 必须为空').toHaveLength(0);
     expect((await readStore(page)).canvasSelection, 'Delete/Move 后 store 选择必须为空').toHaveLength(0);
@@ -1737,7 +1793,7 @@ test.describe('P2.5 真栈视口门', () => {
     ).toEqual([body2.bodyKey, extraBody!.bodyKey].sort());
     expect(await readTree(ctx, token, k2.id), 'undo 后特征树恢复').toEqual(k2TreeBeforeDelete);
     console.log('[b-viewport] D2 undo restored');
-    await setSelectionSet(page, []);
+    await clearCanvasSelection(page);
 
     // ── D3) 正控制：未取消的 Move 手势确实提交（placement 变化），undo 还原。
     //        证明 R3 中“切页签后补手势足以提交”的前提成立。
@@ -1774,7 +1830,7 @@ test.describe('P2.5 真栈视口门', () => {
       timeout: 60_000,
       intervals: [500, 1000],
     }).toBe(JSON.stringify(propsBeforeMove));
-    await setSelectionSet(page, []);
+    await clearCanvasSelection(page);
 
     // ── E) 活动 Move/Rotate 跨页签：不得提交 ps-1 变更（R3 真栈）──────────
     await toolAcrossSwitch(
@@ -1869,7 +1925,7 @@ test.describe('P2.5 真栈视口门', () => {
     expect(cameraK1, 'K1 基线相机').toBeTruthy();
     await expect(filterBanner).toHaveCount(0);
 
-    // R1 门（review F1）：把 ECSQL 查询延迟 600ms，并在 K2 的查询**确实在途**
+    // R1 门（review F1）：把 ECSQL 查询延迟 3s，并在 K2 的查询**确实在途**
     // （事件 start / end=0）后才点回 K1。切回后必须等全部延迟查询落定，再在
     // 稳定窗里断言仍为 K1——旧 d2e2d939d2 的 early-return 会让 K2 apply 在
     // 延迟窗后落成 K2（selector/相机翻车），本门会红。事件日志同时证明：
@@ -1891,8 +1947,13 @@ test.describe('P2.5 真栈视口门', () => {
         }, { timeout: 10_000, intervals: [20, 50, 100] }).toBe(true);
         const k2EventId = inFlight!.id;
 
-        const k1ClickAt = await page.evaluate(() => performance.now());
+        // 点击时刻 = 页签的 pointerdown（浏览器事件时间），不是 Node 侧
+        // evaluate 的登记时间——后者含 actionability/往返，可能晚于注入窗，
+        // 造成「查询先结束」的测量假红。
+        await armTabClickTimestamp(page, k1.id);
         await tab(page, k1.id).click();
+        const k1ClickAt = await readTabClickTimestamp(page);
+        expect(k1ClickAt, `第 ${i + 1} 拍：K1 页签点击时间戳必须已记录`).toBeGreaterThan(0);
         await expect(page).toHaveURL(new RegExp(`[?&]model=${k1.id}`), { timeout: 10_000 });
         await expect(tab(page, k1.id)).toHaveAttribute('aria-selected', 'true', {
           timeout: 10_000,
@@ -1906,6 +1967,10 @@ test.describe('P2.5 真栈视口门', () => {
         const events = await readQueryEvents(page);
         const k2Event = events.find((event) => event.id === k2EventId);
         expect(k2Event, `第 ${i + 1} 拍：K2 apply 查询事件必须在册`).toBeTruthy();
+        expect(
+          k2Event!.start,
+          `第 ${i + 1} 拍：K2 apply 查询必须在点回 K1 前已启动`,
+        ).toBeLessThan(k1ClickAt);
         expect(
           k2Event!.end,
           `第 ${i + 1} 拍：K2 apply 必须晚于点回 K1 才落定（在途证据）`,

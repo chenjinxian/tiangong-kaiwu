@@ -160,8 +160,17 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
     const dialog = page.getByTestId('part-studio-feature-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('combobox', { name: '目标实体' })).toBeVisible({ timeout: 30_000 });
-    // 体布尔不渲染遗留结果类型/作用域页签（M4.2a review Minor）。
-    await expect(dialog.getByRole('tablist')).toHaveCount(0);
+    // 体布尔的运算权威 = 对话框顶部 并集/差集/相交 页签（FeatureDialog.tsx
+    // booleanBodiesOperationLabel 组）。不渲染 extrude 的结果类型/作用域页签；
+    // 唯一 tablist 就是运算页签（旧「运算」下拉已删除）。
+    const operationTabs = dialog.getByRole('tablist', { name: '运算' });
+    await expect(operationTabs, '体布尔应渲染运算页签（并集/差集/相交）').toBeVisible();
+    await expect(dialog.getByRole('tablist')).toHaveCount(1);
+    await expect(operationTabs.getByRole('tab')).toHaveText(['并集', '差集', '相交']);
+    await expect(operationTabs.getByRole('tab', { name: '并集' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     return dialog;
   };
 
@@ -175,7 +184,13 @@ test('真栈：体布尔 unite/subtract/keepTools/连续布尔 → 消费隐藏/
     await dialog.getByRole('combobox', { name: '目标实体' }).selectOption(targetKey);
     await dialog.getByTestId(`part-studio-feature-dialog-boolean-tool-${toolKey}`)
       .getByRole('checkbox').click();
-    await dialog.getByRole('combobox', { name: '运算' }).selectOption(operation);
+    // 运算选择 = 顶部页签（unite 并集 / subtract 差集）；点击后必须落到
+    // aria-selected，作为「操作权威 UI 真生效」的证据。
+    const operationTab = dialog
+      .getByRole('tablist', { name: '运算' })
+      .getByRole('tab', { name: operation === 'unite' ? '并集' : '差集' });
+    await operationTab.click();
+    await expect(operationTab).toHaveAttribute('aria-selected', 'true');
     const keep = dialog.getByTestId('part-studio-feature-dialog-boolean-keep-tools').getByRole('checkbox');
     if (keepTools !== (await keep.isChecked())) await keep.click();
     await expect(dialog.getByRole('button', { name: '确认' })).toBeEnabled({ timeout: 30_000 });

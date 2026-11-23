@@ -8,8 +8,7 @@ import { expect, test } from '@playwright/test';
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 import { runScenario } from './examples/replay/run.js';
@@ -57,7 +56,9 @@ test.describe('T4 extrude second direction', () => {
     const ctx = await openExampleEditor(page, ids);
     await runScenario(ctx, sketchScenario(), token);
 
-    await page.reload();
+    // C2 per-session briefcase：reload 前先推送，否则新会话从 hub 重建空树。
+    await pushExampleChanges(page, 'T4 extrude second direction pre-reload');
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     await page.getByRole('button', { name: '拉伸', exact: true }).click({ timeout: 30_000 });
     const dialog = page.getByTestId('part-studio-feature-dialog');
@@ -81,7 +82,7 @@ test.describe('T4 extrude second direction', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'T4 extrude second direction');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'extrude']);

@@ -13,8 +13,7 @@ import {
   assertFeatureOpOk,
   borrowWriteLease,
   getApiToken,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -69,7 +68,7 @@ test.describe('Transform 刚体变换（ADR-0010 切片 1）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -145,7 +144,7 @@ test.describe('Transform 刚体变换（ADR-0010 切片 1）', () => {
     expect(result.centroid.y).toBeCloseTo(10, 3);
 
     await pushExampleChanges(page, 'transform acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     const reopened = await mass();
     expect(reopened.volume).toBeCloseTo(2000, 3);

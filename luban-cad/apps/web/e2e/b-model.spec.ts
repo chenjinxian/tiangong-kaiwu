@@ -49,8 +49,8 @@ import {
   readOpenBriefcaseInfo,
   resolveSeedImodelIds,
   waitEditorReady,
-  type BSeedEditorContext,
-} from './helpers';
+  type BSeedEditorContext, reloadWithFlush } from './helpers';
+import { pushExampleChanges } from './examples/imodel';
 import { clickWorld, disableSnap, setStandardView } from './tutorial2-helpers';
 
 /** 本文件创建的唯一 B 文档（afterAll 按 id 清理；不触碰种子库）。 */
@@ -304,7 +304,11 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   ).toBeGreaterThanOrEqual(1);
 
   // ── 4) reload：同活动 scope + 树持久 ───────────────────────────────────
-  await page.reload();
+  // C2 per-session briefcase：reload 换新服务端会话、不续用旧本地文件，
+  // 未推送变更会丢。先显式落库（与 autosave-version/示例 spec 同纪律），
+  // 再验证 reload 从 hub changeset 重建树。
+  await pushExampleChanges(page, 'E2E B chain pre-reload');
+  await reloadWithFlush(page);
   await waitEditorReadyDiagnosed(page);
   expect(readModelScopeId(page), 'reload 后活动 scope 应保持').toBe(firstScopeId);
   await expect(tabs).toHaveCount(1, { timeout: 60_000 });
@@ -317,7 +321,13 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
 
   const reloadedInfo = await readOpenBriefcaseInfo(page);
-  expect(reloadedInfo.key, 'reload 后应重新打开同一 briefcase').toBe(openInfo.key);
+  // C2 per-session briefcase：reload 建立新 WS 会话并下载新本地副本，连接键
+  // **不再**跨 reload 稳定（同一文档、不同会话/文件）。键稳定只承诺同一会话
+  // 内（下方页签切换断言）。
+  expect(reloadedInfo.key, 'reload 后应重新打开 briefcase').toBeTruthy();
+  expect(reloadedInfo.key).not.toBe(openInfo.key);
+  expect(reloadedInfo.isReadonly, 'reload 后仍应为可写连接').toBe(false);
+  const reloadedKey = reloadedInfo.key as string;
 
   // P2.8 残项（pagehide 释放租约）：reload 不触发 React unmount，旧实现靠 30s
   // TTL 自然过期（P2.6b2 实测：去掉等待后「+」在 registry 10s 预算内失败）。
@@ -350,7 +360,7 @@ test('B 全链：详情页建文档 → 默认 Part Studio → 草图/拉伸 →
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
 
   const afterSwitchInfo = await readOpenBriefcaseInfo(page);
-  expect(afterSwitchInfo.key, '页签切换后连接键须不变（不重建 BriefcaseConnection）').toBe(dbKey);
+  expect(afterSwitchInfo.key, '页签切换后连接键须不变（不重建 BriefcaseConnection）').toBe(reloadedKey);
   expect(ipcSockets, '页签切换不得新建 IPC/进度 WebSocket').toEqual(ipcBeforeSwitch);
   await expect(page.getByTestId('part-studio-status-connection')).toHaveText('已连接');
 

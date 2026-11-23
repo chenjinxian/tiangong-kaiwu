@@ -2,19 +2,22 @@
  * Copyright (c) LubanCAD. All rights reserved.
  * Licensed under the MIT License.
  *
- * 注册/登出 e2e（M5-T5）：注册 → 自动登录（注册即登录，AuthSession.register
- * 成功后转 login 落会话）→ 登出 → 会话清场回归登录页。真实后端一轮——
- * hub 注册限流 3 次/时，本 spec 是全套件唯一注册消耗点。
- * 选择器第一来源 SignUpRoute（signup-route testid + i18n 中文可访问名）。
+ * 注册/登录/登出 e2e（M5-T5；G1 B1.1 更新）：注册只创建**待确认**账号
+ * （hub 置 inactive 并发确认邮件）——页面切「查收邮件」态、不自动登录；
+ * 未确认账号登录被 422 拒绝并显示本地化文案；随后用栈内活动账号走
+ * 登录 → 登出 → 会话清场。真实后端一轮；hub 注册限流 3 次/时，本 spec
+ * 是全套件唯一注册消耗点。选择器第一来源 SignUpRoute/SignInRoute
+ * （testid + i18n 中文可访问名）。
  */
 
 import { expect, test } from '@playwright/test';
+import { TEST_USER } from './fixtures';
 
 /** 唯一注册账号（每轮时间戳新名——重复邮箱注册会被 hub 拒）。 */
 const REGISTER_EMAIL = `e2e-m5-${Date.now()}@example.com`;
 const REGISTER_PASSWORD = 'E2eM5!2026x';
 
-test('注册 → 自动登录 → 登出 → 会话清场', async ({ page }) => {
+test('注册 → 待确认（不自动登录）→ 未确认登录被拒 → 登录/登出/会话清场', async ({ page }) => {
   await page.goto('/register');
   await expect(page.getByTestId('signup-route')).toBeVisible();
   await expect(page.getByRole('heading', { name: '创建账户' })).toBeVisible();
@@ -32,7 +35,25 @@ test('注册 → 自动登录 → 登出 → 会话清场', async ({ page }) => 
 
   await page.getByRole('button', { name: '注册', exact: true }).click();
 
-  // 注册即登录：直落文档中心
+  // B1.1：注册成功只创建待确认账号；不得自动登录/跳文档中心。
+  await expect(page.getByTestId('signup-confirmation')).toBeVisible();
+  await expect(page.getByTestId('signup-confirmation')).toContainText(REGISTER_EMAIL);
+  await expect(page).toHaveURL(/\/register$/);
+  await page.getByRole('link', { name: '返回登录' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByTestId('signin-route')).toBeVisible();
+
+  // 未确认账号登录 → hub 422 inactive → 本地化提示（不建会话）。
+  await page.getByLabel('邮箱').fill(REGISTER_EMAIL);
+  await page.getByLabel('密码', { exact: true }).fill(REGISTER_PASSWORD);
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('账号尚未激活');
+  await expect(page).toHaveURL(/\/login$/);
+
+  // 活动账号登录 → 文档中心。
+  await page.getByLabel('邮箱').fill(TEST_USER.email);
+  await page.getByLabel('密码', { exact: true }).fill(TEST_USER.password);
+  await page.getByRole('button', { name: '登录', exact: true }).click();
   await page.waitForURL('**/documents', { timeout: 30_000 });
   await expect(page.getByTestId('documents-route')).toBeVisible();
 

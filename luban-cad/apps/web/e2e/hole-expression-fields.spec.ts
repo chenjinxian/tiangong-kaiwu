@@ -41,8 +41,7 @@ import {
   getMassPropertiesRpc,
   getVariablesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { pushExampleChanges } from './examples/imodel.js';
 
@@ -101,7 +100,7 @@ async function openWithRetry(
   try {
     return await openSeedImodelEditor(page, seed);
   } catch {
-    await page.reload();
+    await reloadWithFlush(page);
     return await openSeedImodelEditor(page, seed);
   }
 }
@@ -174,7 +173,7 @@ test.describe('ADR-0020 S8 孔沉头字段表达式（真栈）', () => {
       await releaseWriteLease(ctx, lease, token);
     }
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     const plateVolume = await volumeOf(ctx, token);
     expect(plateVolume).toBeCloseTo(PLATE_VOLUME_MM3, 0);
@@ -304,7 +303,7 @@ test.describe('ADR-0020 S8 孔沉头字段表达式（真栈）', () => {
 
     // ── push + 冷重开：表达式/物化值/几何保持 ───────────────────────────
     await pushExampleChanges(page, 'hole counterbore expression UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId(`tree-row-${holeId}`)).toBeVisible({ timeout: 60_000 });
     tree = await getFeatureTreeRpc(ctx, token);

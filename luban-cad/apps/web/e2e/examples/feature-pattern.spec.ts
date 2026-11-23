@@ -14,8 +14,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 
@@ -77,7 +76,7 @@ test.describe('featurePattern 真栈验收', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -168,7 +167,7 @@ test.describe('featurePattern 真栈验收', () => {
     expect(Math.abs(volume - 16240)).toBeLessThan(162.4);
 
     await pushExampleChanges(page, 'featurePattern synthetic acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual([
@@ -188,7 +187,7 @@ test.describe('featurePattern 真栈验收', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -252,7 +251,7 @@ test.describe('featurePattern 真栈验收', () => {
     expect(Math.abs(volume - 16480)).toBeLessThan(164.8);
 
     await pushExampleChanges(page, 'featurePattern multi-source acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual([
@@ -270,7 +269,7 @@ test.describe('featurePattern 真栈验收', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -334,7 +333,7 @@ test.describe('featurePattern 真栈验收', () => {
     expect(Math.abs(volume - 16480)).toBeLessThan(164.8);
 
     await pushExampleChanges(page, 'featurePattern second-direction grid acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openExampleEditor(page, { itwinId: ids.itwinId, imodelId: ids.imodelId });
     const tree = await getFeatureTreeRpc(reopened, token);
     expect(tree.map((row) => row.featureType)).toEqual([

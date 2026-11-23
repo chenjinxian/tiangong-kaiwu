@@ -4,7 +4,7 @@
  * 本轮接到同一 activate 路由；输入框/可编辑焦点不拦截。
  */
 import { expect, test } from '@playwright/test';
-import { getApiToken, openSeedImodelEditor } from './helpers.js';
+import { getApiToken, openSeedImodelEditor, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 test.describe('编辑器工具快捷键（Onshape 对拍）', () => {
@@ -16,7 +16,7 @@ test.describe('编辑器工具快捷键（Onshape 对拍）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openSeedImodelEditor(page, seed);
       }
     };

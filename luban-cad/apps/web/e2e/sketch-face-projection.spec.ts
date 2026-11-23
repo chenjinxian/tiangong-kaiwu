@@ -37,8 +37,7 @@ import {
   getMassPropertiesRpc,
   getSketchRpc,
   type BSeedEditorContext,
-  type WriteLease,
-} from './helpers.js';
+  type WriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 import { resolveLiveShellFaceRefs } from './examples/live/face-select.js';
@@ -219,7 +218,7 @@ test.describe('草图外部引用 S3（bodyFace 平面面边界真栈）', () =>
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -283,7 +282,7 @@ test.describe('草图外部引用 S3（bodyFace 平面面边界真栈）', () =>
 
     // push + 冷重开：读时派生的面投影仍 ok/1 ref/6000 mm³。
     await pushExampleChanges(page, 'sketch external ref bodyFace acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expectVolume(chain.consumerBodyKey, 6000);
     await expectArea(600);
@@ -336,7 +335,7 @@ test.describe('草图外部引用 S3（bodyFace 平面面边界真栈）', () =>
 
     // push + 冷重开：孔环仍参与面域（消费体体积不变）。
     await pushExampleChanges(page, 'sketch external ref bodyFace hole acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     const reopenedCtx = await openExampleEditor(page, ids);
     await expect.poll(async () => {
       const mass = await getMassPropertiesRpc(reopenedCtx, token);

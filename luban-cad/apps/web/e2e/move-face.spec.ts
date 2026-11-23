@@ -12,8 +12,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
@@ -66,7 +65,7 @@ test.describe('moveFace 面偏移（ADR-0014 切片 1）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -159,7 +158,7 @@ test.describe('moveFace 面偏移（ADR-0014 切片 1）', () => {
     expect(tree.every((row) => row.status === 0)).toBe(true);
 
     await pushExampleChanges(page, 'moveFace acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'moveFace']);

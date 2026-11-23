@@ -15,8 +15,7 @@ import {
   borrowWriteLease,
   getApiToken,
   getMassPropertiesRpc,
-  getSketchRpc,
-} from './helpers.js';
+  getSketchRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -69,7 +68,7 @@ test.describe('草图→草图投影（ADR-0009 切片 1a）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -126,7 +125,7 @@ test.describe('草图→草图投影（ADR-0009 切片 1a）', () => {
     expect(updatedTarget.regions?.[0]?.area).toBeCloseTo(600, 4);
 
     await pushExampleChanges(page, 'sketch projection acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     expect(await volume()).toBeCloseTo(3000, 3);
     const reopenedTarget = await getSketchRpc(ctx, targetId, token);

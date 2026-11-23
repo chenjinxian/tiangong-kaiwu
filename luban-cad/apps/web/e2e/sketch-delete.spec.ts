@@ -19,8 +19,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -69,7 +68,7 @@ test.describe('草图删除（deleteSketch 路由）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -85,7 +84,7 @@ test.describe('草图删除（deleteSketch 路由）', () => {
     const sketchId = created.featureId;
     expect(sketchId).toBeTruthy();
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -99,7 +98,7 @@ test.describe('草图删除（deleteSketch 路由）', () => {
     expect((await getFeatureTreeRpc(ctx, token)).some((entry) => entry.id === sketchId)).toBe(false);
 
     // 冷重开：删除已落库（auto-push + briefcase 重读）。
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toHaveCount(0, { timeout: 60_000 });
     expect((await getFeatureTreeRpc(ctx, token)).filter((entry) => entry.featureType === 'sketch')).toHaveLength(0);
@@ -113,7 +112,7 @@ test.describe('草图删除（deleteSketch 路由）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -134,7 +133,7 @@ test.describe('草图删除（deleteSketch 路由）', () => {
     assertFeatureOpOk(extrude, '拉伸');
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const row = page.getByTestId(`tree-row-${sketchId}`);
     await expect(row).toBeVisible({ timeout: 60_000 });

@@ -12,8 +12,7 @@ import type { SketchConstraintDto, SketchEntityDto } from '@luban-cad/shared';
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../imodel.js';
 import { runScenario } from './run.js';
@@ -108,7 +107,7 @@ test.describe('第二方向 UP_TO_SURFACE 静态近似', () => {
     expect(result.total).toBeCloseTo(6000, 2);
 
     await pushExampleChanges(page, 'second direction up-to approximation');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude']);

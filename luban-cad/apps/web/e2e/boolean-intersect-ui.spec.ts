@@ -15,8 +15,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -73,7 +72,7 @@ test.describe('booleanBodies intersect UI（T12）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -115,8 +114,10 @@ test.describe('booleanBodies intersect UI（T12）', () => {
     expect(body1, 'body1 应由 extrudeA 驱动').toBeTruthy();
     expect(body2, 'body2 应由 extrudeB 驱动').toBeTruthy();
 
-    // 重新打开让 UI 读面/树刷新到 RPC 建链后的状态。
-    await page.reload();
+    // 重新打开让 UI 读面/树刷新到 RPC 建链后的状态；C2 新会话不带旧本地
+    // 文件，reload 前必须先落库，否则树/body 为空。
+    await pushExampleChanges(page, 'booleanBodies intersect UI pre-reload');
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
 
     await page.getByRole('button', { name: '布尔运算', exact: true }).click({ timeout: 30_000 });
@@ -150,7 +151,7 @@ test.describe('booleanBodies intersect UI（T12）', () => {
     expect(afterBodies.find((body) => body.bodyKey === body2!.bodyKey)?.active).toBe(false);
 
     await pushExampleChanges(page, 'booleanBodies intersect UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const reopenedTree = await getFeatureTreeRpc(ctx, token);
     expect(reopenedTree.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));

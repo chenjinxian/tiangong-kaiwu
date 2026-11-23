@@ -64,8 +64,13 @@ export function SignInRoute(): React.JSX.Element {
       await AuthSession.login(values.email, values.password);
     } catch (error) {
       const { status, retryAfterSeconds } = (error ?? {}) as { status?: number; retryAfterSeconds?: number };
+      // B1.1：inactive/locked 等可本地化错误带 i18nKey；优先本地化，避免把
+      // hub 的通用 "An error occurred" 直接展示给用户。
+      const i18nKey = (error as { i18nKey?: string } | null)?.i18nKey;
       if (status === 429 && typeof retryAfterSeconds === 'number') {
         setFormError(t('auth.signIn.tooManyRequests', { seconds: retryAfterSeconds }));
+      } else if (i18nKey) {
+        setFormError(t(i18nKey));
       } else {
         setFormError(error instanceof Error ? error.message : String(error));
       }

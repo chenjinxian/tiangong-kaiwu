@@ -13,8 +13,7 @@ import { expect, test } from '@playwright/test';
 import type { SketchEntityDto } from '@luban-cad/shared';
 import {
   applyFeatureOpRpc, assertFeatureOpOk, borrowWriteLease, getApiToken,
-  getFeatureTreeRpc, getMassPropertiesRpc,
-} from '../helpers.js';
+  getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { chooseProfileRegionsInViewport, disableSnap, frameStandardView } from '../tutorial2-helpers.js';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { demoShot } from './demo.js';
@@ -131,20 +130,20 @@ test.describe('WARNING LABEL 同几何文档族', () => {
       });
 
       await insertSketch(ctx, token, SKETCH_BASE, 'Sketch 3（底座）', `${variant.slug}-base`);
-      await page.reload();
+      await reloadWithFlush(page);
       ctx = await openExampleEditor(page, ids);
       await openNewestSketch(page, BASE_RANGE);
       await finishSketch(page);
       await uiExtrude(page, '新建');
 
       await insertSketch(ctx, token, SKETCH_LABEL, 'Sketch 2（标签轮廓）', `${variant.slug}-label`);
-      await page.reload();
+      await reloadWithFlush(page);
       ctx = await openExampleEditor(page, ids);
       await openNewestSketch(page, LABEL_RANGE);
       await finishSketch(page);
 
       await insertSketch(ctx, token, SKETCH_PANEL, 'Sketch 1（标签面板）', `${variant.slug}-panel`);
-      await page.reload();
+      await reloadWithFlush(page);
       ctx = await openExampleEditor(page, ids);
       await openNewestSketch(page, PANEL_RANGE);
       await finishSketch(page);
@@ -168,7 +167,7 @@ test.describe('WARNING LABEL 同几何文档族', () => {
       const changeset = changesets.find((entry) => (entry.description ?? '').includes('自动保存') || (entry.description ?? '').includes(variant.name));
       expect(changeset, `${variant.name} changeset 未落库`).toBeTruthy();
 
-      await page.reload();
+      await reloadWithFlush(page);
       await openExampleEditor(page, ids);
       const reopened = await getFeatureTreeRpc(ctx, token);
       expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'sketch', 'extrude']);

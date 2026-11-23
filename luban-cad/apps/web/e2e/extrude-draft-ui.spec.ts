@@ -17,8 +17,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -74,7 +73,7 @@ test.describe('Extrude 拔模 UI（ADR-0005 Phase 4）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -88,7 +87,10 @@ test.describe('Extrude 拔模 UI（ADR-0005 Phase 4）', () => {
     assertFeatureOpOk(result, '盒体草图');
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    // C2 per-session briefcase：reload 换新会话本地文件，未推送草商会丢；
+    // 先落库再重开（与其它 UI 重开 spec 同纪律）。
+    await pushExampleChanges(page, 'extrude draft pre-reload');
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await page.getByRole('button', { name: '拉伸', exact: true }).click({ timeout: 30_000 });
     const dialog = page.getByTestId('part-studio-feature-dialog');
@@ -130,7 +132,7 @@ test.describe('Extrude 拔模 UI（ADR-0005 Phase 4）', () => {
     expect(tree[1]?.params).toMatchObject({ draftAngleDeg: 5 });
 
     await pushExampleChanges(page, 'extrude draft UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude']);

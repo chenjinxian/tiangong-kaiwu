@@ -36,8 +36,7 @@ import {
   getSketchRpc,
   msRpc,
   type BSeedEditorContext,
-  type WriteLease,
-} from './helpers.js';
+  type WriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 import { readBodyEdgeHandles } from './examples/replay/edge-resolver.js';
@@ -189,7 +188,7 @@ test.describe('草图外部引用 S1（bodyEdge 真栈）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };
@@ -260,7 +259,7 @@ test.describe('草图外部引用 S1（bodyEdge 真栈）', () => {
 
     // push + 冷重开：投影是读时派生，冷重建后仍 ok/4 refs/6000 mm³。
     await pushExampleChanges(page, 'sketch external ref body acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expectVolume(chain.consumerBodyKey, 6000);
     await expectArea(600);
@@ -279,7 +278,7 @@ test.describe('草图外部引用 S1（bodyEdge 真栈）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return await openExampleEditor(page, ids);
       }
     };

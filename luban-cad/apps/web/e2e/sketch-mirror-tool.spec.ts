@@ -7,7 +7,7 @@
  */
 import { expect, test } from '@playwright/test';
 import type { SketchDto, SketchEntityDto } from '@luban-cad/shared';
-import { getApiToken, getFeatureTreeRpc, getSketchRpc, openSeedImodelEditor } from './helpers.js';
+import { getApiToken, getFeatureTreeRpc, getSketchRpc, openSeedImodelEditor, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import {
   P,
@@ -180,7 +180,7 @@ test.describe('草图镜像工具（Sketch.Mirror）', () => {
     expect((await getFeatureTreeRpc(ctx, token)).some((row) => row.featureType === 'sketch')).toBe(true);
 
     // 冷重开持久性：finish 后的 sketch params（含 mirror 约束）仍在。
-    await page.reload();
+    await reloadWithFlush(page);
     const reopened = await openSeedImodelEditor(page, seed);
     const persisted = await latestSketch(reopened, token);
     expect(persisted.constraints.filter((c) => c.kind === 'mirror')).toHaveLength(4);

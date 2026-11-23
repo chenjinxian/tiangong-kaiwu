@@ -39,9 +39,11 @@ test.describe('示例 registry 重开回归', () => {
   for (const entry of entries) {
     test(`${entry.id}：PS 列表/特征树/body/体积读回`, async ({ page, request }) => {
       test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 600_000);
-      const token = await getApiToken();
+      let token = await getApiToken();
       const ids = await findExampleDocument(request, token, entry);
       const defaultCtx = await openExampleEditor(page, ids, READY_OPTIONS);
+      // Editor open may refresh (rotate) the shared session; re-read before RPC.
+      token = await getApiToken();
       const studios = await listPartStudiosRpc(defaultCtx, token);
       expect(studios.length, `${entry.imodelName} Part Studio 列表为空`).toBeGreaterThan(0);
 

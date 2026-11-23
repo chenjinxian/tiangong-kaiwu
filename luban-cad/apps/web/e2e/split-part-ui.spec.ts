@@ -16,8 +16,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -72,7 +71,7 @@ test.describe('SplitPart UI（ADR-0012）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -172,7 +171,7 @@ test.describe('SplitPart UI（ADR-0012）', () => {
     expect(tree[2]?.params).toMatchObject({ plane: 'YZ', offsetMm: 25, keepSide: 'positive' });
 
     await pushExampleChanges(page, 'splitPart UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'splitPart']);

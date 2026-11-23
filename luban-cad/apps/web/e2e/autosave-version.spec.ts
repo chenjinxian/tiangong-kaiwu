@@ -8,7 +8,7 @@
  * 4) 刷新 + 冷重开：草图/命名版本仍在（无手动推送步骤）。
  */
 import { expect, test } from '@playwright/test';
-import { getApiToken, getFeatureTreeRpc, openSeedImodelEditor } from './helpers.js';
+import { getApiToken, getFeatureTreeRpc, openSeedImodelEditor, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { finishSketch } from './tutorial2-helpers.js';
 import { listExampleChangesets } from './examples/imodel.js';
@@ -22,7 +22,7 @@ test.describe('自动保存 + 创建版本（Stage F）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -76,7 +76,7 @@ test.describe('自动保存 + 创建版本（Stage F）', () => {
     await expect(dock.getByTestId('part-studio-named-versions')).toContainText('V1');
 
     // ── 4) 刷新 + 冷重开：草图和命名版本仍在 ───────────────────────────────
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch']);

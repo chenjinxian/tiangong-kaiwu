@@ -332,6 +332,12 @@ export function SketchEntityPicker({
         down = undefined;
         return;
       }
+      // 画布拾取必须把键盘焦点从特征树/侧栏移走：iTwin 对 pointerdown 调用
+      // preventDefault，浏览器不会自动把焦点从树行移到 canvas；否则随后
+      // Delete 的 event.target 仍是树行，P1-2 树/侧栏守卫会让位，选中实体
+      // 反而删不掉。blur 到 body 让草图覆盖层的 window 捕获键盘路径接手。
+      if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body)
+        document.activeElement.blur();
       if (isOverlayPointRef.current?.(down))
         return;
       const target = hitTestRef.current(down);

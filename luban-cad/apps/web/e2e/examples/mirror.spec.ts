@@ -8,8 +8,7 @@ import { expect, test } from '@playwright/test';
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 import { runScenario } from './replay/run.js';
@@ -85,7 +84,7 @@ test.describe('T5 mirror', () => {
     expect(built.steps.map((step) => step.type)).toEqual(['sketch', 'extrude', 'mirror']);
     expect(built.notes.some((note) => note.includes('mirror=world-plane'))).toBe(true);
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'mirror']);
@@ -95,7 +94,7 @@ test.describe('T5 mirror', () => {
     expect(Math.abs(volume - EXPECTED_VOLUME_MM3) / EXPECTED_VOLUME_MM3).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'T5 mirror world plane');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = (await getFeatureTreeRpc(ctx, token)).map((row) => row.featureType);
     expect(reopened).toEqual(['sketch', 'extrude', 'mirror']);

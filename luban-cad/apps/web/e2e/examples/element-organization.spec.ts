@@ -13,8 +13,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
-  listPartStudiosRpc,
-} from '../helpers.js';
+  listPartStudiosRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { demoShot } from './demo.js';
 import {
@@ -89,7 +88,7 @@ test.describe('示例 iModel：Exercise: Element Organization', () => {
     await pushExampleChanges(page, `Onshape example: ${entry.imodelName}`);
     const reopened = await listPartStudiosRpc(lastCtx, token);
     expect(reopened.map((studio) => studio.name).sort()).toEqual(entry.scopes.map((scope) => scope.name).sort());
-    await page.reload();
+    await reloadWithFlush(page);
     await page.waitForTimeout(3_000);
     console.log(`[element-organization] ${JSON.stringify(summary)}`);
   });

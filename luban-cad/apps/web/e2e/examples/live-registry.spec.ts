@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { DEFAULT_DATA_ROOT, isExampleDataAvailable } from './registry.js';
 import { openExampleEditor, pushExampleChanges } from './imodel.js';
@@ -25,6 +25,58 @@ function loadSpecs(): LiveSpec[] {
 }
 
 const specs = loadSpecs();
+
+interface MassRow {
+  bodyKey: string;
+  volume: number;
+  centroid: { x: number; y: number; z: number };
+  surfaceArea?: number;
+}
+
+const MASS_REL_TOLERANCE = 1e-9;
+const MASS_ABS_TOLERANCE = 1e-9;
+
+/**
+ * 质量属性持久化回读门（live spec 建链结果 vs push/reload 后 RPC 回读）：
+ * - bodyKey 列表逐项严格相等——body 身份/顺序不得漂移；
+ * - volume / surfaceArea / centroid 保留逐字段断言，容差只吸收 double
+ *   序列化与求值顺序带来的 1e-15 级漂移（相对/绝对 1e-9，远小于任何几何
+ *   公差；不是「大致相等」式的放松）；
+ * - surfaceArea 可选：两侧必须同时缺席或同时在场。
+ * 旧 `toEqual` 会在仅 1e-15 质心漂移时假红，掩盖真实几何回归。
+ */
+function expectMassPropertiesClose(actual: MassRow[], expected: MassRow[]): void {
+  expect(actual.map((row) => row.bodyKey), 'bodyKey 必须逐项严格一致').toEqual(
+    expected.map((row) => row.bodyKey),
+  );
+  expect(actual, '质量属性行数必须一致').toHaveLength(expected.length);
+  for (let index = 0; index < expected.length; index++) {
+    const a = actual[index]!;
+    const e = expected[index]!;
+    const field = `${e.bodyKey}.`;
+    const volumeTolerance = Math.max(Math.abs(e.volume), 1) * MASS_REL_TOLERANCE;
+    expect(
+      Math.abs(a.volume - e.volume),
+      `${field}volume 偏差超容差（actual=${a.volume} expected=${e.volume}）`,
+    ).toBeLessThanOrEqual(volumeTolerance);
+    expect(a.surfaceArea === undefined, `${field}surfaceArea 在场性必须一致`).toBe(
+      e.surfaceArea === undefined,
+    );
+    if (e.surfaceArea !== undefined) {
+      const areaTolerance = Math.max(Math.abs(e.surfaceArea), 1) * MASS_REL_TOLERANCE;
+      expect(
+        Math.abs(a.surfaceArea - e.surfaceArea),
+        `${field}surfaceArea 偏差超容差（actual=${a.surfaceArea} expected=${e.surfaceArea}）`,
+      ).toBeLessThanOrEqual(areaTolerance);
+    }
+    for (const axis of ['x', 'y', 'z'] as const) {
+      expect(
+        Math.abs(a.centroid[axis] - e.centroid[axis]),
+        `${field}centroid.${axis} 偏差超容差（actual=${a.centroid[axis]} expected=${e.centroid[axis]}）`,
+      ).toBeLessThanOrEqual(MASS_ABS_TOLERANCE);
+    }
+  }
+}
 
 test.describe('live UI 复刻 registry', () => {
   test.skip(!isExampleDataAvailable(), 'ONSHAPE_PARITY_DATA 不在场');
@@ -57,11 +109,14 @@ test.describe('live UI 复刻 registry', () => {
       }
 
       await pushExampleChanges(page, `live ${spec.id}`);
-      await page.reload();
+      await reloadWithFlush(page);
       await openExampleEditor(page, result.ids);
       expect(await getFeatureTreeRpc(result.ctx, result.token)).toEqual(result.tree);
       expect(await getBodiesRpc(result.ctx, result.token)).toEqual(result.bodies);
-      expect(await getMassPropertiesRpc(result.ctx, result.token)).toEqual(result.mass);
+      expectMassPropertiesClose(
+        (await getMassPropertiesRpc(result.ctx, result.token)) as MassRow[],
+        result.mass as MassRow[],
+      );
     });
   }
 });

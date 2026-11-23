@@ -14,8 +14,7 @@ import {
   getApiToken,
   getSketchRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 
 const XY_PLANE: SketchPlaneDto = {
@@ -52,7 +51,7 @@ test.describe('草图实体删除（ADR-0018 S1d）', () => {
       try {
         return await openSeedImodelEditor(page, seed);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openSeedImodelEditor(page, seed);
       }
     };
@@ -66,7 +65,7 @@ test.describe('草图实体删除（ADR-0018 S1d）', () => {
     const sketchId = created.featureId!;
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     const sketchRow = page.getByTestId(`tree-row-${sketchId}`);
     await expect(sketchRow).toBeVisible({ timeout: 60_000 });
@@ -98,7 +97,24 @@ test.describe('草图实体删除（ADR-0018 S1d）', () => {
     // ---- 1) Delete → 实体与附着约束一起消失（撤销窗口内先撤回来验证真删改） ----
     const undo = page.getByTestId('part-studio-ribbon-undo');
     await page.keyboard.press('Delete');
-    await expect(undo).toBeEnabled({ timeout: 5_000 });
+    // 真实删除门（先于撤销门）：一次 updateSketch 后线 + horizontal 约束移除、
+    // 圆与 radius 保留。该门与撤销门独立，避免撤销缺口掩盖删除本身的行为。
+    await expect.poll(async () => entityIds(await getSketchRpc(ctx, sketchId, token)), {
+      timeout: 40_000,
+      intervals: [800, 1200, 2000, 3000],
+    }).toEqual([CIRCLE_ID]);
+    expect(constraintIds(await getSketchRpc(ctx, sketchId, token))).toEqual([RADIUS_ID]);
+    // KNOWN-RED（2026-11-23，C2 复跑实证）：上方删除门先红 —— Delete 没有执行。
+    // 双击树行进入草图后，树行 button 保持 document.activeElement；随后画布单击
+    // 拾取实体不会移焦（iTwin 对 pointerdown preventDefault），`page.keyboard.press('Delete')`
+    // 的事件 target 落在 `[data-testid="part-studio-tree"]` 内，SketchEntityPicker
+    // 按 P1-2 树/侧栏守卫（internal/tree-event-guard.ts）主动让位，不调
+    // deleteSelectedSketchEntities → 无 updateSketch、无事务、实体仍为 [11,21]。
+    // 对照诊断：仅在上方拾取后临时 blur 焦点，本用例全部通过（删除落库 + 原生
+    // undo 恢复）——撤销通道本身正常，根因是画布拾取未移焦。这不是断言降级：
+    // 真实删除门与撤销门都保留。修复方向=画布拾取时移焦（或守卫按选择来源而非
+    // event.target 判定）；修复后本门与撤销门一起转绿。
+    await expect(undo).toBeEnabled({ timeout: 10_000 });
     await undo.click();
     await expect.poll(async () => constraintIds(await getSketchRpc(ctx, sketchId, token)), {
       timeout: 40_000,

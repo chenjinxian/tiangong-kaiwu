@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { getApiToken, getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc } from '../helpers.js';
+import { getApiToken, getBodiesRpc, getFeatureTreeRpc, getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './imodel.js';
 import { DEFAULT_DATA_ROOT, isExampleDataAvailable } from './registry.js';
@@ -52,7 +52,7 @@ test.describe('Links multi-target REMOVE', () => {
       expect(Math.abs(volumes[index]! - EXPECTED_BODY_MM3[index]!) / EXPECTED_BODY_MM3[index]!).toBeLessThan(0.01);
 
     await pushExampleChanges(page, 'Links multi-target remove scenario');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.every((row) => row.status === 0)).toBe(true);

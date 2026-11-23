@@ -14,8 +14,7 @@ import {
   getApiToken,
   getBodiesRpc,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -72,7 +71,7 @@ test.describe('booleanBodies intersect 真栈验收', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -143,11 +142,13 @@ test.describe('booleanBodies intersect 真栈验收', () => {
     expect(afterBodies.find((body) => body.bodyKey === body2!.bodyKey)?.active).toBe(false);
 
     await pushExampleChanges(page, 'booleanBodies intersect acceptance');
-    await page.reload();
-    await openWithRetry();
-    const reopenedTree = await getFeatureTreeRpc(ctx, token);
+    await reloadWithFlush(page);
+    // C2 per-session briefcase：reload 后旧会话文件已回收，必须使用新会话 ctx
+    // 的 dbKey 读面（旧的 ctx.dbKey 会 404）。
+    const reopenedCtx = await openWithRetry();
+    const reopenedTree = await getFeatureTreeRpc(reopenedCtx, token);
     expect(reopenedTree.map((row) => row.featureType)).toEqual(tree.map((row) => row.featureType));
-    const reopenedVolume = (await getMassPropertiesRpc(ctx, token))
+    const reopenedVolume = (await getMassPropertiesRpc(reopenedCtx, token))
       .reduce((sum, item) => sum + item.volume, 0);
     expect(Math.abs(reopenedVolume - volume) / volume).toBeLessThan(0.005);
   });

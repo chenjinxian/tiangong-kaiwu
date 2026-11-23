@@ -17,10 +17,18 @@ import {
   getBodiesRpc,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
+  listPartStudiosRpc,
 } from '../helpers.js';
 import { SEED_AND_OPEN_TIMEOUT_MS } from '../seed.js';
-import { openExampleEditor, openExamplePartStudio } from './imodel.js';
-import { EXAMPLE_STATE_PATH, loadExampleState } from './state.js';
+import { findExampleDocument, openExampleEditor, openExamplePartStudio } from './imodel.js';
+import { loadExampleRegistry, resolveExample } from './registry.js';
+import type { ExampleDocumentEntry } from './registry.js';
+import {
+  EXAMPLE_STATE_PATH,
+  loadExampleState,
+  upsertExampleDocumentState,
+  type ExampleScopeState,
+} from './state.js';
 
 const state = loadExampleState();
 const only = process.env.EXAMPLE_DOCS
@@ -45,18 +53,47 @@ test.describe('示例 state 重开回归', () => {
   }
 
   for (const doc of documents) {
-    test(`${doc.id}：树/body/体积按 state 读回`, async ({ page }) => {
+    test(`${doc.id}：树/body/体积按 state 读回`, async ({ page, request }) => {
       test.setTimeout(SEED_AND_OPEN_TIMEOUT_MS + 1_200_000);
-      const token = await getApiToken();
-      const ids = { itwinId: doc.projectId!, imodelId: doc.imodelId! };
-      const defaultCtx = await openExampleEditor(page, ids, { canvasTimeoutMs: 240_000 });
+      // openExampleEditor may trigger a shared-session refresh (rotating the
+      // server session hash); re-read after it so fallback/API calls never use
+      // an access token invalidated by that rotation.
+      let token = await getApiToken();
+      const registry = loadExampleRegistry();
+      const resolved = resolveExample(registry, doc.id);
+      const entry = 'imodelName' in resolved ? resolved as ExampleDocumentEntry : undefined;
+
+      // C2/示例 builder 会 reset 同名 iModel（新 id）或重建 scope（新 scopeId），
+      // state 里的 UUID 可能在本轮更早的 creator 后过期。按名重解析是运行态
+      // 真相的刷新，不是放宽断言；volume/featureTypes 仍与 state 记录对拍。
+      let ids = { itwinId: doc.projectId!, imodelId: doc.imodelId! };
+      let defaultCtx;
+      try {
+        defaultCtx = await openExampleEditor(page, ids, { canvasTimeoutMs: 240_000 });
+      } catch (error) {
+        if (!entry)
+          throw error;
+        token = await getApiToken();
+        ids = await findExampleDocument(request, token, entry);
+        defaultCtx = await openExampleEditor(page, ids, { canvasTimeoutMs: 240_000 });
+      }
+      // Editor open may have refreshed (rotated) the shared session.
+      token = await getApiToken();
+      const studios = await listPartStudiosRpc(defaultCtx, token);
+      const byName = new Map(studios.map((studio) => [studio.name, studio]));
       const scopes = doc.scopes.filter((scope) => scope.scopeId);
       expect(scopes.length, `${doc.id} state 无已建 scope`).toBeGreaterThan(0);
+      const scopeStates: ExampleScopeState[] = [];
 
       for (const scope of scopes) {
-        const ctx = scope.scopeId === defaultCtx.scopeId
+        const registryScope = entry?.scopes.find((candidate) => candidate.id === scope.id);
+        const wantedName = registryScope?.name ?? scope.name;
+        const studio = byName.get(wantedName) ?? (studios.length === 1 ? studios[0] : undefined);
+        if (!studio)
+          throw new Error(`${doc.id}/${scope.id} 找不到 Part Studio ${wantedName}（现有：${studios.map((s) => s.name).join(',')}）`);
+        const ctx = studio.id === defaultCtx.scopeId
           ? defaultCtx
-          : await openExamplePartStudio(page, ids, scope.scopeId!, { canvasTimeoutMs: 240_000 });
+          : await openExamplePartStudio(page, ids, studio.id, { canvasTimeoutMs: 240_000 });
         const tree = await getFeatureTreeRpc(ctx, token);
         if (scope.featureTypes)
           expect(tree.map((row) => row.featureType), `${doc.id}/${scope.id} 特征树`).toEqual(scope.featureTypes);
@@ -66,15 +103,34 @@ test.describe('示例 state 重开回归', () => {
         if (scope.bodyCount !== undefined)
           expect(bodies.length, `${doc.id}/${scope.id} active body 数`).toBe(scope.bodyCount);
 
+        let volume: number | undefined;
         if (scope.volumeMm3 !== undefined && scope.volumeMm3 > 0) {
-          const volume = (await getMassPropertiesRpc(ctx, token))
+          volume = (await getMassPropertiesRpc(ctx, token))
             .reduce((sum, item) => sum + item.volume, 0);
           expect(
             Math.abs(volume - scope.volumeMm3) / scope.volumeMm3,
             `${doc.id}/${scope.id} 体积 ${volume} vs state ${scope.volumeMm3}`,
           ).toBeLessThanOrEqual(0.005);
         }
+        scopeStates.push({
+          ...scope,
+          scopeId: studio.id,
+          featureTypes: tree.map((row) => row.featureType),
+          bodyCount: bodies.length,
+          volumeMm3: volume ?? scope.volumeMm3,
+          status: 'verified',
+          verifiedAt: new Date().toISOString(),
+        });
       }
+
+      // 刷新运行态 UUID/读回值，使下一轮即使 creator 再次 reset 也能按名自愈。
+      upsertExampleDocumentState({
+        id: doc.id,
+        projectId: ids.itwinId,
+        imodelId: ids.imodelId,
+        updatedAt: new Date().toISOString(),
+        scopes: scopeStates,
+      });
     });
   }
 });

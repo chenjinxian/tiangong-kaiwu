@@ -139,7 +139,7 @@ import {
   useBriefcaseConnection,
   useViewport,
 } from '@luban-cad/viewer';
-import type { PartStudioInfo } from '@luban-cad/shared';
+import { LubanFeatureRpcInterface, type PartStudioInfo } from '@luban-cad/shared';
 import { IModelApp, NotifyMessageDetails, OutputMessagePriority } from '@itwin/core-frontend';
 import type { BriefcaseConnection } from '@itwin/core-frontend';
 import { AuthSession } from '@clients/auth/AuthSession.js';
@@ -816,18 +816,48 @@ function PartStudioSession({
       await conn.pushChanges(description);
       return true;
     });
+    // E2E 写面必须走页面自己的 /ipc WS 会话：C2 起客户端 sessionId 不授权，
+    // 页面持有写租约；测试若用独立 HTTP RPC 借租约会被服务端正确拒绝。
+    // 该桥仅在 VITE_E2E_HOOKS=true 时暴露，生产包不注册。
+    const callFeatureRpc = async (method: string, args: unknown[]): Promise<unknown> => {
+      const client = LubanFeatureRpcInterface.getClient() as unknown as
+        Record<string, (...a: unknown[]) => Promise<unknown>>;
+      const fn = client[method];
+      if (typeof fn !== 'function') throw new Error(`unknown feature RPC method: ${method}`);
+      // 所有特征 RPC 首参都是 iModelKey；以当前连接键为准，e2e 跨 reload 的
+      // 旧 ctx.dbKey（前一会话文件已回收）不再导致 404。
+      const call = connection ? [connection.key, ...args.slice(1)] : args;
+      const result = await fn.apply(client, call);
+      // 写面成功后刷新页面树/草图派生态（等价 UI applyOp 的收尾）；否则随后
+      // 打开的对话框看不到 helper 刚写入的 sketch/extrude。
+      const isWrite = method === 'applyFeatureOp'
+        || method === 'createPartStudio'
+        || method === 'renamePartStudio'
+        || method === 'deletePartStudio'
+        || method === 'renameFeature'
+        || method === 'renameBody';
+      if (isWrite && (result as { ok?: boolean } | undefined)?.ok !== false) {
+        await featureSystem.refresh().catch(() => undefined);
+      }
+      return result;
+    };
+    type E2EAppHook = {
+      flushAutoPush?: typeof flushAutoPush;
+      callFeatureRpc?: typeof callFeatureRpc;
+    };
     if (import.meta.env.VITE_E2E_HOOKS === 'true') {
-      const host = window as unknown as {
-        __lubanE2EApp?: { flushAutoPush?: typeof flushAutoPush };
-      };
-      host.__lubanE2EApp = { ...host.__lubanE2EApp, flushAutoPush };
+      const host = window as unknown as { __lubanE2EApp?: E2EAppHook };
+      host.__lubanE2EApp = { ...host.__lubanE2EApp, flushAutoPush, callFeatureRpc };
     }
     return () => {
       dispose();
-      const host = window as unknown as { __lubanE2EApp?: { flushAutoPush?: typeof flushAutoPush } };
-      if (host.__lubanE2EApp) delete host.__lubanE2EApp.flushAutoPush;
+      const host = window as unknown as { __lubanE2EApp?: E2EAppHook };
+      if (host.__lubanE2EApp) {
+        delete host.__lubanE2EApp.flushAutoPush;
+        delete host.__lubanE2EApp.callFeatureRpc;
+      }
     };
-  }, [connection]);
+  }, [connection, featureSystem.refresh]);
 
   // 连接相位呈现（M5-T2）：briefcase 下载中/失败两态此前零消费——连接失败时
   // 状态栏走 useViewport ready 相位显示「已连接」、画布永不出图（M4 终审

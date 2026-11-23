@@ -37,8 +37,7 @@ import {
   getMassPropertiesRpc,
   getVariablesRpc,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { pushExampleChanges } from './examples/imodel.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
@@ -93,7 +92,7 @@ async function openWithRetry(
   try {
     return await openSeedImodelEditor(page, seed);
   } catch {
-    await page.reload();
+    await reloadWithFlush(page);
     return await openSeedImodelEditor(page, seed);
   }
 }
@@ -180,7 +179,7 @@ test.describe('ADR-0020 S4c 特征数值字段表达式（真栈）', () => {
       await releaseWriteLease(ctx, lease, token);
     }
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId(`tree-row-${extrudeId}`)).toBeVisible({ timeout: 60_000 });
 
@@ -328,7 +327,7 @@ test.describe('ADR-0020 S4c 特征数值字段表达式（真栈）', () => {
 
     // 6) push + 冷重开：表达式/物化值/变量保持。
     await pushExampleChanges(page, 'feature numeric expression fields acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId(`tree-row-${filletId}`)).toBeVisible({ timeout: 60_000 });
     tree = await getFeatureTreeRpc(ctx, token);
@@ -384,7 +383,7 @@ test.describe('ADR-0020 S4c 特征数值字段表达式（真栈）', () => {
       await releaseWriteLease(ctx, lease, token);
     }
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId('part-studio-canvas')).toBeVisible({ timeout: 60_000 });
 
@@ -470,7 +469,7 @@ test.describe('ADR-0020 S4c 特征数值字段表达式（真栈）', () => {
       await releaseWriteLease(ctx, lease, token);
     }
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId(`tree-row-${extrudeId}`)).toBeVisible({ timeout: 60_000 });
 
@@ -561,7 +560,7 @@ test.describe('ADR-0020 S4c 特征数值字段表达式（真栈）', () => {
       await releaseWriteLease(ctx, lease, token);
     }
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry(page, seed);
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toBeVisible({ timeout: 60_000 });
 

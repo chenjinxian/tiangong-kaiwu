@@ -11,8 +11,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  getSketchRpc,
-} from './helpers.js';
+  getSketchRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -84,7 +83,9 @@ test.describe('v1.31 cPlane plane point', () => {
     }, lease, token);
     assertFeatureOpOk(ex, 'Extrude 1');
 
-    await page.reload();
+    // C2 per-session briefcase：reload 前先推送，否则新会话从 hub 重建空树。
+    await pushExampleChanges(page, 'v1.31 cPlane plane point pre-reload');
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     const reopenedTree = await getFeatureTreeRpc(ctx, token);
     expect(reopenedTree.map((row) => row.featureType)).toEqual(['cPlane', 'sketch', 'extrude']);
@@ -94,7 +95,7 @@ test.describe('v1.31 cPlane plane point', () => {
     expect(Math.abs(volume - 4000) / 4000).toBeLessThan(0.005);
 
     await pushExampleChanges(page, 'v1.31 cPlane plane point');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openExampleEditor(page, ids);
     const reopenedSketch = await getSketchRpc(ctx, reopenedTree.find((row) => row.featureType === 'sketch')!.id, token);
     expect(reopenedSketch?.plane?.origin).toEqual(ORIGIN);

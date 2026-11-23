@@ -17,8 +17,7 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from '../helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from '../helpers';
 import {
   activate,
   chooseProfileRegionsInViewport,
@@ -204,7 +203,7 @@ test.describe('示例 iModel：Exercise - Basic Drawing', () => {
       title: '8. 推送到 hub', detail: '特征已写入 changeset；iModel 可被其他会话重新打开。',
     });
 
-    await page.reload();
+    await reloadWithFlush(page);
     await expect(page.getByTestId('part-studio-viewport').locator('canvas').first()).toBeVisible({ timeout: 120_000 });
     await page.waitForTimeout(5_000);
     await frameStandardView(page, 6, {

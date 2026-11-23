@@ -8,7 +8,7 @@
  * 显示 legacy 横幅并且不得标 strict。
  */
 import { expect, test } from '@playwright/test';
-import { loginWithSession } from '../helpers.js';
+import { loginWithSession, reloadWithFlush } from '../helpers';
 
 test.describe('/examples 全部示例目录', () => {
   test('公开可读：22 张旧演示卡片 + legacy 横幅 + 未登录动作', async ({ page }) => {
@@ -43,7 +43,9 @@ test.describe('/examples 全部示例目录', () => {
     // 编辑器顶栏项目面包屑走 SPA 返回；不得整页 reload（reload 会掩盖 IPC 生命周期问题）。
     await page.locator('.part-studio-doc-title').click();
     await expect(page.getByTestId('imodel-card-grid')).toBeVisible({ timeout: 30_000 });
-    await page.locator('.imodel-card', { hasText: 'DRILL HOTD / ENG_BEARING' }).click();
+    // Exact canonical iModel name: "Onshape live: DRILL HOTD / ENG_BEARING" is a
+    // different test-owned iModel and must not make the locator ambiguous.
+    await page.locator('.imodel-card', { hasText: 'Onshape example: DRILL HOTD / ENG_BEARING' }).click();
     await expect(page.locator('canvas').first()).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId('part-studio-scope-loading')).toHaveCount(0, { timeout: 30_000 });
 
@@ -55,7 +57,7 @@ test.describe('/examples 全部示例目录', () => {
     await expect(page.getByTestId('part-studio-scope-loading')).toHaveCount(0, { timeout: 30_000 });
 
     // 页面刷新：浏览器销毁旧 WebSocket，新页面重新 startup 并打开同一模型。
-    await page.reload();
+    await reloadWithFlush(page);
     await expect(page.locator('canvas').first()).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId('part-studio-scope-loading')).toHaveCount(0, { timeout: 30_000 });
   });

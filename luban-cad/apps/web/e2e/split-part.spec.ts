@@ -13,8 +13,7 @@ import {
   assertFeatureOpOk,
   borrowWriteLease,
   getApiToken,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -64,7 +63,7 @@ test.describe('SplitPart 单侧世界平面（ADR-0012 切片 1）', () => {
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -129,7 +128,7 @@ test.describe('SplitPart 单侧世界平面（ADR-0012 切片 1）', () => {
     expect(result.centroid.x).toBeCloseTo(5, 3);
 
     await pushExampleChanges(page, 'splitPart acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     await openWithRetry();
     const reopened = await mass();
     expect(reopened.volume).toBeCloseTo(2000, 2);

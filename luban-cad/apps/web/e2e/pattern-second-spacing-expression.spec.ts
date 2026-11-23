@@ -35,8 +35,7 @@ import {
   getFeatureTreeRpc,
   getMassPropertiesRpc,
   getVariablesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -93,7 +92,7 @@ test.describe('ADR-0020 S9 body 线性阵列第二方向间距表达式（真栈
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -130,7 +129,7 @@ test.describe('ADR-0020 S9 body 线性阵列第二方向间距表达式（真栈
     ]);
     await releaseWriteLease(ctx, lease, token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${sketchId}`)).toBeVisible({ timeout: 60_000 });
 
@@ -269,7 +268,7 @@ test.describe('ADR-0020 S9 body 线性阵列第二方向间距表达式（真栈
 
     // 6) push + 冷重开：嵌套表达式/物化间距/四实例几何保持。
     await pushExampleChanges(page, 'pattern second-direction spacing expression UI acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     await expect(page.getByTestId(`tree-row-${patternId}`)).toBeVisible({ timeout: 60_000 });
     tree = await getFeatureTreeRpc(ctx, token);

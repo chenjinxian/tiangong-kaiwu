@@ -22,7 +22,9 @@
 | Azurite Blob | **10500**（仅 127.0.0.1 回环） | 10000 | compose `ports: 127.0.0.1:10500:10000`（对象存储禁止 0.0.0.0 暴露） |
 | Azurite Queue | **10501**（仅 127.0.0.1 回环） | 10001 | compose `ports: 127.0.0.1:10501:10001` |
 | Azurite Table | **10502**（仅 127.0.0.1 回环） | 10002 | compose `ports: 127.0.0.1:10502:10002` |
-| PostgreSQL / Redis / Maildev（栈内互通） | 不发布 | 5432 / 6379 / 1025、1080 | 根 `docker-compose.yml`（部署权威）；旧 `luban-cad/docker-compose.dev.yml`（宿主 55432/56379/11025/11080）已于 2026-10-29 退役 |
+| PostgreSQL / Redis（栈内互通） | 不发布 | 5432 / 6379 | 根 `docker-compose.yml`（部署权威）；旧 `luban-cad/docker-compose.dev.yml`（宿主 55432/56379）已于 2026-10-29 退役 |
+| Maildev SMTP | 不发布 | 1025 | 根 `docker-compose.yml`；HUB 通过栈网络投递 |
+| Maildev HTTP（邮件 UI/API） | **1080**（仅 127.0.0.1 回环） | 1080 | 根 `docker-compose.yml` `maildev.ports`（`MAIL_CLIENT_PORT`）；e2e 注册后读取确认邮件完成账号激活（B1.1 注册默认 inactive），禁止 0.0.0.0 发布 |
 | Vite preview | **4173** | 4173 | Vite 默认值；`luban-cad/apps/web/vite.config.ts` 未配置 `preview.port` |
 
 > **旧源码模式编排退役（2026-10-29）**：`luban-cad/docker-compose.dev.yml` 已删除。

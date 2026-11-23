@@ -46,8 +46,8 @@ describe('SignUpRoute', () => {
     expect(screen.getByTestId('password-strength')).toBeDefined();
   });
 
-  it('提交成功走 AuthSession.register', async () => {
-    registerMock.mockResolvedValue({ id: '3' });
+  it('提交成功走 AuthSession.register 并切待确认态（不自动登录）', async () => {
+    registerMock.mockResolvedValue(undefined);
     render(<MemoryRouter><SignUpRoute /></MemoryRouter>);
     await userEvent.type(screen.getByLabelText(/名|First name/i), 'T');
     await userEvent.type(screen.getByLabelText(/姓|Last name/i), 'U');
@@ -58,5 +58,7 @@ describe('SignUpRoute', () => {
     await userEvent.click(screen.getByRole('checkbox'));
     await userEvent.click(screen.getByRole('button', { name: /注册|Create account/i }));
     expect(registerMock).toHaveBeenCalledWith('t@e.com', 'Abcd1234!', 'T', 'U');
+    expect(await screen.findByTestId('signup-confirmation')).toBeDefined();
+    expect(screen.queryByRole('button', { name: /注册|Create account/i })).toBeNull();
   });
 });

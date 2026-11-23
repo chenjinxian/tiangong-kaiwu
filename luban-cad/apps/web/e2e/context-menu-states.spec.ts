@@ -15,8 +15,7 @@ import {
   borrowWriteLease,
   getApiToken,
   openSeedImodelEditor,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { resetBModelSeed, SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { activate, finishSketch } from './tutorial2-helpers';
 
@@ -59,7 +58,7 @@ async function enterEmptyFrontSketch(page: Page, request: Parameters<typeof rese
   assertFeatureOpOk(created, '草图');
   const sketchId = created.featureId!;
   await releaseWriteLease(ctx, lease, token);
-  await page.reload();
+  await reloadWithFlush(page);
   ctx = await openSeedImodelEditor(page, seed);
   const row = page.getByTestId(`tree-row-${sketchId}`);
   await expect(row).toBeVisible({ timeout: 60_000 });

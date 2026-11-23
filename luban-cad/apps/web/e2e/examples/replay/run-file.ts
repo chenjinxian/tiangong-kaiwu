@@ -11,8 +11,7 @@ import {
   getFeatureTreeRpc,
   getMassPropertiesRpc,
   getSketchRpc,
-  type BSeedEditorContext,
-} from '../../helpers.js';
+  type BSeedEditorContext, reloadWithFlush } from '../../helpers';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from '../imodel.js';
 import { DEFAULT_DATA_ROOT } from '../registry.js';
 import {
@@ -217,18 +216,22 @@ export async function runScenarioFile(
   // 冷重开稳定性（2026-11-08 Bumper Block 严格轨实测）：重逻辑链 push 前的首次
   // reload 偶发 90s 内不出 canvas（MS health 仍 200）；重试一次并记录提交前体积，
   // 便于把几何失败与冷开抖动区分。
+  // C2 per-session briefcase（2026-11-22）：reload 换新会话、不续用旧本地文件，
+  // 因此冷重开验证必须先落库；未推变更直接 reload 会得到空树（旧共享 briefcase
+  // 的偶然行为不可依赖）。
   const prebuiltVolumes = (await getMassPropertiesRpc(ctx, token)).map((item) => item.volume).sort((a, b) => a - b);
   console.log(`[scenario-file] pre-reopen volumes=${JSON.stringify(prebuiltVolumes)}`);
+  await pushExampleChanges(page, `${options.name} (cold-reopen)`);
   const openWithRetry = async () => {
     try {
       return await openExampleEditor(page, ids);
     } catch {
-      await page.reload();
+      await reloadWithFlush(page);
       await page.waitForTimeout(3_000);
       return openExampleEditor(page, ids);
     }
   };
-  await page.reload();
+  await reloadWithFlush(page);
   await openWithRetry();
   const tree = await getFeatureTreeRpc(ctx, token);
   if (process.env.EXAMPLE_DEBUG_TREE === '1')
@@ -267,7 +270,7 @@ export async function runScenarioFile(
   }
 
   await pushExampleChanges(page, `${options.name} (scenario-file)`);
-  await page.reload();
+  await reloadWithFlush(page);
   await openWithRetry();
   const reopenedTree = await getFeatureTreeRpc(ctx, token);
   expect(reopenedTree.map((row) => row.featureType)).toEqual(actualOpTypes);

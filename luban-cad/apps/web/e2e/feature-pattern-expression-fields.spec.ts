@@ -27,8 +27,7 @@ import {
   getApiToken,
   getFeatureTreeRpc,
   getMassPropertiesRpc,
-  releaseWriteLease,
-} from './helpers.js';
+  releaseWriteLease, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
 
@@ -88,7 +87,7 @@ test.describe('W45 S14：FEATURE 阵列表达式真栈（间距/第二方向/环
       try {
         return await openExampleEditor(page, ids);
       } catch {
-        await page.reload();
+        await reloadWithFlush(page);
         return openExampleEditor(page, ids);
       }
     };
@@ -163,7 +162,7 @@ test.describe('W45 S14：FEATURE 阵列表达式真栈（间距/第二方向/环
 
     // 释放 e2e 写租约给 UI 会话（previewOp 需要 UI 自取租约）。
     await releaseWriteLease(ctx, lease, token);
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     // 变量表就绪门：未就绪时表达式字段失焦会停留在原文（求值不可用）。
     await expect(page.getByTestId('tree-variable-v1')).toBeVisible({ timeout: 60_000 });
@@ -243,7 +242,7 @@ test.describe('W45 S14：FEATURE 阵列表达式真栈（间距/第二方向/环
 
     // ── 5) push + 冷重开 ───────────────────────────────────────────────
     await pushExampleChanges(page, 'featurePattern expression fields acceptance');
-    await page.reload();
+    await reloadWithFlush(page);
     ctx = await openWithRetry();
     tree = await getFeatureTreeRpc(ctx, token);
     expect(tree.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'sketch', 'extrude', 'featurePattern']);

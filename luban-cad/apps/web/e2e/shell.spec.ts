@@ -10,8 +10,7 @@ import { expect, test } from '@playwright/test';
 import {
   getApiToken,
   getFeatureTreeRpc,
-  getMassPropertiesRpc,
-} from './helpers.js';
+  getMassPropertiesRpc, reloadWithFlush } from './helpers';
 import { SEED_AND_OPEN_TIMEOUT_MS } from './seed.js';
 import { frameStandardView, projectWorld } from './tutorial2-helpers.js';
 import { ensureExampleImodel, openExampleEditor, pushExampleChanges } from './examples/imodel.js';
@@ -81,7 +80,7 @@ test.describe('T3 shell dialog', () => {
     const ctx = await openExampleEditor(page, ids);
     await runScenario(ctx, boxScenario(), token);
 
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     // Top 视图：顶面全可见，避免等轴测下投影点被其它面遮挡。
     await frameStandardView(page, 0, RANGE, { left: 0.2, right: 0.05, top: 0.15, bottom: 0.1 });
@@ -151,7 +150,7 @@ test.describe('T3 shell dialog', () => {
     }).toEqual(['sketch', 'extrude', 'shell']);
 
     await pushExampleChanges(page, 'T3 shell dialog');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const reopened = await getFeatureTreeRpc(ctx, token);
     expect(reopened.map((row) => row.featureType)).toEqual(['sketch', 'extrude', 'shell']);
@@ -174,7 +173,7 @@ test.describe('T3 shell dialog', () => {
     expect(Math.abs(editedVolume - expectedEdited) / expectedEdited).toBeLessThan(0.02);
 
     await pushExampleChanges(page, 'T3 shell dialog edit');
-    await page.reload();
+    await reloadWithFlush(page);
     await openExampleEditor(page, ids);
     const editedReopened = (await getFeatureTreeRpc(ctx, token)).map((row) => row.featureType);
     expect(editedReopened).toEqual(['sketch', 'extrude', 'shell']);
