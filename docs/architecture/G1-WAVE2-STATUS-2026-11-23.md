@@ -88,3 +88,15 @@
   长上传 SAS 续签、Linux worker 镜像/生产部署未验。
 - checkpoint REST DTO 仍省略 `fileSize`，`manifestPath` 仍为 null（本切片未写
   Hub sidecar）。
+
+## 7. 后续切片（2026-11-23，不改变本文 Gate 结论）
+
+- **D5 只读版本打开**：`LubanIpcInterface` 1.1.0 additive `downloadVersionBriefcase` +
+  MS Hub 目标解析/`briefcaseId:0` 下载/版本键缓存/写拒绝已实现，shared 与 MS 单测、
+  tsc 通过。隔离 D5 canary 已通过 NamedVersion/index/id 只读打开、几何/树、head
+  不变、写拒绝；发现 baseline `changesetId=""` 解析失败与 key 日志绝对路径泄漏，
+  已修复+单测；**2026-11-24 canary 重跑通过** baseline index 0、NV/index/id、几何/树、
+  head 字节不变、写/保存/push/pull/abandon/可写重开 403、key 日志仅 `path:<basename>`。
+  X-25 保持 open：native loader dev-build 绝对路径/`err.stack`、B3 per-doc ACL、
+  200/1000 性能仍未闭环；G1 Gate 仍未勾选。证据与重跑命令见
+  `AIRR-2026-11-23-D5-VERSION-OPEN.md` §5.8/§7.3。
