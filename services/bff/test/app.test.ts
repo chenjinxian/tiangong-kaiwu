@@ -11,7 +11,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
-import type { BffConfig } from '../src/config.js';
+import { loadConfig, type BffConfig } from '../src/config.js';
 
 interface RecordedRequest {
   method: string;
@@ -51,6 +51,8 @@ let hubMock: { server: Server; url: string; recorded: RecordedRequest[] };
 let authMeCalls: number;
 let app: ReturnType<typeof createApp>;
 let config: BffConfig;
+/** Tokens the mock Hub starts rejecting mid-test (simulates logout/revocation). */
+const revokedTokens = new Set<string>();
 
 beforeAll(async () => {
   // MS mock: echo service
@@ -66,7 +68,7 @@ beforeAll(async () => {
     if (req.url === '/auth/me') {
       authMeCalls += 1;
       const token = req.headers.authorization?.slice(7) ?? '';
-      if (token.startsWith('valid')) {
+      if (token.startsWith('valid') && !revokedTokens.has(token)) {
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ id: 'user-1', email: 'u@example.com' }));
       } else {
@@ -86,7 +88,8 @@ beforeAll(async () => {
     allowedOrigins: ['http://localhost:5300'],
     rateLimitMax: 100,
     rateLimitWindowMs: 900_000,
-    authCacheTtlMs: 60_000,
+    authCacheTtlMs: 0,
+    sessionTokenViaQuery: 'deny',
   };
   app = createApp(config);
 });
@@ -202,17 +205,84 @@ describe('/api token validation edge cases', () => {
     expect(res.status).toBe(200);
   });
 
-  it('accepts the ?token= query fallback', async () => {
+  it('rejects the ?token= query transport by default: 401, upstream/auth not hit', async () => {
+    const msBefore = msMock.recorded.length;
+    const authBefore = authMeCalls;
     const res = await request(app).get('/api/users/me?token=valid-token');
+    expect(res.status).toBe(401);
+    expect(res.body.error.message).toContain('must not be sent in the URL');
+    expect(msMock.recorded.length).toBe(msBefore);
+    expect(authMeCalls).toBe(authBefore);
+  });
+
+  it('rejects ?token= even when a valid cookie is also present (fail closed)', async () => {
+    const cookieValue = encodeURIComponent(JSON.stringify({ accessToken: 'valid-token' }));
+    const res = await request(app)
+      .get('/api/users/me?token=valid-token')
+      .set('Cookie', `luban_cad_auth=${cookieValue}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts ?token= only under the explicit compatibility flag', async () => {
+    const compat = createApp({ ...config, sessionTokenViaQuery: 'allow' });
+    const res = await request(compat).get('/api/users/me?token=valid-token');
     expect(res.status).toBe(200);
   });
 
-  it('caches validation: /auth/me consulted once for repeated same-token calls', async () => {
+  it('revalidates every request by default (no positive cache) and rejects immediately after revocation', async () => {
+    const token = 'valid-b12c-revoke';
+    const msBefore = msMock.recorded.length;
+
+    await request(app)
+      .get('/api/a')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const callsAfterFirst = authMeCalls;
+
+    revokedTokens.add(token);
+    const rejected = await request(app)
+      .get('/api/b')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(rejected.status).toBe(401);
+    // The second request went back to the Hub despite the earlier success.
+    expect(authMeCalls).toBe(callsAfterFirst + 1);
+    // It was not proxied to MS and the token is not echoed in the error.
+    expect(msMock.recorded.length).toBe(msBefore + 1);
+    expect(JSON.stringify(rejected.body)).not.toContain(token);
+  });
+
+  it('caches positive validation only when TTL > 0 is explicitly configured', async () => {
+    const cachedApp = createApp({ ...config, authCacheTtlMs: 60_000 });
+    const token = 'valid-b12c-optin-cache';
     const callsBefore = authMeCalls;
-    await request(app).get('/api/a').set('Authorization', 'Bearer valid-cache-token');
-    await request(app).get('/api/b').set('Authorization', 'Bearer valid-cache-token');
-    await request(app).get('/api/c').set('Authorization', 'Bearer valid-cache-token');
+
+    await request(cachedApp)
+      .get('/api/a')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    await request(cachedApp)
+      .get('/api/b')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
     expect(authMeCalls - callsBefore).toBe(1);
+  });
+
+  it('never caches a negative decision even when a positive TTL is configured', async () => {
+    const cachedApp = createApp({ ...config, authCacheTtlMs: 60_000 });
+    const callsBefore = authMeCalls;
+
+    await request(cachedApp)
+      .get('/api/a')
+      .set('Authorization', 'Bearer invalid-b12c-negative')
+      .expect(401);
+    await request(cachedApp)
+      .get('/api/b')
+      .set('Authorization', 'Bearer invalid-b12c-negative')
+      .expect(401);
+
+    expect(authMeCalls - callsBefore).toBe(2);
   });
 
   it('proxies POST bodies verbatim to MS', async () => {
@@ -276,5 +346,44 @@ describe('route isolation', () => {
     const res = await request(app).get('/ws');
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NotFound');
+  });
+});
+
+describe('B1.2c token cache config', () => {
+  it('defaults to 0 (positive cache disabled)', () => {
+    expect(loadConfig({}).authCacheTtlMs).toBe(0);
+  });
+
+  it('accepts an explicit positive opt-in', () => {
+    expect(loadConfig({ AUTH_TOKEN_CACHE_TTL_MS: '60000' }).authCacheTtlMs).toBe(60_000);
+    expect(loadConfig({ AUTH_TOKEN_CACHE_TTL_MS: '0' }).authCacheTtlMs).toBe(0);
+  });
+
+  it('does not read the legacy AUTH_CACHE_TTL_MS key', () => {
+    expect(loadConfig({ AUTH_CACHE_TTL_MS: '60000' }).authCacheTtlMs).toBe(0);
+  });
+
+  it('rejects invalid or negative values at startup', () => {
+    for (const bad of ['-1', 'nope']) {
+      expect(() => loadConfig({ AUTH_TOKEN_CACHE_TTL_MS: bad })).toThrow(
+        /AUTH_TOKEN_CACHE_TTL_MS/,
+      );
+    }
+  });
+});
+
+describe('B5a query-token policy config', () => {
+  it('defaults to deny', () => {
+    expect(loadConfig({}).sessionTokenViaQuery).toBe('deny');
+  });
+
+  it('accepts the explicit allow rollback value', () => {
+    expect(loadConfig({ SESSION_TOKEN_VIA_QUERY: 'allow' }).sessionTokenViaQuery).toBe('allow');
+  });
+
+  it('rejects invalid values at startup (no silent fallback)', () => {
+    expect(() => loadConfig({ SESSION_TOKEN_VIA_QUERY: 'yes' })).toThrow(
+      /SESSION_TOKEN_VIA_QUERY/,
+    );
   });
 });

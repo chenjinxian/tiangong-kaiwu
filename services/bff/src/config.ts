@@ -15,8 +15,21 @@ export interface BffConfig {
   rateLimitMax: number;
   /** token bucket refill window in ms (default 15 min) */
   rateLimitWindowMs: number;
-  /** validated-token cache TTL in ms (default 60 s, mirrors MS wsAuth) */
+  /**
+   * Positive validated-token cache TTL in ms. G1 B1.2c default is 0 (disabled):
+   * every `/api` request re-validates against the Hub so logout/revocation is
+   * effective on the next request. A deployment may opt in with
+   * `AUTH_TOKEN_CACHE_TTL_MS > 0` as a performance tradeoff (it reopens a
+   * revocation window up to that TTL). Negative and unavailable results are
+   * never cached.
+   */
   authCacheTtlMs: number;
+  /**
+   * G1 B5a token transport gate. `deny` (default) rejects any non-empty
+   * `?token=`; `allow` is an explicit, logged rollback window registered as
+   * EXCEPTIONS X-18. Bearer/cookie transports are unaffected.
+   */
+  sessionTokenViaQuery: 'deny' | 'allow';
 }
 
 const DEFAULTS = {
@@ -28,15 +41,35 @@ const DEFAULTS = {
   allowedOrigins: 'http://localhost:5300,http://localhost:5301',
   rateLimitMax: 100,
   rateLimitWindowMs: 900_000, // 15 min
-  authCacheTtlMs: 60_000, // 1 min
+  // G1 B1.2c: no positive cache by default. Opt in explicitly via
+  // AUTH_TOKEN_CACHE_TTL_MS; only valid results are ever cached.
+  authCacheTtlMs: 0,
   authTimeoutMs: 5_000,
+  sessionTokenViaQuery: 'deny',
 } as const;
+
+/** Parse the B5a query-token gate; invalid values fail fast (no silent fallback). */
+export function readQueryTokenPolicy(raw: string | undefined): 'deny' | 'allow' {
+  if (raw === undefined || raw === '') return 'deny';
+  if (raw === 'deny' || raw === 'allow') return raw;
+  throw new Error(`Invalid SESSION_TOKEN_VIA_QUERY: "${raw}" (expected deny|allow)`);
+}
 
 function readPositiveInt(raw: string | undefined, fallback: number, name: string): number {
   if (raw === undefined || raw === '') return fallback;
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) {
     throw new Error(`Invalid ${name}: "${raw}" (expected positive integer)`);
+  }
+  return n;
+}
+
+/** Non-negative integer (0 is meaningful: disables the positive token cache). */
+function readNonNegativeInt(raw: string | undefined, fallback: number, name: string): number {
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new Error(`Invalid ${name}: "${raw}" (expected non-negative integer)`);
   }
   return n;
 }
@@ -76,7 +109,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BffConfig & { 
       DEFAULTS.rateLimitWindowMs,
       'RATE_LIMIT_WINDOW_MS',
     ),
-    authCacheTtlMs: readPositiveInt(env.AUTH_CACHE_TTL_MS, DEFAULTS.authCacheTtlMs, 'AUTH_CACHE_TTL_MS'),
+    // G1 B1.2c: the old AUTH_CACHE_TTL_MS name is intentionally NOT read — it
+    // used to default to 60s and would silently reopen the revocation window.
+    authCacheTtlMs: readNonNegativeInt(
+      env.AUTH_TOKEN_CACHE_TTL_MS,
+      DEFAULTS.authCacheTtlMs,
+      'AUTH_TOKEN_CACHE_TTL_MS',
+    ),
+    sessionTokenViaQuery: readQueryTokenPolicy(env.SESSION_TOKEN_VIA_QUERY),
   };
 }
 

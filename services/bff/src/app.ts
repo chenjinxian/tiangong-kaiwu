@@ -13,7 +13,7 @@
 
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import type { BffConfig } from './config.js';
-import { createTokenValidator, extractToken } from './auth.js';
+import { createTokenValidator, extractToken, hasQueryToken } from './auth.js';
 import { createCors } from './cors.js';
 import { createRateLimiter } from './rateLimit.js';
 import { createProxyHandler } from './proxy.js';
@@ -50,9 +50,20 @@ export function createApp(config: BffConfig): Express {
 
   // ---- /api face: JWT termination, then proxy to modeling-server ----
   app.use('/api', async (req: Request, res: Response, next: NextFunction) => {
+    // G1 B5a: fail closed before credential validation. A URL token is a leak
+    // even when a valid cookie is also present; only the explicit rollback
+    // window (SESSION_TOKEN_VIA_QUERY=allow, EXCEPTIONS X-18) reads it.
+    const allowQueryToken = config.sessionTokenViaQuery === 'allow';
+    if (!allowQueryToken && hasQueryToken(req)) {
+      res.status(401).json({
+        error: { code: 'Unauthorized', message: 'Authentication token must not be sent in the URL' },
+      });
+      return;
+    }
+
     let token: string | null = null;
     try {
-      token = extractToken(req);
+      token = extractToken(req, { allowQueryToken });
     } catch {
       // Malformed request metadata must never become a pass-through.
     }

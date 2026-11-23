@@ -335,7 +335,10 @@ services:
       ALLOWED_ORIGINS: ${BFF_ALLOWED_ORIGINS:-http://localhost:5300,http://localhost:5301}
       RATE_LIMIT_MAX: ${BFF_RATE_LIMIT_MAX:-100}
       RATE_LIMIT_WINDOW_MS: ${BFF_RATE_LIMIT_WINDOW_MS:-900000}
-      AUTH_CACHE_TTL_MS: ${BFF_AUTH_CACHE_TTL_MS:-60000}
+      # G1 B1.2c: positive token cache is disabled by default (0). A deployment
+      # may opt in with BFF_AUTH_TOKEN_CACHE_TTL_MS > 0 (reopens a revocation
+      # window up to that TTL). The old AUTH_CACHE_TTL_MS key is no longer read.
+      AUTH_TOKEN_CACHE_TTL_MS: ${BFF_AUTH_TOKEN_CACHE_TTL_MS:-0}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
