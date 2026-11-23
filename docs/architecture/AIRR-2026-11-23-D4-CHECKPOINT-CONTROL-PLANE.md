@@ -65,7 +65,7 @@
 | 定时调度/补偿 | `@nestjs/schedule` cron（现有 jobs 同款） | 高 | 复用 | 无新调度器 | 项目内 |
 | 事务串行/防并发 | `pg_advisory_xact_lock` + TypeORM 事务（现有 checkpoint upsert 同款） | 高 | 复用 | per-iModel 串行无需新锁服务 | 项目内 |
 | 服务鉴权 | `AgentApiKeyGuard`（现有 baseline agent 路由） | 高 | 复用；仅 import，不修改 guard/auth 文件 | 满足“现有服务鉴权” | 项目内 |
-| checkpoint 存储访问 | `StoragePort`（`exists/getFileSize/downloadStream/refreshContainerAccessInfo/deleteContainer`） | 中 | 扩展（additive）：`containerExists`、`containerBlobExists`、`getContainerAccessInfo`；**不新增写 SAS**（storage-token 端点延后到真实 worker 任务） | 控制面需验证容器存在且构造稳定身份；SAS 策略归身份工作包 | 项目内 |
+| checkpoint 存储访问 | `StoragePort`（`exists/getFileSize/downloadStream/refreshContainerAccessInfo/deleteContainer`） | 中 | 扩展（additive）：`containerExists`、`containerBlobExists`、`getContainerAccessInfo`；**X-23 退出切片新增** `generateContainerSasTokenForPermission`（见 §7.5） | 控制面需验证容器存在且构造稳定身份；SAS 由控制面按目标容器现签 | 项目内 |
 | checkpoint 状态机 | 现有 `successful/scheduled/failed/notGenerated` 枚举 | 高 | 复用；内部 job 状态仅存在于 outbox | 不新增第二套对外状态 | 项目内 |
 | Named Version 解析 | 现有 checkpoint 仓储查询 | 中 | 扩展 index 回退 + 409 语义 | 官方 NV 与 changeset index 是一等关联 | 项目内 |
 | changeset 字节哈希 | Node `crypto`（现有 chainHash 同款） | 高 | 复用 | 无新依赖 | 项目内 |
@@ -202,6 +202,124 @@ npx jest --config ./test/jest-unit.json --runInBand test/unit/database/checkpoin
 - clone/fork 内容与历史复制真栈 e2e（D3）。
 - D5 版本打开、D7 restore、D8 引用。D5/D7 的打开/恢复入口落地时必须复用 `ChangesetsService.verifyForRead`（链校验）与 checkpoint latest/ready 语义，不得绕过。
 - 迁移在真实库上的持久化执行与旧库 fixture 回归（需发布窗口）。
+
+### 7.5 X-23/X-24 Hub 侧退出切片实现记录（2026-11-23）
+
+> 本记录只证明 Hub 侧契约与测试；**不关闭 X-23/X-24**，不打开 `CHECKPOINT_GENERATION_ENABLED`，不生成任何真实 checkpoint 字节，不构成 G1 Gate 证据。
+
+**Claim 元数据（X-24 部分退出）**
+
+- `POST /internal/imodels/:iModelId/checkpoints/:jobId/claim` 响应新增：
+  - `iTwinId`：目标 iModel 的 owner iTwin（Hub 从 iModel 行读取并校验存在，缺失 → 404 `IModelNotFound`，**不领取 lease**）。
+  - `container`：稳定容器身份 `{containerId, baseDirectory, baseUrl, baseUri, storage, storageType}`，`containerId=baseDirectory={iModelId}`；**无 SAS/URL 凭据**。`baseUri` 是给 checkpoint-worker 的兼容别名。
+- claim 在取 lease 前完成 iTwin/容器校验；storage 适配器无法描述容器（如 S3）→ 503 `CheckpointStorageUnsupported`，job 保持 queued、无 lease。
+- 鉴权在 `AgentApiKeyGuard` 之上新增 `CheckpointWorkerServiceGuard`：`X-Service-Name` 必须等于 `CHECKPOINT_WORKER_SERVICE_NAME`（默认 `checkpoint-worker`）。
+
+**Storage token（X-23 Hub 侧）**
+
+- `POST /internal/imodels/:iModelId/checkpoints/:jobId/storage-token`，body：`{permission: "read"|"write", leaseOwner}`（兼容已提交 worker 的 `purpose` 别名；两者同时出现必须一致）。
+- 采用 **claim-token bound**：job 必须存在且属于路径 iModel、state=`claimed`、lease 未过期、`leaseOwner` 匹配；checkpoint 行必须仍为 `scheduled` 且目标 changeset 已封账。
+- 容器由 Hub 权威决定：`getiModelCheckpointContainer(iModelId)`（即 `{iModelId}`）；**不接受**调用方容器/URL/SAS。
+- `StoragePort.generateContainerSasTokenForPermission(container, permission, ttl)`：Azure 容器级 SAS，read=`rl`、write=`racwdl`，TTL 900s（适配器强制 60–900s）；**拒绝为默认容器签写 SAS**；S3 显式不支持（fail-closed）。现有 `generateContainerSasToken` 读行为不变。
+- 响应：`{baseUri, storage, storageAccount, containerId, storageType, sasToken, permissions, permission, expiresAt}`；SAS 仅返回一次，不写 DB、不写日志、不进入 checkpoint GET。
+- 响应示例（字段名稳定；值脱敏）：
+
+```json
+{
+  "baseUri": "https://<account>.blob.core.windows.net",
+  "storage": "<account>",
+  "storageAccount": "<account>",
+  "containerId": "<iModelId>",
+  "storageType": "azure",
+  "sasToken": "<redacted>",
+  "permissions": "racwdl",
+  "permission": "write",
+  "expiresAt": "2026-11-23T00:15:00.000Z"
+}
+```
+
+**Changeset chain evidence（X-24 部分退出）**
+
+- `GET /internal/imodels/:iModelId/changesets/:changesetIdOrIndex/chain`（service-only，同一 pinned 服务名）。
+- 目标可为 40-hex id 或十进制 index；必须存在、属于路径 iModel、state=`fileUploaded`、index ≥ 1。
+- 响应：`{iModelId, changesetId, changesetIndex, chainRoot, legacyChain, algorithm: "sha256-index-changesetId-chainHash-v1", count, links: [{index, changesetId, parentId, prevHash, chainHash}]}`；`chainRoot` 与 Hub complete 校验使用同一 helper（`computeChangesetChainRoot`）。
+- 链必须从 1 连续到目标（缺口/不完整 → 422 `CheckpointVerificationFailed`）；单次响应上限 `MAX_CHAIN_EVIDENCE_ROWS=10000`，超限 → 422 `CheckpointChainEvidenceTooLarge`。
+- 仅暴露链哈希/父子 id，无用户 PII、SAS、URL；公开 changeset REST DTO **不变**。
+
+**测试证据（2026-11-23，Hub 仓）**
+
+```text
+npx tsc --noEmit                          # 0 errors
+npx eslint <changed src/test files>       # 0 errors / 0 warnings
+npx jest --config ./test/jest-unit.json --runInBand --coverage=false \
+  test/unit/imodels/checkpoint-control-plane.spec.ts \
+  test/unit/imodels/checkpoint-worker-service.guard.spec.ts \
+  test/unit/common/storage/checkpoint-container-sas.spec.ts \
+  test/unit/imodels/checkpoints-route-order.spec.ts
+# 4 suites / 54 tests passed
+
+npx jest --config ./test/jest-unit.json --runInBand --coverage=false
+# full hub unit suite: 149 suites / 1370 tests passed
+```
+
+隔离关系型 e2e（不触 live DB/栈）：`test/integration/checkpoint-agent-x23.e2e-spec.ts`，对独立 `postgres:17.6-alpine` 容器执行全量迁移后运行真实仓储 + 真实 HTTP 路由 + 真实 Azure/Azurite SAS 适配器，8/8 通过；覆盖 claim 字段、read/write token、错误 API key/service name、错误 lease、跨 iModel job/chain 负例；跑完删除测试行并销毁独立容器/卷。
+
+**仍未完成（不得据此关闭例外）**
+
+- worker 尚未切换/消费新契约（claim `iTwinId`/`container`、storage-token、chain endpoint）；X-23 的 `local-account-key` bridge 与 X-24 的独立双算仍需 worker 侧改造与 native canary。
+- `CHECKPOINT_GENERATION_ENABLED` 仍为 OFF；无真实 checkpoint 生成/readback/manifest/冷开基线。
+- 公开 REST 契约、schema/迁移：本切片**无变更**（无需新列）。
+
+### 7.6 Canary blocker 修复：changeset checkpoint 读取投影（2026-11-23）
+
+> 本节只记录 Hub 读取投影修复与其测试证据；**不关闭 X-23/X-24、不打开生成 flag、不写真实 checkpoint 字节、不勾选 G1 Gate**。canary 中的临时 gateway shim 不是修复，重跑 native canary 前必须移除。
+
+**Canary 发现（权威）**
+
+真实 scheduled checkpoint 行位于 index 1（`directoryAccessInfo=null`）时，官方 `BriefcaseManager.downloadBriefcase({asOf: target})` 失败 `V2 checkpoint not found`：
+
+1. `BackendIModelsAccess.queryV2Checkpoint` 先请求 `checkpoints.getSingle({iModelId, changesetId})`；Hub 命中精确 scheduled 行并按读取投影剥离访问信息（`directoryAccessInfo=null`）。
+2. 官方客户端因 `directoryAccessInfo === null` 进入 `queryCurrentOrPrecedingV2Checkpoint`，解析 index=1 后经 `changeset.getCurrentOrPrecedingCheckpoint()` 再次请求同一 index；Hub 仍返回同一 scheduled 行。
+3. 客户端判定该行不可用后递归 `index-1 = 0`，而 `findLatestCheckpointForChangeset(0)` 直接返回 `undefined`——不会走 baseline 分支，最终抛 `V2 checkpoint not found`。canary 用 gateway shim 替换为最新 successful 行才让 worker 跑通，属临时绕过。
+
+根因在 Hub 公开读取投影：`GET /imodels/:iModelId/changesets/:changesetIdOrIndex/checkpoint` 只要命中精确行就返回，未区分 `state`。该端点/链接名是官方 `currentOrPrecedingCheckpoint` 语义，`scheduled`/`failed`/`notGenerated` 不是可用 V2 checkpoint。
+
+**路由事实（官方 client 6.2.2）**
+
+- `IModelsApiUrlFormatter.getCheckpointUrl` 生成 `GET /imodels/{id}/changesets/{changesetId 或数字 index}/checkpoint`；`Changeset._links.currentOrPrecedingCheckpoint.href` 为按 changeset id 的同一路由。官方客户端**不使用** `/changesets/index/:index/checkpoint`。
+- Hub 原有 `changesets/:changesetIdOrIndex/checkpoint` 已覆盖官方形态；本次额外注册 `GET /imodels/:iModelId/changesets/index/:index/checkpoint`（在动态路由之前），与既有 `GET /changesets/index/:index` 兼容形态及 canary index 探测保持一致，避免 index 前缀探测 404。
+
+**修复语义（仅公开读取投影）**
+
+- 精确行且 `state=successful` → 原样返回。
+- 精确行为 `scheduled`/`failed`/`notGenerated`（或精确行不存在）→ 返回 `changesetIndex <= 请求 index` 的最新 `successful` 行（典型为 baseline index 0）；按 id 请求时用精确行的 `changesetIndex` 作为上界。
+- 无任何 successful 前置 → 404 `CheckpointNotFound`。公开 REST DTO/包络不变；仅 successful 行在读取时短签容器 SAS/下载 URL，响应不含持久化凭据。
+- `GET /briefcases/checkpoint`（latest）仍只取 `successful`；Named Version GET 的 409 `CheckpointNotReady`（scheduled/failed/notGenerated）保持不变（D6a 未削弱）。控制面仓储的 `findByChangesetIndex/Id` 仍返回精确行供调度/claim 使用，未改变写入语义。
+
+**证据（Hub 仓，2026-11-23）**
+
+```text
+npx tsc --noEmit                                      # 0 errors
+npx eslint <changed src/test files>                   # 0 errors / 0 warnings
+npx jest --config ./test/jest-unit.json --runInBand --coverage=false \
+  test/unit/imodels/checkpoint-current-or-preceding.spec.ts \
+  test/unit/imodels/checkpoints-route-order.spec.ts \
+  test/unit/imodels/service-account-channel.guard.spec.ts \
+  test/unit/imodels/named-version-checkpoint-delegation.spec.ts \
+  test/unit/imodels/checkpoint-sas-read.spec.ts
+# 5 suites / 127 tests passed
+
+npx jest --config ./test/jest-unit.json --runInBand --coverage=false
+# full hub unit suite: 149 suites / 1381 tests passed
+```
+
+隔离关系型 e2e（不触 live DB/栈）：`test/integration/checkpoint-read-projection.e2e-spec.ts`。在一次性 `postgres:17.6-alpine` 容器（宿主随机端口）执行全量迁移后，写入真实 iTwin/iModel/changeset/checkpoint 行（successful baseline index 0 + scheduled index 1，`directoryAccessInfo=null`），以真实 `CheckpointsController`/`CheckpointsService`/关系仓储经 HTTP 验证：按 changeset id、数字 index、`index/:index` 三种路由均返回 baseline 且带短签访问信息；latest 忽略 scheduled；未知 changeset 返回 404 `CheckpointNotFound`。5/5 通过，跑完删除测试行并销毁容器/卷。`CHECKPOINT_GENERATION_ENABLED` 未打开，未生成任何真实 checkpoint 字节。
+
+**仍未完成（不得据此关闭例外）**
+
+- 必须在**移除 canary gateway shim** 后重跑真实 native canary：官方 `BriefcaseManager.downloadBriefcase({asOf})` 成功下载 baseline 并应用后续 changeset，且 readback/冷开基线成立，才可讨论 X-23/X-24 退出。
+- `CHECKPOINT_GENERATION_ENABLED` 仍为 OFF；本次未生成/上传/回读真实 checkpoint，也未改 worker。
+- G1 Gate 未变化：本文不构成 Gate 通过证据。
 
 ---
 
