@@ -329,8 +329,15 @@ export {
 // =============================================================================
 // IPC Interface
 // =============================================================================
-export { lubanIpcChannel } from './LubanIpcInterface.js';
-export type { LubanIpcInterface, BriefcaseDownloadResult } from './LubanIpcInterface.js';
+export { lubanIpcChannel, LUBAN_IPC_INTERFACE_VERSION } from './LubanIpcInterface.js';
+export type {
+  LubanIpcInterface,
+  BriefcaseDownloadResult,
+  VersionOpenTarget,
+  VersionOpenRequest,
+  VersionOpenResolvedTarget,
+  VersionOpenResult,
+} from './LubanIpcInterface.js';
 export { LUBAN_INIT_TXN_DESCRIPTION } from './constants.js';
 
 // =============================================================================

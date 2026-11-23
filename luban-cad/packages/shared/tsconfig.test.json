@@ -16,7 +16,8 @@
   },
   "include": [
     "src/rpc/LubanFeatureRpcInterface.test.ts",
-    "src/expressions/expression-evaluator.test.ts"
+    "src/expressions/expression-evaluator.test.ts",
+    "src/LubanIpcInterface.test.ts"
   ],
   "exclude": ["node_modules", "dist", "dist-typecheck"]
 }
