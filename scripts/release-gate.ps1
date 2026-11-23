@@ -1,11 +1,18 @@
-﻿# 发布门自动化（2026-11-01，任务 5）
+﻿# 发布门自动化（2026-11-01，任务 5；G1 J3.1g 扩展）
 #
-# 校验：产物 SHA256 / 产物 provenance / MS 限流姿态 / web·hub 镜像标签，
-# 并默认串联 verify-stack.ps1（17/17 权威验收）。
+# 校验：产物 SHA256 / 产物 provenance / MS 限流姿态 / web·hub 镜像标签 /
+# 可选 release manifest（结构 + 策略 + 文件字节），并默认串联 verify-stack.ps1。
 #
 # 用法：
 #   powershell -File scripts/release-gate.ps1 -ExpectedSha256 <sha256>
+#   powershell -File scripts/release-gate.ps1 -ExpectedSha256 <sha256> `
+#     -ManifestPath release-manifest.json -VerifyManifestFiles
 #   powershell -File scripts/release-gate.ps1 -AllowStoreFallback -SkipVerifyStack
+#
+# -ManifestPath 省略时为 WARN（不伪造清单）；提供时强制
+# --require-native-provenance。-VerifyManifestFiles 额外核对清单声明的
+# nativeProvenance/artifacts[] 实际文件字节。镜像 registry digest / OCI label
+# 仍需发布方在 registry 侧核对（本脚本不联网）。
 #
 # 退出码：0=通过；1=存在 FAIL。WARN 不阻断，但必须写入发布记录。
 
@@ -14,7 +21,9 @@ param(
     [string]$ExpectedSha256,
     [switch]$AllowStoreFallback,
     [switch]$AllowRateLimitOverride,
-    [switch]$SkipVerifyStack
+    [switch]$SkipVerifyStack,
+    [string]$ManifestPath,
+    [switch]$VerifyManifestFiles
 )
 
 $ErrorActionPreference = 'Continue'
@@ -142,7 +151,43 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     }
 }
 
-# --- 5. verify-stack ------------------------------------------------------
+# --- 5. release manifest（G1 J3.1g，可选） --------------------------------
+$manifestScript = Join-Path $PSScriptRoot 'release-manifest.mjs'
+if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
+    Warn '未提供 -ManifestPath；release manifest 未校验（发布时应生成并校验）'
+} elseif (-not (Test-Path $manifestScript)) {
+    Fail "release-manifest.mjs 缺失: $manifestScript"
+} elseif (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Fail '未找到 node（release manifest 校验需要 Node）'
+} else {
+    $manifestFile = $ManifestPath
+    if (-not [System.IO.Path]::IsPathRooted($manifestFile)) {
+        $manifestFile = Join-Path $Root $manifestFile
+    }
+    if (-not (Test-Path $manifestFile)) {
+        Fail "release manifest 缺失: $manifestFile"
+    } else {
+        & node $manifestScript verify --file $manifestFile --require-native-provenance
+        if ($LASTEXITCODE -eq 0) {
+            Pass 'release manifest 结构/策略校验通过'
+        } else {
+            Fail "release manifest 校验失败（exit $LASTEXITCODE）"
+        }
+
+        if ($VerifyManifestFiles) {
+            & node $manifestScript verify-files --file $manifestFile --root $Root --require-native-provenance
+            if ($LASTEXITCODE -eq 0) {
+                Pass 'release manifest 文件字节校验通过'
+            } else {
+                Fail "release manifest 文件字节校验失败（exit $LASTEXITCODE）"
+            }
+        } else {
+            Warn '未提供 -VerifyManifestFiles；artifacts/nativeProvenance 文件字节未核对'
+        }
+    }
+}
+
+# --- 6. verify-stack ------------------------------------------------------
 $verifyStack = Join-Path $PSScriptRoot 'verify-stack.ps1'
 if ($SkipVerifyStack) {
     Warn '已跳过 verify-stack（发布门不应默认跳过）'
@@ -151,7 +196,7 @@ if ($SkipVerifyStack) {
 } else {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $verifyStack
     if ($LASTEXITCODE -eq 0) {
-        Pass 'verify-stack 17/17'
+        Pass 'verify-stack 通过'
     } else {
         Fail "verify-stack 失败（exit $LASTEXITCODE）"
     }

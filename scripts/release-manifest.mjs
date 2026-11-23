@@ -18,23 +18,32 @@
  *   node scripts/release-manifest.mjs build --input <file> [--out <file>]
  *   node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha>
  *     --contract-version <x.y.z> --image <name>=<digest> [--image ...]
- *     [--built-at <iso>] [--sbom-digest <digest>]
+ *     [--artifact <path> ...] [--built-at <iso>] [--sbom-digest <digest>]
  *     [--native-provenance <path> --native-provenance-sha256 <digest>]
  *     [--out <file>]
  *   node scripts/release-manifest.mjs verify --file <manifest>
  *     [--expected-source-commit <sha>] [--expected-contract-version <x.y.z>]
+ *     [--require-native-provenance]
+ *   node scripts/release-manifest.mjs verify-files --file <manifest>
+ *     [--root <dir>] [--require-native-provenance]
  *   node scripts/release-manifest.mjs verify-runtime --file <manifest>
  *     --base-url <http(s)://host[:port][/prefix]> [--timeout-ms <1..60000>]
  *     [--interface <rpcInterfaceName>]
  *
- * Exit codes: 0 = OK (manifest valid / runtime contract matches),
- *   1 = invalid manifest schema or runtime metadata invalid/mismatched,
+ * verify-files re-hashes the actual local bytes of `nativeProvenance` and every
+ * `artifacts[]` entry and compares them with the declared SHA-256 values. It
+ * never verifies registry image digests (that needs docker/registry access).
+ *
+ * Exit codes: 0 = OK (manifest valid / runtime contract matches / files match),
+ *   1 = invalid manifest schema, file missing or digest mismatch, or runtime
+ *       metadata invalid/mismatched,
  *   2 = usage error, unreadable/non-JSON input file, or runtime
  *       network/HTTP failure.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { createReadStream, readFileSync, writeFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
@@ -56,9 +65,11 @@ const MANIFEST_KEYS = [
   'images',
   'sbomDigest',
   'nativeProvenance',
+  'artifacts',
 ];
 const IMAGE_KEYS = ['name', 'digest'];
 const NATIVE_PROVENANCE_KEYS = ['path', 'sha256'];
+const ARTIFACT_KEYS = ['path', 'sha256'];
 
 const BUILD_ONLY_FLAGS = [
   'input',
@@ -67,6 +78,7 @@ const BUILD_ONLY_FLAGS = [
   'source-commit',
   'built-at',
   'image',
+  'artifact',
   'contract-version',
   'sbom-digest',
   'native-provenance',
@@ -76,6 +88,12 @@ const VERIFY_ONLY_FLAGS = [
   'file',
   'expected-source-commit',
   'expected-contract-version',
+  'require-native-provenance',
+];
+const VERIFY_FILES_ONLY_FLAGS = [
+  'file',
+  'root',
+  'require-native-provenance',
 ];
 const VERIFY_RUNTIME_ONLY_FLAGS = ['file', 'base-url', 'timeout-ms', 'interface'];
 
@@ -202,13 +220,57 @@ function validateImages(value, errors) {
   });
 }
 
+function validateArtifacts(value, errors) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    errors.push('artifacts: must be an array');
+    return;
+  }
+  if (value.length === 0) {
+    errors.push('artifacts: must contain at least one artifact when present');
+    return;
+  }
+
+  const seen = new Set();
+  value.forEach((artifact, index) => {
+    const path = `artifacts[${index}]`;
+    if (!isPlainObject(artifact)) {
+      errors.push(`${path}: must be an object`);
+      return;
+    }
+    checkKeys(artifact, ARTIFACT_KEYS, path, errors);
+
+    const artifactPath = requireString(artifact.path, `${path}.path`, errors);
+    if (artifactPath !== undefined) {
+      if (/[\r\n\0]/.test(artifactPath)) {
+        errors.push(`${path}.path: must be a single-line path without NUL`);
+      }
+      if (artifactPath.length > 1024) {
+        errors.push(`${path}.path: must be at most 1024 characters`);
+      }
+      if (seen.has(artifactPath)) {
+        errors.push(`${path}.path: duplicate artifact path`);
+      }
+      seen.add(artifactPath);
+    }
+
+    validateDigest(artifact.sha256, `${path}.sha256`, errors);
+  });
+}
+
 /**
  * Validate a manifest object against the v1 contract.
  * Returns an array of human-readable errors; empty means valid.
+ * `requireNativeProvenance` enforces the release policy that a manifest
+ * shipping native/backend artifacts must name its native provenance file.
  */
 export function validateManifest(
   value,
-  { expectedSourceCommit, expectedContractVersion } = {},
+  {
+    expectedSourceCommit,
+    expectedContractVersion,
+    requireNativeProvenance = false,
+  } = {},
 ) {
   const errors = [];
   if (!isPlainObject(value)) return ['manifest: must be a JSON object'];
@@ -259,12 +321,27 @@ export function validateManifest(
         'nativeProvenance.path',
         errors,
       );
-      if (nativePath !== undefined && /[\r\n]/.test(nativePath)) {
-        errors.push('nativeProvenance.path: must be a single-line path');
+      if (nativePath !== undefined) {
+        if (/[\r\n\0]/.test(nativePath)) {
+          errors.push(
+            'nativeProvenance.path: must be a single-line path without NUL',
+          );
+        }
+        if (nativePath.length > 1024) {
+          errors.push(
+            'nativeProvenance.path: must be at most 1024 characters',
+          );
+        }
       }
       validateDigest(native.sha256, 'nativeProvenance.sha256', errors);
     }
+  } else if (requireNativeProvenance) {
+    errors.push(
+      'nativeProvenance: required by release policy (--require-native-provenance)',
+    );
   }
+
+  validateArtifacts(value.artifacts, errors);
 
   if (expectedSourceCommit !== undefined) {
     if (!COMMIT_RE.test(expectedSourceCommit)) {
@@ -295,6 +372,16 @@ export function validateManifest(
   return errors;
 }
 
+function compareField(a, b, field) {
+  const aValue =
+    isPlainObject(a) && typeof a[field] === 'string' ? a[field] : '';
+  const bValue =
+    isPlainObject(b) && typeof b[field] === 'string' ? b[field] : '';
+  if (aValue < bValue) return -1;
+  if (aValue > bValue) return 1;
+  return 0;
+}
+
 function canonicalizeImages(value) {
   if (!Array.isArray(value)) return value;
   return value
@@ -303,13 +390,18 @@ function canonicalizeImages(value) {
         ? { ...image, digest: canonicalizeDigest(image.digest) }
         : image,
     )
-    .sort((a, b) => {
-      const aName = isPlainObject(a) && typeof a.name === 'string' ? a.name : '';
-      const bName = isPlainObject(b) && typeof b.name === 'string' ? b.name : '';
-      if (aName < bName) return -1;
-      if (aName > bName) return 1;
-      return 0;
-    });
+    .sort((a, b) => compareField(a, b, 'name'));
+}
+
+function canonicalizeArtifacts(value) {
+  if (!Array.isArray(value)) return value;
+  return value
+    .map((artifact) =>
+      isPlainObject(artifact)
+        ? { ...artifact, sha256: canonicalizeDigest(artifact.sha256) }
+        : artifact,
+    )
+    .sort((a, b) => compareField(a, b, 'path'));
 }
 
 /**
@@ -349,6 +441,9 @@ export function buildManifest(raw, { now = () => new Date().toISOString() } = {}
           sha256: canonicalizeDigest(raw.nativeProvenance.sha256),
         }
       : raw.nativeProvenance;
+  }
+  if (raw.artifacts !== undefined) {
+    manifest.artifacts = canonicalizeArtifacts(raw.artifacts);
   }
 
   const errors = validateManifest(manifest);
@@ -392,6 +487,28 @@ function parseImageSpec(spec) {
   return { name: spec.slice(0, separator), digest: spec.slice(separator + 1) };
 }
 
+function hashFileSync(path) {
+  let bytes;
+  try {
+    bytes = readFileSync(path);
+  } catch {
+    throw new UsageError(`cannot read artifact file: ${path}`);
+  }
+  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function hashFile(path) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(path);
+    stream.on('error', rejectPromise);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('end', () =>
+      resolvePromise(`sha256:${hash.digest('hex')}`),
+    );
+  });
+}
+
 function inputFromFlags(values) {
   const images = (values.image ?? []).map(parseImageSpec);
   if (images.length === 0) {
@@ -406,6 +523,13 @@ function inputFromFlags(values) {
     );
   }
 
+  // --artifact hashes the actual local bytes; it never accepts a declared
+  // digest from the caller. This is the build-side source for verify-files.
+  const artifacts = (values.artifact ?? []).map((path) => ({
+    path,
+    sha256: hashFileSync(path),
+  }));
+
   return {
     tag: values.tag,
     sourceCommit: values['source-commit'],
@@ -417,6 +541,7 @@ function inputFromFlags(values) {
       nativePath === undefined
         ? undefined
         : { path: nativePath, sha256: nativeSha },
+    artifacts: artifacts.length === 0 ? undefined : artifacts,
   };
 }
 
@@ -434,6 +559,7 @@ function runBuild(values) {
     'source-commit',
     'built-at',
     'image',
+    'artifact',
     'contract-version',
     'sbom-digest',
     'native-provenance',
@@ -485,6 +611,7 @@ function runVerify(values) {
   const errors = validateManifest(manifest, {
     expectedSourceCommit: values['expected-source-commit'],
     expectedContractVersion: values['expected-contract-version'],
+    requireNativeProvenance: values['require-native-provenance'] === true,
   });
 
   if (errors.length > 0) {
@@ -495,6 +622,90 @@ function runVerify(values) {
   console.log(
     `release manifest OK: ${manifest.tag} (${manifest.images.length} image(s), ` +
       `source ${manifest.sourceCommit.slice(0, 12)}, contract ${manifest.contractVersion})`,
+  );
+  return 0;
+}
+
+function fileEntries(manifest) {
+  const entries = [];
+  if (manifest.nativeProvenance !== undefined) {
+    entries.push({
+      label: 'nativeProvenance',
+      declaredPath: manifest.nativeProvenance.path,
+      expected: canonicalizeDigest(manifest.nativeProvenance.sha256),
+    });
+  }
+  const artifacts = Array.isArray(manifest.artifacts) ? manifest.artifacts : [];
+  artifacts.forEach((artifact, index) => {
+    entries.push({
+      label: `artifacts[${index}]`,
+      declaredPath: artifact.path,
+      expected: canonicalizeDigest(artifact.sha256),
+    });
+  });
+  return entries;
+}
+
+async function runVerifyFiles(values) {
+  rejectFlags(values, VERIFY_FILES_ONLY_FLAGS, 'verify-files');
+
+  if (values.file === undefined) {
+    throw new UsageError('verify-files requires --file <manifest>');
+  }
+
+  const manifest = readJsonFile(values.file);
+  const errors = validateManifest(manifest, {
+    requireNativeProvenance: values['require-native-provenance'] === true,
+  });
+  if (errors.length > 0) {
+    reportValidationErrors(errors);
+    return 1;
+  }
+
+  const entries = fileEntries(manifest);
+  if (entries.length === 0) {
+    console.error('release manifest files FAILED:');
+    console.error(
+      '  - no file digests declared (nativeProvenance/artifacts[]); refusing a no-op verification',
+    );
+    return 1;
+  }
+
+  const root = values.root === undefined ? process.cwd() : resolve(values.root);
+  const failures = [];
+  for (const entry of entries) {
+    const absolute = isAbsolute(entry.declaredPath)
+      ? entry.declaredPath
+      : resolve(root, entry.declaredPath);
+    let actual;
+    try {
+      actual = await hashFile(absolute);
+    } catch {
+      failures.push(
+        `${entry.label} (${entry.declaredPath}): cannot read file`,
+      );
+      continue;
+    }
+    if (actual !== entry.expected) {
+      failures.push(
+        `${entry.label} (${entry.declaredPath}): digest mismatch ` +
+          `(declared ${entry.expected}, actual ${actual})`,
+      );
+    } else {
+      console.log(`file OK: ${entry.label} ${entry.declaredPath} (${actual})`);
+    }
+  }
+
+  if (failures.length > 0) {
+    console.error(
+      `release manifest files FAILED (${failures.length} error(s)):`,
+    );
+    for (const failure of failures) console.error(`  - ${failure}`);
+    return 1;
+  }
+
+  console.log(
+    `release manifest files OK: ${entries.length} file(s) match declared SHA-256`,
   );
   return 0;
 }
@@ -715,23 +926,33 @@ function printHelp() {
   node scripts/release-manifest.mjs build --input <file> [--out <file>]
   node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha>
     --contract-version <x.y.z> --image <name>=<digest> [--image ...]
-    [--built-at <iso>] [--sbom-digest <digest>]
+    [--artifact <path> ...] [--built-at <iso>] [--sbom-digest <digest>]
     [--native-provenance <path> --native-provenance-sha256 <digest>]
     [--out <file>]
   node scripts/release-manifest.mjs verify --file <manifest>
     [--expected-source-commit <sha>] [--expected-contract-version <x.y.z>]
+    [--require-native-provenance]
+  node scripts/release-manifest.mjs verify-files --file <manifest>
+    [--root <dir>] [--require-native-provenance]
   node scripts/release-manifest.mjs verify-runtime --file <manifest>
     --base-url <http(s)://host[:port][/prefix]> [--timeout-ms <1..60000>]
     [--interface <rpcInterfaceName>]
 
 Manifest builder/validator plus runtime contract reconciliation (G1 J3.1/J3.2);
 not a release gate. Schema: docs/architecture/release-manifest.schema.json
+
+--artifact hashes the actual local file bytes and records artifacts[].sha256.
+verify-files re-hashes nativeProvenance and artifacts[] and fails on missing
+files or digest mismatches. It does not verify registry image digests (those
+need docker/registry access). --require-native-provenance enforces the release
+policy that ships backend/native artifacts.
 verify-runtime issues one unauthenticated GET to <base-url>/rpc/metadata and
 compares the runtime interfaceVersion with the manifest contractVersion.
 No docker or gh calls are made.
 
-Exit codes: 0 = OK, 1 = invalid manifest schema/metadata or version mismatch,
-2 = usage error, unreadable/non-JSON input file, or network/HTTP failure.`);
+Exit codes: 0 = OK, 1 = invalid manifest schema, file missing/digest mismatch,
+or metadata/version mismatch, 2 = usage error, unreadable/non-JSON input file,
+or network/HTTP failure.`);
 }
 
 const OPTIONS = {
@@ -743,12 +964,15 @@ const OPTIONS = {
   'source-commit': { type: 'string' },
   'built-at': { type: 'string' },
   image: { type: 'string', multiple: true },
+  artifact: { type: 'string', multiple: true },
   'contract-version': { type: 'string' },
   'sbom-digest': { type: 'string' },
   'native-provenance': { type: 'string' },
   'native-provenance-sha256': { type: 'string' },
   'expected-source-commit': { type: 'string' },
   'expected-contract-version': { type: 'string' },
+  'require-native-provenance': { type: 'boolean' },
+  root: { type: 'string' },
   'base-url': { type: 'string' },
   'timeout-ms': { type: 'string' },
   interface: { type: 'string' },
@@ -781,15 +1005,16 @@ export async function main(argv) {
   try {
     if (positionals.length !== 1) {
       throw new UsageError(
-        'expected exactly one command: build, verify, or verify-runtime',
+        'expected exactly one command: build, verify, verify-files, or verify-runtime',
       );
     }
     const [command] = positionals;
     if (command === 'build') return runBuild(values);
     if (command === 'verify') return runVerify(values);
+    if (command === 'verify-files') return await runVerifyFiles(values);
     if (command === 'verify-runtime') return await runVerifyRuntime(values);
     throw new UsageError(
-      `unknown command "${command}" (expected build, verify, or verify-runtime)`,
+      `unknown command "${command}" (expected build, verify, verify-files, or verify-runtime)`,
     );
   } catch (error) {
     if (error instanceof ManifestValidationError) {

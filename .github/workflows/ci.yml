@@ -1,13 +1,14 @@
-# 公开仓最小 CI（2026-11-01，任务 5）
+# 公开仓最小 CI（2026-11-01，任务 5；G1 J1.2/J1.3a 扩展）
 #
-# 覆盖：itwinjs-core 必要依赖构建 → luban-cad workspace 基座构建 → 单测 →
-# tsc/lint。**不覆盖**：真栈 e2e（需 docker 栈 + MS + 浏览器，归 verify-stack /
-# 发布 checklist）、发布镜像 e2e。
+# 覆盖：itwinjs-core 必要依赖构建 → luban-cad workspace 基座构建 → 契约冻结门 →
+# web 生产 build → 单测 → tsc/lint；独立的 BFF typecheck/单测；运维脚本
+# `node:test`。**不覆盖**：真栈 e2e（需 docker 栈 + MS + 浏览器，归 verify-stack /
+# 发布 checklist）、发布镜像 e2e、backend 全量、native ctest（需 self-hosted）。
 #
 # 关键约束：luban-cad 的 @itwin/* 以 link: 直连 itwinjs-core 源码目录，fresh
 # checkout 必须先 Rush install + build 出 lib/，否则 pnpm install 后 tsc 找不到
-# 类型（见根 CLAUDE.md）。这里只构建 web 单测所需的 core-frontend 闭包；
-# core-backend / native 不在此 job（后端私有仓 CI 另行处理）。
+# 类型（见根 CLAUDE.md）。这里只构建 web 生产 build / 单测所需的 core-frontend
+# 闭包；core-backend / native 不在此 job（后端私有仓 CI 另行处理）。
 name: CI (public)
 
 on:
@@ -16,12 +17,20 @@ on:
     paths:
       - 'luban-cad/**'
       - 'itwinjs-core/**'
+      - 'services/bff/**'
+      - 'scripts/**'
+      - 'docs/architecture/contract-freeze.json'
+      - 'docs/architecture/release-manifest.schema.json'
       - '.github/workflows/ci.yml'
   push:
     branches: [main]
     paths:
       - 'luban-cad/**'
       - 'itwinjs-core/**'
+      - 'services/bff/**'
+      - 'scripts/**'
+      - 'docs/architecture/contract-freeze.json'
+      - 'docs/architecture/release-manifest.schema.json'
       - '.github/workflows/ci.yml'
 
 concurrency:
@@ -65,6 +74,18 @@ jobs:
           CI: 'true'
         run: corepack pnpm@10 install --frozen-lockfile
 
+      - name: Contract freeze (J1.2)
+        # Reads public shared sources with the workspace TypeScript install.
+        # Fails when interfaceVersion or the exported surface drifted without
+        # docs/architecture/contract-freeze.json being updated in the same PR.
+        run: node scripts/check-contract-freeze.mjs
+
+      - name: Ops script tests
+        run: |
+          node --test scripts/check-contract-freeze.test.mjs
+          node --test scripts/release-manifest.test.mjs
+          node --test scripts/e2e-baseline.test.mjs
+
       - name: Build first-party packages
         working-directory: luban-cad
         run: |
@@ -72,6 +93,12 @@ jobs:
           corepack pnpm@10 --filter @itwin/editor-common build
           corepack pnpm@10 --filter @itwin/editor-frontend build
           corepack pnpm@10 --filter @luban-cad/viewer build
+
+      - name: Web production build (J1.3a)
+        working-directory: luban-cad
+        env:
+          CI: 'true'
+        run: corepack pnpm@10 --filter @luban-cad/web build
 
       - name: Unit tests
         working-directory: luban-cad
@@ -91,3 +118,35 @@ jobs:
           corepack pnpm@10 --filter @luban-cad/viewer lint
           corepack pnpm@10 --filter @luban-cad/web exec tsc --noEmit
           corepack pnpm@10 --filter @luban-cad/web lint
+
+  bff:
+    name: BFF typecheck / tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable corepack / pnpm 10
+        run: |
+          corepack enable
+          corepack prepare pnpm@10 --activate
+
+      - name: Install BFF dependencies
+        working-directory: services/bff
+        env:
+          CI: 'true'
+        run: corepack pnpm@10 install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: services/bff
+        run: corepack pnpm@10 run typecheck
+
+      - name: Unit tests
+        working-directory: services/bff
+        env:
+          CI: 'true'
+        run: corepack pnpm@10 test

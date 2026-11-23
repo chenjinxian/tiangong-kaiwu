@@ -9,8 +9,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import {
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -75,6 +77,10 @@ test('build from JSON input is deterministic, normalizes digests, and round-trip
   delete input.schemaVersion; // build defaults schemaVersion to 1
   input.images = [...input.images].reverse();
   input.images[0].digest = SIXTY_FOUR_F; // bare 64-hex must become sha256:<hex>
+  input.artifacts = [
+    { path: 'b-artifact.zip', sha256: SIXTY_FOUR_F },
+    { path: 'a-artifact.zip', sha256: SIXTY_FOUR_F },
+  ];
   const inputPath = writeJson(dir, 'input.json', input);
 
   const first = run(['build', '--input', inputPath]);
@@ -95,6 +101,12 @@ test('build from JSON input is deterministic, normalizes digests, and round-trip
 
   const names = built.images.map((image) => image.name);
   assert.deepEqual(names, [...names].sort(), 'images must be sorted by name');
+  assert.deepEqual(
+    built.artifacts.map((artifact) => artifact.path),
+    ['a-artifact.zip', 'b-artifact.zip'],
+    'artifacts must be sorted by path',
+  );
+  assert.equal(built.artifacts[0].sha256, `sha256:${SIXTY_FOUR_F}`);
 
   const manifestPath = writeJson(dir, 'built.json', built);
   const verify = run([
@@ -154,6 +166,234 @@ test('build from CLI flags produces a verifiable manifest', (t) => {
 
   const verify = run(['verify', '--file', outPath]);
   assert.equal(verify.status, 0, verify.stderr);
+});
+
+function sha256OfFile(path) {
+  return `sha256:${createHash('sha256').update(readFileSync(path)).digest('hex')}`;
+}
+
+test('build --artifact records actual file bytes; verify-files re-checks them', (t) => {
+  const dir = tempDir(t);
+  const artifactPath = join(dir, 'luban-cad-deploy-test.zip');
+  const nativePath = join(dir, 'native-provenance.json');
+  const outPath = join(dir, 'manifest.json');
+  writeFileSync(artifactPath, 'artifact-bytes-v1', 'utf8');
+  writeFileSync(nativePath, '{"nativeVersion":"test"}', 'utf8');
+  const artifactDigest = sha256OfFile(artifactPath);
+  const nativeDigest = sha256OfFile(nativePath);
+
+  const build = run([
+    'build',
+    '--tag',
+    'release-test-20261123',
+    '--source-commit',
+    'b92a2d8fa4cf4ba5e3a01415edd956ff3622adb8',
+    '--built-at',
+    '2026-11-23T00:00:00.000Z',
+    '--contract-version',
+    '1.85.0',
+    '--image',
+    `ghcr.io/chenjinxian/luban-web-public=sha256:${'1'.repeat(64)}`,
+    '--artifact',
+    artifactPath,
+    '--native-provenance',
+    nativePath,
+    '--native-provenance-sha256',
+    nativeDigest,
+    '--out',
+    outPath,
+  ]);
+  assert.equal(build.status, 0, build.stderr);
+
+  const manifest = JSON.parse(readFileSync(outPath, 'utf8'));
+  assert.deepEqual(manifest.artifacts, [
+    { path: artifactPath, sha256: artifactDigest },
+  ]);
+
+  const verify = run(['verify-files', '--file', outPath]);
+  assert.equal(verify.status, 0, verify.stderr);
+  assert.match(verify.stdout, /release manifest files OK: 2 file\(s\)/);
+  assert.match(verify.stdout, /nativeProvenance/);
+  assert.match(verify.stdout, /artifacts\[0\]/);
+
+  // Mutating the bytes after the manifest was built must fail closed.
+  writeFileSync(artifactPath, 'artifact-bytes-v2', 'utf8');
+  const tampered = run(['verify-files', '--file', outPath]);
+  assert.equal(tampered.status, 1);
+  assert.match(tampered.stderr, /artifacts\[0\]/);
+  assert.match(tampered.stderr, /digest mismatch/);
+  assert.match(tampered.stderr, new RegExp(artifactDigest));
+  assert.match(tampered.stderr, new RegExp(sha256OfFile(artifactPath)));
+
+  // A missing native provenance file is a verification failure, not a no-op.
+  rmSync(nativePath);
+  const missing = run(['verify-files', '--file', outPath]);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /nativeProvenance/);
+  assert.match(missing.stderr, /cannot read file/);
+});
+
+test('verify-files resolves relative artifact paths against --root', (t) => {
+  const dir = tempDir(t);
+  mkdirSync(join(dir, 'release'), { recursive: true });
+  const artifactPath = join(dir, 'release', 'asset.zip');
+  writeFileSync(artifactPath, 'relative-asset-bytes', 'utf8');
+
+  const manifest = readExample();
+  delete manifest.nativeProvenance;
+  manifest.artifacts = [
+    { path: 'release/asset.zip', sha256: sha256OfFile(artifactPath) },
+  ];
+  const manifestPath = writeJson(dir, 'relative.json', manifest);
+
+  const ok = run(['verify-files', '--file', manifestPath, '--root', dir]);
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /release\/asset\.zip/);
+
+  const wrongRoot = run([
+    'verify-files',
+    '--file',
+    manifestPath,
+    '--root',
+    join(dir, 'release'),
+  ]);
+  assert.equal(wrongRoot.status, 1);
+  assert.match(wrongRoot.stderr, /cannot read file/);
+});
+
+test('verify-files fails closed on a declared digest mismatch and empty file set', (t) => {
+  const dir = tempDir(t);
+  const artifactPath = join(dir, 'artifact.bin');
+  writeFileSync(artifactPath, 'bytes', 'utf8');
+  const manifest = readExample();
+  manifest.artifacts = [
+    { path: artifactPath, sha256: `sha256:${'0'.repeat(64)}` },
+  ];
+  const manifestPath = writeJson(dir, 'wrong-digest.json', manifest);
+
+  const mismatch = run(['verify-files', '--file', manifestPath]);
+  assert.equal(mismatch.status, 1);
+  assert.match(mismatch.stderr, /artifacts\[0\].*digest mismatch/);
+  assert.match(mismatch.stderr, /declared sha256:0{64}/);
+
+  const noFiles = readExample();
+  delete noFiles.nativeProvenance;
+  const noFilesPath = writeJson(dir, 'no-files.json', noFiles);
+  const empty = run(['verify-files', '--file', noFilesPath]);
+  assert.equal(empty.status, 1);
+  assert.match(empty.stderr, /no file digests declared/);
+});
+
+test('--require-native-provenance enforces the documented release policy', (t) => {
+  const dir = tempDir(t);
+  const withoutNative = readExample();
+  delete withoutNative.nativeProvenance;
+  const manifestPath = writeJson(dir, 'no-native.json', withoutNative);
+
+  // Optional at the schema level...
+  const plain = run(['verify', '--file', manifestPath]);
+  assert.equal(plain.status, 0, plain.stderr);
+
+  // ...but required by the release policy flag.
+  const policy = run([
+    'verify',
+    '--file',
+    manifestPath,
+    '--require-native-provenance',
+  ]);
+  assert.equal(policy.status, 1);
+  assert.match(policy.stderr, /nativeProvenance: required by release policy/);
+
+  const policyFiles = run([
+    'verify-files',
+    '--file',
+    manifestPath,
+    '--require-native-provenance',
+  ]);
+  assert.equal(policyFiles.status, 1);
+  assert.match(
+    policyFiles.stderr,
+    /nativeProvenance: required by release policy/,
+  );
+
+  // The checked-in example has nativeProvenance; it passes schema verification
+  // with the policy flag even though its file is not present locally.
+  const withNative = run([
+    'verify',
+    '--file',
+    EXAMPLE,
+    '--require-native-provenance',
+  ]);
+  assert.equal(withNative.status, 0, withNative.stderr);
+});
+
+test('artifacts validation rejects unknown, duplicate, and empty entries', (t) => {
+  const dir = tempDir(t);
+
+  const unknown = readExample();
+  unknown.artifacts = [
+    { path: 'a.bin', sha256: SIXTY_FOUR_F, extra: true },
+  ];
+  const unknownResult = run([
+    'verify',
+    '--file',
+    writeJson(dir, 'unknown.json', unknown),
+  ]);
+  assert.equal(unknownResult.status, 1);
+  assert.match(unknownResult.stderr, /artifacts\[0\]\.extra: unknown field/);
+
+  const duplicate = readExample();
+  duplicate.artifacts = [
+    { path: 'a.bin', sha256: SIXTY_FOUR_F },
+    { path: 'a.bin', sha256: SIXTY_FOUR_F },
+  ];
+  const duplicateResult = run([
+    'verify',
+    '--file',
+    writeJson(dir, 'duplicate.json', duplicate),
+  ]);
+  assert.equal(duplicateResult.status, 1);
+  assert.match(duplicateResult.stderr, /duplicate artifact path/);
+
+  const empty = readExample();
+  empty.artifacts = [];
+  const emptyResult = run([
+    'verify',
+    '--file',
+    writeJson(dir, 'empty.json', empty),
+  ]);
+  assert.equal(emptyResult.status, 1);
+  assert.match(emptyResult.stderr, /artifacts: must contain at least one/);
+});
+
+test('verify-files usage errors and missing --artifact input fail closed', (t) => {
+  const dir = tempDir(t);
+
+  const noFile = run(['verify-files']);
+  assert.equal(noFile.status, 2);
+  assert.match(noFile.stderr, /verify-files requires --file/);
+
+  const badFlag = run(['verify-files', '--file', EXAMPLE, '--tag', 'x']);
+  assert.equal(badFlag.status, 2);
+  assert.match(badFlag.stderr, /--tag is not valid for "verify-files"/);
+
+  const missingArtifact = run([
+    'build',
+    '--tag',
+    'release-test-20261123',
+    '--source-commit',
+    'b92a2d8fa4cf4ba5e3a01415edd956ff3622adb8',
+    '--built-at',
+    '2026-11-23T00:00:00.000Z',
+    '--contract-version',
+    '1.85.0',
+    '--image',
+    `ghcr.io/chenjinxian/luban-web-public=sha256:${'1'.repeat(64)}`,
+    '--artifact',
+    join(dir, 'missing.bin'),
+  ]);
+  assert.equal(missingArtifact.status, 2);
+  assert.match(missingArtifact.stderr, /cannot read artifact file/);
 });
 
 test('missing required fields fail with non-zero exit', (t) => {

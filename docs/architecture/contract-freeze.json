@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "description": "Frozen @luban-cad/shared cross-repo RPC contract surface (G1 J1.2). Update only with a version bump and paired backend/web release.",
+  "hashAlgorithm": "sha256",
+  "hashNormalization": "typescript-exported-declarations-token-stream/v1",
+  "contracts": [
+    {
+      "id": "@luban-cad/shared:LubanFeatureRpcInterface",
+      "package": "@luban-cad/shared",
+      "interfaceName": "LubanFeatureRpcInterface",
+      "source": "luban-cad/packages/shared/src/rpc/LubanFeatureRpcInterface.ts",
+      "interfaceVersion": "1.85.0",
+      "sourceHash": "sha256:2c8b1e7e992d6667919c176e78312fbffc5f206859d8a28468ba066ced21d586",
+      "note": "Cross-repo Feature RPC: FeatureOp/FeatureParams/LubanFeatureType/DTOs and the RPC class surface."
+    },
+    {
+      "id": "@luban-cad/shared:LubanRpcInterface",
+      "package": "@luban-cad/shared",
+      "interfaceName": "LubanRpcInterface",
+      "source": "luban-cad/packages/shared/src/rpc/LubanRpcInterface.ts",
+      "interfaceVersion": "1.1.0",
+      "sourceHash": "sha256:f0992a0c79edd71f75c6e1359fe6e79d4ec45dcd47b0ea2148e4ad1ca0981e80",
+      "note": "Legacy/adjacent public RPC surface (non-edit paths); frozen for the same paired-release discipline."
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "config": {
+    "rootDir": "e2e",
+    "version": "1.59.0",
+    "projects": [{ "name": "chromium" }]
+  },
+  "suites": [
+    {
+      "title": "example.spec.ts",
+      "file": "e2e/example.spec.ts",
+      "specs": [
+        {
+          "title": "passes cleanly",
+          "file": "e2e/example.spec.ts",
+          "line": 10,
+          "column": 1,
+          "tests": [
+            {
+              "projectName": "chromium",
+              "status": "expected",
+              "expectedStatus": "passed",
+              "results": [{ "status": "passed", "duration": 1234 }]
+            }
+          ]
+        },
+        {
+          "title": "fails with a secret-looking body",
+          "file": "e2e/example.spec.ts",
+          "line": 20,
+          "column": 1,
+          "tests": [
+            {
+              "projectName": "chromium",
+              "status": "unexpected",
+              "expectedStatus": "passed",
+              "results": [
+                {
+                  "status": "failed",
+                  "duration": 999,
+                  "error": { "message": "CANARY-error-body-do-not-copy" },
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "test-results/secret-screenshot.png"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "is a registered known-red",
+          "file": "e2e/example.spec.ts",
+          "line": 25,
+          "column": 1,
+          "tests": [
+            {
+              "projectName": "chromium",
+              "status": "expected",
+              "expectedStatus": "failed",
+              "results": [
+                {
+                  "status": "failed",
+                  "duration": 321,
+                  "error": { "message": "registered known-red: blocked-kernel" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "is skipped",
+          "file": "e2e/example.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectName": "chromium",
+              "status": "skipped",
+              "expectedStatus": "skipped",
+              "results": []
+            }
+          ]
+        },
+        {
+          "title": "passes on retry",
+          "file": "e2e/example.spec.ts",
+          "line": 40,
+          "column": 1,
+          "tests": [
+            {
+              "projectName": "chromium",
+              "status": "flaky",
+              "expectedStatus": "passed",
+              "results": [
+                { "status": "failed", "duration": 100 },
+                { "status": "passed", "duration": 200 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "nested group",
+      "file": "e2e/other.spec.ts",
+      "specs": [],
+      "suites": [
+        {
+          "title": "nested group",
+          "file": "e2e/other.spec.ts",
+          "specs": [
+            {
+              "title": "passes too",
+              "file": "e2e/other.spec.ts",
+              "line": 5,
+              "column": 1,
+              "tests": [
+                {
+                  "projectName": "chromium",
+                  "status": "expected",
+                  "expectedStatus": "passed",
+                  "results": [{ "status": "passed", "duration": 4321 }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-23T00:00:00.000Z",
+    "duration": 12345,
+    "expected": 3,
+    "skipped": 1,
+    "unexpected": 1,
+    "flaky": 1
+  }
+}
