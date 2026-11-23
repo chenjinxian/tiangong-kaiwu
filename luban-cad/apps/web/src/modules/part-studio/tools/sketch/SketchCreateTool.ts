@@ -1303,7 +1303,9 @@ export class SketchArc3PointTool extends SketchCreateTool {
   /**
    * 三点定圆（局部 z=0 面内）：起点/终点/弧上点 → center/radius/startAngle/sweepAngle。
    * startAngle=圆心→起点向量相对局部 x 轴的方位角（atan2，弧度制）；
-   * sweepAngle=经弧上点方向的正向扫角（createCircularStartMiddleEnd 恒归一 [0,2π)）。
+   * sweepAngle=经弧上点方向的**有符号**扫角（正=逆时针、负=顺时针）——
+   * createCircularStartMiddleEnd 的 sweep 恒正，方向由弧平面法线决定；草图局部
+   * 坐标系固定 +z 逆时针，法线为 -z 时必须翻转符号，否则弧落到镜像的另一侧。
    */
   private _arcFrom3Points(
     start: SketchPoint2,
@@ -1318,11 +1320,14 @@ export class SketchArc3PointTool extends SketchCreateTool {
     const curve = Arc3d.createCircularStartMiddleEnd(pts[0], pts[1], pts[2]);
     if (!(curve instanceof Arc3d)) return undefined; // 共线 → LineString3d 退化
     const vector0 = curve.vector0; // 圆心→起点（构造保证 sweep 起点=pointA=start）
+    const vector90 = curve.vector90; // 圆弧参数系 y 轴（与 vector0 一起定法线手性）
+    // 法线 z 分量符号=局部 +z 视角下的扫向：-z 表示顺时针，DTO 记为负扫角。
+    const normalZ = vector0.x * vector90.y - vector0.y * vector90.x;
     return {
       center: { x: curve.center.x, y: curve.center.y },
       radius: vector0.magnitude(),
       startAngle: Math.atan2(vector0.y, vector0.x),
-      sweepAngle: curve.sweep.sweepRadians,
+      sweepAngle: normalZ < 0 ? -curve.sweep.sweepRadians : curve.sweep.sweepRadians,
     };
   }
 }

@@ -307,6 +307,26 @@ describe('v1.19：SketchArc3PointTool buildShape（三点定圆/内联圆心）'
     expect(arc.sweepAngle).toBeCloseTo(Math.PI / 2, 10);
   });
 
+  it('顺时针弧（弧上点在 x 轴下方）：sweepAngle 为负，契约正=逆时针/负=顺时针', () => {
+    // 起点(1,0) → 终点(-1,0)，弧上点(0,-1)：圆心(0,0) r=1，经下半圆顺时针 π。
+    // createCircularStartMiddleEnd 的坐标系法线为 -z，其 sweep 恒正；DTO 必须带符号落库。
+    const tool = new TestableArc();
+    const draft = tool.callBuildShape([
+      { u: 1, v: 0 },
+      { u: -1, v: 0 },
+      { u: 0, v: -1 },
+    ]);
+    expect(draft).toBeDefined();
+    expect(draft!.entities).toHaveLength(1);
+    const arc = draft!.entities[0];
+    if (arc?.kind !== 'arc' || typeof arc.center === 'number') return;
+    expect(arc.center.x).toBeCloseTo(0, 10);
+    expect(arc.center.y).toBeCloseTo(0, 10);
+    expect(arc.radius).toBeCloseTo(1, 10);
+    expect(arc.startAngle).toBeCloseTo(0, 10);
+    expect(arc.sweepAngle).toBeCloseTo(-Math.PI, 10);
+  });
+
   it('三点共线 → undefined（Arc3d 退化为 LineString3d 判退）', () => {
     const tool = new TestableArc();
     expect(tool.callBuildShape([{ u: 0, v: 0 }, { u: 2, v: 0 }, { u: 1, v: 0 }])).toBeUndefined();

@@ -6,8 +6,8 @@
  * 会话注入进种子库编辑器 →「草图」钮 → SketchDialog 选上视 → ✓（insertSketch
  * 真 sketchId）→ 草图模式变身 → 线（2 点击）+ 3点弧（3 点击：起点吸线终点→
  * 终点吸线起点→弧上点外偏，闭环）→ 退出草图 →「拉伸」→ FeatureDialog 选草图
- * （单面域自动 regionIndex=0）→ ✓ 提交 → 特征树 2 节点 + 视口成体非空 →
- * 撤销回 1 节点 → 重做回 2 节点；全程零 console error。
+ * （单面域自动 regionIndex=0）→ ✓ 提交 → 特征树 2 节点 → 撤销回 1 节点 →
+ * 重做回 2 节点 → 视口成体非空；全程零 console error。
  *
  * 实现要点（既有基建复用，禁凭记忆写选择器）：
  * - 导航/就绪：helpers.openSeedImodelEditor（P2.6a 起 = B 种子 + `?model=`
@@ -198,7 +198,8 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   // P2.6a：每例重置 B 种子（干净特征计数 + 新 dbKey 规避上一页面的写租约 TTL）；
   // reset 返回的同一组 id 交给 open（L3）。
   test.setTimeout(900_000);
-  const bSeed = await resetBModelSeed(request, await getApiToken());
+  const token = await getApiToken();
+  const bSeed = await resetBModelSeed(request, token);
 
   // 全程 console error 收集（测试尾断言零；pageerror=未捕获异常一并入账）。
   const consoleErrors = collectConsoleErrors(page);
@@ -320,11 +321,8 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await expect(dialog).toBeVisible();
 
   // 草图通道：草图自动取最近一张 → 面域读回（getSketch.regions）。闭环成败在此
-  // 亮牌——regions=0 → 「草图无可拉伸面域」+ ✓ 恒禁用（断言超时红=吸附闭环失败，
+  // 亮牌——regions=0 → 「草图无可拉伸面域」+ ✓ 恒禁用（断言超时红=闭环未成域，
   // 按纪律停在此处如实记录，不掩盖）。
-  // KNOWN-RED（2026-11-23 真栈复跑）：弧段已真实上屏（全画布差分 8260 px），
-  // 但 line+arc 闭环未产生任何面域，对话框无「草图 1 的面」——既有产品缺口
-  //（草图闭环成域），非本用例陈旧合同。断言保持，待内核/闭环修复后转绿。
   await expect(dialog.getByText('草图 1 的面', { exact: true })).toBeVisible({ timeout: 20_000 });
   const profileChips = dialog.getByTestId('part-studio-feature-dialog-profile-field').locator('button[data-region-index]');
   console.log(`[t8] 拉伸已选面域数=${await profileChips.count()}（1=单面域自动 regionIndex=0）`);
@@ -349,7 +347,21 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
   await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
   await expect(page.getByTestId('part-studio-ribbon-undo')).toBeEnabled({ timeout: 15_000 });
 
-  // ── 6) 成体视口：适应视图 → 中心区成片新墨（视口非空硬断言）──────────
+  // ── 6) 撤销 → 1 节点；重做 → 2 节点 ─────────────────────────────────
+  // 必须紧接提交：自动保存（默认 20s 防抖）push 会开启新 changeset 会话并清空
+  // 原生 undo/redo 栈（useAutoPush 注记；variables-ui/sketch-entity-drag 同纪律）。
+  // 本用例不依赖 VITE_EDITOR_AUTOSAVE=0，故撤销窗口只能在推送前。
+  await page.getByTestId('part-studio-ribbon-undo').click();
+  await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
+  await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
+  await expect(featureList.getByRole('button', { name: '拉伸 1' })).toHaveCount(0);
+
+  await page.getByTestId('part-studio-ribbon-redo').click();
+  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
+  await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
+  await page.screenshot({ path: shotPath('t8-4-undo-redo.png') });
+
+  // ── 7) 成体视口：适应视图 → 中心区成片新墨（视口非空硬断言）──────────
   await page.mouse.click(cx, cy + 120, { button: 'right' });
   const solidMenu = page.getByRole('menu', { name: '画布菜单' });
   await expect(solidMenu).toBeVisible();
@@ -369,17 +381,6 @@ test('T8 冒烟：草图线+弧闭环 → 拉伸成体 → 撤销重做闭环', 
     })
     .toBeGreaterThan(1_500);
   await page.screenshot({ path: shotPath('t8-3-solid.png') });
-
-  // ── 7) 撤销 → 1 节点；重做 → 2 节点 ─────────────────────────────────
-  await page.getByTestId('part-studio-ribbon-undo').click();
-  await expect(featureCount).toHaveText('(5)', { timeout: 30_000 });
-  await expect(featureList.getByRole('button', { name: '草图 1' })).toBeVisible();
-  await expect(featureList.getByRole('button', { name: '拉伸 1' })).toHaveCount(0);
-
-  await page.getByTestId('part-studio-ribbon-redo').click();
-  await expect(featureCount).toHaveText('(6)', { timeout: 30_000 });
-  await expect(featureList.getByRole('button', { name: '拉伸 1' })).toBeVisible();
-  await page.screenshot({ path: shotPath('t8-4-undo-redo.png') });
 
   // ── 8) 全程零 console error ─────────────────────────────────────────
   expect(consoleErrors, `console error 应为空：\n${consoleErrors.join('\n')}`).toHaveLength(0);

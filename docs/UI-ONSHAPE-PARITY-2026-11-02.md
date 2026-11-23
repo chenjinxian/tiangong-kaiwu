@@ -409,8 +409,12 @@ ViewCube 与相机/渲染菜单、默认几何图元实时可见性、视口渲�
   标注测试验证单尺寸按钮依次生成 length 45 / radius 12.5 / distance 25，
   值确认框在标注位置；二次编辑验证拉伸距离 10→20 的 updateParams 落库）、
   `b-model.spec.ts` B 全链 1/1、`ui-parity.spec.ts` 2/2。
-  `sketch-extrude.spec.ts` 仍红（拉伸确认禁用：草图无拉链面域；
-  独立于本轮壳层/预览改动，待后续草图工具链专项处理）。
+  `sketch-extrude.spec.ts` 当时仍红（拉伸确认禁用：草图无拉链面域；
+  独立于本轮壳层/预览改动）。**2026-11-23 更新**：根因为三点圆弧 DTO 丢失
+  弧平面手性（顺时针弧的 sweep 被记为正），弧端点落到镜像侧导致闭环不成域；
+  `SketchCreateTool._arcFrom3Points` 改为按法线符号下发有符号 sweep 后，T8
+  线+弧闭环→单面域→拉伸→撤销/重做全链真栈复跑绿（`sketch-extrude`+
+  `tutorial2-tools` 8/8；单测含新增顺时针弧用例）。
 - 真栈截图：`.superpowers/t2-demo-20261102/ui-evidence/`（渲染/ViewCube 菜单/
   面/边/点高亮/树样式）。
 

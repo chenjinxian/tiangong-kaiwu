@@ -70,11 +70,12 @@ function maildevRecipient(email: MaildevEmail): string[] {
 function extractConfirmHash(email: MaildevEmail): string | null {
   const text = `${email.text ?? ''}\n${email.html ?? ''}`;
   const match = /[?&](?:amp;)?hash=([^&"'\s<>]+)/.exec(text);
-  if (!match) return null;
+  const hash = match?.[1];
+  if (!hash) return null;
   try {
-    return decodeURIComponent(match[1]);
+    return decodeURIComponent(hash);
   } catch {
-    return match[1];
+    return hash;
   }
 }
 

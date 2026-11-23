@@ -63,10 +63,12 @@ function expectMassPropertiesClose(actual: MassRow[], expected: MassRow[]): void
       e.surfaceArea === undefined,
     );
     if (e.surfaceArea !== undefined) {
+      const actualArea = a.surfaceArea;
+      if (actualArea === undefined) throw new Error(`${field}surfaceArea 缺失（expected=${e.surfaceArea}）`);
       const areaTolerance = Math.max(Math.abs(e.surfaceArea), 1) * MASS_REL_TOLERANCE;
       expect(
-        Math.abs(a.surfaceArea - e.surfaceArea),
-        `${field}surfaceArea 偏差超容差（actual=${a.surfaceArea} expected=${e.surfaceArea}）`,
+        Math.abs(actualArea - e.surfaceArea),
+        `${field}surfaceArea 偏差超容差（actual=${actualArea} expected=${e.surfaceArea}）`,
       ).toBeLessThanOrEqual(areaTolerance);
     }
     for (const axis of ['x', 'y', 'z'] as const) {
