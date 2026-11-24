@@ -170,3 +170,32 @@ guard/controller、不跑真栈**：
   tsc 通过。`EXCEPTIONS.md` 新增 X-27（owner 平台/安全，2027-03-31）。
 - **边界**：不是 ACL 强制，不声称任何入口已受 per-doc ACL 保护；B3.1b–g、B6/X-21、B10、
   storage/tile 例外仍 open；G1 Gate 不勾选。
+
+## 11. B3.1b Hub resolver 对等（2026-11-24，工作树未提交）
+
+`AIRR-2026-11-24-B3-HUB-RESOLVER-ALIGN.md` 把 Hub 的 effective-permission 解析收口到单一
+`AuthorizationService`，**不改路由守卫/控制器行为，不新增拒绝路径，不跑 live DB**：
+
+- **Groups**：additive `access_control_groups.roleIds text[] NOT NULL DEFAULT '{}'`（迁移
+  `20261124000005`）；组成员继承组角色，与直接成员 roleIds 并集，起点
+  `DEFAULT_MEMBER_PERMISSIONS`；仅展平一层本地组；`imsGroups` 非空组整体不授予并记录
+  `unsupported_group_source`；group/member 变更清 `authz:iTwin:<id>`（成员变更另清 user tag）。
+- **iTwin shares**：活跃=同 iTwin/未软删/未过期；邮箱仅来自真实 `users.email`（数字 id 安全
+  解析，不臆造）；email/domain/allowList 允许，domain 按 dot 边界后缀、大小写与空白归一；`denyList`
+  先于 owner/creator/iTwin manage/显式 iModel Read（secured/unsecured 都生效）；View/Edit/
+  Manage→Read/Write/Manage，写=Manage 兼容期 Edit 不满足 Manage；**secured iModel 上 share
+  不授予**；share grant 不进入 `getPermissions`/iTwin 级路由。无 share 缓存；每次解析 1 次
+  iTwin share 查询，过期即时生效；share create/delete 仍清 iTwin tag。
+- **文档动作**：闭集扩为 `doc.read/doc.write/briefcase.write/changeset.push`；`doc.write` =
+  briefcases AND changesets AND locks Manage，`changeset.push` = changesets AND briefcases，
+  `briefcase.write` = briefcases；多资源 AND 通过同一 resolver。additive 迁移
+  `20261124000006` 放宽 OBO scope CHECK，down 在仍有新动作行时 fail-closed。
+- **对等**：`PermissionsService.getUserPermissions` 改为 resolver projection；read/write/manage
+  与决策端点同源。**行为变化**：未 secured Viewer 现在得到 `Read`（旧为 WebView-only）；
+  Delete 与 DELETE 路由一致（iTwin manage，share deny 抑制；组/share/显式 Owner 不新增）。
+- **证据**：Hub 全量 unit **172 suites / 1560 tests**、tsc、改动文件 eslint 绿；隔离 relational
+  e2e **6/6**（fresh Postgres 真实迁移；组继承+删除失效、imsGroups fail-closed、share
+  View/Edit/deny/expiry/secured；用后 `docker compose -p tests down -v`，未触碰 live DB）。
+- **边界**：路由级强制仍 B3.1c–g；storage/tile、WA baseline、MS 本地 FeatureOp/直改/export/
+  progress/retry 未覆盖；share deny 未作用于 iTwin 级管理路由；显式 deny 表/link share/
+  IMS/嵌套组/tenant 未做。B3/X-21 仍 open，G1 Gate 不勾选。
