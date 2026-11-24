@@ -322,3 +322,12 @@ Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/
 - **B2.2/B6 P4b/B4**：仅完成 AIRR/ADR 设计包，未实现；真实归因、共享 key 退役、
   Write/Share/Link 仍需 owner 决策与实现。
 - **Gate**：上述均为工作树或隔离证据，G0 仍 NO-GO，G1 Gate 仍 0/15；不勾选任何项。
+
+## 16. 2026-11-24 第三波：Gate 证据与写语义（工作树未提交）
+
+- **G0 隔离真栈复测**：S0-3 仍 PARTIAL（API fail-closed；DB 直插第二根/状态回退删除/协调改 checksum+chainHash 未检测）；S0-5 仍 FAIL→fail-closed（mid-history 409/501）；S0-13 PARTIAL→fail-closed（head clone/fork 201 但目标 changesets=0，checkpoint 仍引用源 changeset）。G0 仍 NO-GO。
+- **B3.1g 负例矩阵**：69 cells = 61 pass/0 fail/8 unproven；24 test files/292 tests；无 live stack/browser，service-scope/WA/storage/tile 仍 unproven。
+- **B4 Write 语义**：`AUTHZ_WRITE_SEMANTICS=manage_compat|write`（默认 manage_compat）；write 模式下 `doc.write/briefcase.write/changeset.push` 走 Write，share Edit 映射 `imodels_write`；**仅 action resolver/OBO/decision/projection，公共 REST 路由仍 `@RequirePermission(IMODELS_MANAGE)`**，不可生产开启。Hub 全量 179/1626。
+- **200 cold-open**：200-case baseline 3 冷样本完成（Hub resolve p95 4,640.8ms；native download p95 63,594.4ms；pull/apply p95 9,011.4ms；open p95 41ms）；checkpoint arm 因 flag OFF blocked；1000 未跑。数字只证明 harness/样本，不证明 SLO。
+- **MS 构建可复现**：release lock + `npm ci` + 真 tsc + required native delivery + public/private provenance 分离 + contract fail gate；`-Check`/full temp build 通过，未发布；public `dist-backend` 仍是旧 1.64，release gate 仍失败。
+- **G0/G1**：仍 NO-GO/0/15；以上均为工作树或隔离证据。

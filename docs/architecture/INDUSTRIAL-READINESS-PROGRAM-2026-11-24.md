@@ -295,6 +295,17 @@ S0-2 补 audit/lease/endEdits。S0-6/7/8/9/10/11 明确 DEFERRED 到 G2/G5，
 **结论**：架构路线比第一波更明确，但 G1 验收未增加；仍不能宣称 G0/G1 通过、生产可用或
 Hub 数据面 PEP 完整。
 
+
+## 6.3 2026-11-24 第三波（工作树，未提交）
+
+| 切片 | 结果 | 边界 |
+|---|---|---|
+| G0 隔离复测 | S0-3 PARTIAL、S0-5/13 fail-closed；DB 第二根/状态回退删除/协调哈希改写仍是缺口 | 不改变 G0 NO-GO |
+| B3.1g 矩阵 | 69 cells，61 pass/0 fail/8 unproven | 24 files/292 tests；无 live browser/WA service identity |
+| B4 Write | flag 默认 manage_compat；write 模式只影响 action resolver/OBO/projection | 公共 REST 路由未迁移，不可生产启用 |
+| 200 cold-open | 200 baseline 3 冷样本完成；checkpoint arm blocked、1000 未跑 | native download p95 ~63.6s（本地 Docker Desktop）；非 SLO |
+| MS build | release lock、`npm ci`、真 tsc、native delivery 必填、provenance 分离、contract fail | 未发布；旧 dist-backend 仍 1.64 |
+
 ---
 
 ## 7. Stop-ship 与不得宣称

@@ -7,8 +7,9 @@
 - 预计影响仓：私有 `imodelhub-services`（authorization/action/route metadata/access-control/permissions/migrations/tests）；公共仓 `luban-cad/apps/web`（ShareDocumentDialog/usePermissions/i18n/tests）与本文档。**不改** MS/BFF/WA/native/共享 IPC；**不新增**公共 REST DTO，除非另立 ADR。
 - 是否需要 ADR：**是（Proposed）**。Write 等级激活会改变公开路由的授权语义（显式 Write/Edit 从“不可写”变为“可写”），并决定 iTwin share/link 的取舍；这属于跨仓授权契约变更。建议在 `ADR-G0-16` 下新增附录（编号由 ARB 分配，Proposed）并 ARB 签字。若只做“Manage-only 保持 + 删除假 link”，可不改授权契约，但仍需 owner 确认。
 
-> **状态：Proposed；未实现；未运行测试；未改代码；未 commit/push。**
-> 当前 B3.1b 已把 groups/local roleIds、iTwin shares、share denyList、secured 显式 grant 接入单一 resolver；当前 B3.1d/MS 与 Hub 路由仍是 **Manage-only**（`P0_WRITE_SEMANTICS='manage_compat'`）。B4 的 Write 激活、UI Write 选项、link 删除全部为 Proposed。
+> **状态：Partially implemented（B4 第一切片，2026-11-24）；全量 B4 未完成。**
+> 已实现（私有 `imodelhub-services`）：`AUTHZ_WRITE_SEMANTICS=manage_compat|write` 启动校验与默认 `manage_compat`；action resolver 在 `write` 下将 `doc.write`/`briefcase.write`/`changeset.push` 映射为 Write；route-level `version.write` 映射；unsecured share `Edit` → Write 分支修复（含 denyList/secured 规则保持）；permissions projection 随 flag 输出 `imodels_write`；OBO exchange/decision 使用同一语义并在响应报告实际值。**未实现**：公开 mutation 路由的 `@RequireAction` 元数据迁移、UI Write 档、link 删除、shares UI、MS B3.1d 对齐、真栈 canary。实现证据与残余见 §10。
+> 当前 B3.1b 已把 groups/local roleIds、iTwin shares、share denyList、secured 显式 grant 接入单一 resolver；B3.1d/MS 与 Hub 公开路由仍是 **Manage-only**（`@RequirePermission(IMODELS_MANAGE)`）。本切片的 `write` 模式只作用于 action resolver/OBO/decision/projection，不等于公开路由端到端 Write 强制。
 > 本文中的“当前”只表示 2026-11-24 对公开/私有仓源码的只读走查；“Proposed”表示尚未落地的设计。
 > 不勾选任何 G1 Gate 项；不宣称 B4、B3 或“无假分享”已完成。
 
@@ -17,8 +18,8 @@
 ## 0. 结论摘要
 
 1. **当前写语义是 Manage-only，不是 Write**：`doc.write`、`briefcase.write`、`changeset.push` 全部映射到 `IMODELS_MANAGE`；所有 mutation 路由也以 `@RequirePermission(IMODELS_MANAGE)` 声明。显式 iModel `Write`、iTwin share `Edit` 在数据模型里存在，但路由层不满足 Manage，因此编辑/推送被拒绝。
-2. **推荐动作目录扩展**：保留 `doc.read/doc.write/briefcase.write/changeset.push`，新增路由级 `version.write` 与 `doc.manage`；把 mutation 路由从 `IMODELS_MANAGE` 元数据迁移到 action 元数据（保留旧元数据作为过渡）。`doc.write` 在 Write 模式下要求 briefcases+changesets+locks 的 Write；`version.write` 要求 versions Write；`doc.manage` 要求 Manage 或 iTwin manage。
-3. **Write 激活是显式开关**：`AUTHZ_WRITE_SEMANTICS=manage_compat|write`，默认 `manage_compat`；打开后 iTwin share `Edit`、显式 iModel `Write` 可以编辑，`imodels_write` 会出现在 permissions projection，UI 的既有 `usePermissions` 会把文档显示为可编辑。
+2. **推荐动作目录扩展**：保留 `doc.read/doc.write/briefcase.write/changeset.push`，新增路由级 `version.write` 与 `doc.manage`；把 mutation 路由从 `IMODELS_MANAGE` 元数据迁移到 action 元数据（保留旧元数据作为过渡）。`doc.write` 在 Write 模式下要求 briefcases+changesets+locks 的 Write；`version.write` 要求 versions Write；`doc.manage` 要求 Manage 或 iTwin manage。**第一切片已实现 `version.write` 的 resolver 映射（未进入 OBO closed scope、未迁移路由）；`doc.manage` 未实现。**
+3. **Write 激活是显式开关**：`AUTHZ_WRITE_SEMANTICS=manage_compat|write`，默认 `manage_compat`；打开后 iTwin share `Edit`、显式 iModel `Write` 满足 action resolver 的 `imodels_write`，`imodels_write` 会出现在 permissions projection，UI 的既有 `usePermissions` 会把文档显示为可编辑。**第一切片已实现 flag、resolver、OBO/decision 与 projection；公开 mutation 路由仍 Manage-only。**
 4. **share/link/groups 决策**：iTwin shares 已被 resolver 真正执行（email/domain/allow/deny/expiry），建议 **保留执行**；但当前 UI 的“Share link”只是指向 `/documents/:iTwinId` 的普通导航 URL，不是 capability，也不是 token，**建议从 UI 删除**，并在文案/能力账本中明确“无 link share”。若产品要求真正的 link，另立 AIRR/ADR 实现 `share_links`/redeem，不能保留假链接。本地组 `roleIds` 保留一层继承；IMS 组/嵌套组保持 fail closed。
 5. **denyList**：当前只有 iTwin `access_control_shares.denyList`，优先于 owner/manage/显式 grant/share grant；没有独立 `access_control_denies` 表。B4 第一切片建议保留 share denyList、补输入规范化/审计/UI（若暴露 shares），不新增显式 iModel deny；把“独立 deny 表”留给合规需求。
 6. **UI**：B 文档分享对话框增加 `Write`（Edit）等级；`usePermissions` 已把 `imodels_write` 视为可编辑，无需改语义；A/项目容器对话框删除 fake link 页签；任何“复制链接即可访问”的文案必须删除。
@@ -78,10 +79,10 @@
 | `doc.write` | Manage on briefcases AND changesets AND locks | 同上 |
 | `briefcase.write` | Manage on briefcases | 同上 |
 | `changeset.push` | Manage on changesets AND briefcases | 同上 |
-| 响应标记 | `P0_WRITE_SEMANTICS='manage_compat'`；OBO response `writeSemantics` | `authz-action.ts`、`obo-tokens.service.ts` |
+| 响应标记 | 预切片：固定 `P0_WRITE_SEMANTICS='manage_compat'`；第一切片后：OBO response `writeSemantics` 反映 `AUTHZ_WRITE_SEMANTICS` | `authz-action.ts`、`obo-tokens.service.ts` |
 | 路由等级 | `IMODELS_WEBVIEW` → Read；`IMODELS_MANAGE` → Manage；其它按 Manage fail closed | `common/authorization/authorization.service.ts` |
 
-**结论**：当前所有 mutation 路由都要求 Manage；`Write` 等级在路由层是惰性的。`P0_WRITE_SEMANTICS` 明确标记为兼容，不应被宣传为显式 Write。
+**结论**：预切片所有 mutation 路由都要求 Manage；`Write` 等级在路由层是惰性的。第一切片后 action resolver/OBO/decision/projection 可按 `AUTHZ_WRITE_SEMANTICS=write` 激活 Write，但公开 mutation 路由仍是 Manage-only，仍不得宣传为端到端显式 Write 强制。
 
 ### 2.2 显式权限与 share
 
@@ -183,7 +184,7 @@ doc.manage      -> [ { permission: IMODELS_MANAGE } ]  // 任一维度；iTwin m
 
 | 开关 | 默认 | 语义 |
 |---|---|---|
-| `AUTHZ_WRITE_SEMANTICS` | `manage_compat` | `write` 激活 Write；`manage_compat` 保持现状 |
+| `AUTHZ_WRITE_SEMANTICS` | `manage_compat` | `write` 激活 action resolver/OBO/decision/projection 的 Write；`manage_compat` 保持现状。**已实现并启动校验（2026-11-24 切片）**；公开路由元数据未迁移 |
 | `AUTHZ_ENFORCE` | `off` | Hub 路由强制总开关；`read`/`write`/`full` 与 B3.1e 一致；B4 可先只切语义，不强制路由 |
 | `AUTHZ_ACTION_METADATA` | `legacy` | `legacy` 用旧 permission；`dual` 双写；`action` 用新元数据（迁移期） |
 | `AUTH_B3_WRITE_MODE` | `off` | MS 本地写门禁；B4 激活后可先保持 off，再打开 |
@@ -377,7 +378,9 @@ doc.manage      -> [ { permission: IMODELS_MANAGE } ]  // 任一维度；iTwin m
 - 不改 share 行；deny/grant 语义不变。
 - 删除 link 不涉及数据迁移（无表）。
 
-### 7.2 测试计划（未执行）
+### 7.2 测试计划（第一切片部分执行；其余未执行）
+
+> **执行说明（2026-11-24）**：第一切片只执行了 Hub 单元/集成（jest-unit）与 tsc/eslint；隔离 relational e2e、MS 真栈 canary、UI 测试均未执行（无 live DB/stack）。执行结果与覆盖范围见 §10。
 
 **Hub 单元**
 
@@ -473,4 +476,70 @@ doc.manage      -> [ { permission: IMODELS_MANAGE } ]  // 任一维度；iTwin m
 - P0 例外：实现 PR 需更新 X-27（写强制/Manage-only）与 X-21（共享 key）；本 docs-only 变更不修改例外表。
 - ADR：需要，Proposed（ADR-G0-16 新附录：Write 激活与 share/link 取舍，编号由 ARB 分配）。
 - Owner 签字：无。
-- 结论：**Proposed；未批准；未实现；不勾选 G1 Gate。**
+- 结论：**Partially implemented（第一切片）；全量 B4/生产激活未批准；不勾选 G1 Gate。**
+
+---
+
+## 10. 实现记录：B4 第一切片（2026-11-24）
+
+### 10.1 已实现范围（默认兼容）
+
+| # | 变更 | 位置（私有 `imodelhub-services`） | 行为 |
+|---|---|---|---|
+| I-1 | `AUTHZ_WRITE_SEMANTICS=manage_compat\|write`，默认 `manage_compat`，非法值启动失败 | `src/auth/config/auth.config.ts`、`auth-config.type.ts`、`env-example-relational` | 未设置→默认 `manage_compat`；非法值启动失败；`write` 仅显式开启 |
+| I-2 | action 目录新增 route-level `version.write`；`doc.write`/`briefcase.write`/`changeset.push`/`version.write` 在 `write` 模式映射为 `IMODELS_WRITE`（资源维度不变） | `src/authz/domain/authz-action.ts` | `manage_compat` 映射与旧版逐项一致（Manage） |
+| I-3 | OBO exchange、decision endpoint 使用同一语义，并在 OBO 响应报告实际 `writeSemantics` | `src/authz/services/{action-resolver,obo-tokens.service,authz-decisions.service}.ts`、`delegation.controller.ts` | 默认响应仍为 `manage_compat` |
+| I-4 | 新增 `Permission.IMODELS_WRITE='imodels_write'`，resolver 映射到 `iModelPermissionLevel.Write`；iTwin `imodels_manage` 隐含 Write；不加入 `ALL_PERMISSIONS`/默认角色 | `src/common/authorization/{permissions.enum,authorization.service}.ts` | iTwin RBAC 输出/角色模板不变 |
+| I-5 | **share 分支修复**：unsecured iModel 上 `IMODELS_WRITE` 纳入 iTwin share 展开；`Edit` → Write，`View` 仍不足以 Write，`Manage` 保留；denyList 仍先于所有 grant；secured 仍需显式 grant 或 iTwin manage | `src/common/authorization/authorization.service.ts` | 默认 `manage_compat` 下公开路由不请求 `IMODELS_WRITE`，行为不变 |
+| I-6 | `GET /imodels/:id/permissions` 投影随 flag：`write` 模式按 briefcases+changesets+locks 的 Write 返回 `imodels_write`；`manage_compat` 保持 Manage 口径 | `src/common/authorization/authorization.service.ts`、`src/imodels/permissions.service.ts` | UI 无需改判断（`usePermissions` 已识别 `imodels_write`） |
+
+**未改**：MS/BFF/WA/native/shared IPC；公开 REST DTO；数据库 schema（无迁移）；公开路由的 `@RequirePermission(IMODELS_MANAGE)` 元数据；UI/分享对话框/link 页签。
+
+### 10.2 行为矩阵（实现后）
+
+| 主体/配置 | `manage_compat`（默认） | `write` |
+|---|---|---|
+| iTwin owner/creator/Admin/Editor（`imodels_manage`） | allow | allow（Manage 隐含 Write） |
+| iTwin Viewer | deny | deny |
+| unsecured share View | doc.read allow；write deny | doc.read allow；write deny |
+| unsecured share Edit | write deny（需 Manage） | **write allow**；manage deny；delete deny |
+| unsecured share Manage | allow | allow |
+| secured + share Edit，无显式行 | deny | deny |
+| secured + 显式四维 Write（对应维度） | write deny（需 Manage） | **write allow** |
+| secured + 显式 Write/Manage 行 + 非 iTwin manage | `checkITwinManageForIModel` deny | 同左（不得提升为 iTwin manage） |
+| share denyList 命中 | 全 deny | 全 deny（优先于 Edit/Manage/owner） |
+| OBO 响应 `writeSemantics` | `manage_compat` | `write` |
+
+### 10.3 测试与静态检查（已执行）
+
+环境：Windows 11，本地 `imodelhub-services` 工作树，2026-11-24；无 live DB/stack。
+
+| 命令 | 结果 |
+|---|---|
+| `./node_modules/.bin/jest --config ./test/jest-unit.json --runInBand` | **179 suites / 1626 tests 全通过**；覆盖 authz 与 authorization 全量单测 |
+| `./node_modules/.bin/tsc --noEmit -p tsconfig.json` | 通过（src + test） |
+| `eslint`（本次变更的 16 个 src/test 文件） | 通过 |
+| `eslint "{src,apps,libs,test}/**/*.ts"` | **0 errors / 88 warnings**；warnings 为既有 `no-explicit-any`（未新增） |
+
+新增/更新的测试覆盖：
+
+- 默认 `manage_compat`：action 映射逐项仍为 Manage；share Edit 仍不能写/管理；projection 仍为 write=false。
+- `write`：share View 不能写；share Edit 可写（doc.write/briefcase.write/changeset.push）；share Manage 保留；iTwin Editor 隐含 Write；iTwin Viewer 拒绝。
+- denyList 在 `write` 下仍先于 Edit grant（读/写/管理/删除投影全 deny）；过期 share 逻辑未改。
+- secured：share Edit 不授予；显式四维 Write 授予；单维度 Read 使 doc.write deny；`version.write` 使用独立 versions 维度；显式 Write/Manage 行不能通过 `checkITwinManageForIModel`。
+- 配置：默认 `manage_compat`；接受 `write`；`true`/`manage` 等非法值启动抛错。
+- OBO/decision：`write` 模式向 resolver 传 `IMODELS_WRITE` 并要求 AND 三维；响应报告 `writeSemantics=write`。
+
+### 10.4 残余与决策（不得宣称完成）
+
+1. **公开 mutation 路由仍未迁移**：所有写路由仍是 `@RequirePermission(IMODELS_MANAGE)`；`@RequireAction`/双写元数据（§3.3）未实现。因此 `AUTHZ_WRITE_SEMANTICS=write` 目前只影响 action resolver/OBO/decision/projection，**不保证公开 REST 写路由接受 Edit/Write 用户**。在路由迁移完成前不得在生产开启 `write`（projection 可能显示可编辑而路由仍 403）。
+2. **OBO closed scope 仍为四动作**：`version.write` 已加入 resolver 翻译表但不在 `P0_AUTHZ_ACTIONS`；Named Version 路由仍 Manage，OBO 仍不能换发 `version.write`。D-2 未决。
+3. **`doc.manage` 未新增**：删除 iModel、secured 开关、grant/revoke、角色模板、share 管理继续 `checkITwinManageForIModel` + `@RequirePermission(IMODELS_MANAGE)`，未被 Write 激活放宽（符合 D-4/§3.6）。
+4. **UI 未改**：B 文档分享对话框仍 Read/Manage（无 Write 档）；A 文档/项目容器仍显示 link 页签；二者是产品决策，按本切片要求保持不动。link 不是 capability，能力账本不得宣传。
+5. **iTwin shares 仍 API-only**：resolver 执行 email/domain/allow/deny/expiry，但无前端创建/列出入口；未新增 shares UI。
+6. **deny 审计/独立 deny 表未做**：仍只有 `access_control_shares.denyList`；无 `audit_events` 变更审计（B7）。
+7. **MS/B3.1d 未对齐**：MS 本地写门禁仍 Manage-only；`AUTH_B3_WRITE_MODE` 未接本 flag。
+8. **真栈双用户 canary 未跑**：无 live DB/stack；隔离 relational e2e、MS canary、UI e2e 均未执行（§7.2）。
+9. **无 schema 迁移**：历史显式 Write 行与 share Edit 行保留；开启 `write` 后开始生效，回滚只需 `AUTHZ_WRITE_SEMANTICS=manage_compat`。发布说明必须列出“此前被 Manage 兼容吞掉的 Write/Edit 用户将获得 action-level 写判定”。
+10. **缓存窗口仍 60s**：iTwin RBAC/组角色缓存未改；shares/deny/explicit 仍直查立即生效。真栈验证未做。
+11. **明确不发布/不提交**：本切片未 commit/push；未更新 README/索引/例外表；ADR 仍为 Proposed，生产激活需 ARB/owner 签字。

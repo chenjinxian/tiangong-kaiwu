@@ -1,0 +1,50 @@
+# Isolated benchmark stack override.
+#
+# Use with a unique project name and only the baseline-generation services:
+#
+#   docker compose -p tkbench-<id> \
+#     -f docker-compose.yml \
+#     -f scripts/bench/isolated-compose.override.yml \
+#     up -d postgres redis maildev azurite imodelhub webhook-agent
+#
+# Ports are moved off the live stack (5400/5402/10500-10502/1080). The
+# webhook-agent is deliberately pointed at an unreachable modeling-server so
+# this stack can never forward events into a live MS.
+#
+# Tear down with:
+#   docker compose -p tkbench-<id> \
+#     -f docker-compose.yml \
+#     -f scripts/bench/isolated-compose.override.yml down -v
+services:
+  imodelhub:
+    ports: !override
+      - "127.0.0.1:15400:4000"
+    environment:
+      # Benchmark pushes are bursty; the normal 200/min bucket would throttle
+      # a 200-changeset generation run. This override is isolated-only.
+      THROTTLER_SHORT_LIMIT: "100000"
+      THROTTLER_LONG_LIMIT: "1000000"
+      # Login and per-request token validation use dedicated buckets
+      # (auth 50/15min, strict-auth 30/h). A benchmark run has one login per
+      # sample; keep those buckets out of the way in the isolated stack.
+      THROTTLER_AUTH_LIMIT: "100000"
+      THROTTLER_STRICT_AUTH_LIMIT: "100000"
+      # /auth/email/login has a route-level cap (default 5 per 15 min).
+      AUTH_LOGIN_RATE_LIMIT: "100000"
+
+  maildev:
+    ports: !override
+      - "127.0.0.1:11080:1080"
+
+  azurite:
+    ports: !override
+      - "127.0.0.1:11500:10000"
+      - "127.0.0.1:11501:10001"
+      - "127.0.0.1:11502:10002"
+
+  webhook-agent:
+    ports: !override
+      - "127.0.0.1:15402:4002"
+    environment:
+      MODELING_SERVER_URL: "http://127.0.0.1:1"
+      RECOVERY_CHECK_INTERVAL_MINUTES: "1"

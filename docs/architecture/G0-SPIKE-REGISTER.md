@@ -4,9 +4,13 @@
 > 输入：`G0-EXECUTION-PLAN.md` §5、`10-ARCHITECTURE-HARDENING-PLAN.md` §2.2
 > 规则：没有证据不得标 PASS；失败必须写失败动作；破坏性实验必须使用隔离环境并走 HITL。
 > **2026-11-24 收口**：下表“Not started”不能作为当前事实；实际结论为 S0-4 PASS（真栈）、
-> S0-2 PARTIAL、S0-5/S0-13 FAIL→fail-closed、S0-12 BLOCKED、其余 NOT RUN/DEFERRED。
+> S0-2 PARTIAL、S0-5 FAIL→fail-closed、S0-13 PARTIAL→fail-closed（§7.4）、
+> S0-12 BLOCKED、其余 NOT RUN/DEFERRED。
 > 详见 [`G0-GATE-REPORT-2026-11-24.md`](./G0-GATE-REPORT-2026-11-24.md)；本册不得据此宣称
 > G0 或任何 Spike 通过。
+> **2026-11-24 隔离真栈复测（§7）**：S0-3 仍 PARTIAL（HTTP fail-closed；DB 边界有
+> 可绕过缺口）；S0-5 仍 FAIL→fail-closed；S0-13 为 PARTIAL→fail-closed；S0-16 未跑。
+> 本轮不把任何 Spike 标为 PASS，G0 仍 NO-GO。
 
 ## 1. 使用规则
 
@@ -221,13 +225,16 @@
 
 ## 5. 结果汇总与 Gate
 
-| 状态 | 数量 | 说明 |
-|---|---:|---|
-| PASS | 0 | 待填 |
-| FAIL | 0 | 待填；必须写失败动作 |
-| STOP | 0 | 待填；必须写替代方案 |
-| BLOCKED | 0 | 待填；必须写阻塞原因/owner/最晚解除 |
-| Not started | 16 | 当前 |
+> 2026-11-24：本册不再维护“Not started 16”的过期计数；全量 16 项状态以
+> [`G0-GATE-REPORT-2026-11-24.md`](./G0-GATE-REPORT-2026-11-24.md) §3 为准。
+> 本轮隔离真栈只复测了以下四项：
+
+| ID | 本轮状态 | 是否 PASS | 证据 |
+|---|---|---|---|
+| S0-3 账本不可变/恢复 | PARTIAL（HTTP fail-closed；DB 边界有缺口） | 否 | §7.2 |
+| S0-5 checkpoint×fork | FAIL→fail-closed（mid/baseline 409；history 501） | 否 | §7.3 |
+| S0-13 clone/fork 内容 | PARTIAL→fail-closed（head 容器复制；changesets=0） | 否 | §7.4 |
+| S0-16 未推送边界 | NOT RUN（Hub-only 范围外） | 否 | §7.5 |
 
 **G0 Gate 规则**：
 
@@ -255,6 +262,108 @@
 | S0-14 | 待填 | 待填 | 待填 | 待填 |
 | S0-15 | 待填 | 待填 | 待填 | 待填 |
 | S0-16 | 待填 | 待填 | 待填 | 待填 |
+
+---
+
+## 7. 2026-11-24 隔离真栈复测证据（S0-3/S0-5/S0-13；S0-16 未跑）
+
+> 性质：**证据补充，不是 Gate 签字**。本轮不把任何 Spike 标为 PASS；G0 仍 NO-GO。
+> 证据级别：隔离 relational test compose + 真实 API 登录/iTwin/iModel/HTTP；
+> checkpoint 行与 Azurite 容器内容为**手工构造**，不是 checkpoint worker 产物。
+
+### 7.1 环境与命令
+
+| 项 | 实际值 |
+|---|---|
+| Hub 源 | `imodelhub-services` HEAD `8cb85ba61e243a3c41902e333f85ea24cdaadb81`（只读 `git archive HEAD` 导出；工作树 WIP 不编译，未使用/未修改） |
+| 隔离栈 | compose project `g0-spike`；fresh Postgres/Redis/Azurite；API `127.0.0.1:4440` |
+| 覆盖 | `CHANGESET_WAITING_FOR_FILE_TTL_MINUTES=2`（仅隔离栈，用于 TTL 重试） |
+| 认证/数据 | test compose 种子管理员登录；真实 `POST /itwins`、`POST /imodels`、changesets/clone/fork/checkpoint HTTP |
+| 隔离性 | 独立 network/volumes/端口；未触碰 `tiangong-kaiwu-*` live stack、live DB/Azurite |
+| 收口 | `docker compose -p g0-spike ... down -v --rmi local`；临时脚本/日志删除 |
+
+```text
+# 起隔离栈（<temp>/g0-spike.override.yaml 仅加 4440:4000 与 TTL=2）
+docker compose -p g0-spike --env-file <head>/env-example-relational \
+  -f <head>/docker-compose.relational.test.yaml -f <temp>/g0-spike.override.yaml up -d --build
+# 在隔离网络内跑一次性 driver（临时脚本，已删除）
+docker run --rm --network g0-spike_default -v <temp>:/work -w /work \
+  g0-spike-api:latest node /work/spike.mjs <phase>
+# crash：create→complete 之间 SIGKILL/restart（约 73s 恢复）
+docker kill g0-spike-api-1 && docker start g0-spike-api-1
+# DB 负例/手工 checkpoint
+docker exec g0-spike-postgres-1 psql -U root -d api -c "<SQL>"
+```
+
+### 7.2 S0-3 账本不可变/可恢复（PARTIAL，不得 PASS）
+
+| 用例 | 期望 | 实测 |
+|---|---|---|
+| genesis 创建 / blob 上传 / complete（省略 checksum） | 2xx | **201**（Nest POST 默认；文档注释写 200，需登记） |
+| blob 未上传 complete | 422 | **422** `UnprocessableEntity`（has no uploaded file） |
+| 错误 checksum complete | 422 | **422** `UnprocessableEntity`（checksum does not match） |
+| 重复创建 sealed id | 409 | **409** `Conflict` |
+| 第二 root（API） / 未知 parent | 422 | **422** `UnprocessableEntity` |
+| PATCH `parentId`；PATCH `checksum`/`chainHash`/`prevHash` | 不改历史 | **200 no-op**，值不变（whitelist 静默丢弃） |
+| PATCH `state`→`waitingForFile` | 422 | **422** |
+| PATCH `briefcaseId` | 4xx | **500** `InternalServerError`（DB 触发器 `changeset history is append-only`，未映射；值未变） |
+| API DELETE 中间 changeset | 409 | **409** `Conflict` |
+| API DELETE 叶子 changeset | 允许 | **204**；后续 index=4（软删 index=3 留空洞） |
+| create 后、complete 前 SIGKILL API | 可恢复 | 行存活；重启后 complete **201** |
+| 超 TTL（133s > 120s）同 id 重试 | 替换 abandoned | create **201**（index 复用 2）、upload **201**、complete **201**；2 行无幽灵 |
+| DB 改 `parentId`/`prevHash`；DB 删 sealed 中间/叶子 | 拒绝 | SQL `ERROR: changeset history is append-only` |
+| DB 单独改 `checksum` 或 `chainHash` | 读面发现 | UPDATE 允许；GET/list **409**（chainHashMismatch） |
+| DB 协同改 `checksum`+`chainHash`（重新计算） | 应发现 | **未发现**；GET/list **200** |
+| DB INSERT 第二 root | 拒绝 | **允许**；`waitingForFile` 隐藏，`fileUploaded` 后列表 **200**（legacy 行，两个空 parentId） |
+| DB 注入的 `fileUploaded` 行 state→`waitingForFile` 后 DELETE | 拒绝 | **UPDATE 1 + DELETE 1 成功**；触发器只检查 `OLD.state` 与子行，真实 sealed 叶子同险（未单独实测） |
+| 手工恢复 checksum/chainHash 后读 | 200 | **200**（仅操作员手工修复，不是自动恢复） |
+
+**结论**：HTTP 面 append-only/根/挖洞/blob/checksum/崩溃重试均 fail-closed；DB 边界
+仍有 second-root INSERT、`fileUploaded` 行 state 翻转删除（真实 sealed 叶子同险）、
+checksum+chainHash 协同重写、500 映射与泛化错误码缺口。进程 kill 可恢复；篡改后
+只有检测 + 手工修复，无自动 clean recovery。
+
+### 7.3 S0-5 mid-history checkpoint × fork（FAIL→fail-closed）
+
+| 场景 | 实测 |
+|---|---|
+| 无 successful checkpoint | clone **422**；fork content-only **422**；`preserveHistory=true` **501** |
+| baseline checkpoint index 0，head index 1 | clone **409**；fork **409**；显式 index 0/1 **409**；history **501** |
+| mid checkpoint index 1，head index 3 | clone **409**；fork **409**；显式 mid index/id **409**；history **501** |
+| checkpoint 在 head index 3 | clone **201**；fork content-only **201**；显式 stale index **422** |
+
+mid-history fork 仍不可用；无 FK 崩溃，但“mid-history checkpoint 后 fork 可用”不成立。
+
+### 7.4 S0-13 clone/fork 内容（PARTIAL→fail-closed）
+
+- head clone/fork **201**；目标 `state=initialized`、`baselineChangesetIndex=3`、
+  `fileSize=4242`（手工 checkpoint 元数据）。
+- 目标 changesets **0 条**（history 不复制）；目标 checkpoint index 3 的
+  `changesetId` 仍指向**源 iModel 的 D3**（跨 iModel 引用）。
+- Azurite 容器复制真实发生：源/目标均含 `baseline.bim`（3B）与 `seed.bin`（26B），
+  目标内容与源一致。
+- `preserveHistory=true` 始终 **501**；显式 stale changeset **422**。
+
+当前是“仅复制最新 checkpoint 容器”的 content-only duplicate，不是 history clone/fork；
+且 checkpoint/容器为手工构造。真实部署只有 baseline checkpoint 时 head clone/fork
+会被 409 拒绝，不可对外承诺“复制/分支”。
+
+### 7.5 S0-16 未推送编辑边界（NOT RUN）
+
+本轮为 Hub-only 隔离栈，没有启动隔离 modeling-server、没有 briefcase 编辑/未 push
+路径；8.2 的 API 进程 kill 不能替代 S0-16，也不能量化未推送编辑丢失或 UI 提示。
+仍需隔离 MS + briefcase 的 kill/删缓存实验。
+
+### 7.6 剩余（进入 G1/D1-D3）
+
+1. DB 边界：second-root 约束、sealed 状态转换钉死、checksum/chainHash 不可协同重写、
+   触发器错误映射 409/422、保留 `ChangesetIntegrityViolation`/`CheckpointAtHeadRequired` 业务码。
+2. D3：changeset/history 复制、`preserveHistory`、checkpoint 与源 changeset 的跨 iModel
+   引用设计、mid-history clone/fork。
+3. 恢复：tamper 后自动重建/隔离/审计，而非仅 409 + 手工 SQL。
+4. 真实 checkpoint worker 生成后再复测 S0-5/S0-13；手工证据不得升级为 PASS。
+5. S0-16：隔离 MS/briefcase kill 实验；D0-13 裁决前不承诺未推送边界。
+6. G0 仍 NO-GO；16 决策未签字、20 份 ADR 仍 Proposed。
 
 ---
 
