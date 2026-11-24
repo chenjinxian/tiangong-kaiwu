@@ -9,7 +9,7 @@
 | 工作流 | 本轮落地 | 证据 | 未完成/边界 |
 |---|---|---|---|
 | WS-C 会话 | C6：`getConfiguration` 移除宿主 `cacheDir`；HTTP 有状态 RPC 默认 403（`HTTP_STATEFUL_RPC_MODE=deny`，X-19）；`saveChanges/pushChanges` 增加写租约校验 | MS 受影响 suite 24 files/234 tests；src tsc、eslint（新文件）通过；C6 AIRR | 双会话真栈 e2e 未跑；`pullChanges/abandonChanges/toggleGraphicalEditingScope` 租约检查顺延 |
-| WS-B 身份/ACL | B5a：MS/BFF 默认拒绝 `?token=`，401/429/安全日志脱敏（X-18）。B1.2a：access token 绑定 `sessionId+sessionHash`，logout/改密/重置/轮换/停用后下一请求 401。B1.2b：MS WS 周期 session-status 复验，撤销关闭 4401。B1.2c：BFF/MS 正 token 缓存默认 0，负结果不缓存；WS 既有连接延迟登记 X-20。B2 P0 Hub shadow：opaque delegation handle/OBO、shadow decision、additive token/audit 表，默认 off（X-21/X-22）。B2 P0 MS shadow：WS 升级换 handle（不存用户 token）、download/open shadow decision（仅记录不拒绝）、覆盖清单默认 off | Hub 全量 unit 147 suites/1339 tests；隔离 relational Hub e2e：B1.2 18+7、B2 16；MS 全量 **149 files/1459 passed、1 expected fail、8 skipped**；BFF 28/28；各处 tsc/eslint 通过。MS P0 shadow：新增 4 files/29 tests，affected 28 files/268 tests，tsc 通过；新代码 eslint 通过（触及文件仅余既有弃用基线） | **B2 MS shadow 未部署/真栈未跑**；B3 未强制（`p0-not-covered`：FeatureOp/直改/push/export/tile/progress/retry 等；`DirectEditWriteGate` ACL 未接）；handle 15m 后无续期（P2 WS ticket 前置）；真实 changeset/briefcase 归因未切换；B6 服务身份、B7 WORM、B10 租户未做；新 Hub/MS 镜像未部署，WS 4401 真栈待验 |
+| WS-B 身份/ACL | B5a：MS/BFF 默认拒绝 `?token=`，401/429/安全日志脱敏（X-18）。B1.2a：access token 绑定 `sessionId+sessionHash`，logout/改密/重置/轮换/停用后下一请求 401。B1.2b：MS WS 周期 session-status 复验，撤销关闭 4401。B1.2c：BFF/MS 正 token 缓存默认 0，负结果不缓存；WS 既有连接延迟登记 X-20。B2 P0 Hub shadow：opaque delegation handle/OBO、shadow decision、additive token/audit 表，默认 off（X-21/X-22）。B2 P0 MS shadow：WS 升级换 handle（不存用户 token）、download/open shadow decision（仅记录不拒绝）、覆盖清单默认 off | Hub 全量 unit 147 suites/1339 tests；隔离 relational Hub e2e：B1.2 18+7、B2 16；MS 全量 **149 files/1459 passed、1 expected fail、8 skipped**；BFF 28/28；各处 tsc/eslint 通过。MS P0 shadow：新增 4 files/29 tests，affected 28 files/268 tests，tsc 通过；新代码 eslint 通过（触及文件仅余既有弃用基线） | **B2/B3.1 MS 未部署/真栈未跑**；B3.1c 读/B3.1d 写强制已实现但默认 off（写仅 fake-Hub/单测，未跑隔离 canary/native；详见 §12/§13），仍 `p0-not-covered`：export/tile/progress/retry/undo-redo/saved views/assembly 等；handle 15m 后无续期（P2 WS ticket 前置）；真实 changeset/briefcase 归因未切换；B6 服务身份、B7 WORM、B10 租户未做；新 Hub/MS 镜像未部署，WS 4401 真栈待验 |
 | WS-D 账本/版本 | D1.4/D1.7：complete 大小/SHA-256 与下载链校验；D2：悬挂 changeset 超时/回收；D6a：Named Version 封账、PATCH 白名单、删除保护、409 NotReady、index 回退；D4 Hub 控制面：`checkpoint_jobs` outbox/lease/claim/heartbeat/complete/fail，flag 默认 OFF；Hub 内部契约：storage-token、claim `iTwinId`/container、chain evidence；D4b worker 切换消费这些契约（109/109 tests，typecheck/lint/build；X-23/X-24 code exit） | Hub 全量 unit 绿；迁移在隔离 Postgres 事务内 up/down 验证，live DB 未应用（`checkpoint_jobs` 等表不存在）；worker fake-hub 编排绿（含 `/chain`、storage-token/续签/拒绝路径） | **真实 checkpoint native 生成/readback 未执行**；真实 Hub/DB/Azurite + native canary、长上传续签实机、日志无 SAS 实机证据未跑（X-23/X-24 仍 open）；D3 历史复制/async Create、D5 版本打开、D7 restore/compare、D8 refs 未做；200/1000 冷开基线未测 |
 | WS-J 发布/CI | J1.2 shared 契约冻结门；J1.3a web 生产 build + BFF typecheck/tests 进 public CI；J1.5 Playwright JSON→基线脚本；J3.1g manifest 实际字节 digest 校验与 release-gate 可选接线 | 契约门 8/8、release-manifest 24/24、e2e baseline 5/5；BFF 28/28；release-gate.ps1 语法检查通过 | **public CI 从未实际运行**（分支未 push）；backend 全量/native ctest 仍需 self-hosted；真实镜像 digest/OCI label/SBOM/attestation 未生成；无实际 release manifest |
 | WS-E 数据/DR | 无新增 DR 实现 | 仅有备份脚本基线；审计确认 `pg_dump` 不是 PITR、Azurite 无版本化 | E1/E2/E8 全部未完成；无 RPO≤5m/RTO≤1h 证据；不得宣称灾备达标 |
@@ -17,9 +17,9 @@
 
 ## 2. 明确未完成/不得宣称
 
-1. **G1 Gate 未通过**：G0 ARB 未签字，15 项 Gate 全未勾选；B2/B3 只是 shadow，B1.2 的 WS 真栈关闭未验。
+1. **G1 Gate 未通过**：G0 ARB 未签字，15 项 Gate 全未勾选；B2 shadow、B3.1c/d 强制均默认 off 且未部署/未跑真栈，B1.2 的 WS 真栈关闭未验。
 2. **D4 不是“真实 checkpoint 已生成”**：Hub 控制面、内部 storage-token/claim/chain-evidence 契约与 worker 消费代码已落地（X-23/X-24 code exit），但 native canary、真实 readback、200/1000 冷开基线均未执行；`CHECKPOINT_GENERATION_ENABLED` 未打开。
-3. **安全边界未闭环**：B2 MS 侧已接 shadow（默认 off、未部署/真栈未跑）、B3 未强制、B6 共享 API key/人类 admin 服务登录仍在、B7 审计 WORM 未做、B10 无 tenantId；B8 TLS/Azurite/tile 暴露未处理。
+3. **安全边界未闭环**：B2 MS 侧已接 shadow、B3.1c 读/B3.1d 写强制已实现但默认 off（均未部署/真栈未跑；B4 Manage-only、export/tile/storage/WA 等仍未强制）、B6 共享 API key/人类 admin 服务登录仍在、B7 审计 WORM 未做、B10 无 tenantId；B8 TLS/Azurite/tile 暴露未处理。
 4. **DR 未闭环**：无 PITR、无对象版本化/跨区、无恢复演练记录；RPO/RTO 不能宣称。
 5. **发布未闭环**：CI 未运行、镜像非可复现、真实 digest/manifest/SBOM 未产出；`verify-stack` 仍是审计基线 15/17。
 6. **会话/租约**：C5 外部 lease/fencing、C7 checkpoint 恢复未实现；既有 WS 撤销仍受 X-20 窗口限制。
@@ -199,3 +199,70 @@ guard/controller、不跑真栈**：
 - **边界**：路由级强制仍 B3.1c–g；storage/tile、WA baseline、MS 本地 FeatureOp/直改/export/
   progress/retry 未覆盖；share deny 未作用于 iTwin 级管理路由；显式 deny 表/link share/
   IMS/嵌套组/tenant 未做。B3/X-21 仍 open，G1 Gate 不勾选。
+
+## 12. B3.1c MS 读强制（2026-11-24，工作树未提交，默认 off）
+
+`AIRR-2026-11-24-B3.1c-MS-READ-ENFORCE.md` 落地**首个行为变化的强制切片**，复用既有
+OBO shadow 传输与 Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/WA/BFF**：
+
+- **开关**：`AUTH_B3_READ_MODE=off|enforce`，默认 `off`；`enforce` 要求
+  `AUTH_OBO_MODE=shadow` + `AUTH_OBO_SERVICE_NAME`，非法组合启动失败。回滚=改回 `off`，
+  无数据/schema 迁移。`off` 下 legacy/shadow 读行为不变。
+- **入口**：`downloadBriefcase`（readonly=`doc.read`；rw=`doc.read`+`briefcase.write`）、
+  `openBriefcase`（同左，gate 在任何 db close/open 前）、`openCheckpoint`/
+  `downloadVersionBriefcase`（`doc.read`，在 Hub resolver/下载前）、FeatureOp 九个读方法
+  （`doc.read`，在 `getFeatureService`/`ensureInitialized` 前）。`getFeatureFormModel`
+  无文档键不强制；写/直改/save/push/pull/export 未强制（B3.1d+）。
+- **失败语义**：无 session/无文档上下文/deny → `AuthorizationDenied` 403；无 handle/
+  provisioning/超时/Hub 不可用 → `AuthorizationUnavailable` 503；绝不回退共享 key/JWT
+  或继续 legacy。deny 不写 legacy-continuation 记录。
+- **OBO 正确性**：OBO 缓存 key 改为 iModel+scope 集合，`grantedScopes` 不覆盖请求动作即
+  重新 exchange（read→rw 不再复用只读 token）；决策按 iModel+动作集合缓存（Hub TTL 上限
+  30s）；首个读等待 WS 升级在途 provisioning（有界），超时记录 `provisioning_timeout`。
+- **覆盖清单**：`pepCoverage` v3；读入口 5 项 `covered-enforce`；`getFeatureFormModel`
+  与 `openStandalone`/`openSnapshot` 单独 `p0-not-covered`；其余写/直改/export/tile/
+  storage/WA 状态不变。
+- **证据**：MS 全量 **163 files / 1671 passed + 1 expected fail + 8 skipped**；tsc/build 绿；
+  新文件 eslint 0 error（触及文件仅剩既有弃用基线）。**隔离 Hub+MS gate/OBO canary 通过**：
+  真实 admin/View-share/outsider、unsecured/secured、rw/read-only、version/feature、真实
+  delegation/OBO/decision、真实 `LubanIpcHandler.downloadBriefcase` 拒绝路径；Hub 日志
+  agent key/admin password/x-service-token 命中 0。**未跑 native briefcase 下载/打开/读树**，
+  不宣称完整读链路真栈通过；同 session 在 isSecured 后受 30s 读决策缓存影响（fresh session
+  立即 deny）；handle 15m 到期后 enforce 读为 503，WS ticket/续期属 P2 前置；
+  B6/X-21/B4/B10/B7 未关闭；B3.1d 写强制已在本轮后续切片实现（默认 off，见 §13），Hub 路由级
+  强制仍 future。G1 Gate 不勾选。
+
+## 13. B3.1d MS 写强制（2026-11-24，d1–d4 实现，默认 off，工作树未提交）
+
+`AIRR-2026-11-24-B3.1d-MS-WRITE-ENFORCE.md` 落地写强制实现，复用既有 OBO shadow 传输与
+Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/BFF/WA/worker**：
+
+- **开关**：`AUTH_B3_WRITE_MODE=off|enforce`（默认 `off`）；`enforce` 硬性要求
+  `AUTH_OBO_MODE=shadow` + `AUTH_OBO_SERVICE_NAME` + `DIRECT_EDIT_GUARD_MODE=enforce`，
+  非法组合启动失败；`AUTH_B3_READ_MODE!=enforce`、`HTTP_STATEFUL_RPC_MODE=allow`、
+  `SESSION_ISOLATION_MODE!=enforce` 启动告警。回滚=`off`，无迁移。off 路径不新增 await
+  （旧 pull/cancel 顺序测试保持通过）。
+- **入口/动作**：FeatureOp 写/预览/PartStudio create-rename-delete/renameFeature/renameBody/
+  `acquireWriteLease`/直改=`doc.write`；`saveChanges`/`pullChanges`=`doc.write`；
+  `pushChanges`=`doc.write`+`changeset.push`（单次 AND 决策）；`abandonChanges`=`briefcase.write`；
+  `releaseWriteLease` 不强制。决策先于 `getFeatureService`/`ensureInitialized`/legacy scope
+  查询/EditTxn/db save-push-pull-abandon/进度状态/lease 获取；deny/unavailable→403/503，
+  无 legacy 回退。
+- **直改**：`enforce` 启动时先 `setDirectEditAclHook` 再装 gate；hook 只信 `SessionContext`/
+  registry 验证身份，缺失/不匹配/iTwinId 缺失 fail closed；抛出稳定 403/503（不返回 false），
+  逐写方法在方法体前拒绝；`DirectEditWriteGate` 从已打开 db 回填 iTwinId。命令 start/
+  `endEdits` 保存点仍是登记残余。
+- **缓存/租约**：写决策 TTL 在 MS 侧强制 ≤5s（即使 Hub 返回 30s；读仍 ≤30s）；OBO/decision
+  按 iModel+精确动作集缓存，read/write 不共享；deny 不释放已持有 lease（30s TTL + session
+  close 兜底）。
+- **覆盖清单**：`pepCoverage` v4；8 个写入口 `covered-enforce`（`AUTH_B3_WRITE_MODE=off` 时
+  inert）；export/tile/storage/WA/progress/retry 等状态不变。
+- **证据**：MS 全量 **168 files / 1724 passed + 1 expected fail + 8 skipped（1733）**；
+  tsc/build 绿；新增/改动文件 eslint 0 error（`config.ts` zod 弃用/console 与
+  `AppFunctionIpcHandler.ts` 上游 save/abandon 弃用为既有基线）。**隔离 Hub+MS 写 gate/OBO
+  canary 通过**：真实 admin/View-share/outsider、secured fresh session、push 双动作、真实
+  `saveChanges` 拒绝、真实直改 hook 拒绝；Hub 日志 key/admin password/x-service-token 命中 0。
+  **未跑 native briefcase save/push、FeatureOp 几何写、直改 native 变更**；exchange/decision
+  计数、p95、撤销窗口、Hub audit 未观测，native 写一律 unproven。B4 Write（Manage-only）、
+  handle 15m/16 uses、push 服务账号（B6/X-21）、直改保存边界、读路径 init 写均未关闭；
+  B3/X-21 open，G1 Gate 不勾选。
