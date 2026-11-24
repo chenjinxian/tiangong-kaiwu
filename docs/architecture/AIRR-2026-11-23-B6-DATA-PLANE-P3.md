@@ -156,7 +156,7 @@ data.baseline.read        data.baseline.write
 
 | 服务（配置名） | 建议 scopes | 用途 |
 |---|---|---|
-| modeling-server（`AUTH_OBO_SERVICE_NAME`） | 全部 data-plane scopes | 官方 IModelsClient 编辑/推拉/锁读/版本读/checkpoint |
+| modeling-server（`AUTH_OBO_SERVICE_NAME`） | 8 个非 baseline scope：changesets/briefcases/checkpoints read+write、locks read、namedversions read | 官方 IModelsClient 编辑/推拉/锁读/版本读/checkpoint；baseline 路由仅 webhook-agent pinned，MS 不申请 |
 | checkpoint-worker（`CHECKPOINT_WORKER_SERVICE_NAME`） | `data.changesets.read`、`data.briefcases.read`、`data.checkpoints.read` | 下载目标 briefcase/checkpoint 证据；只读 |
 | webhook-agent（`WEBHOOK_AGENT_SERVICE_NAME`，默认 `webhook-agent`） | `data.baseline.read`、`data.baseline.write` | baseline 状态/完成 |
 

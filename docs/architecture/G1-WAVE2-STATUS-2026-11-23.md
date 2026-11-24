@@ -104,13 +104,14 @@
 ## 8. B6 服务身份后续切片（2026-11-24，不改变本文开头 Gate 结论）
 
 本文 §1 的 2026-11-23 快照中“B6 服务身份未做”已被后续切片取代；完整设计与证据见
-`AIRR-2026-11-23-B6-SERVICE-IDENTITY-P0.md` 与
-`AIRR-2026-11-23-B6-DATA-PLANE-P3.md`。
+`AIRR-2026-11-23-B6-SERVICE-IDENTITY-P0.md`、
+`AIRR-2026-11-23-B6-DATA-PLANE-P3.md` 与
+`AIRR-2026-11-24-B6-P4-DATA-PLANE-CLIENTS.md`。
 
 - **P0/P1/P2（已本地提交）**：Hub `service_clients`（scrypt 哈希/JSON scope/enabled/secretVersion）、
   `POST /auth/token/service`、双模 `ServiceAuthGuard`；session-status/OBO shadow/worker
   内部控制面 code-only 改用 `X-Service-Token`。默认 `off` 保持 legacy；未跑部署形态 canary。
-- **P3（工作树，未提交）**：Hub 官方 changesets/briefcases/checkpoints/locks/namedversions/baseline
+- **P3（已本地提交：public `4a35e6c403`、hub `e1869a4` + `3f2dc5a`）**：Hub 官方 changesets/briefcases/checkpoints/locks/namedversions/baseline
   选定路由接入 `DataPlaneAuthGuard` 与 closed `data.*` scope 矩阵（additive 迁移
   `20261124000004`），逐端点服务 pin，服务主体永不写入 `request.user`；owner 依赖写与
   baseline failed/requeue/admin/iModel list/detail 明确 legacy-only。服务 push 的 changeset 记
@@ -122,6 +123,26 @@
 - **评审修复**：P2/P3 迁移的 CHECK JSON 字面量原先把 scope 列表重复包进 `["..."]`，会生成非法
   JSON 并在真实迁移时失败；已修复并让迁移单测对 SQL 字面量做 `JSON.parse` + 精确 allowlist 断言。
   P2 迁移未部署到任何环境，故直接更正。
-- 仍未完成（X-21 open）：MS/WA/worker 客户端迁移、briefcase/lock owner 语义、baseline
+- **P4a（工作树，未提交；B6 P4a）**：MS/worker/WA 各增独立数据面模式（默认 `legacy`；WA 使用 `WEBHOOK_AGENT_*` 变量，避免与 MS 身份冲突），
+  service-token 为显式 opt-in；MS/worker 官方 IModelsClient 经公开 `restClient` 接缝装饰官方
+  `AxiosRestClient`，按 Hub P3 `(method,URL)` 矩阵只对 P3 且本服务 pinned 的路由注入
+  `X-Service-Token`（MS 8 个注入 scope、worker 3 个只读、WA baseline read/write；MS 不向
+  baseline 出示 token）；MS version resolver 的 P3 read 同步迁移。provider 复用 P1/P2 实现，
+  WA 新增同协议最小实现（缓存/刷新/并发/401 清除/无 legacy 回落/日志脱敏）。owner 依赖写
+  （briefcase create/acquire/release、锁写、extended-data/groups、named-version 写）与
+  baseline failed/requeue/admin 仍 legacy，留 P4b。证据：MS 158 files/1622 passed（+1 expected
+  fail/8 skipped）、worker 17/240、WA 15/98，三进程 typecheck/build 绿；另有隔离 Hub + MS provider
+  跨仓 canary 通过（真实 token 签发、P3 read 404、baseline wrong-service 401、invalid legacy 401、
+  Hub 日志 secret/token hits=0）；未跑部署形态三进程 canary/native 下载。
+- **P4a 评审加固**：MS 只要求 8 个非 baseline scope（不申请 baseline）；MS/worker 注入前校验
+  Hub origin（跨 origin 的 P3 形状 URL 不注入）；WA/worker token URL 启动日志脱敏为 origin+path。
+- 仍未完成（X-21 open）：P4b briefcase/lock owner 与服务 actor 语义、baseline
   failed/requeue/admin、extended-data/named-version 写、TLS/KMS/撤销列表、共享 key/admin 退役、
-  B10 租户、部署形态 canary。**不得宣称 B6 完成或 G1 Gate 通过。**
+  B10 租户、三进程部署形态 canary。**不得宣称 B6 完成或 G1 Gate 通过。**
+
+## 9. B3.1 入口/PEP 只读审计（2026-11-24）
+
+`B3-ENTRY-PEP-AUDIT-2026-11-24.md` 已登记 Hub/MS/BFF/WA/storage 入口矩阵：MS download/open/
+FeatureOp/直改/export 无 per-doc ACL，Hub `X-API-Key` 旁路仍在，groups/shares 未进入授权解析，
+nginx `/azurite/` 与 tile 可匿名读取；给出 B3.1a–g 依赖顺序。该审计未改代码、未强制，B3 仍
+未完成，G1 Gate 不勾选。
