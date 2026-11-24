@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "description": "Recorded non-release exceptions for scripts/check-release-hygiene.mjs. scope=local applies to local/ci runs only; release mode ignores every waiver and fails closed. Expired waivers no longer cover violations. Each entry is release debt with an owner-reviewable reason and expiry.",
+  "waivers": [
+    {
+      "id": "dev-compose-maildev-latest",
+      "check": "images.pinned",
+      "file": "docker-compose.yml",
+      "subject": "maildev/maildev:latest",
+      "scope": "local",
+      "reason": "Local SMTP sink for the development stack; not a production dependency. Pin a release tag/digest before an industrial release.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-compose-azurite-untagged",
+      "check": "images.pinned",
+      "file": "docker-compose.yml",
+      "subject": "mcr.microsoft.com/azure-storage/azurite",
+      "scope": "local",
+      "reason": "Azurite is the development object-store emulator; production storage must use a real service. Pin the MCR image tag for reproducible local stacks.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-compose-imodelhub-latest",
+      "check": "images.pinned",
+      "file": "docker-compose.yml",
+      "subject": "ghcr.io/chenjinxian/imodelhub-public:latest",
+      "scope": "local",
+      "reason": "Public experience stack currently tracks latest. Release owner must pin the published release tag/digest and record it in release-manifest.json.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-compose-webhook-agent-latest",
+      "check": "images.pinned",
+      "file": "docker-compose.yml",
+      "subject": "ghcr.io/chenjinxian/luban-webhook-agent-public:latest",
+      "scope": "local",
+      "reason": "Public experience stack currently tracks latest. Release owner must pin the published release tag/digest and record it in release-manifest.json.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-compose-web-latest-default",
+      "check": "images.pinned",
+      "file": "docker-compose.yml",
+      "subject": "ghcr.io/chenjinxian/luban-web-public:${LUBAN_WEB_TAG:-latest}",
+      "scope": "local",
+      "reason": "LUBAN_WEB_TAG defaults to latest for external quickstart. A release must set an immutable tag/digest and record it in the manifest.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-compose-bff-latest",
+      "check": "images.pinned",
+      "file": "docker-compose.yml",
+      "subject": "ghcr.io/chenjinxian/luban-bff-public:latest",
+      "scope": "local",
+      "reason": "Public experience stack currently tracks latest. Release owner must pin the published release tag/digest and record it in release-manifest.json.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-rebuild-web-local-compat-tag",
+      "check": "images.pinned",
+      "file": "scripts/rebuild-web.ps1",
+      "subject": "tiangong-kaiwu-web:latest",
+      "scope": "local",
+      "reason": "Local compatibility tag consumed by verify-stack/rollback. Not a published release reference; the published image must be pinned separately.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-rebuild-web-publish-latest",
+      "check": "images.pinned",
+      "file": "scripts/rebuild-web.ps1",
+      "subject": "ghcr.io/chenjinxian/luban-web-public:latest",
+      "scope": "local",
+      "reason": "The script prints the current publish command using latest. A release must push an immutable tag and digest and update the manifest.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-deploy-bundle-web-latest",
+      "check": "images.pinned",
+      "file": "scripts/make-deploy-bundle.ps1",
+      "subject": "ghcr.io/chenjinxian/luban-web-public:latest",
+      "scope": "local",
+      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-deploy-bundle-bff-latest",
+      "check": "images.pinned",
+      "file": "scripts/make-deploy-bundle.ps1",
+      "subject": "ghcr.io/chenjinxian/luban-bff-public:latest",
+      "scope": "local",
+      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-deploy-bundle-imodelhub-latest",
+      "check": "images.pinned",
+      "file": "scripts/make-deploy-bundle.ps1",
+      "subject": "ghcr.io/chenjinxian/imodelhub-public:latest",
+      "scope": "local",
+      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-deploy-bundle-webhook-agent-latest",
+      "check": "images.pinned",
+      "file": "scripts/make-deploy-bundle.ps1",
+      "subject": "ghcr.io/chenjinxian/luban-webhook-agent-public:latest",
+      "scope": "local",
+      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-docker-desktop-path-fetch",
+      "check": "build.scripts",
+      "file": "scripts/fetch-backend.ps1",
+      "subject": "host-path:C:\\Program Files\\Docker\\Docker\\resources\\bin",
+      "scope": "local",
+      "reason": "Docker Desktop PATH bootstrap for Windows developers; the script still fails closed when docker is absent. Release runners use the standard PATH.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-docker-desktop-path-rebuild",
+      "check": "build.scripts",
+      "file": "scripts/rebuild-web.ps1",
+      "subject": "host-path:C:\\Program Files\\Docker\\Docker\\resources\\bin",
+      "scope": "local",
+      "reason": "Docker Desktop PATH bootstrap for Windows developers; the script still fails closed when docker is absent. Release runners use the standard PATH.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-docker-desktop-path-quickstart",
+      "check": "build.scripts",
+      "file": "scripts/quickstart.ps1",
+      "subject": "host-path:C:\\Program Files\\Docker\\Docker\\resources\\bin",
+      "scope": "local",
+      "reason": "Docker Desktop PATH bootstrap for the external quickstart. Not used by release artifact builds; release CI uses the standard PATH.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-dedupe-host-default",
+      "check": "build.scripts",
+      "file": "scripts/dedupe-artifact-deps.ps1",
+      "subject": "host-path:D:\\Github\\tiangong-kaiwu\\dist-backend\\modeling-server",
+      "scope": "local",
+      "reason": "Legacy default path for the local artifact tree. fetch-backend always passes -MsDir explicitly; replace the default with a repo-relative path in a follow-up.",
+      "expires": "2027-03-31"
+    },
+    {
+      "id": "dev-postgres-password-default",
+      "check": "secrets.defaults",
+      "file": "docker-compose.yml",
+      "subject": "weak-default:HUB_DATABASE_PASSWORD",
+      "scope": "local",
+      "reason": "Development-stack fallback when .env is missing; generate-env.ps1 always supplies a random value. Release mode requires a secret-management decision.",
+      "expires": "2026-12-31"
+    },
+    {
+      "id": "dev-compose-azurite-well-known-key",
+      "check": "secrets.defaults",
+      "file": "docker-compose.yml",
+      "subject": "well-known:storage-account-key",
+      "scope": "local",
+      "reason": "Azurite emulator well-known account key; production object storage must inject a real key/secret. Local-only default.",
+      "expires": "2026-12-31"
+    },
+    {
+      "id": "dev-generate-env-azurite-well-known-key",
+      "check": "secrets.defaults",
+      "file": "scripts/generate-env.ps1",
+      "subject": "well-known:storage-account-key",
+      "scope": "local",
+      "reason": "The dev .env generator seeds the Azurite emulator key; real deployments overwrite it via the secret store. Local-only default.",
+      "expires": "2026-12-31"
+    }
+  ]
+}

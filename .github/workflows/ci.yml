@@ -1,6 +1,7 @@
 # 公开仓最小 CI（2026-11-01，任务 5；G1 J1.2/J1.3a 扩展）
 #
 # 覆盖：itwinjs-core 必要依赖构建 → luban-cad workspace 基座构建 → 契约冻结门 →
+# release hygiene（镜像 pin/构建脚本/契约/manifest/默认密钥，ci 模式）→
 # web 生产 build → 单测 → tsc/lint；独立的 BFF typecheck/单测；运维脚本
 # `node:test`。**不覆盖**：真栈 e2e（需 docker 栈 + MS + 浏览器，归 verify-stack /
 # 发布 checklist）、发布镜像 e2e、backend 全量、native ctest（需 self-hosted）。
@@ -85,6 +86,14 @@ jobs:
           node --test scripts/check-contract-freeze.test.mjs
           node --test scripts/release-manifest.test.mjs
           node --test scripts/e2e-baseline.test.mjs
+          node --test scripts/test/check-release-hygiene.test.mjs
+
+      - name: Release hygiene (J3.3)
+        # local/ci mode applies the recorded dev waivers; release-gate.ps1
+        # runs the same checker with --mode release, which ignores waivers,
+        # requires dist-backend + release-manifest.json/native provenance, and
+        # re-hashes artifact digests.
+        run: node scripts/check-release-hygiene.mjs --mode ci --format markdown
 
       - name: Build first-party packages
         working-directory: luban-cad

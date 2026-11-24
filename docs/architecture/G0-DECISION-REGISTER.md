@@ -1,7 +1,12 @@
 # G0 决策登记册（Decision Register）
 
-> 状态：**Proposed / 待 ARB 签字**（2026-11-22）
+> 状态：**Proposed / 待 ARB 签字**（2026-11-22；2026-11-24 审计后仍 0/16 签字）
 > 输入：`G0-EXECUTION-PLAN.md`、`09-INDUSTRIAL-TARGET-ARCHITECTURE.md`、`10-ARCHITECTURE-HARDENING-PLAN.md`
+> **2026-11-24 收口**：20 份 `ADR-G0-*.md` 已全部存在（均 Proposed under owner directive，
+> 未 ARB 签字）；决策/Spike 的实际证据映射与 G1 条件放行口径见
+> [`G0-GATE-REPORT-2026-11-24.md`](./G0-GATE-REPORT-2026-11-24.md) 与
+> [`INDUSTRIAL-READINESS-PROGRAM-2026-11-24.md`](./INDUSTRIAL-READINESS-PROGRAM-2026-11-24.md)。
+> 本册 16 项仍全部 Proposed，不得据此宣称 G0 通过。
 > 规则：本册中的“建议”不是自动裁决；只有 ARB/指定 owner 明确签字后才生效。未签字项不得作为对外功能承诺依据；实现只能按显式 owner 指令作为工作假设，并登记回滚。
 >
 > **2026-11-22 owner 指令**：按建议继续执行 G0/G1；本册所有条目仍标记 **Proposed**，不视为正式签字。已开始的 C1（IPC 按连接路由）、D1（账本不可变）等实现按建议默认值作为工作假设，若后续签字否决，按各工作包回滚方案撤销。

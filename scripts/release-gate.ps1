@@ -1,18 +1,22 @@
-﻿# 发布门自动化（2026-11-01，任务 5；G1 J3.1g 扩展）
+﻿# 发布门自动化（2026-11-01，任务 5；G1 J3.1g / J3.3 扩展）
 #
-# 校验：产物 SHA256 / 产物 provenance / MS 限流姿态 / web·hub 镜像标签 /
-# 可选 release manifest（结构 + 策略 + 文件字节），并默认串联 verify-stack.ps1。
+# 校验：release hygiene（镜像 pin/构建脚本/契约/manifest/默认密钥）→ 产物
+# SHA256 → 产物 provenance → MS 限流姿态 → web·hub 镜像标签 → release
+# manifest（结构 + 策略 + 文件字节）→ verify-stack.ps1。
 #
 # 用法：
 #   powershell -File scripts/release-gate.ps1 -ExpectedSha256 <sha256>
 #   powershell -File scripts/release-gate.ps1 -ExpectedSha256 <sha256> `
-#     -ManifestPath release-manifest.json -VerifyManifestFiles
+#     -ManifestPath release-manifest.json -VerifyManifestFiles `
+#     -ExpectedSourceCommit <sha> -ExpectedTag backend-YYYYMMDD
 #   powershell -File scripts/release-gate.ps1 -AllowStoreFallback -SkipVerifyStack
 #
-# -ManifestPath 省略时为 WARN（不伪造清单）；提供时强制
-# --require-native-provenance。-VerifyManifestFiles 额外核对清单声明的
-# nativeProvenance/artifacts[] 实际文件字节。镜像 registry digest / OCI label
-# 仍需发布方在 registry 侧核对（本脚本不联网）。
+# release hygiene 以 --mode release 运行：本地 waiver 全部忽略；缺
+# release-manifest.json / nativeProvenance / dist-backend 均判 FAIL。
+# -ManifestPath 省略时默认 <repo>/release-manifest.json（不再 WARN 放行）。
+# -VerifyManifestFiles 额外核对清单声明的 nativeProvenance/artifacts[] 实际
+# 文件字节；hygiene 在 release 模式也会重算 artifact digest。镜像 registry
+# digest / OCI label 仍需发布方在 registry 侧核对（本脚本不联网）。
 #
 # 退出码：0=通过；1=存在 FAIL。WARN 不阻断，但必须写入发布记录。
 
@@ -23,13 +27,24 @@ param(
     [switch]$AllowRateLimitOverride,
     [switch]$SkipVerifyStack,
     [string]$ManifestPath,
-    [switch]$VerifyManifestFiles
+    [switch]$VerifyManifestFiles,
+    [string]$ExpectedSourceCommit,
+    [string]$ExpectedTag
 )
 
 $ErrorActionPreference = 'Continue'
 $Root = Split-Path -Parent $PSScriptRoot
 $script:FailCount = 0
 $script:WarnCount = 0
+
+# Manifest 单源：显式 -ManifestPath（相对仓根）或默认 release-manifest.json。
+$manifestFile = if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
+    Join-Path $Root 'release-manifest.json'
+} elseif ([System.IO.Path]::IsPathRooted($ManifestPath)) {
+    $ManifestPath
+} else {
+    Join-Path $Root $ManifestPath
+}
 
 function Pass([string]$Message) {
     Write-Host "[OK]   $Message" -ForegroundColor Green
@@ -46,6 +61,34 @@ function Fail([string]$Message) {
 }
 
 Write-Host '== Release gate ==' -ForegroundColor Cyan
+
+# --- 0. release hygiene（G1 J3.3） ---------------------------------------
+# release 模式忽略本地 waiver；缺 manifest/provenance/dist-backend、镜像
+# :latest、构建脚本主机绝对路径/store fallback/tsc --noCheck/无锁安装、
+# 源码与产物契约 skew、默认/well-known 密钥均判 FAIL。
+$hygieneScript = Join-Path $PSScriptRoot 'check-release-hygiene.mjs'
+if (-not (Test-Path $hygieneScript)) {
+    Fail "check-release-hygiene.mjs 缺失: $hygieneScript"
+} elseif (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Fail '未找到 node（release hygiene 需要 Node）'
+} else {
+    $hygieneArgs = @(
+        $hygieneScript, '--mode', 'release', '--format', 'text',
+        '--manifest', $manifestFile
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedSourceCommit)) {
+        $hygieneArgs += @('--expected-source-commit', $ExpectedSourceCommit)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedTag)) {
+        $hygieneArgs += @('--expected-tag', $ExpectedTag)
+    }
+    & node @hygieneArgs
+    if ($LASTEXITCODE -eq 0) {
+        Pass 'release hygiene 通过'
+    } else {
+        Fail "release hygiene 失败（exit $LASTEXITCODE）"
+    }
+}
 
 # --- 1. 产物 SHA256 -------------------------------------------------------
 $artifacts = @(
@@ -151,39 +194,38 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     }
 }
 
-# --- 5. release manifest（G1 J3.1g，可选） --------------------------------
+# --- 5. release manifest（G1 J3.1g / J3.3，必填） -------------------------
 $manifestScript = Join-Path $PSScriptRoot 'release-manifest.mjs'
-if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
-    Warn '未提供 -ManifestPath；release manifest 未校验（发布时应生成并校验）'
-} elseif (-not (Test-Path $manifestScript)) {
+if (-not (Test-Path $manifestScript)) {
     Fail "release-manifest.mjs 缺失: $manifestScript"
 } elseif (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Fail '未找到 node（release manifest 校验需要 Node）'
+} elseif (-not (Test-Path $manifestFile)) {
+    Fail "release manifest 缺失: $manifestFile（发布门要求 release-manifest.json）"
 } else {
-    $manifestFile = $ManifestPath
-    if (-not [System.IO.Path]::IsPathRooted($manifestFile)) {
-        $manifestFile = Join-Path $Root $manifestFile
+    $verifyArgs = @(
+        $manifestScript, 'verify', '--file', $manifestFile,
+        '--require-native-provenance'
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedSourceCommit)) {
+        $verifyArgs += @('--expected-source-commit', $ExpectedSourceCommit)
     }
-    if (-not (Test-Path $manifestFile)) {
-        Fail "release manifest 缺失: $manifestFile"
+    & node @verifyArgs
+    if ($LASTEXITCODE -eq 0) {
+        Pass 'release manifest 结构/策略校验通过'
     } else {
-        & node $manifestScript verify --file $manifestFile --require-native-provenance
-        if ($LASTEXITCODE -eq 0) {
-            Pass 'release manifest 结构/策略校验通过'
-        } else {
-            Fail "release manifest 校验失败（exit $LASTEXITCODE）"
-        }
+        Fail "release manifest 校验失败（exit $LASTEXITCODE）"
+    }
 
-        if ($VerifyManifestFiles) {
-            & node $manifestScript verify-files --file $manifestFile --root $Root --require-native-provenance
-            if ($LASTEXITCODE -eq 0) {
-                Pass 'release manifest 文件字节校验通过'
-            } else {
-                Fail "release manifest 文件字节校验失败（exit $LASTEXITCODE）"
-            }
+    if ($VerifyManifestFiles) {
+        & node $manifestScript verify-files --file $manifestFile --root $Root --require-native-provenance
+        if ($LASTEXITCODE -eq 0) {
+            Pass 'release manifest 文件字节校验通过'
         } else {
-            Warn '未提供 -VerifyManifestFiles；artifacts/nativeProvenance 文件字节未核对'
+            Fail "release manifest 文件字节校验失败（exit $LASTEXITCODE）"
         }
+    } else {
+        Warn '未提供 -VerifyManifestFiles；release hygiene 已重算 artifact digest，但未运行 verify-files 的逐文件报告'
     }
 }
 

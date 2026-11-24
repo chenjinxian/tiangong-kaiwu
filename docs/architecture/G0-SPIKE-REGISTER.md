@@ -1,8 +1,12 @@
 # G0 Spike 登记册
 
-> 状态：**Not started**（2026-11-22）
+> 状态：**Not started（历史表头已过期）**（2026-11-22；2026-11-24 证据映射见 G0 Gate Report）
 > 输入：`G0-EXECUTION-PLAN.md` §5、`10-ARCHITECTURE-HARDENING-PLAN.md` §2.2
 > 规则：没有证据不得标 PASS；失败必须写失败动作；破坏性实验必须使用隔离环境并走 HITL。
+> **2026-11-24 收口**：下表“Not started”不能作为当前事实；实际结论为 S0-4 PASS（真栈）、
+> S0-2 PARTIAL、S0-5/S0-13 FAIL→fail-closed、S0-12 BLOCKED、其余 NOT RUN/DEFERRED。
+> 详见 [`G0-GATE-REPORT-2026-11-24.md`](./G0-GATE-REPORT-2026-11-24.md)；本册不得据此宣称
+> G0 或任何 Spike 通过。
 
 ## 1. 使用规则
 

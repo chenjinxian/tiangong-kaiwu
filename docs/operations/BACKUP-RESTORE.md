@@ -397,7 +397,9 @@ powershell -File scripts/verify-stack.ps1
 
 - 若备份是 `online-best-effort`：重点检查最近 changeset 的 blob 是否 404、历史链是否连续、
   iModel 打开是否报缺失文件；发现悬挂引用时，从同一备份集重恢复两侧，不要只补一侧。
-- 如已有 E8 scrubber/reconciler，运行并保存对账报告；未落地前人工抽查。
+- 如已有 E8 scrubber/reconciler，运行并保存对账报告；当前只读 v1 见
+  `docs/operations/INTEGRITY-SCAN.md`（不修复，exit 3 表示未验证，不得当作 clean），
+  未覆盖部分人工抽查。
 - Redis/队列未恢复：确认 WA recovery checker 能重新排队 baseline；检查是否有丢失的 forward 事件。
 
 ### 8.4 记录
@@ -504,4 +506,7 @@ powershell -File scripts/verify-stack.ps1
 - `docs/architecture/G1-EXECUTION-PLAN.md`（E1/E2 DR 基线、E3/E5 迁移、E8 完整性）
 - `docs/research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md` §4.4
 - `docs/operations/BACKUP-RESTORE.md`（本文件）
+- `docs/operations/INTEGRITY-SCAN.md`（E8 只读完整性扫描 v1）
+- `docs/operations/DR-DRILL.md`（非破坏性演练规范 skeleton）
 - `scripts/backup-stack.ps1`、`scripts/restore-stack.ps1`
+- `scripts/integrity/Invoke-IntegrityScan.mjs`、`scripts/integrity/scan-core.mjs`

@@ -289,7 +289,8 @@ Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/
   绿。**隔离 Hub canary**：`off` 下 outsider + key 的 GET 为 200（旁路存在）；
   `read` 下同一请求 403、admin 200、POST 仍 legacy（422 校验）；`write` 下 POST 也 403、
   admin 422；Hub 日志 key/admin password/service-token 命中 0，`content_route_enforced=4`。
-- **边界**：46 条例外、access-control 子资源 IDOR、iTwin favorites/recents、files、
-  baseline failed/requeue、`/imodels/admin/*`、storage/tile、BFF/MS/WA 均未改；服务
+- **边界**：B3.1f 后仍余 43 条例外；access-control 子资源 IDOR、iTwin image delete、
+  favorites/recents 写 ACL 已由 B3.1f 收口；files、baseline failed/requeue、
+  `/imodels/admin/*`、storage/tile、BFF/MS/WA 仍未改；服务
   scope 仍是服务级、不绑定单 iModel；不得宣称 Hub 数据面 PEP 完整。B3/X-21/X-27 open，
   G1 Gate 不勾选。

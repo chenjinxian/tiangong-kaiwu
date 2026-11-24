@@ -5,6 +5,56 @@
 GET 外不访问网络，也不替代 `scripts/release-gate.ps1` 或
 `scripts/verify-stack.ps1`。真实发布仍以发布门 + 全栈验收为准。
 
+## Release hygiene（G1 J3.3）
+
+`scripts/check-release-hygiene.mjs` 是发布前的静态卫生门（Node ESM，无第三方
+依赖；不联网、不调用 docker/gh）。它把易在本地全绿、但会阻断工业发布的风险
+变成明确的 FAIL：
+
+| 检查 | 失败条件 |
+|---|---|
+| `images.pinned` | compose/Dockerfile/发布脚本出现 `:latest`、无 tag（隐式 latest）、或 tag 变量无 pinned 默认值 |
+| `build.scripts` | 发布/构建脚本硬编码宿主绝对路径、依赖 native pnpm store 回退、`tsc --noCheck`、或 `npm install` / 无 `--frozen-lockfile` 的 pnpm 安装 |
+| `contract.shipped` | `dist-backend` 产物内 `LubanFeatureRpcInterface.interfaceVersion` 与公开源不一致（例如 1.64.0 vs 1.85.0） |
+| `provenance.public` | 公开产物 `native-provenance.json` 泄漏宿主绝对路径/私有 native commit 等内部证据 |
+| `manifest.release` | release 模式缺 `release-manifest.json`/`nativeProvenance`/`dist-backend`；tag、sourceCommit、native/artifact digest 不一致；release 配置引用的 GHCR 镜像没有清单 digest |
+| `secrets.defaults` | release 配置出现弱默认密码/JWT、Azurite well-known key、或 provider token |
+
+模式：
+
+- `local` / `ci`：应用 `scripts/release-hygiene-waivers.json` 中 `scope=local`
+  的已登记开发债；缺 `dist-backend`/manifest 记为 skipped。
+- `release`：**忽略全部 waiver**；要求 `dist-backend` 与
+  `release-manifest.json`/native provenance 在场，并默认重算 artifact digest。
+  `scripts/release-gate.ps1` 以该模式调用；缺 manifest 不再 WARN 放行。
+
+```bash
+# 本地/CI（waiver 生效）
+node scripts/check-release-hygiene.mjs --mode ci --format markdown
+
+# 发布门（waiver 全部忽略；需真实产物与清单）
+node scripts/check-release-hygiene.mjs --mode release \
+  --manifest release-manifest.json \
+  --expected-source-commit <40/64-hex> --expected-tag backend-YYYYMMDD
+
+# 发布 owner 本地只读审计私有后端（产物不在公开 CI；不修改私有仓）
+node scripts/check-release-hygiene.mjs --mode local \
+  --backend-root ../luban-backend --format text
+```
+
+`--backend-root` 只读扫描 `scripts/{build-ms-dist,build-images,publish}.ps1`
+与私有 `.github/workflows/ci.yml`，输出文件前缀为 `backend/`；公开 CI 永不使用
+该参数，因此私有路径/证据不会进入公开流水线。
+
+退出码：`0` 通过；`1` 存在未豁免 error；`2` 用法/配置错误（含非法 waiver
+文件）。waiver 只用于本地/CI 开发债，必须有 `file`、`reason` 与 `expires`；
+过期 waiver 不再覆盖违规并产生 `waivers.expired` 警告。release 模式永不读取
+waiver，因此任何 release 违规都必须真正修复，不能以 waiver 放行。
+
+`release-gate.ps1` 已把 hygiene 作为第 0 步接入；public CI 以 `--mode ci`
+运行 checker 并执行 `node --test scripts/test/check-release-hygiene.test.mjs`。
+
+
 J3.1g 起支持**实际文件字节校验**（`verify-files`）：清单声明的
 `nativeProvenance` 与 `artifacts[]` 会用本地文件重新计算 SHA-256 并与声明值
 比较，不再只校验“digest 字符串格式”。镜像 registry digest、OCI label、SBOM

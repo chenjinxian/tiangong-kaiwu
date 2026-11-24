@@ -1,0 +1,311 @@
+# 工业级生产架构总纲（2026-11-24）
+
+> 状态：**Working program / 待 G0 ARB 签字**。本文是 G0–G3 的工业级生产架构收口总纲，
+> 不是 Gate 通过记录。所有默认仍未部署、未对外承诺生产；任何 Gate 勾选以
+> `G0-DECISION-REGISTER.md`、`G0-SPIKE-REGISTER.md` 和独立证据为准。
+>
+> 输入：`09-INDUSTRIAL-TARGET-ARCHITECTURE.md`、`10-ARCHITECTURE-HARDENING-PLAN.md`、
+> `G0-EXECUTION-PLAN.md`、`G1-EXECUTION-PLAN.md`、`G1-WAVE2-STATUS-2026-11-23.md`、
+> 近期 7 个领域审计（身份/ACL、账本/版本/规模、DR、发布/CI/安全、G2 契约、
+> 内核/求解器/许可、G0 决策/Spike 映射）。原则：**先冻结架构和技术路线，再铺功能**。
+
+---
+
+## 0. 结论摘要
+
+1. **方向正确，但工业级生产尚未开始**：iTwin/BIS、FeatureOp、账本和会话隔离的底座已具备；
+   当前差距主要是平台工程和运营底座，不是几何能力。
+2. **G0 未签字**：16 项决策全部 Proposed；审计前仅 2/20 ADR 存在；16 个 Spike 中
+   只有 S0-4 有真栈 PASS 证据，S0-2 部分，S0-5/S0-13 fail-closed，S0-12 blocked，
+   其余未跑或只有单元证据。G0 不能通过。
+3. **G1 实施约一半、验收 0/15**：会话隔离、账本不可变、D5 版本打开、B3.1c/d/e
+   和 native 写 canary 有实质进展；但真实归因、B3.1f/g、B4、B6 P4b、B7 enforcement、
+   B8/B10、D3/D6/D7/D8、read purity、checkpoint 生产化、200/1000 基线、E1/E2/E8、
+   J2/J4 均未闭环。
+4. **G2 目前不可冻结**：Feature Manifest、显式输出端口/DAG、持久拓扑引用、typed tab、
+   selection/workspace/command 契约都还没有成为单一事实源。当前单输出/线性链是应用层
+   实现限制，不是可冻结的平台 API。
+5. **内核路线未定但方向明确**：生产仍是 ACIS SAB；TrueForm 只有文档/规划，未接线；
+   SAB 兼容、双后端、迁移、回滚和许可裁决未完成。ACIS InterOp/STEP/healing 未授权；
+   libslvs 仅纯云 SaaS。许可与分发是 stop-ship。
+6. **当前不应继续铺 Part Studio 功能**：G1 收尾、G2 冻结、G3 生产化之前，新增特征只会
+   加深后续返工。
+
+按 G0–G3 平台架构工作量口径，当前约 **40%**（±10%）。到单租户受控生产还需
+G1 收尾 + G2 冻结 + G3 生产化；多租户/专业 CAD 更远。
+
+---
+
+## 1. 工业级生产标准（DoD）
+
+| 维度 | 工业级最低标准 | 当前判定 |
+|---|---|---|
+| 身份 | 真实用户 on-behalf-of；无共享 key/人类 admin 服务登录；服务身份最小权限、可轮换/撤销 | 未达标 |
+| 授权 | 每个用户数据入口 PEP；per-document ACL 默认强制；非成员/只读/撤销负例全拒绝 | 未达标（默认 off/例外多） |
+| 审计 | 高风险操作不可变审计；失败可阻断；异地 WORM/链头锚定/保留期 | 未达标（仅 authz decision + 本地触发器） |
+| 租户 | tenantId/RLS/对象前缀/配额；跨租户负例全拒 | 未达标（NULL 占位） |
+| 账本 | changeset 不可变、父链/hash、真实 checkpoint、Named Version 绑定、restore/fork 语义 | 部分（D1/D2/D5/D6a；D3/D6/D7/D8 缺） |
+| 会话 | per-session IPC/briefcase/editor/undo；外部 lease/fencing；恢复 | 部分（单进程；C5/C7 缺） |
+| 规模 | 200/1000 changeset 冷开 p50/p95；queue/worker/配额/缓存上限 | 未测 |
+| 灾备 | Postgres HA+PITR、对象版本化/跨区、恢复演练、RPO≤5m/RTO≤1h | 未达标（手动 dump） |
+| 发布 | 可复现构建、digest 钉版、manifest/SBOM/签名、staging 同形态、N-2 回滚 | 未达标（CI 红/未 push/latest/契约漂移） |
+| 安全 | TLS/HSTS/CSP、无默认密钥、KMS、WA/DB/Redis/对象存储不公网、WAF/限流 | 未达标（匿名 /azurite、无 TLS） |
+| 可观测 | requestId/session/user/tenant 全链、metrics/traces、readiness、SLO/告警/on-call | 部分/未达标 |
+| 架构 | Feature Manifest、输出端口/DAG、拓扑引用、typed tab、selection/command 统一 | 未达标（G2 未开始） |
+| 许可 | ACIS 仅 Modeler+Polyhedra；STEP/InterOp 未授权不接线；libslvs 仅纯 SaaS | 有边界，分发未裁决 |
+
+---
+
+## 2. Gate 快照
+
+| Gate | 状态 | 证据/事实 | 结论 |
+|---|---|---|---|
+| **G0 决策基线** | **未通过** | 16/16 决策 Proposed、0 签字；20 ADR 中审计前仅 2 份；16 Spike 仅 S0-4 PASS，S0-2 PARTIAL，S0-5/13 fail-closed，S0-12 blocked，其余未跑/单元级 | 不能签 G0，G1 只能按 owner directive 条件推进 |
+| **G1 平台正确性** | **进行中，0/15** | 会话/账本/身份有大量代码与 canary，但部署形态、归因、DR、规模、CI 未闭环 | 不勾 Gate |
+| **G2 契约/工作区** | **未开始/不可冻结** | 无 Feature Manifest、输出端口、持久拓扑引用、typed tab、SelectionRef；当前单输出/线性链 | 不冻结、不铺特征 |
+| **G3 生产化** | **未开始** | 无 HA/PITR/对象版本化/TLS/KMS/观测/SLO/压力 | 不宣称生产 |
+| **G4/G5** | 研究/产品轨道 | Onshape parity 是测试轨道，不等于产品完成 | 后置 |
+
+**为什么 G1 是 0/15**：Gate 是全有或全无。当前缺的不是“某条测试”，而是：
+真实部署形态双用户/撤销证据、全入口 ACL（B3.1f/g、B4、B6 P4b、storage/tile/WA）、
+真实用户归因、生产 checkpoint/200-1000、restore/compare/refs、DR 演练、CI/发布
+可复现。任何一项都不能用单机/假 Hub/默认 off 替代。
+
+---
+
+## 3. 七个工作流
+
+### W1 G0 决策与 ADR 冻结
+
+- **现状**：决策默认值完整，但 0/16 签字；ADR 缺 18 份（本程序启动后补齐为 20 份
+  Proposed）；Spike 登记册陈旧。
+- **出口**：16 决策全部 Accept/Conditional/Defer（含 owner/日期/失败动作）；
+  20 ADR 有 owner/备选/失败判据/回滚；16 Spike 有 PASS/FAIL/STOP/DEFERRED 结论；
+  G0 Gate 报告 GO/CONDITIONAL GO/NO-GO。
+- **停点**：D0-7/D0-12 需 Product/Legal 书面结论；D0-9/D0-16 需真实双用户/归因条件；
+  D0-14 需 DR 演练或明确 conditional deadline。
+
+### W2 身份、ACL、归因、审计、租户
+
+- **已落地**：B1/B1.2、B2 OBO shadow、B3.1a–e、B5a、B6 P0–P4a、B7 v1；
+  B3.1d native 写 canary；B3.1e Hub 路由强制（默认 off）。
+- **关键缺口**：
+  1. B3.1f：MS export/progress/retry/undo/close/assembly/saved views 仍无完整 ACL；
+     BFF `/api/*` 仅终止 JWT；WA baseline/debug 共享 key；`/azurite` 匿名；tile/SAS。
+  2. B4：Write 仍 Manage-only；Share UI/API/link 是假分享/无 capability；IMS groups fail closed。
+  3. B2.2：changeset/briefcase 仍服务账号；push 无真实用户归因；OpLog 仅 IPC 路径正确。
+  4. B6 P4b：owner 依赖路由、baseline/admin、共享 key、人类 admin 登录、KMS/撤销未收口。
+  5. B7 enforcement：高风险操作未审计/未阻断；无异地 WORM/保留/legal hold。
+  6. B8/B10：TLS/HSTS/CSP、WA/DB/Redis/Azurite 暴露、tenantId/RLS/配额未做。
+- **出口**：全入口 401/403 负例；真实用户 changeset/briefcase/OpLog/audit；共享 key
+  和 admin 服务登录退役；高风险审计可阻断；跨租户全拒；TLS/网络最小暴露。
+
+### W3 账本、版本、checkpoint、规模
+
+- **已落地**：D1/D2 不可变/父链/SHA-256、D4 Hub 控制面 + 隔离 native canary、
+  D5 只读版本打开、D6a Named Version 防护。
+- **关键缺口**：
+  1. D3 clone/fork 仍是 fail-closed 切片：非 head 409、history 501、无 Duplicate/squash、
+     target checkpoint 复用源 changeset id。
+  2. D4 生产化：worker 不在 compose、flag OFF、无 Azure/Linux、native 阻塞事件循环、
+     manifestPath 未持久化、无 GC/scrubber/指标。
+  3. D6：Named Version 未绑定真实 checkpoint 行；无 ready event/metric。
+  4. D7 restore/compare、D8 version-pinned refs 完全缺。
+  5. 读路径会 import schema/init/rebuild/auto-push；`doc.read` 可写库。
+  6. undo 只有 sessionId 作用域，非 user/briefcase；legacy 行在 enforce 下不可见。
+  7. 200/1000 冷开无 harness/无 p50/p95。
+- **出口**：D3/D6/D7/D8 语义与迁移；读路径零 save/push/head 变化；checkpoint 生产
+  readback/manifest/GC/HA；200/1000 报告；undo 隔离负例。
+
+### W4 会话、租约、HA
+
+- **已落地**：C1/C2/C2b/C3/C3.3/C6；per-session briefcase/editor/undo 基础。
+- **关键缺口**：C5 外部 lease/fencing、C7 recover/reattach、单进程多会话/多实例、
+  OBO handle 续期、WS 撤销真实部署证据。
+- **出口**：双实例不能双写；stale writer 在 commit/push 被 fencing；崩溃/重启恢复；
+  双用户部署 canary。
+
+### W5 DR、数据平台、完整性
+
+- **已落地**：手动 `pg_dump` + Azurite volume tar + SHA-256 manifest + HITL restore。
+- **关键缺口**：无 Postgres HA/PITR/WAL 归档/副本；Azurite 仅开发且单卷；无对象版本化/
+  object lock/CRR/SSE-KMS；Redis 单节点；WA data 无卷；MS 手工进程/硬杀；无 E8
+  DB↔对象 reconciler/scrubber；无 RPO/RTO 演练。
+- **出口**：HA+PITR（archive_timeout≤60s）、对象版本化/跨区、恢复演练、RPO≤5m/RTO≤1h、
+  integrity scan + repair/quarantine、MS/WA/worker 受监督恢复。
+
+### W6 发布、CI、安全、可观测
+
+- **已落地**：contract/interface freeze 工具、release-manifest 雏形、e2e baseline；
+  本地 freeze 检查可过。
+- **关键缺口**：主 CI 红、G1 分支未 push、Hub CI 无运行；MS 构建 `npm install`/
+  `tsc --noCheck`/宿主路径/fallback；`latest` 标签、Markdown digest、无 SBOM/签名；
+  contract 1.85 vs 1.64；无 staging/IaC、无 TLS/KMS、无 trust proxy、无统一 requestId/
+  traces/metrics/alerts/soak/chaos。
+- **出口**：同源同 digest；manifest/SBOM/签名；CI 全绿且分支保护；staging 同形态；
+  HTTPS/HSTS/CSP；全链 requestId；readiness/SLO/告警/on-call；容量/soak。
+
+### W7 G2 契约与工作区
+
+- **现状**：FeatureOp 单输出、线性 orderKey、无显式端口/DAG；FeatureTree 无 inputs/outputs；
+  `LubanTopologyId` 只有 node/entity；tab 从 UserLabel 前缀发现；WorkspaceRef 无 kind/version；
+  无 SelectionRef/Domain、DocumentSessionHost、统一 CommandRegistry；每个特征 9+ 处手写注册。
+- **冻结顺序**（G1 之后）：
+  1. Feature Manifest v0 + opDsl 单一来源 + `paramsVersion`；
+  2. Document/Workspace/Tab 身份 + additive `listTabs`；
+  3. Output/Topology/Selection 信封；
+  4. Host/store/command/undo 所有权；
+  5. batch pick + format/kernel tag。
+- **不要提前冻结**：完整 DAG executor、FeatureRow 持久布局、拓扑 ID 生成算法、
+  WorkspaceModule 生命周期、form widget API、batch-pick transport、最终内核枚举。
+- **出口**：manifest 生成 dry-run 零漂移；split/mirror 双端口下游消费；插入/删除/
+  重复 body 不静默错命中；旧 tab/URL 双读兼容。
+
+### W8 内核、求解器、许可
+
+- **现状**：生产 ACIS SAB；TrueForm M0/未接线；BRepData 无 format/kernel tag；
+  ACIS InterOp/STEP/healing 未授权；ThickenSheet 仍可达，interface-freeze 红；
+  libslvs 仅 Windows/GPL 且公开 MS 产物含 native 依赖；ShengMo 未验证。
+- **决策**：保留 ACIS SAB + 加 format/kernel tag；TrueForm M1 必须等 SAB 策略、
+  111-export manifest、双后端一致性、迁移/回滚；State no TrueForm-only/STEP claims。
+- **出口**：tag 兼容旧库；blocked ops fail-closed + 负 ctest；合法分发书面结论；
+  solver-neutral 双实现/一致性；canonical native + provenance。
+
+---
+
+## 4. 关键路径
+
+```text
+G0 签字/法律裁决
+  → W2 身份归因 + B3.1f/g + B4 + B6 P4b + B7/B8/B10
+  → W3 读纯化 + D3/D6/D7/D8 + checkpoint 生产 + 200/1000
+  → W4 C5/C7 + W5 DR/PITR/对象版本化
+  → W6 CI/发布/安全/观测
+  → G1 Gate
+  → W7 G2 契约冻结
+  → G3 生产化
+  → G4/G5
+```
+
+**不能并行绕过的顺序**：G2 契约冻结不能早于 G1 身份/账本；G3 生产不能早于
+DR/RPO/RTO；G4/G5 功能不能早于 G2。
+
+---
+
+## 5. G0 决策/Spike 收口
+
+### 5.1 决策
+
+16 项决策均按 G0 推荐默认进入 **Proposed under owner directive**，由 owner 逐项
+Accept/Conditional/Defer。必须显式处理：
+
+- **D0-2**：单租户先，tenantId/RLS 预留；B10 前不得宣称多租户。
+- **D0-4**：不可变账本 + 真实 checkpoint；D3/D6/D7/D8 为 Conditional，不能宣称完成。
+- **D0-7/D0-12**：Product/Legal 书面结论前，STEP/IGES/Parasolid、数据驻留/出口、
+  对外分发均为 stop-ship。
+- **D0-9**：先 in-process owner-scoped，进程 actor 作为 HA 目标；S0-1 双用户证据前
+  不宣称多用户。
+- **D0-13**：本地 commit / push ack 分离；UI 必须明示未推送窗口（与 ADR-0017 冲突需裁决）。
+- **D0-14**：HA+PITR+对象版本化；S0-15 演练前为 Conditional。
+- **D0-16**：真实用户归因；push/changeset 当前仍是服务账号，B2.2 前为 Conditional。
+
+### 5.2 Spike
+
+| 状态 | 项 |
+|---|---|
+| PASS（真栈） | S0-4（D5 版本打开） |
+| PARTIAL | S0-2（直改 deny 有真栈，audit/endEdits 未证）；S0-1/S0-3（单元/代码级） |
+| FAIL→fail-closed 延后 | S0-5（mid-history fork）、S0-13（clone/fork 内容） |
+| BLOCKED | S0-12（tenant） |
+| NOT RUN / 延后 | S0-6/7/8/9/10/11（G2/G5）、S0-14（冷开）、S0-15（DR）、S0-16（未推送边界） |
+
+必须补跑的最小真栈证据：S0-1、S0-3、S0-5/13 确认、S0-14、S0-15、S0-16；
+S0-2 补 audit/lease/endEdits。S0-6/7/8/9/10/11 明确 DEFERRED 到 G2/G5，
+不得以“未跑”混过 G0。
+
+---
+
+## 6. 分阶段执行（不铺功能）
+
+### 阶段 A：决策冻结与安全收口（第 1–2 周）
+
+1. G0 决策签字/条件化；补齐 18 份 ADR；更新 Spike 登记册为真实证据；G0 Gate
+   Report（GO/CONDITIONAL GO/NO-GO）。
+2. B3.1f-a：MS export/progress/retry/undo/close/assembly/saved views 的 PEP 状态机；
+   BFF allowlist；deny 前不得有文件/DB/Hub 副作用。
+3. Hub 跨 iTwin IDOR/父子绑定；iTwin favorites/recents 写 ACL（读过滤如风险可控）。
+4. 发布卫生门：contract mismatch、latest、宿主路径、`--noCheck`、lockless install、
+   manifest/SBOM 检查；CI 修复/推送由 owner 执行。
+5. 只读完整性扫描 + DR drill runbook（不执行破坏性演练）。
+
+### 阶段 B：身份/归因与账本正确性（第 3–5 周）
+
+1. B2.2 真实用户归因：OBO actor + service actor 分离，push/changeset/briefcase/audit
+   同事务；MS/WA 改造；真栈双用户 canary。
+2. B6 P4b：owner 依赖路由、baseline/admin、共享 key/admin 退役方案；KMS/撤销设计。
+3. B4：Write 语义/Share/Link 执行或删除；denyList 边界；UI 不再假分享。
+4. B7：高风险事件清单 + 审计失败阻断 + offsite/链头锚定设计。
+5. W3：读路径纯化（零 save/push/head 变化）；D3 identity/history；D6 NV 绑定；
+   200/1000 harness；D7/D8 设计/首切片。
+6. W4：C5 外部 lease/fencing 设计/首切片，C7 恢复。
+
+### 阶段 C：生产底座（第 6–10 周）
+
+1. D4 checkpoint 生产化：worker 部署、flag、manifest/readback、GC/scrubber、metrics、
+   >30m 作业、Azure/Linux staging。
+2. E1/E2/E8：PITR、对象版本化/跨区、恢复演练、integrity scan/repair；RPO/RTO 实测。
+3. W6：staging/IaC、TLS/KMS、trust proxy、requestId/metrics/traces、SLO/告警、
+   可复现构建、digest/manifest/SBOM/签名、CI 全绿。
+4. MS/WA/worker 服务化：监督进程、卷、readiness、优雅停机、故障恢复。
+
+### 阶段 D：G1 Gate 与 G2 预冻结（第 10–14 周）
+
+1. G1 Gate 预检：15 项逐项证据；双用户/只读/撤销/全入口/DR/规模/发布负例。
+2. G2 预冻结：Feature Manifest dry-run、typed tab dual-read、SelectionRef/TopologyRef
+   envelope、Command/undo ownership；只冻结契约，不铺功能。
+3. 未通过项登记 blocking，不进入 G3/G4。
+
+---
+
+## 6.1 2026-11-24 第一波（工作树，未提交）
+
+| 切片 | 结果 | 证据/边界 |
+|---|---|---|
+| G0 ADR 全集 | 20 份 ADR 均存在（18 份新拟），全部 Proposed under owner directive | 未 ARB 签字；见 `G0-GATE-REPORT-2026-11-24.md` |
+| Hub 跨 iTwin 授权收口（B3.1f） | access-control 子资源父绑定、iTwin image delete 归属、favorites/recents 写 ACL + 读 resolver 过滤 | Hub 全量 **175 suites/1589 tests**；跨 iTwin 404；删除不存在子行 404、favorites 写需 iTwin webview 为行为变化，待产品裁决；无真栈 e2e |
+| E8 完整性扫描 | 只读 DB+对象存储扫描、JSON/Markdown 报告、exit 0/1/2/3 | 24 个 `node:test` 通过；未对 live Hub 验证，不修复，不证明 RPO/RTO |
+| DR 演练规范 | 隔离 project/checkout、S0–S4 场景、HITL、RPO/RTO 记录、清理 | Skeleton v1，未执行破坏性演练 |
+| 发布卫生门 | 镜像 pin、构建脚本、契约 skew、manifest/provenance、默认密钥检查；release 模式忽略 waiver | 21 个 `node:test` 通过；当前实际 repo 仍有 contract 1.85 vs 1.64、latest、宿主路径、默认密钥等失败项；CI 接线需 owner push 后验证 |
+| 注意 | 以上均为工作树实现，未提交/未部署；不得写成 G0/G1 Gate 通过 | 提交/发布需 owner 明确授权 |
+
+---
+
+## 7. Stop-ship 与不得宣称
+
+- 未获书面法律结论前：ACIS 外部分发、STEP/IGES/Parasolid、healing/InterOp；
+  on-prem libslvs；数据驻留/出口。
+- 未完成 G1 前：多用户生产、对外分享、专业云 CAD、SLA、生产数据托管。
+- 未完成 DR 演练前：RPO/RTO、备份可恢复、数据可靠承诺。
+- 未完成 G2 前：Feature Manifest/输出/拓扑/工作区“已冻结”、装配/工程图接入 Part Studio。
+- 未完成 G3 前：单租户生产、多租户、HA、24h soak、可复现发布。
+- 任何 Airr/例外默认 off 时，不得把隔离 canary 写成部署形态通过。
+
+---
+
+## 8. 证据与回滚规则
+
+- 每个切片：AIRR/ADR → 单元/契约 → 真栈或故障注入 → 文档/例外/台账同 PR。
+- 所有强制开关默认 off；rollback=关开关，不依赖凭据过期。
+- 证据必须含环境、commit/tag、命令、输入、p50/p95、是否冷/热；失败也是证据。
+- 公开仓只放契约/脱敏结论；私有源码、密钥、native 证据、客户数据不得入库。
+- Gate 勾选只能由 ARB/owner 在证据齐备后执行；Agent/实现者不得自签。
+
+---
+
+## 9. 立即执行清单
+
+1. 完成并评审 18 份 ADR；更新决策/ Spike 登记册；产出 G0 Gate Report。
+2. 实现 B3.1f-a 与 Hub 跨 iTwin authz；跑隔离 canary。
+3. 交付完整性扫描/DR runbook 与发布卫生门。
+4. 启动 B2.2 归因 + B6 P4b + B4 写语义设计；G1 关键路径按依赖推进。
+5. 在 G1 Gate 前不新增 Part Studio 功能；G2 冻结前不新增特征类型。
