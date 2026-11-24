@@ -9,6 +9,7 @@
 
 > 状态：**Hub P0 已实现并通过单元 + 隔离 relational e2e；worker 内部控制面与 MS 内部调用（session-status + OBO shadow）已完成代码迁移（fake Hub/单测，未跑真栈 canary）。不是 B6 完成，不勾选任何 G1 Gate 项。**
 > 共享 `AGENT_API_KEY`、人类 admin 服务登录、MS/WA **数据面**、worker 数据面与用户数据面强制均**未移除**；legacy 仍按显式条件接受（见 §4、§8）。
+> 2026-11-24 后续 P3 切片（Hub 官方数据面选定路由 + closed `data.*` scope 矩阵）另见 [`AIRR-2026-11-23-B6-DATA-PLANE-P3.md`](./AIRR-2026-11-23-B6-DATA-PLANE-P3.md)；本 P0 中“未接触数据面”的描述仅适用于 P0/P1/P2 切片，B6/X-21 仍 open。
 
 ---
 

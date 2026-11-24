@@ -100,3 +100,28 @@
   X-25 保持 open：native loader dev-build 绝对路径/`err.stack`、B3 per-doc ACL、
   200/1000 性能仍未闭环；G1 Gate 仍未勾选。证据与重跑命令见
   `AIRR-2026-11-23-D5-VERSION-OPEN.md` §5.8/§7.3。
+
+## 8. B6 服务身份后续切片（2026-11-24，不改变本文开头 Gate 结论）
+
+本文 §1 的 2026-11-23 快照中“B6 服务身份未做”已被后续切片取代；完整设计与证据见
+`AIRR-2026-11-23-B6-SERVICE-IDENTITY-P0.md` 与
+`AIRR-2026-11-23-B6-DATA-PLANE-P3.md`。
+
+- **P0/P1/P2（已本地提交）**：Hub `service_clients`（scrypt 哈希/JSON scope/enabled/secretVersion）、
+  `POST /auth/token/service`、双模 `ServiceAuthGuard`；session-status/OBO shadow/worker
+  内部控制面 code-only 改用 `X-Service-Token`。默认 `off` 保持 legacy；未跑部署形态 canary。
+- **P3（工作树，未提交）**：Hub 官方 changesets/briefcases/checkpoints/locks/namedversions/baseline
+  选定路由接入 `DataPlaneAuthGuard` 与 closed `data.*` scope 矩阵（additive 迁移
+  `20261124000004`），逐端点服务 pin，服务主体永不写入 `request.user`；owner 依赖写与
+  baseline failed/requeue/admin/iModel list/detail 明确 legacy-only。服务 push 的 changeset 记
+  `creatorName=service:<name>`、`creatorId=NULL`。
+- 证据：Hub tsc/eslint、全量 unit 167 suites/1504 tests；**隔离 relational e2e 6/6**（fresh
+  Postgres 真实执行全部迁移；`CHK_service_clients_scopes` 接受 data scope、拒绝 `data.*`；
+  allow/deny、错误服务/audience/expired/disabled/rotated、用户 JWT 与 legacy allow 路径均验证）。
+  用后 compose `tests-p3` 已 `down -v` 并删除项目镜像，live DB/stack 未触碰。
+- **评审修复**：P2/P3 迁移的 CHECK JSON 字面量原先把 scope 列表重复包进 `["..."]`，会生成非法
+  JSON 并在真实迁移时失败；已修复并让迁移单测对 SQL 字面量做 `JSON.parse` + 精确 allowlist 断言。
+  P2 迁移未部署到任何环境，故直接更正。
+- 仍未完成（X-21 open）：MS/WA/worker 客户端迁移、briefcase/lock owner 语义、baseline
+  failed/requeue/admin、extended-data/named-version 写、TLS/KMS/撤销列表、共享 key/admin 退役、
+  B10 租户、部署形态 canary。**不得宣称 B6 完成或 G1 Gate 通过。**
