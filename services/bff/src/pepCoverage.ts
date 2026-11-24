@@ -1,18 +1,23 @@
 /**
- * G1 B3.1a BFF PEP coverage manifest (coverage only; no behavior change).
+ * G1 B3.1a B3.1f-a BFF PEP coverage manifest (coverage only; no behavior change).
  *
  * The BFF terminates JWT for `/api/*` and proxies the request verbatim to
  * modeling-server. It has no per-route authorization and therefore passes MS
  * gaps (notably `GET /api/imodels/:id/progress` and
- * `POST /api/imodels/:id/retry`) through unchanged. The HUB nine-prefix
- * passthrough performs no termination at all: Hub owns those route guards.
+ * `POST /api/imodels/:id/retry`) through unchanged. Under MS
+ * `AUTH_B3_SURFACES_MODE=enforce` those routes fail closed in MS; the BFF
+ * forwards the upstream 403/401 status and body verbatim, never retries and
+ * never substitutes a success response (pinned by
+ * `test/denial-preservation.test.ts`). The HUB nine-prefix passthrough
+ * performs no termination at all: Hub owns those route guards.
  *
- * This manifest is a static classification used by `test/pepCoverage.test.ts`.
- * `registered-exception` entries reference X-27 in
+ * This manifest is the explicit face registry (the BFF has no path allowlist
+ * beyond the `/api` prefix and the nine HUB prefixes). It is used by
+ * `test/pepCoverage.test.ts`; `registered-exception` entries reference X-27 in
  * `docs/architecture/EXCEPTIONS.md`.
  */
 
-export const BFF_PEP_COVERAGE_VERSION = 1;
+export const BFF_PEP_COVERAGE_VERSION = 2;
 
 export const BFF_PEP_STATUSES = [
   'covered-shadow',
@@ -57,7 +62,7 @@ export const BFF_PEP_COVERAGE: readonly BffPepEntry[] = [
     methods: ['ALL'],
     status: 'registered-exception',
     exception: X27,
-    note: 'JWT termination only, then verbatim proxy to MS; no per-route PEP',
+    note: 'JWT termination only, then verbatim proxy to MS; no per-route PEP; upstream 401/403 are never retried or replaced with success',
   },
   {
     entry: 'bff.api.progress',
@@ -65,7 +70,7 @@ export const BFF_PEP_COVERAGE: readonly BffPepEntry[] = [
     methods: ['GET'],
     status: 'registered-exception',
     exception: X27,
-    note: 'pass-through of the MS progress route; MS authenticates but does not authorize',
+    note: 'pass-through of the MS progress route; MS legacy authenticates only; under AUTH_B3_SURFACES_MODE=enforce the MS 403 AuthorizationDenied (progress_surface_unbound) is forwarded verbatim',
   },
   {
     entry: 'bff.api.retry',
@@ -73,7 +78,7 @@ export const BFF_PEP_COVERAGE: readonly BffPepEntry[] = [
     methods: ['POST'],
     status: 'registered-exception',
     exception: X27,
-    note: 'pass-through of the MS retry route; MS forwards with service credentials',
+    note: 'pass-through of the MS retry route; MS legacy forwards with service credentials; under AUTH_B3_SURFACES_MODE=enforce the MS 403 AuthorizationDenied (retry_surface_unbound) is forwarded verbatim before any HUB call',
   },
   {
     entry: 'bff.health',

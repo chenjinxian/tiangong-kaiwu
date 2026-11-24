@@ -280,6 +280,23 @@ S0-2 补 audit/lease/endEdits。S0-6/7/8/9/10/11 明确 DEFERRED 到 G2/G5，
 
 ---
 
+## 6.2 2026-11-24 第二波（工作树，未提交）
+
+| 切片 | 结果 | 证据/边界 |
+|---|---|---|
+| B3.1f-a MS/BFF 危险面 | `AUTH_B3_SURFACES_MODE=off|enforce`；enforce 下 export `doc.read`、progress/retry 前置于任何副作用 403 | MS 1756 pass + tsc；BFF 37；默认 off；无真栈；progress/retry 尚无 session-bound OBO，绑定需产品/传输决策 |
+| W3 读纯化 + undo 隔离 | 读 RPC 零 save/push/rebuild/迁移；undo 按 verified principal+briefcase 过滤 | MS 全量 1756 pass；`FEATURE_READ_INIT_MODE`/`OPLOG_AUTHOR_FILTER` 回滚；无真实栈/push；undo 语义需 ADR-G0-10 确认 |
+| D6 NV↔checkpoint | 多对多绑定、删除护栏、legacy 回退 | Hub 178/1606；迁移仅 SQL-shape 单测，无 fresh Postgres/live；D3/D7/D8 仍缺 |
+| DR Phase A | 隔离 drill harness + 一次非破坏性 backup→empty restore→verify | RPO/RTO 字段非达标；integrity partial；容器/卷/工作区已清理；不证明生产 HA/PITR |
+| Release profile | pinned digest compose + required secrets + renderer/gate | release 模式仍因 contract skew/latest/宿主路径/默认密钥/缺 manifest 失败；未发布 |
+| G2 预冻结 | 计划 + 6 个 Not run Spike + 4 ADR | G1 未过前不冻结；当前单输出/线性链/UserLabel tab 仍是现实 |
+| B2.2/B6 P4b/B4 | 设计包（AIRR） | 未实现；需 owner 决策与跨仓 canary |
+
+**结论**：架构路线比第一波更明确，但 G1 验收未增加；仍不能宣称 G0/G1 通过、生产可用或
+Hub 数据面 PEP 完整。
+
+---
+
 ## 7. Stop-ship 与不得宣称
 
 - 未获书面法律结论前：ACIS 外部分发、STEP/IGES/Parasolid、healing/InterOp；

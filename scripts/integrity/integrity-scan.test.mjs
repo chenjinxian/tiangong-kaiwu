@@ -385,7 +385,7 @@ test('read-only SQL guard accepts SELECT only and wraps it in a read-only transa
   const sql = buildReadOnlySql('SELECT 1', 5000);
   assert.match(sql, /^BEGIN TRANSACTION READ ONLY;/);
   assert.match(sql, /SET LOCAL statement_timeout = 5000;/);
-  assert.match(sql, /SELECT 1/);
+  assert.match(sql, /SELECT 1;/);
   assert.match(sql, /COMMIT;/);
 });
 
@@ -426,12 +426,14 @@ test('Azure SharedKey signature follows the documented canonical form', () => {
   assert.equal(signed['x-ms-version'], '2021-12-02');
   const canonicalHeaders = `x-ms-date:${signed['x-ms-date']}\nx-ms-version:2021-12-02\n`;
   const expected = createHmac('sha256', Buffer.from(key, 'base64'))
-    .update([
-      'GET',
-      ...Array(11).fill(''),
-      canonicalHeaders,
-      '/devstoreaccount1/imodelhub\ncomp:list\nrestype:container',
-    ].join('\n'))
+    .update(
+      ['GET', ...Array(11).fill('')].join('\n') +
+      '\n' +
+      canonicalHeaders +
+      // Azure SDK/Azurite path-style canonicalization: account is prepended
+      // to the URL pathname, so the emulator's account segment appears twice.
+      '/devstoreaccount1/devstoreaccount1/imodelhub\ncomp:list\nrestype:container',
+    )
     .digest('base64');
   assert.equal(signed.Authorization, `SharedKey devstoreaccount1:${expected}`);
 });

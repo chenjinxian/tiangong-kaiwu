@@ -18,6 +18,8 @@ AzuriteConfig
 # 后端产物解压落点（fetch-backend.ps1）
 dist-backend/
 dist-out/
+# Release profile 生成的镜像 env（digest 来自 release-manifest.json，可重建，不入库）
+/deploy/release/*.env
 test-results/
 # Playwright MCP 浏览器观测产物（快照/日志/截图；证据入私有仓）
 .playwright-mcp/
@@ -31,6 +33,9 @@ docker-compose.override.yml
 /shots/
 
 # rush hook ???????????drift=0 ??? 10-11 ??
+
+# DR drill workspaces (drill-only env/secrets/backups/evidence; never commit)
+.drill/
 
 # Superpowers scratch (ledgers/shots)
 .superpowers/

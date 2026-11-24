@@ -35,6 +35,28 @@ const SHIPPED_CONTRACT =
   'dist-backend/modeling-server/node_modules/@luban-cad/shared/dist/rpc/LubanFeatureRpcInterface.js';
 const SHIPPED_PROVENANCE =
   'dist-backend/modeling-server/node_modules/@bentley/imodeljs-native/native-provenance.json';
+const RELEASE_COMPOSE = 'docker-compose.release.yml';
+const RELEASE_PROFILE = 'deploy/release/release-profile.json';
+const CLEAN_RELEASE_COMPOSE = [
+  'services:',
+  '  app:',
+  '    image: "${RELEASE_APP_IMAGE:?set RELEASE_APP_IMAGE to the pinned app image}"',
+  '    pull_policy: always',
+  '  nginx:',
+  '    image: "${RELEASE_NGINX_IMAGE:?set RELEASE_NGINX_IMAGE to the pinned nginx image}"',
+  '    pull_policy: always',
+  '    ports:',
+  '      - "${RELEASE_EDGE_BIND:-127.0.0.1}:${RELEASE_EDGE_PORT:-5301}:80"',
+  '',
+].join('\n');
+const CLEAN_RELEASE_PROFILE = {
+  schemaVersion: 1,
+  images: {
+    RELEASE_APP_IMAGE: 'ghcr.io/example/app',
+    RELEASE_NGINX_IMAGE: 'docker.io/library/nginx',
+  },
+  requiredInputs: [],
+};
 
 function run(args, options = {}) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
@@ -84,6 +106,10 @@ function baseManifest({ artifact = true } = {}) {
         name: 'ghcr.io/example/app',
         digest: `sha256:${'1'.repeat(64)}`,
       },
+      {
+        name: 'docker.io/library/nginx',
+        digest: `sha256:${'3'.repeat(64)}`,
+      },
     ],
     nativeProvenance: {
       path: 'native-provenance.json',
@@ -118,6 +144,21 @@ function fixture(t, options = {}) {
       '',
     ].join('\n');
   write(root, 'docker-compose.yml', compose);
+  if (options.releaseCompose !== 'omit') {
+    write(
+      root,
+      RELEASE_COMPOSE,
+      options.releaseCompose ?? CLEAN_RELEASE_COMPOSE,
+    );
+  }
+  if (options.releaseProfile !== 'omit') {
+    const profile = options.releaseProfile ?? CLEAN_RELEASE_PROFILE;
+    write(
+      root,
+      RELEASE_PROFILE,
+      `${JSON.stringify(profile, null, 2)}\n`,
+    );
+  }
   write(root, 'scripts/rebuild-web.ps1', 'Write-Host "ok"\n');
   write(root, SOURCE_CONTRACT, options.sourceText ?? SOURCE_TEXT);
   if (options.shipped !== 'omit') {
@@ -182,7 +223,13 @@ test('clean fixture passes in local and release modes', (t) => {
   assert.equal(localReport.summary.ok, true);
   assert.equal(localReport.summary.errors, 0);
   assert.equal(localReport.summary.waived, 0);
-  assert.equal(localReport.checks.find((c) => c.id === 'images.pinned').status, 'ok');
+  // The release compose is intentionally evaluated by release.profile, so
+  // images.pinned reports it as skipped rather than scanning its variables.
+  assert.equal(
+    localReport.checks.find((c) => c.id === 'images.pinned').status,
+    'skipped',
+  );
+  assert.equal(localReport.checks.find((c) => c.id === 'release.profile').status, 'ok');
   assert.equal(localReport.checks.find((c) => c.id === 'contract.shipped').status, 'ok');
 
   const release = run([
@@ -618,6 +665,277 @@ test('GHCR images referenced by the release config need manifest digests', (t) =
   );
 });
 
+test('release mode requires the release compose profile', (t) => {
+  const root = fixture(t, { releaseCompose: 'omit', releaseProfile: 'omit' });
+
+  const local = run(['--root', root, '--mode', 'local', '--format', 'json']);
+  assert.equal(local.status, 0, local.stderr);
+  const localReport = parseJson(local);
+  assert.equal(
+    localReport.skipped.some((s) => s.check === 'release.profile'),
+    true,
+  );
+
+  const release = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(release.status, 1);
+  const report = parseJson(release);
+  assert.equal(
+    report.violations.some((v) => v.subject === 'release-compose-missing'),
+    true,
+  );
+});
+
+test('release compose images must be required mapped variables', (t) => {
+  const root = fixture(t, {
+    releaseCompose: [
+      'services:',
+      '  app:',
+      '    image: ghcr.io/example/app:latest',
+      '    pull_policy: always',
+      '  db:',
+      '    image: "${RELEASE_DB_IMAGE:?set RELEASE_DB_IMAGE}"',
+      '    pull_policy: always',
+      '  web:',
+      '    image: "${RELEASE_WEB_IMAGE:-ghcr.io/example/app:latest}"',
+      '    pull_policy: always',
+      '  nginx:',
+      '    image: "${RELEASE_NGINX_IMAGE:?set RELEASE_NGINX_IMAGE}"',
+      '    pull_policy: always',
+      '    ports:',
+      '      - "127.0.0.1:5301:80"',
+      '',
+    ].join('\n'),
+  });
+
+  const result = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(result.status, 1);
+  const report = parseJson(result);
+  const subjects = report.violations.map((v) => v.subject);
+  assert.equal(subjects.includes('image-literal:app'), true);
+  assert.equal(subjects.includes('image-var-unmapped:RELEASE_DB_IMAGE'), true);
+  assert.equal(subjects.includes('image-not-required:web'), true);
+});
+
+test('release compose secrets must be required from RELEASE_ variables', (t) => {
+  const root = fixture(t, {
+    releaseCompose: [
+      'services:',
+      '  app:',
+      '    image: "${RELEASE_APP_IMAGE:?set RELEASE_APP_IMAGE}"',
+      '    pull_policy: always',
+      '    environment:',
+      '      POSTGRES_PASSWORD: secret',
+      '      AUTH_JWT_SECRET: "${HUB_JWT_SECRET:?set HUB_JWT_SECRET}"',
+      '      SEED_ADMIN_PASSWORD: "${RELEASE_ADMIN_PASSWORD:-admin}"',
+      '  nginx:',
+      '    image: "${RELEASE_NGINX_IMAGE:?set RELEASE_NGINX_IMAGE}"',
+      '    pull_policy: always',
+      '    ports:',
+      '      - "127.0.0.1:5301:80"',
+      '',
+    ].join('\n'),
+  });
+
+  const result = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(result.status, 1);
+  const report = parseJson(result);
+  const subjects = report.violations.map((v) => v.subject);
+  assert.equal(
+    subjects.includes('secret-not-required:POSTGRES_PASSWORD'),
+    true,
+  );
+  assert.equal(
+    subjects.includes('secret-not-required:AUTH_JWT_SECRET'),
+    true,
+  );
+  assert.equal(
+    subjects.includes('secret-not-required:SEED_ADMIN_PASSWORD'),
+    true,
+  );
+  assert.doesNotMatch(result.stdout, /POSTGRES_PASSWORD:\s*secret/);
+  assert.doesNotMatch(result.stdout, /RELEASE_ADMIN_PASSWORD:-admin/);
+});
+
+test('release compose only publishes the edge and never builds locally', (t) => {
+  const root = fixture(t, {
+    releaseCompose: [
+      'services:',
+      '  app:',
+      '    image: "${RELEASE_APP_IMAGE:?set RELEASE_APP_IMAGE}"',
+      '    pull_policy: always',
+      '    build: .',
+      '  db:',
+      '    image: "${RELEASE_APP_IMAGE:?set RELEASE_APP_IMAGE}"',
+      '    pull_policy: always',
+      '    ports:',
+      '      - "5432:5432"',
+      '  nginx:',
+      '    image: "${RELEASE_NGINX_IMAGE:?set RELEASE_NGINX_IMAGE}"',
+      '    pull_policy: always',
+      '    ports:',
+      '      - "5301:80"',
+      '',
+    ].join('\n'),
+  });
+
+  const result = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(result.status, 1);
+  const report = parseJson(result);
+  const subjects = report.violations.map((v) => v.subject);
+  assert.equal(subjects.includes('build-section:app'), true);
+  assert.equal(subjects.includes('non-edge-ports:db'), true);
+  assert.equal(subjects.includes('port-bind:nginx'), true);
+});
+
+test('release required inputs must be declared in the profile', (t) => {
+  const releaseCompose = [
+    'services:',
+    '  app:',
+    '    image: "${RELEASE_APP_IMAGE:?set RELEASE_APP_IMAGE}"',
+    '    pull_policy: always',
+    '  nginx:',
+    '    image: "${RELEASE_NGINX_IMAGE:?set RELEASE_NGINX_IMAGE}"',
+    '    pull_policy: always',
+    '    environment:',
+    '      MS_UPSTREAM: "${RELEASE_MS_UPSTREAM:?set RELEASE_MS_UPSTREAM}"',
+    '    ports:',
+    '      - "127.0.0.1:5301:80"',
+    '',
+  ].join('\n');
+
+  const undeclared = fixture(t, { releaseCompose });
+  const bad = run([
+    '--root',
+    undeclared,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(bad.status, 1);
+  assert.equal(
+    parseJson(bad).violations.some(
+      (v) => v.subject === 'input-undeclared:RELEASE_MS_UPSTREAM',
+    ),
+    true,
+  );
+
+  const declared = fixture(t, {
+    releaseCompose,
+    releaseProfile: {
+      ...CLEAN_RELEASE_PROFILE,
+      requiredInputs: ['RELEASE_MS_UPSTREAM'],
+    },
+  });
+  const good = run([
+    '--root',
+    declared,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(good.status, 0, good.stderr);
+});
+
+test('release mode excludes development compose and dev-only scripts', (t) => {
+  const root = fixture(t, {
+    compose: [
+      'services:',
+      '  mail:',
+      '    image: maildev/maildev:latest',
+      '  db:',
+      '    image: postgres:17-alpine',
+      '    environment:',
+      '      POSTGRES_PASSWORD: ${HUB_DATABASE_PASSWORD:-changeme}',
+      '',
+    ].join('\n'),
+  });
+  write(
+    root,
+    'scripts/generate-env.ps1',
+    "AZURITE_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==\n",
+  );
+  write(
+    root,
+    'scripts/quickstart.ps1',
+    '$env:PATH = "C:\\Program Files\\Docker\\Docker\\resources\\bin;$env:PATH"\n',
+  );
+
+  const local = run(['--root', root, '--mode', 'local', '--format', 'json']);
+  assert.equal(local.status, 1);
+  const localReport = parseJson(local);
+  assert.equal(
+    localReport.violations.some((v) => v.file === 'docker-compose.yml'),
+    true,
+  );
+  assert.equal(
+    localReport.violations.some((v) => v.file === 'scripts/generate-env.ps1'),
+    true,
+  );
+  assert.equal(
+    localReport.violations.some((v) => v.file === 'scripts/quickstart.ps1'),
+    true,
+  );
+
+  const release = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(release.status, 0, release.stderr);
+  const releaseReport = parseJson(release);
+  for (const file of [
+    'docker-compose.yml',
+    'scripts/generate-env.ps1',
+    'scripts/quickstart.ps1',
+  ]) {
+    assert.equal(
+      releaseReport.violations.some((v) => v.file === file),
+      false,
+      `${file} must not be a release config`,
+    );
+  }
+});
+
 test('--backend-root audits private release scripts read-only', (t) => {
   const root = fixture(t);
   const backend = tempDir(t);
@@ -751,7 +1069,7 @@ test('weak default and well-known secrets fail without echoing values', (t) => {
   );
 });
 
-test('local waivers cover local/ci but are ignored by release mode', (t) => {
+test('local waivers cover development compose debt; release mode excludes it', (t) => {
   const root = fixture(t, {
     compose: [
       'services:',
@@ -784,6 +1102,65 @@ test('local waivers cover local/ci but are ignored by release mode', (t) => {
   const ci = run(['--root', root, '--mode', 'ci', '--format', 'json']);
   assert.equal(ci.status, 0, ci.stderr);
 
+  // The dev compose is not a release config. Release mode audits the release
+  // profile instead and reports the dev compose as skipped, so waiving dev
+  // debt never masks a release-profile violation.
+  const release = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(release.status, 0, release.stderr);
+  const releaseReport = parseJson(release);
+  assert.equal(releaseReport.summary.waived, 0);
+  assert.equal(
+    releaseReport.skipped.some(
+      (s) =>
+        s.check === 'images.pinned' && /docker-compose\.yml/.test(s.message),
+    ),
+    true,
+  );
+});
+
+test('release mode ignores waivers on release artifact scripts', (t) => {
+  const root = fixture(t);
+  write(
+    root,
+    'scripts/rebuild-web.ps1',
+    'docker push example.com/app:latest\n',
+  );
+  write(
+    root,
+    'scripts/release-hygiene-waivers.json',
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        waivers: [
+          {
+            id: 'dev-rebuild-push',
+            check: 'images.pinned',
+            file: 'scripts/rebuild-web.ps1',
+            subject: 'example.com/app:latest',
+            scope: 'local',
+            reason: 'local publish helper',
+            expires: '2099-12-31',
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const local = run(['--root', root, '--mode', 'local', '--format', 'json']);
+  assert.equal(local.status, 0, local.stderr);
+  const localReport = parseJson(local);
+  assert.equal(localReport.summary.waived, 1);
+
   const release = run([
     '--root',
     root,
@@ -796,7 +1173,12 @@ test('local waivers cover local/ci but are ignored by release mode', (t) => {
   assert.equal(release.status, 1);
   const releaseReport = parseJson(release);
   assert.equal(releaseReport.summary.waived, 0);
-  assert.equal(releaseReport.violations.some((v) => v.subject === 'maildev/maildev:latest'), true);
+  assert.equal(
+    releaseReport.violations.some(
+      (v) => v.subject === 'example.com/app:latest',
+    ),
+    true,
+  );
 });
 
 test('expired waivers stop covering violations', (t) => {

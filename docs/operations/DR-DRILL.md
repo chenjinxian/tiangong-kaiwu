@@ -1,269 +1,344 @@
-# 灾备演练 Runbook（非破坏性 Skeleton v1）
+# 灾备演练 Runbook（Phase A 隔离执行器）
 
-> 状态：**Skeleton v1 — 规范/步骤骨架，未执行任何破坏性演练**（2026-11-24）
-> 定位：在**隔离环境**验证“同一 backupId 的 DB + 对象存储可成套恢复”，并记录 RPO/RTO；
-> 不是生产 HA/PITR 方案，也不是自动化执行器。
+> 状态：**Phase A harness v1 — 非破坏性演练已在隔离 drill 项目实际执行**（2026-11-24）。
+> 已执行：源 drill 的 create/up/seed/backup/manifest 校验，以及**空目标 drill 项目**的
+> restore/post-restore 验证/报告。**未执行**：任何故障注入（S3）、主栈读写、`down -v`/teardown。
+> 本次测量值只是单次演练计时；**不宣称 RPO≤5m / RTO≤1h 已达标**，也不宣称生产 HA/PITR。
+>
 > 关联：`docs/operations/BACKUP-RESTORE.md`、`docs/operations/INTEGRITY-SCAN.md`、
 > `docs/architecture/G1-EXECUTION-PLAN.md` E1/E2/E8、`docs/architecture/G0-DECISION-REGISTER.md` D0-14。
 
 ## 0. 一句话原则
 
-**只动演练项目；绝不碰共享/生产栈。** 默认场景（S0/S1/S2）对源栈只读；可选的破坏性场景（S3）
-只允许在**一次性、可删除的演练项目**内执行，并且必须在 HITL 批准后、由演练负责人现场执行。
-本切片只交付本 runbook 与只读扫描工具，**没有执行任何恢复、删除或故障注入**。
+**只动演练项目；绝不碰共享/生产栈。** 演练器在 `<repo>/.drill/<drillId>/` 生成一次性工作区
+（独立 `.env`、独立 compose、独立卷/网络、独立宿主端口），只允许
+`tiangong-kaiwu-drill` 或 `tiangong-kaiwu-drill-*` 项目；主项目 `tiangong-kaiwu` 在任何
+Docker 调用之前被拒绝。破坏性故障注入默认关闭，且需要三重显式闸门；本切片没有执行。
 
 ---
 
-## 1. 隔离模型（必须先满足）
+## 1. 交付物
 
-### 1.1 推荐形态
-
-优先级从高到低：
-
-1. **独立 VM / 独立 Docker 主机**（最强隔离；推荐）；
-2. **独立 checkout + 独立 Docker context**，演练项目名 `tiangong-kaiwu-drill`；
-3. 同一 Docker 主机上的独立 project + 独立 `.env` + 独立卷 + 宿主端口重映射（最弱，仅限无独立主机时）。
-
-**不要**在主 checkout 上直接使用主 `.env` 执行 `restore-stack.ps1`。恢复脚本按 checkout 根部
-`.env` 的 `COMPOSE_PROJECT_NAME` 和 `docker-compose.yml` 定位目标；主 `.env` 会把恢复打到主栈。
-
-### 1.2 演练前硬检查（全部通过才继续）
-
-```powershell
-# 在演练 checkout 中执行；确认 .env 至少含：
-#   COMPOSE_PROJECT_NAME=tiangong-kaiwu-drill
-Get-Content .env | Select-String '^COMPOSE_PROJECT_NAME='
-
-# 只允许看到演练项目；不应出现主项目或生产项目
-docker compose -p tiangong-kaiwu-drill ps -a
-
-# 演练卷必须带 drill 前缀；确认没有主项目卷被误用
-docker volume ls --filter name=tiangong-kaiwu-drill
-
-# 确认主项目没有被本会话操作（只读检查，不停止任何东西）
-docker compose -p tiangong-kaiwu ps
-```
-
-- [ ] 已确认演练项目的容器、网络、卷都带 `tiangong-kaiwu-drill` 前缀。
-- [ ] 已确认主项目容器/卷不在本次命令的目标内。
-- [ ] 同一主机时，已通过**仓外** override 重映射宿主端口（5300/5301/5400/5401/5402/10500-10502
-      等），避免与主栈冲突；本切片不修改根 compose。
-- [ ] 演练机磁盘可容纳备份解包 + 索引/临时文件（建议 ≥ 2× 对象卷大小）。
-- [ ] 已记录演练负责人、见证人、变更窗口、源提交、脚本版本。
-
-### 1.3 密钥与数据
-
-- 备份、DB dump、Azurite 卷、完整性报告都可能含客户模型数据：只放私有存储，演练结束按保留策略销毁。
-- 演练 `.env` 使用独立密钥/密码；不要把主栈密钥复制到演练证据。
-- 不把 `backups/`、对象卷导出、报告、token、密码提交到公开仓。
-
----
-
-## 2. 角色与 HITL
-
-| 角色 | 职责 |
+| 文件 | 作用 |
 |---|---|
-| 演练负责人 | 执行命令、确认隔离、记录时间；对“是否进入破坏性场景”负责 |
-| 见证人 | 复核目标项目/卷/备份 ID；核对没有主栈资源被选中 |
-| 数据/平台 owner | 批准恢复、批准 S3 故障注入、判定业务验收通过 |
-| 安全/运维（按需） | 密钥注入、证据脱敏、清理确认 |
+| `scripts/dr/docker-compose.drill.yml` | 独立 drill compose（**不与根 compose 合并**）：postgres/redis/maildev/azurite/imodelhub/webhook-agent，显式 drill 卷、网络、高位端口 |
+| `scripts/dr/drill-core.mjs` | 纯逻辑：参数校验、项目/端口/路径隔离、manifest 校验、主栈快照比较、报告 schema、Azurite SharedKey 签名 |
+| `scripts/dr/drill-runner.mjs` | 执行器：create/preflight/up/seed/backup/verify-backup/restore/verify/report/down；破坏性命令仅以闸门形式存在 |
+| `scripts/dr/drill-core.test.mjs` | 35 个 `node:test`：拒绝主项目、隔离检查、manifest/哈希、报告 schema、签名等 |
+| `scripts/dr/fixtures/*.json` | 合成 manifest / drill report 夹具（无真实数据） |
+| `scripts/dr/New-DrillEnvironment.ps1` | 创建演练工作区的 PowerShell 包装器 |
+| `scripts/dr/Seed-DrillEnvironment.ps1` | 启动最小演练栈并播种的 PowerShell 包装器 |
+| `scripts/dr/Remove-DrillEnvironment.ps1` | 停止（默认保卷）/ HITL 删除演练项目的包装器 |
 
-**HITL 规则**：
-
-1. `restore-stack.ps1` 必须显式 `-Confirm`；目标非空/有写者时再加 `-Force`。
-2. S3 的任何删除/故障注入必须单独书面批准，并再次人工确认项目名；不得全自动执行。
-3. 发现主栈资源被选中：**立即中止**，不做任何“清理性”删除。
-4. 演练中任何不确定时，先停止；不要用 `--force`/`--no-verify` 类参数绕过。
-
----
-
-## 3. 场景
-
-### S0 — 只读预检（无恢复、无删除）
-
-目的：确认备份成套、扫描基线、记录当前 head/体积。
-
-- [ ] 校验备份目录结构：`manifest.json`、`manifest.sha256`、`postgres.dump`、
-      `azurite-data.tar.gz`，且来自同一 `backupId`。
-- [ ] 用 `Get-FileHash` 核对 manifest 与两个产物的 SHA-256/大小。
-- [ ] 在演练环境运行 `Invoke-IntegrityScan.mjs`（只读）：
-  - 若已有 DB snapshot/对象清单，直接离线扫描；
-  - 若在隔离栈上，用 `--db-mode docker` + `--blob-mode azure` 扫描。
-- [ ] 保存 baseline 报告与 `summary`；记录 `chains[]` 的 head/root、blob 数、error/unverified。
-- [ ] 记录 RPO 起点：最后一次已知已 push 编辑的时间/changeset（若有）。
-
-**S0 不触碰源栈。** 若 S0 已经 exit 1/3，先解释/修复扫描配置；不要在未知状态下进入恢复。
-
-### S1 — 空演练栈恢复（源栈只读）
-
-目的：证明同一备份集能恢复到干净环境，且恢复后通过扫描与业务验收。
-
-- [ ] 在演练 checkout 中起**空**目标栈（独立 project）：
-      `docker compose -p tiangong-kaiwu-drill up -d postgres azurite`。
-- [ ] 确认 `postgres` 容器运行；`azurite` 容器存在且**已停止**（恢复脚本硬要求）。
-- [ ] 把备份目录**复制**到演练机；不要在主栈目录上恢复。
-- [ ] 在演练 checkout 执行：
-      `powershell -File scripts/restore-stack.ps1 -BackupDir <drill-backup-dir> -Confirm`
-      （空目标通常不需要 `-Force`；如脚本要求，先按提示核对目标非空原因）。
-- [ ] 恢复后按 `BACKUP-RESTORE.md` §7.3 启动演练栈并跑 `verify-stack.ps1`（指向演练栈）。
-- [ ] 对恢复后的演练栈跑完整性扫描，保存报告；比较 S0 baseline。
-- [ ] 打开 ≥3 个样例文档（至少 1 个 ≥100 changeset）核对几何/特征树/历史/Named Version。
-- [ ] 在演练栈做一次编辑 → push → 关闭 → 重开冒烟（只写演练栈）。
-- [ ] 记录 **RTO**：恢复开始 → `verify-stack` 全绿 + 业务验收通过。
-- [ ] 记录 **RPO**：最后一次已 push 编辑到备份时刻的差值。
-
-**S1 对源栈只读。** 目标栈是 disposable；即使 S1 失败，也只能清理演练 project。
-
-### S2 — 恢复后完整性/一致性复检
-
-目的：把“可打开”提升为“账本与对象存储成套”。
-
-- [ ] `Invoke-IntegrityScan` 在恢复后目标上 exit 0；或明确列出 exit 3 的未验证项。
-- [ ] 对比 S0 baseline 与 S1 后的 `chains[]`：head index/id、chain root、committed 数一致
-      （除非备份是 online-best-effort，且差异能解释）。
-- [ ] 抽查最近 changeset 的 blob 下载/打开；抽查 checkpoint/Named Version（若该备份有）。
-- [ ] 若发现悬挂 blob/历史缺口：不要只补一侧；从同一 `backupId` 重新成套恢复。
-- [ ] 检查 Redis/队列未恢复的影响（WA recovery checker 是否重新排队 baseline），记录为已知缺口。
-
-### S3 — 可选的“故障注入/破坏性”场景（仅演练项目，默认不执行）
-
-> **本切片没有执行 S3。** 只有书面批准后才在一次性演练项目内进行；绝不对主栈/共享栈执行。
-> 若组织政策不允许任何破坏性步骤，跳过 S3 并在证据中明确记录“故障检测路径未演练”，
-> 不得用 S0–S2 的结果替代该结论。
-
-目的：证明扫描能发现漂移，且重复恢复可恢复。
-
-- [ ] 先完成 S0/S1/S2 并保存证据。
-- [ ] 在演练对象存储中删除**一个** changeset blob（或把字节改小），记录操作与对象名。
-- [ ] 运行扫描：预期 `missing-changeset-blob` 或 `blob-size-mismatch`/`blob-sha256-mismatch`，exit 1。
-- [ ] 在演练 DB 中制造一条悬挂/缺口（仅在批准后）：例如软删/断链的单条测试行；
-      预期 `dangling-parent`/`missing-changeset`。
-- [ ] 不清扫现场；直接从同一备份集重新恢复演练栈。
-- [ ] 重跑扫描：预期恢复 exit 0（或在已知未验证项下 exit 3）；记录可重复性。
-- [ ] 记录“检测 → 恢复 → 再检测”的耗时，作为 RTO 的故障分支证据。
-
-执行 S3 前必须确认：
-
-- [ ] `docker compose -p tiangong-kaiwu-drill ps` 只显示演练项目；
-- [ ] 目标卷名带 `tiangong-kaiwu-drill`；
-- [ ] 备份已复制到演练机且 SHA-256 已核对；
-- [ ] 已获得数据/平台 owner 的书面批准；
-- [ ] 见证人现场确认“不是主项目”。
-
-### S4 — 调度/重复演练（建议季度）
-
-- [ ] 至少每季度跑一次 S0→S1→S2；任何 schema/存储迁移前后加做一次。
-- [ ] 记录趋势：备份耗时、恢复耗时、扫描 error/unverified 数、RPO/RTO 是否接近 D0-14 目标。
-- [ ] 未达到 RPO≤5m/RTO≤1h 时，登记差距与改进项；不得用本 runbook 宣称已达标。
+工作区默认 `gitignore`：根 `.gitignore` 已加入 `.drill/`，工作区内另有 `.drill/.gitignore`。
+`.drill/` 内含随机密钥、备份产物、报告和模型标识，**只能留在本机/私有证据库，禁止提交**。
 
 ---
 
-## 4. Runner skeleton（人工步骤，不自动执行）
+## 2. 隔离模型
 
-以下只是命令/检查骨架；占位符必须替换为**演练项目**资源。任何一步失败都停止并取证。
+### 2.1 工作区与项目
+
+每次演练使用一个一次性工作区：
 
 ```text
-[0] Preflight (read-only)
-    - verify drill checkout/.env project name = tiangong-kaiwu-drill
-    - docker compose -p tiangong-kaiwu-drill ps -a
-    - docker volume ls --filter name=tiangong-kaiwu-drill
-    - record git rev-parse HEAD, script hashes, operator/witness, window
-
-[1] Backup set verification (read-only)
-    - confirm one backupId; manifest.sha256; artifact size/SHA-256
-    - copy backup to drill host/VM; verify again on destination
-
-[2] Isolated target preparation
-    - docker compose -p tiangong-kaiwu-drill up -d postgres azurite
-    - confirm postgres running; stop azurite before restore
-    - confirm no main-project container/volume is in scope
-
-[3] Restore (HITL; drill only)
-    - powershell -File scripts/restore-stack.ps1 -BackupDir <drill-backup> -Confirm
-    - if target non-empty/writers: stop writers, take a new backup, then -Force only after approval
-
-[4] Start + verify (drill only)
-    - docker compose -p tiangong-kaiwu-drill up -d
-    - powershell -File scripts/verify-stack.ps1 (drill endpoints)
-    - record timestamps
-
-[5] Integrity + business acceptance
-    - node scripts/integrity/Invoke-IntegrityScan.mjs ... (drill DB + blob endpoint)
-    - 3 sample docs incl. >=100 changeset; history/geometry/version checks
-    - edit -> push -> reopen smoke in drill only
-
-[6] Optional S3 fault injection (only with written approval)
-    - alter/delete one drill-only object/row
-    - scan must exit 1 with expected code
-    - re-restore from the same backup; scan again
-
-[7] Evidence + cleanup
-    - store manifests/reports/timings in private evidence store
-    - docker compose -p tiangong-kaiwu-drill down -v
-    - confirm main project still untouched
+<repo>/.drill/<drillId>/
+  .env                 # 演练专用随机密钥（0600）；打印/报告从不输出
+  docker-compose.yml   # scripts/dr/docker-compose.drill.yml 的副本
+  scripts/backup-stack.ps1   # 根脚本原样副本（行为未改）
+  scripts/restore-stack.ps1  # 根脚本原样副本（行为未改）
+  backups/             # drill-only 备份（manifest/大小/SHA-256）
+  evidence/            # 报告、完整性扫描、哈希
+  drill-meta.json      # 项目/端口/卷/网络/工具哈希/源提交
+  state.json           # 各 phase 状态、seed、restore、verification
 ```
 
-**禁止**在 Runner 中加入：对主项目/共享项目的 `down -v`、跨项目卷复用、自动 `-Force`、
-“失败就删数据重来”而不取证、把密钥写入日志。
+copy 到工作区的目的：`backup-stack.ps1` / `restore-stack.ps1` 以自身目录的父目录为
+checkout 根，读取该目录的 `.env` 与 `docker-compose.yml`。这样**不需要修改这两个脚本**，
+也不会误读主 `.env` / 主 compose。
 
----
+### 2.2 端口与卷
 
-## 5. 验收与记录模板
+演练端口按 `--port-offset 0..9` 分配（offset=0 示例）：
 
-### 5.1 必填字段
-
-| 字段 | 示例/说明 |
+| 用途 | 宿主端口（仅 127.0.0.1） |
 |---|---|
-| drillId | `drill-20261124-01` |
-| dateUtc / operator / witness | 时间与人员 |
-| sourceCommit | 演练 checkout 的 `git rev-parse HEAD` |
-| backupId / manifestSha256 | 来自 `manifest.json` / `manifest.sha256` |
-| artifacts | `postgres.dump`、`azurite-data.tar.gz` 的大小 + SHA-256 |
-| consistency.mode | `quiesced` / `online-best-effort` / `unknown`（不得省略） |
-| restore command | 不含密码的完整命令；是否 `-Force` 及原因 |
-| RTO | 恢复开始 → verify-stack 全绿 + 业务验收通过 |
-| RPO | 最后一次已 push 编辑 → 备份快照 |
-| integrity pre/post | exit code、result、error/unverified 摘要、报告 SHA-256 |
-| sample docs | 文档 id/名称、changeset 数、几何/树/版本核对结果 |
-| anomalies | 缺失 blob/历史缺口/未验证项/人工干预 |
-| conclusion | 仅写证据支持的结论；未达标时写差距 |
+| HUB | 15400 |
+| 宿主 MS（drill 不启动，仅记录） | 15401 |
+| webhook-agent | 15402 |
+| Azurite blob/queue/table | 20500 / 20501 / 20502 |
 
-### 5.2 结论边界
+offset 每 +1，上述端口整体 +100。主栈端口 5300/5301/5400/5401/5402/5403/10500-10502
+等都在保留集合中，演练计划与之不相交；`preflight` 还会检查这些端口是否已被其他项目发布。
 
-- 只有 S1/S2 完整通过（且 S3 若执行）才能说“本备份集在演练环境可恢复”。
-- 不能从一次演练推导生产 HA/PITR 达标；不能推导未备份数据（Redis/briefcase/cache）可恢复。
-- 完整性扫描 exit 3 时，结论必须写“部分未验证”，不能写 clean。
+卷/网络显式命名：
+
+```text
+<project>-pgdata
+<project>-redis-data
+<project>-azurite-data
+<project>-net
+```
+
+`<project>` 必须是 `tiangong-kaiwu-drill` 或以 `tiangong-kaiwu-drill-` 开头。源和目标用不同
+project + 不同 offset，可以同时运行，互不共享卷/网络/端口。
+
+### 2.3 硬拒绝
+
+运行器在任何 Docker 操作前执行：
+
+- `verifyIsolation(meta)`：项目名、工作区位置（必须在 `<repo>/.drill` 下）、compose/env
+  必须位于工作区（不得是根 `docker-compose.yml` / 根 `.env`）、卷/网络/端口必须匹配；
+- `snapshotMainProject()` 前后比较主项目容器/卷标签；任何变化立即中止；
+- `restore` 前重新校验备份 manifest/SHA-256，并检查目标 DB 用户表数=0、Azurite 卷为空、
+  无写者运行；非空目标直接拒绝（**不会自动 `-Force`**）。
 
 ---
 
-## 6. 清理（仅演练项目）
+## 3. 安全闸门（HITL）
+
+| 命令 | 闸门 | 说明 |
+|---|---|---|
+| `create` / `preflight` / `up` / `seed` / `backup` / `verify-backup` / `verify` / `report` / `down` | 无 | 只写 `.drill` 或演练容器；`backup` 会先停 drill 写者（hub/WA/azurite）以获得 quiesced 配对 |
+| `restore` | `--confirm-project <drill-project>` | 只允许恢复到已验证为空的 drill 目标；**永不自动 `-Force`** |
+| `roundtrip` | `--confirm-project <source-drill-project>` | 创建第二个 drill 目标并恢复；需操作者显式确认 |
+| `reset-target` | `--allow-drill-reset` + `--confirm-project` | 仅删除**演练项目**卷；默认不执行 |
+| `teardown` | `--confirm-project` | `docker compose down -v` 仅限演练项目；默认不执行 |
+| `fault-inject` | `--scenario ... --allow-destructive --confirm-project <project>` + 环境变量 `DR_DRILL_DESTRUCTIVE_ACK=1` | 破坏性注入；本切片**未执行** |
+
+`--confirm-project` 必须逐字等于演练项目名；`tiangong-kaiwu` 会被拒绝。恢复/销毁前必须由
+演练负责人+见证人确认项目/卷/备份 ID，并记录窗口与源提交。
+
+---
+
+## 4. 精确命令（Windows PowerShell）
+
+先跑单测（不碰 Docker/网络/live 数据）：
 
 ```powershell
-# 三重确认后再执行；只允许 drill project。
-docker compose -p tiangong-kaiwu-drill ps -a
-docker volume ls --filter name=tiangong-kaiwu-drill
-docker compose -p tiangong-kaiwu-drill down -v
-
-# 确认真实主项目仍在/未被触碰（只读检查）
-docker compose -p tiangong-kaiwu ps
+node --test scripts/dr/drill-core.test.mjs
+node --test scripts/integrity/integrity-scan.test.mjs
 ```
 
-- 证据先从演练机复制到私有证据库，再销毁演练环境。
-- **绝不要**对 `tiangong-kaiwu`（主项目）执行 `down -v`。
+### 4.1 源演练：创建 → 启动 → 最小播种 → 备份
+
+```powershell
+$Runner = 'scripts/dr/drill-runner.mjs'
+$DrillId = 'drill-20261124-01'
+
+node $Runner create --drill-id $DrillId --project tiangong-kaiwu-drill --port-offset 0
+node $Runner preflight --workspace ".drill/$DrillId"
+node $Runner up     --workspace ".drill/$DrillId" --timeout-sec 240
+node $Runner seed   --workspace ".drill/$DrillId"
+node $Runner backup --workspace ".drill/$DrillId"
+node $Runner verify-backup --workspace ".drill/$DrillId"
+node $Runner report --workspace ".drill/$DrillId"
+```
+
+`seed` 只使用现有 API：
+
+1. `POST /auth/email/login`（drill `.env` 的独立 admin 密码）；
+2. `POST /itwins`（1 个 iTwin）与 `POST /imodels`（1 个 iModel）；
+3. Azurite REST：幂等创建 `imodelhub` 容器，PUT `drill-seed/<drillId>.txt` 并回读 SHA-256。
+
+不做生产数据导入；不要求 baseline 生成（Phase A 不启动宿主 MS）。
+
+### 4.2 空目标演练：第二个 drill 项目 → 恢复 → 验证
+
+```powershell
+$TargetId = 'drill-20261124-01-restore'
+$TargetProject = 'tiangong-kaiwu-drill-restore'
+$Backup = (Get-ChildItem ".drill/$DrillId/backups" -Directory |
+  Sort-Object Name -Descending | Select-Object -First 1).FullName
+
+# 目标工作区从源工作区复制演练密钥（只允许 .drill 下的工作区；主 .env 不是合法模板）
+node $Runner create --drill-id $TargetId --project $TargetProject --port-offset 1 `
+  --env-template ".drill/$DrillId"
+
+# HITL：restore 必须显式确认目标项目，且 --project/--confirm-project 必须一致
+node $Runner restore --workspace ".drill/$TargetId" --project $TargetProject --port-offset 1 `
+  --backup-dir "$Backup" --source-workspace ".drill/$DrillId" `
+  --confirm-project $TargetProject
+
+node $Runner verify --workspace ".drill/$TargetId" --project $TargetProject --port-offset 1 `
+  --timeout-sec 240
+node $Runner report  --workspace ".drill/$TargetId" --project $TargetProject --port-offset 1
+node $Runner report-roundtrip --workspace ".drill/$TargetId" --project $TargetProject `
+  --port-offset 1 --source-workspace ".drill/$DrillId"
+```
+
+注意：
+- `--backup-dir` 在目标工作区命令中建议使用**绝对路径**；相对路径按目标工作区解析。
+- `restore` 会先启动目标 Postgres、`create` 一个停止的 Azurite 容器（不启动它），
+  再检查目标为空；非空则拒绝。恢复后由运行器启动完整 drill 栈并等待 HUB health。
+- `verify` 是 drill 版验收：HUB health/login、备份前 seed 的 iModel 行、Azurite sentinel
+  blob 的字节/SHA-256、以及只读 `Invoke-IntegrityScan.mjs`。**不是**根 `verify-stack.ps1`
+  （后者钉死主栈端口，同宿主演练会误测主栈）。
+
+### 4.3 一键非破坏性序列（可选）
+
+```powershell
+# 只做源侧：create -> up -> seed -> backup -> verify-backup -> report
+node $Runner run --drill-id drill-20261124-02
+
+# 源 + 空目标恢复（HITL：显式 --confirm-project；内部创建 <source>-restore 目标）
+node $Runner roundtrip --drill-id drill-20261124-02 --confirm-project tiangong-kaiwu-drill
+```
+
+### 4.4 停止与环境清理
+
+```powershell
+# 默认：停止容器，保留卷/证据（非破坏性）
+node $Runner down --workspace ".drill/$DrillId"
+node $Runner down --workspace ".drill/$TargetId" --project $TargetProject
+
+# 包装器等价（默认保留卷）
+powershell -File scripts/dr/Remove-DrillEnvironment.ps1 -Workspace ".drill/$DrillId"
+powershell -File scripts/dr/Remove-DrillEnvironment.ps1 -Workspace ".drill/$DrillId" -WhatIf
+
+# HITL 删除演练卷（仅演练项目；本切片未执行）
+powershell -File scripts/dr/Remove-DrillEnvironment.ps1 -Workspace ".drill/$DrillId" `
+  -DeleteVolumes -ConfirmProject tiangong-kaiwu-drill
+```
+
+删除前先把 `backups/`、`evidence/` 复制到私有证据库；**绝不要**对主项目
+`tiangong-kaiwu` 执行 `down -v`。
+
+---
+
+## 5. 场景映射
+
+| 场景 | 对应命令 | 本次是否执行 |
+|---|---|---|
+| S0 只读预检/备份成套校验 | `preflight`、`verify-backup` | 是（drill 源） |
+| S1 空演练栈恢复 | `create`(offset+1) → `restore` → `verify` | 是（第二个空 drill 项目） |
+| S2 恢复后完整性/一致性 | `verify`（integrity scan）+ `report`/`report-roundtrip` | 是；扫描 exit 1，原因见 §7 |
+| S3 故障注入/破坏性 | `fault-inject`（三重闸门） | **否** |
+| S4 调度/重复演练 | 季度重复 S0–S2 | 未调度 |
+
+S3 只能在一次性 drill 项目内、书面批准后、由演练负责人现场执行；本切片未执行，因此
+“扫描能检测漂移”的结论仍未演练，不得用 S0–S2 结果替代。
+
+---
+
+## 6. 报告 JSON 与 RPO/RTO 口径
+
+`report` 写 `<workspace>/evidence/drill-report.json`（+ `.sha256`），`report-roundtrip`
+写 `drill-roundtrip-report.json`（源/目标各一份）。schema：
+`tiangong-kaiwu-drill-report` v1；关键字段：
+
+| 字段 | 含义 |
+|---|---|
+| `isolation` | 项目/端口/卷/网络/工作区检查；`mainProjectUntouched` 前后快照比较 |
+| `phases[]` | 每 phase 的 status（passed/failed/partial/skipped）、起止 UTC、durationMs |
+| `backup` | backupId、createdAtUtc、consistency.mode、manifest SHA-256、artifact 校验结果 |
+| `restore` | targetWasEmpty、backupId、起止、durationMs、命令（脱敏） |
+| `verification.stack` | HUB health/login、seed iModel 行、sentinel blob SHA-256 |
+| `verification.integrity` | 扫描 exit code、result、summary、JSON/MD 路径与 SHA-256、局限说明 |
+| `timings` | create/up/seed/backup/verify-backup/restore/verify/down 毫秒数 |
+| `rpo` | `measuredSeconds` = 备份 createdAt → restore 开始；`trueRpoSeconds` 仅在提供最后 push 时间时才有值 |
+| `rto` | `measuredSeconds` = restore 开始 → DB/blob 验证通过（`stackVerifiedAtUtc`） |
+| `claims` | 逐项证据声明；`rpoTargetAchieved`/`rtoTargetAchieved`/`productionDisasterRecoveryProven` **恒为 false** |
+
+**诚实边界**：
+- `rpo.measuredSeconds` 是“这份备份在恢复开始时的年龄”，不是生产 RPO；不能证明 ≤5m。
+- `rto.measuredSeconds` 是单次 drill 从开始恢复到 DB+对象可验证的耗时；不含业务验收、
+  变更窗口、HA 切换、生产规模、Redis/队列恢复；不能证明 ≤1h。
+- `integrity scan exit 3` = 部分未验证；exit 1 = 有 finding；都不能写成 clean。
+- 报告包含 iModel/iTwin ID、blob 名和本机路径：只进私有证据库，不提交公开仓。
+
+---
+
+## 7. 2026-11-24 实际执行结果（隔离 drill）
+
+执行环境：Windows；Docker server 29.8.1；Node v24.20.0；主栈 `tiangong-kaiwu` 全程运行。
+演练器每个 phase 前后比较主项目容器/卷标签，结果 `mainProjectUntouched=true`；主栈未启动、
+未停止、未备份、未恢复、未删除任何资源。
+
+| 项目 | 结果 |
+|---|---|
+| 单元测试 | `node --test scripts/dr/drill-core.test.mjs` **35/35 pass**；`node --test scripts/integrity/integrity-scan.test.mjs` **24/24 pass**（合计 59） |
+| 源 drill（`tiangong-kaiwu-drill`，offset 0） | create/up/seed/backup/verify-backup 全绿；备份 `backup-20261124-201520`、`consistency.mode=quiesced`；manifest sha256=`c9ee3ea4…6dea6e` + 两个 artifact 的 size/SHA-256 校验通过 |
+| 空目标 restore（`tiangong-kaiwu-drill-restore2`，offset 2） | 目标 DB 用户表=0、Azurite 卷空；`restore-stack.ps1 -Confirm`（无 `-Force`）成功；恢复后 HUB health/login、seed iModel 行、sentinel blob SHA-256 全部通过 |
+| 实测计时（仅本次） | backup manifest 校验通过；`restore-stack.ps1` 脚本本身约 12.3s（报告 `restore.durationMs`）；`rpo.measuredSeconds≈193.82`；`rto.measuredSeconds≈38.78`（restore 开始 → DB/blob 验证通过；含恢复后 drill 栈启动，**不是目标达标声明**） |
+| 完整性扫描 | exit 1 / `FINDINGS`，3 error + 7 unverified：`invalid-checkpoint` 与 `baseline-blob-unmapped`。原因：Phase A 最小 seed 通过 HUB API 创建 iModel，但没有宿主 MS 生成 baseline/checkpoint 内容；**不是恢复路径造成的差异**。报告如实记录 `integrityScanClean=false`，verify 状态为 `partial` |
+| 故障注入/teardown | **未执行**；未删除任何演练卷；`tiangong-kaiwu` 主项目未动 |
+| 演练后状态 | 三个 drill 项目执行了 `down`（保留卷/证据，无 `-v`）：`tiangong-kaiwu-drill`、`tiangong-kaiwu-drill-restore`、`tiangong-kaiwu-drill-restore2`；容器已移除，drill 卷仍保留待人工批准清理。主栈 9 个容器仍运行 |
+
+### 7.1 本次证明了什么
+
+- 同一 drill backup set（DB dump + Azurite 卷）可恢复到**全新的空 drill 项目**；
+- 恢复后 HUB 能启动、drill admin 能登录、备份前的 iModel 元数据行存在；
+- 备份前的 Azurite sentinel blob 在恢复后字节与 SHA-256 完全一致；
+- 备份 manifest 的 sidecar 与两个 artifact 大小/SHA-256 可独立复算；
+- 隔离检查、主项目前后快照、报告 schema/拒绝主项目等安全逻辑有测试覆盖。
+
+### 7.2 本次没有证明什么
+
+- 不能证明生产 RPO/RTO 达标；193.82s / 38.78s 只是这次空库、小对象 drill 的测量。
+- 不能证明 ledger 完整性 clean；最小 seed 没有 baseline/checkpoint 内容，扫描 3 error/7 unverified。
+- 不能证明 Redis/队列、briefcase 缓存、宿主文件/镜像可恢复（不在备份范围）。
+- 不能证明对象存储版本化/对象锁/跨区复制、KMS/ACL/审计。
+- 不能证明故障检测（S3 未执行）、HA/PITR、生产规模、跨主机网络时延。
+- 不能用 drill 版 verify 替代根 `verify-stack.ps1` 的全栈（web/nginx/BFF/宿主 MS）验收。
+
+---
+
+## 8. 已知限制与本切片附带修复
+
+1. **根 `verify-stack.ps1` 不适合同宿主 drill**：它直探 5400/5401/5402/10500 并操作主
+   compose 项目。Phase A 的同宿主 drill 使用运行器内置的 drill 验收（HUB REST + Azurite
+   REST + integrity scan）。跨主机/独立 VM 演练仍可在演练 checkout 用标准端口跑根
+   verify-stack。
+2. **最小 seed 没有 MS baseline**：iModel 行存在但 state/baseline/checkpoint 内容不完整；
+   integrity scan 的 `invalid-checkpoint`/`baseline-blob-unmapped` 是预期缺口。需要 clean
+   ledger 时，必须做完整栈（含宿主 MS baseline 生成）的 S1 演练，而不是把 Phase A 结果
+   写成 clean。
+3. **`restore-stack.ps1` 对“空目标”的硬要求**：目标 Azurite 容器必须存在且停止；本运行器
+   用 `docker compose create azurite` 创建空容器/空卷，不启动 Azurite，以免启动时的元数据
+   文件让目标看起来“非空”。
+4. **本切片修复了 integrity 工具的两个实测缺陷**（均有测试）：
+   - Azurite path-style 端点的 SharedKey 规范化：必须像 Azure SDK 一样把 account 再前置一次
+     （`/account/account/...`）；修复前所有 REST 请求 403。
+   - 只读 SQL 包装器丢失 SELECT 终止分号，Postgres 把 `COMMIT` 当成 SELECT 的一部分并报
+     `syntax error at or near "COMMIT"`。
+   修复后已在隔离 drill Azurite/Postgres 实测通过；生产 Hub 仍未验证。
+5. **Azurite 仅开发用途**：本演练不证明生产 S3/Azure Blob 的持久性/版本化/复制能力。
+6. **备份脚本本身未改**：`backup-stack.ps1` / `restore-stack.ps1` 仍是有写者时 best-effort；
+   drill 通过先停 drill 写者获得 quiesced 配对。
+
+---
+
+## 9. 清理（仅演练项目）
+
+```powershell
+# 1) 证据先复制到私有证据库（不要提交）
+Get-ChildItem ".drill/<drillId>/evidence" | ForEach-Object {
+  Copy-Item $_.FullName "<private-evidence-root>\"
+}
+Get-ChildItem ".drill/<drillId>/backups" -Recurse | Select-Object FullName
+
+# 2) 只停止演练项目（保留卷）
+node scripts/dr/drill-runner.mjs down --workspace ".drill/<drillId>"
+
+# 3) 如批准销毁演练卷：必须逐字确认演练项目名
+node scripts/dr/drill-runner.mjs teardown --workspace ".drill/<drillId>" `
+  --project <drill-project> --confirm-project <drill-project>
+
+# 4) 只读确认真实主项目仍在/未被触碰
+docker compose -p tiangong-kaiwu ps
+docker volume ls --filter name=tiangong-kaiwu_
+```
+
+- 绝不要对 `tiangong-kaiwu`（主项目）执行 `down -v`；运行器的 `teardown` 只接受
+  `tiangong-kaiwu-drill*` 项目。
 - 清理失败不掩盖演练结论；记录残留资源并在批准后单独处理。
 
 ---
 
-## 7. 本切片明确未做
-
-- 未执行任何备份、恢复、删除、故障注入或 `down -v`。
-- 未修改 `backup-stack.ps1` / `restore-stack.ps1` / `docker-compose.yml`。
-- 未对 live DB/栈做读写；未产生 RPO/RTO 实测值。
-- 未验证生产对象存储的版本化/对象锁/跨区复制。
-- 本文件是演练规范与步骤骨架，不是自动化执行许可；每次演练仍需 HITL 与变更审批。
-
-## 8. 变更记录
+## 10. 变更记录
 
 | 日期 | 变更 |
 |---|---|
 | 2026-11-24 | Skeleton v1：隔离项目模型、S0–S4 场景、人工 runner 骨架、验收/清理/证据模板；未执行破坏性演练 |
+| 2026-11-24 | Phase A harness v1：独立 drill compose + `.drill` 工作区 + 自动 seed/backup/verify-backup/空目标 restore/verify/report；35+24 单测；隔离 drill 实测非破坏性 roundtrip（无故障注入、无主栈触碰）；未宣称 RPO/RTO 达标；附带修复 integrity 工具的 Azurite SharedKey 与 SQL 终止符缺陷 |

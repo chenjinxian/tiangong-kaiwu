@@ -14,19 +14,72 @@ GET 外不访问网络，也不替代 `scripts/release-gate.ps1` 或
 | 检查 | 失败条件 |
 |---|---|
 | `images.pinned` | compose/Dockerfile/发布脚本出现 `:latest`、无 tag（隐式 latest）、或 tag 变量无 pinned 默认值 |
+| `release.profile` | release 模式缺 `docker-compose.release.yml` 或 `deploy/release/release-profile.json`；release compose 使用字面 image/默认值/未在 profile 声明的 `RELEASE_*_IMAGE`；非 edge 服务发布宿主端口；edge 端口无显式 host bind；使用 `build:`；敏感环境变量不是无默认值的 `RELEASE_*` 必填变量；必填输入未在 profile 登记；release profile 引用的镜像在 manifest 中无 digest |
 | `build.scripts` | 发布/构建脚本硬编码宿主绝对路径、依赖 native pnpm store 回退、`tsc --noCheck`、或 `npm install` / 无 `--frozen-lockfile` 的 pnpm 安装 |
 | `contract.shipped` | `dist-backend` 产物内 `LubanFeatureRpcInterface.interfaceVersion` 与公开源不一致（例如 1.64.0 vs 1.85.0） |
 | `provenance.public` | 公开产物 `native-provenance.json` 泄漏宿主绝对路径/私有 native commit 等内部证据 |
-| `manifest.release` | release 模式缺 `release-manifest.json`/`nativeProvenance`/`dist-backend`；tag、sourceCommit、native/artifact digest 不一致；release 配置引用的 GHCR 镜像没有清单 digest |
+| `manifest.release` | release 模式缺 `release-manifest.json`/`nativeProvenance`/`dist-backend`；tag、sourceCommit、native/artifact digest 不一致；release profile 引用的镜像没有清单 digest |
 | `secrets.defaults` | release 配置出现弱默认密码/JWT、Azurite well-known key、或 provider token |
 
 模式：
 
 - `local` / `ci`：应用 `scripts/release-hygiene-waivers.json` 中 `scope=local`
-  的已登记开发债；缺 `dist-backend`/manifest 记为 skipped。
-- `release`：**忽略全部 waiver**；要求 `dist-backend` 与
-  `release-manifest.json`/native provenance 在场，并默认重算 artifact digest。
+  的已登记开发债；缺 `dist-backend`/manifest 记为 skipped。开发 compose
+  （`docker-compose.yml`）、`.env.example`、`quickstart.ps1`/`generate-env.ps1`
+  仍属本地开发面，在本模式审计。
+- `release`：**忽略全部 waiver**；要求 `dist-backend`、`release-manifest.json`/
+  native provenance、release compose/profile 在场，并默认重算 artifact digest。
   `scripts/release-gate.ps1` 以该模式调用；缺 manifest 不再 WARN 放行。
+  开发 compose、`.env.example` 与 `quickstart.ps1`/`generate-env.ps1` 不是
+  release 配置：release 模式把它们报告为 skipped，避免开发默认值（例如
+  `HUB_DATABASE_PASSWORD:-secret`、`maildev:latest`）被误当成发布输入，
+  也避免发布门被开发脚本永久卡红。发布打包脚本（`fetch-backend.ps1`、
+  `rebuild-web.ps1`、`make-deploy-bundle.ps1`）、workflow、Dockerfile、release
+  compose/profile 与 manifest 仍在 release 审计范围内。
+
+## Release profile（docker-compose.release.yml）
+
+工业发布不使用开发 compose。`docker-compose.release.yml` 是独立 profile
+（不会被 `docker compose` 自动加载），与开发栈的差异是硬约束：
+
+- 每个 `image:` 必须是 `${RELEASE_*_IMAGE:?message}`，由
+  `scripts/render-release-images.mjs` 从 `release-manifest.json` 解析为
+  `<name>@sha256:<digest>`；compose 中没有可静默回落到 `:latest` 的默认值。
+- 每个密钥必须是无默认值的 `${RELEASE_*:?message}`；开发 `.env` 的
+  `HUB_DATABASE_PASSWORD` 等名字无法满足 release profile（变量名刻意隔离）。
+- 只有 `nginx` 发布宿主端口（默认 `127.0.0.1:5301`，可用
+  `RELEASE_EDGE_BIND`/`RELEASE_EDGE_PORT` 显式覆盖）；postgres/redis/azurite/
+  imodelhub/webhook-agent/bff/web 只在内部网络可达。
+- 禁止 `build:`；发布只消费已发布镜像与 release manifest 中的 digest。
+- `RELEASE_MS_UPSTREAM` 必须显式提供；不再默认 `host.docker.internal:5401`。
+  modeling-server 仍是宿主进程（native/link: 依赖不能入 Linux 容器），将其
+  变为可 pin 的发布产物是私有仓待办。
+
+必填输入清单在 `deploy/release/release-profile.json`（只有变量名，不含密钥
+值）。镜像变量与必填输入的对应关系是：
+
+```bash
+# 1) 从真实 manifest 生成镜像 env（digest 只能来自 registry 侧/构建输出）
+node scripts/render-release-images.mjs \
+  --manifest release-manifest.json \
+  --out deploy/release/release-images.env
+
+# 2) 提供运维 env（密钥、SMTP、MS endpoint、origin、edge bind；不得复用开发 .env）
+#    例：deploy/release/release.env（gitignored，由 secret store/KMS 注入）
+
+# 3) 渲染必须成功（缺失/弱默认/未声明输入会失败），再启动
+docker compose -f docker-compose.release.yml \
+  --env-file deploy/release/release.env \
+  --env-file deploy/release/release-images.env config --quiet
+docker compose -f docker-compose.release.yml \
+  --env-file deploy/release/release.env \
+  --env-file deploy/release/release-images.env up -d
+```
+
+`render-release-images.mjs` 同时校验 profile/compose 策略（unmapped image、
+literal image、非 edge 端口、默认密钥、未声明必填输入），并拒绝没有 manifest
+digest 的镜像；`--check` 不写文件。生成的 `release-images.env` 只含镜像引用，
+不含任何密钥；`.gitignore` 已忽略 `deploy/release/*.env`。
 
 ```bash
 # 本地/CI（waiver 生效）
@@ -51,8 +104,11 @@ node scripts/check-release-hygiene.mjs --mode local \
 过期 waiver 不再覆盖违规并产生 `waivers.expired` 警告。release 模式永不读取
 waiver，因此任何 release 违规都必须真正修复，不能以 waiver 放行。
 
-`release-gate.ps1` 已把 hygiene 作为第 0 步接入；public CI 以 `--mode ci`
-运行 checker 并执行 `node --test scripts/test/check-release-hygiene.test.mjs`。
+`release-gate.ps1` 已把 hygiene 作为第 0 步接入，并在第 5b 步执行
+`render-release-images.mjs --check`（manifest digest -> release compose 镜像
+解析）；public CI 以 `--mode ci` 运行 checker 并执行
+`node --test scripts/test/check-release-hygiene.test.mjs` 与
+`node --test scripts/test/release-images.test.mjs`。
 
 
 J3.1g 起支持**实际文件字节校验**（`verify-files`）：清单声明的
@@ -237,12 +293,20 @@ HTTP 失败/连接失败/超时/用法错误，全部使用 `127.0.0.1` 回环 H
 1. `scripts/release-gate.ps1` 支持可选 `-ManifestPath <file>` 与
    `-VerifyManifestFiles`：前者强制执行 `verify --require-native-provenance`，
    后者追加 `verify-files --root <repo> --require-native-provenance`。未提供
-   `-ManifestPath` 时为 WARN（不生成假清单）。
-2. public CI（`.github/workflows/ci.yml`）运行本工具全部 `node:test` 用例与
-   J1.2 契约门；CI 不生成真实 release manifest（无真实镜像/registry 环境）。
+   `-ManifestPath` 时为 WARN（不生成假清单）。可选 `-BackendRoot` 以 release
+   模式只读审计私有仓 `build-ms-dist/build-images/publish` 脚本。
+2. public CI（`.github/workflows/ci.yml`）运行本工具全部 `node:test` 用例、
+   release hygiene/profile 测试与 J1.2 契约门；CI 不生成真实 release manifest
+   （无真实镜像/registry 环境）。
 3. 发布前用 `verify --expected-source-commit <pipeline commit>` 和
    `--expected-contract-version <pinned>` 阻断错版/漂移；J3.2 的
    `verify-runtime` 可与 `/rpc/metadata` 对账。
+4. `scripts/check-release-hygiene.mjs --mode release` 要求 release compose/
+   profile 存在，把每个 profile 镜像与 manifest digest 对齐；`--mode ci`
+   只审计开发面并应用本地 waiver。`scripts/test/check-release-hygiene.test.mjs`
+   与 `scripts/test/release-images.test.mjs` 覆盖 unpinned image、默认密钥、
+   非 edge 端口、缺失 manifest/native provenance、契约 skew、dev/release
+   配置隔离与 renderer 的 fail-closed 行为。
 
 仍需外部发布环境补齐（**不得伪造**）：
 

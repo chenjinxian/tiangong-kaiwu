@@ -111,39 +111,12 @@
       "expires": "2027-03-31"
     },
     {
-      "id": "dev-docker-desktop-path-fetch",
-      "check": "build.scripts",
-      "file": "scripts/fetch-backend.ps1",
-      "subject": "host-path:C:\\Program Files\\Docker\\Docker\\resources\\bin",
-      "scope": "local",
-      "reason": "Docker Desktop PATH bootstrap for Windows developers; the script still fails closed when docker is absent. Release runners use the standard PATH.",
-      "expires": "2027-03-31"
-    },
-    {
-      "id": "dev-docker-desktop-path-rebuild",
-      "check": "build.scripts",
-      "file": "scripts/rebuild-web.ps1",
-      "subject": "host-path:C:\\Program Files\\Docker\\Docker\\resources\\bin",
-      "scope": "local",
-      "reason": "Docker Desktop PATH bootstrap for Windows developers; the script still fails closed when docker is absent. Release runners use the standard PATH.",
-      "expires": "2027-03-31"
-    },
-    {
       "id": "dev-docker-desktop-path-quickstart",
       "check": "build.scripts",
       "file": "scripts/quickstart.ps1",
       "subject": "host-path:C:\\Program Files\\Docker\\Docker\\resources\\bin",
       "scope": "local",
       "reason": "Docker Desktop PATH bootstrap for the external quickstart. Not used by release artifact builds; release CI uses the standard PATH.",
-      "expires": "2027-03-31"
-    },
-    {
-      "id": "dev-dedupe-host-default",
-      "check": "build.scripts",
-      "file": "scripts/dedupe-artifact-deps.ps1",
-      "subject": "host-path:D:\\Github\\tiangong-kaiwu\\dist-backend\\modeling-server",
-      "scope": "local",
-      "reason": "Legacy default path for the local artifact tree. fetch-backend always passes -MsDir explicitly; replace the default with a repo-relative path in a follow-up.",
       "expires": "2027-03-31"
     },
     {

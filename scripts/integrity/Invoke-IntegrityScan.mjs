@@ -140,12 +140,15 @@ export function assertSelectStatement(sql) {
 }
 
 export function buildReadOnlySql(selectSql, statementTimeoutMs) {
-  const statement = assertSelectStatement(selectSql).replace(/;$/, '');
+  const statement = assertSelectStatement(selectSql).replace(/;\s*$/, '');
   const timeout = Number.isInteger(statementTimeoutMs) && statementTimeoutMs > 0 ? statementTimeoutMs : 30000;
   return [
     'BEGIN TRANSACTION READ ONLY;',
     `SET LOCAL statement_timeout = ${timeout};`,
-    statement,
+    // The SELECT must be terminated; otherwise PostgreSQL parses the following
+    // COMMIT as part of the SELECT and fails with "syntax error at or near
+    // COMMIT" (observed live against the drill Postgres on 2026-11-24).
+    `${statement};`,
     'COMMIT;',
     '',
   ].join('\n');
@@ -908,7 +911,10 @@ function inferAccount(endpointUrl, explicit) {
 
 function canonicalizedResource(account, endpointUrl) {
   const path = endpointUrl.pathname.replace(/\/+$/, '');
-  if (path === `/${account}` || path.startsWith(`/${account}/`)) return path;
+  // The Azure SDK always prepends the account name to the URL path. For
+  // path-style Azurite endpoints (http://host:port/account/...) this yields
+  // /account/account/..., which is what Azurite's SharedKey check expects.
+  // (Verified against azure-storage-blob 12.34.0 against a live Azurite.)
   return `/${account}${path}`;
 }
 
@@ -931,7 +937,11 @@ export function signAzureRequest({ method, url, account, keyBase64, headers }) {
     .join('\n');
 
   const canonicalResource = `${canonicalizedResource(account, url)}${query ? `\n${query}` : ''}`;
-  const stringToSign = [
+  // SDK-equivalent composition: fixed fields + one newline + canonicalized
+  // headers (newline terminated) + canonicalized resource. Joining the header
+  // and resource blocks as extra array elements inserts a blank line and
+  // breaks SharedKey signatures (verified against azure-storage-blob 12.34.0).
+  const fixedFields = [
     method.toUpperCase(),
     '', // Content-Encoding
     '', // Content-Language
@@ -944,9 +954,8 @@ export function signAzureRequest({ method, url, account, keyBase64, headers }) {
     '', // If-None-Match
     '', // If-Unmodified-Since
     '', // Range
-    canonicalHeaders,
-    canonicalResource,
   ].join('\n');
+  const stringToSign = `${fixedFields}\n${canonicalHeaders}${canonicalResource}`;
 
   const signature = createHmac('sha256', Buffer.from(keyBase64, 'base64'))
     .update(stringToSign, 'utf8')

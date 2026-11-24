@@ -1,0 +1,189 @@
+# ============================================================
+# 隔离 DR 演练栈（Phase A）
+#
+# 这是**独立 compose 定义**，不与仓库根 docker-compose.yml 合并：
+#   - 项目名默认 tiangong-kaiwu-drill，可用 DRILL_PROJECT_NAME 覆盖
+#     （仅允许 tiangong-kaiwu-drill 或 tiangong-kaiwu-drill-* 后缀）；
+#   - 卷/网络显式带演练项目前缀，绝不复用主栈卷；
+#   - 宿主端口只绑定 127.0.0.1 的高位段（Hub 15400 / WA 15402 /
+#     Azurite 20500-20502），与主栈 5300/5301/5400/5401/5402/10500 不冲突。
+#
+# 用法：只通过 scripts/dr/drill-runner.mjs（或 scripts/dr/*.ps1 包装器）使用。
+# 运行器会把本文件复制到 .drill/<drillId>/docker-compose.yml，并生成独立的
+# .env；直接 `docker compose -f scripts/dr/docker-compose.drill.yml up` 会因
+# 缺少 .env 插值而失败（这是刻意的：演练必须使用一次性工作区）。
+#
+# 本栈只包含恢复/验证所需的最小服务：
+#   postgres / redis / maildev / azurite / imodelhub / webhook-agent
+# 不包含 web / nginx / bff / 宿主 modeling-server；因此：
+#   - 演练验证走 HUB REST + Azurite REST + integrity scan，而不是主栈
+#     verify-stack.ps1（后者钉死主栈端口）；
+#   - baseline 生成链路（MS）不在 Phase A 范围内，iModel 可以停在未初始化态。
+# ============================================================
+name: ${DRILL_PROJECT_NAME:-tiangong-kaiwu-drill}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${HUB_DATABASE_USERNAME:?drill .env missing HUB_DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${HUB_DATABASE_PASSWORD:?drill .env missing HUB_DATABASE_PASSWORD}
+      POSTGRES_DB: ${HUB_DATABASE_NAME:-api}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HUB_DATABASE_USERNAME} -d ${HUB_DATABASE_NAME:-api}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: "no"
+    networks: [drill]
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: "no"
+    networks: [drill]
+
+  maildev:
+    image: maildev/maildev:latest
+    restart: "no"
+    networks: [drill]
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    # --location /data 必须保留：否则数据写容器层，命名卷为空
+    #（主栈迁移演练 2026-11-22 实证）。
+    command: azurite --location /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    environment:
+      AZURITE_ACCOUNT_NAME: devstoreaccount1
+      AZURITE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:?drill .env missing AZURITE_ACCOUNT_KEY}
+      AZURITE_CORS_ALLOWED_ORIGINS: "http://127.0.0.1:${DRILL_HUB_PORT:-15400}"
+      AZURITE_CORS_ALLOWED_METHODS: "GET,PUT,POST,DELETE,OPTIONS,HEAD"
+      AZURITE_CORS_ALLOWED_HEADERS: "*"
+      AZURITE_CORS_MAX_AGE_SECONDS: "86400"
+    ports:
+      # 只绑定回环高位端口；禁止 0.0.0.0 暴露。
+      - "127.0.0.1:${DRILL_AZURITE_BLOB_PORT:-20500}:10000"
+      - "127.0.0.1:${DRILL_AZURITE_QUEUE_PORT:-20501}:10001"
+      - "127.0.0.1:${DRILL_AZURITE_TABLE_PORT:-20502}:10002"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "nc -z 127.0.0.1 10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    restart: "no"
+    networks: [drill]
+
+  imodelhub:
+    image: ghcr.io/chenjinxian/imodelhub-public:latest
+    ports:
+      - "127.0.0.1:${DRILL_HUB_PORT:-15400}:4000"
+    environment:
+      NODE_ENV: production
+      APP_PORT: "4000"
+      THROTTLER_SHORT_LIMIT: "100000"
+      THROTTLER_LONG_LIMIT: "1000000"
+      TRUST_PROXY: "0"
+      ALLOWED_ORIGINS: "http://127.0.0.1:${DRILL_HUB_PORT:-15400}"
+      TRACING_ENABLED: "false"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USERNAME: ${HUB_DATABASE_USERNAME:?drill .env missing HUB_DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${HUB_DATABASE_PASSWORD:?drill .env missing HUB_DATABASE_PASSWORD}
+      DATABASE_NAME: ${HUB_DATABASE_NAME:-api}
+      REDIS_HOST: redis
+      MAIL_HOST: maildev
+      MAIL_PORT: "1025"
+      AZURE_BLOB_ENDPOINT: http://azurite:10000/devstoreaccount1
+      AZURITE_BLOB_ENDPOINT: http://azurite:10000/devstoreaccount1
+      AZURITE_ACCOUNT_NAME: devstoreaccount1
+      AZURITE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:?drill .env missing AZURITE_ACCOUNT_KEY}
+      AZURE_ACCOUNT_NAME: devstoreaccount1
+      AZURE_ACCOUNT_KEY: ${AZURITE_ACCOUNT_KEY:?drill .env missing AZURITE_ACCOUNT_KEY}
+      AZURE_CONTAINER_NAME: imodelhub
+      AGENT_API_KEY: ${IMODELHUB_API_KEY:?drill .env missing IMODELHUB_API_KEY}
+      INTERNAL_API_KEY: ${IMODELHUB_API_KEY:?drill .env missing IMODELHUB_API_KEY}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:?drill .env missing AUTH_JWT_SECRET}
+      AUTH_REFRESH_SECRET: ${AUTH_REFRESH_SECRET:?drill .env missing AUTH_REFRESH_SECRET}
+      AUTH_FORGOT_SECRET: ${AUTH_FORGOT_SECRET:?drill .env missing AUTH_FORGOT_SECRET}
+      AUTH_CONFIRM_EMAIL_SECRET: ${AUTH_CONFIRM_EMAIL_SECRET:?drill .env missing AUTH_CONFIRM_EMAIL_SECRET}
+      AUTH_REFRESH_TOKEN_EXPIRES_IN: 30d
+      WEBHOOK_SIGNING_SECRET: ${WEBHOOK_SECRET:?drill .env missing WEBHOOK_SECRET}
+      SEED_ADMIN_EMAIL: ${IMODELHUB_ADMIN_EMAIL:-admin@example.com}
+      SEED_ADMIN_PASSWORD: ${IMODELHUB_ADMIN_PASSWORD:?drill .env missing IMODELHUB_ADMIN_PASSWORD}
+      WEB_AGENT_URL: http://webhook-agent:4002
+      WEBHOOK_SEED_CALLBACK_URL: http://webhook-agent:4002/webhook/events
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+      maildev:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
+    restart: "no"
+    networks: [drill]
+
+  webhook-agent:
+    image: ghcr.io/chenjinxian/luban-webhook-agent-public:latest
+    ports:
+      - "127.0.0.1:${DRILL_WA_PORT:-15402}:4002"
+    env_file:
+      # 相对于本文件所在的演练工作区根；运行器保证 .env 与 compose 同目录。
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "4002"
+      IMODELHUB_URL: http://imodelhub:4000
+      # 演练栈不启动宿主 modeling-server；此值明确指向演练高位的 MS 端口，
+      # baseline 生成失败是可接受的（Phase A 只验证 DB+对象存储成套恢复）。
+      MODELING_SERVER_URL: ${WA_MODELING_SERVER_URL:-http://host.docker.internal:15401}
+      RECOVERY_CHECK_INTERVAL_MINUTES: "1"
+      AZURITE_HOST: azurite:10000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      imodelhub:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: "no"
+    networks: [drill]
+
+volumes:
+  pgdata:
+    name: ${DRILL_PROJECT_NAME:-tiangong-kaiwu-drill}-pgdata
+  redis-data:
+    name: ${DRILL_PROJECT_NAME:-tiangong-kaiwu-drill}-redis-data
+  azurite-data:
+    name: ${DRILL_PROJECT_NAME:-tiangong-kaiwu-drill}-azurite-data
+
+networks:
+  drill:
+    name: ${DRILL_PROJECT_NAME:-tiangong-kaiwu-drill}-net
+    driver: bridge

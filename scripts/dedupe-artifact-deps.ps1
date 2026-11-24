@@ -25,9 +25,13 @@
 # ============================================================
 [CmdletBinding()]
 param(
-  [string]$MsDir = 'D:\Github\tiangong-kaiwu\dist-backend\modeling-server'
+  [string]$MsDir
 )
 $ErrorActionPreference = 'Stop'
+# 默认值从脚本位置派生（scripts/ -> 仓根/dist-backend/...），不硬编码宿主路径。
+if ([string]::IsNullOrWhiteSpace($MsDir)) {
+  $MsDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'dist-backend\modeling-server'
+}
 
 if (-not (Test-Path (Join-Path $MsDir 'node_modules'))) {
   Write-Host "dedupe-artifact-deps: $MsDir 无 node_modules，跳过（非产物树？）" -ForegroundColor Yellow

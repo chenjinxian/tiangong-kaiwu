@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "description": "Release profile contract for docker-compose.release.yml. Image variables are resolved to <name>@sha256:<digest> from release-manifest.json by scripts/render-release-images.mjs. Required inputs must be supplied at boot from the release secret store; none has a default and none can be satisfied by the development .env. This file contains names only, never secret values.",
+  "images": {
+    "RELEASE_POSTGRES_IMAGE": "docker.io/library/postgres",
+    "RELEASE_REDIS_IMAGE": "docker.io/library/redis",
+    "RELEASE_AZURITE_IMAGE": "mcr.microsoft.com/azure-storage/azurite",
+    "RELEASE_IMODELHUB_IMAGE": "ghcr.io/chenjinxian/imodelhub-public",
+    "RELEASE_WEBHOOK_AGENT_IMAGE": "ghcr.io/chenjinxian/luban-webhook-agent-public",
+    "RELEASE_BFF_IMAGE": "ghcr.io/chenjinxian/luban-bff-public",
+    "RELEASE_WEB_IMAGE": "ghcr.io/chenjinxian/luban-web-public",
+    "RELEASE_NGINX_IMAGE": "docker.io/library/nginx"
+  },
+  "requiredInputs": [
+    "RELEASE_POSTGRES_PASSWORD",
+    "RELEASE_AZURITE_ACCOUNT_KEY",
+    "RELEASE_AZURITE_ACCOUNT_NAME",
+    "RELEASE_AZURE_BLOB_ENDPOINT",
+    "RELEASE_ALLOWED_ORIGINS",
+    "RELEASE_SMTP_HOST",
+    "RELEASE_SMTP_PORT",
+    "RELEASE_HUB_API_KEY",
+    "RELEASE_AUTH_JWT_SECRET",
+    "RELEASE_AUTH_REFRESH_SECRET",
+    "RELEASE_AUTH_FORGOT_SECRET",
+    "RELEASE_AUTH_CONFIRM_EMAIL_SECRET",
+    "RELEASE_WEBHOOK_SECRET",
+    "RELEASE_ADMIN_PASSWORD",
+    "RELEASE_MS_UPSTREAM",
+    "RELEASE_ENV_FILE"
+  ]
+}

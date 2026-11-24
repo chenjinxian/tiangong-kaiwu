@@ -273,7 +273,7 @@ Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/
   保存点二次授权、push 用户归因。B4 Write（Manage-only）、handle 15m/16 uses、push 服务
   账号（B6/X-21）、直改保存边界、读路径 init 写均未关闭；B3/X-21 open，G1 Gate 不勾选。
 
-## 14. B3.1e Hub 内容路由强制（2026-11-24，默认 off，工作树未提交）
+## 14. B3.1e Hub 内容路由强制（2026-11-24，默认 off，已本地提交）
 
 `AIRR-2026-11-24-B3.1e-HUB-ROUTE-ENFORCE.md` 启用既有 `AUTHZ_ENFORCE` 的
 `read|write`，在 Hub 内容路由上把共享 key 从授权旁路降为传输因子：
@@ -294,3 +294,31 @@ Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/
   `/imodels/admin/*`、storage/tile、BFF/MS/WA 仍未改；服务
   scope 仍是服务级、不绑定单 iModel；不得宣称 Hub 数据面 PEP 完整。B3/X-21/X-27 open，
   G1 Gate 不勾选。
+
+## 15. 2026-11-24 第二波：生产架构切片（工作树未提交）
+
+- **B3.1f Hub 收口（已单独提交 `ddbf009`）**：access-control 子资源绑定路径 iTwin、
+  iTwin image delete 归属、favorites/recents 写 ACL + resolver 过滤；Hub 175/1589。
+- **B3.1f-a MS/BFF 危险面**：`AUTH_B3_SURFACES_MODE=off|enforce`（默认 off）；enforce 下
+  export 走 `doc.read`+B3.1c OBO，progress/retry 在 Hub/DB/progress map/requeue 前
+  403 fail-closed；BFF 保留 401/403 且不重试/不替换成功。MS 全量 **173 files / 1756 pass
+  +1 expected fail +8 skipped**；BFF 37；未跑真栈，B3/X-21/X-27 open。
+- **W3 读纯化 + undo 隔离**：新增 `ensureInitializedForRead`，读 RPC 不 import/建 EditTxn/
+  rebuild/push/迁移；OpLog undo 按 verified principal+briefcase 过滤；开关
+  `FEATURE_READ_INIT_MODE=read-only|legacy-write`、`OPLOG_AUTHOR_FILTER=off|shadow|enforce`。
+  已过全量 MS + tsc；无真实 Hub/Azurite/Postgres 或真实 push 证据；X-05/X-15 仍 open。
+- **D6 Named Version↔Checkpoint**：additive `checkpoint_named_versions` 多对多、成功即绑定、
+  NV/checkpoint 删除护栏、legacy 单值回退；Hub 全量 **178 suites / 1606 tests**；迁移仅
+  SQL-shape 单测，未跑 fresh Postgres/live 栈；D3/D7/D8 仍缺。
+- **DR Phase A harness**：新增隔离 drill compose/runner/wrappers；做过一次非破坏性
+  backup→empty-target restore→verify；报告记录 RPO 字段 193.82s、RTO 字段 38.782s，但
+  `rpoTargetAchieved=false`/`rtoTargetAchieved=false`，integrity 为 partial（minimal seed
+  无 MS baseline），**不得**当作 RPO/RTO 达标或 clean DR 证据。隔离容器/卷/工作区已清理。
+- **Release profile**：新增 `docker-compose.release.yml`、image digest renderer、required
+  secrets；release 模式忽略 dev waiver。当前实际 repo 仍因 contract 1.85 vs 1.64、
+  `latest`、宿主路径、默认密钥和缺 manifest 失败（预期），发布未执行。
+- **G2 预冻结**：新增 G2 计划 + 6 个 Not run Spike + 4 份 ADR（Manifest、输出/拓扑/选择、
+  typed tab、session/command/undo）；G1 未通过前不冻结、不铺特征。
+- **B2.2/B6 P4b/B4**：仅完成 AIRR/ADR 设计包，未实现；真实归因、共享 key 退役、
+  Write/Share/Link 仍需 owner 决策与实现。
+- **Gate**：上述均为工作树或隔离证据，G0 仍 NO-GO，G1 Gate 仍 0/15；不勾选任何项。

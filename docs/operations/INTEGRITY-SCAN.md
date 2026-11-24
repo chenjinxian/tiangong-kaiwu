@@ -1,6 +1,6 @@
 # Hub 完整性扫描（G1 E8 Skeleton v1）
 
-> 状态：**Skeleton v1 — 只读、未修复、未对 live Hub 验证**（2026-11-24）
+> 状态：**Skeleton v1 — 只读、未修复；已对隔离 drill Hub 实测，未对生产/live Hub 验证**（2026-11-24）
 > 工具：`scripts/integrity/Invoke-IntegrityScan.mjs`（Node ESM，无第三方依赖）
 > 核心：`scripts/integrity/scan-core.mjs`；测试：`scripts/integrity/integrity-scan.test.mjs`
 > 关联：`docs/architecture/G1-EXECUTION-PLAN.md` E8、`docs/operations/BACKUP-RESTORE.md`、
@@ -84,8 +84,9 @@ changeset head/chain root、缺失 changeset/blob、大小与 SHA-256 不符、�
   - baseline 存储引用映射不到时可用
     `--baseline-path-template 'imodels/{iModelId}/baseline/{baselineFileName}'`；模板错误会产生
     false missing，因此必须先在小范围（`--imodel-id`）核对。
-- **本切片未对运行中的真实 Hub 执行 live 适配器**。live 路径只经过代码审查、单测/夹具与
-  read-only SQL 形态测试；首次使用必须在隔离环境、先小范围、先与已知数据核对。
+- **live 适配器已对隔离 drill Hub（Azurite + 演练 Postgres）实测**，发现并修复了两个缺陷
+  （见 §10）：Azurite path-style SharedKey 规范化、只读 SQL 的 SELECT 终止符。**未对生产/
+  共享 Hub 验证**；首次用于生产仍必须在隔离环境、先小范围、先与已知数据核对。
 
 ### 3.1 对象存储路径约定
 
@@ -441,3 +442,4 @@ Get-FileHash D:\evidence\integrity-20261124T120000Z.md -Algorithm SHA256
 | 日期 | 变更 |
 |---|---|
 | 2026-11-24 | Skeleton v1：只读扫描核心、Postgres/目录/Azure 适配器、JSON+Markdown、24 个 `node:test`（含 mock Postgres/Azurite）；live Hub 未验证；未执行修复或破坏性演练 |
+| 2026-11-24 | 隔离 drill 实测修复：① Azure path-style 端点 SharedKey 规范化按 Azure SDK 前置 account（`/account/account/...`），修复 Azurite 403；② `buildReadOnlySql` 保留 SELECT 终止分号，修复 Postgres `syntax error near "COMMIT"`。两处均有单测；未对生产 Hub 执行 |

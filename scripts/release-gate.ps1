@@ -10,9 +10,14 @@
 #     -ManifestPath release-manifest.json -VerifyManifestFiles `
 #     -ExpectedSourceCommit <sha> -ExpectedTag backend-YYYYMMDD
 #   powershell -File scripts/release-gate.ps1 -AllowStoreFallback -SkipVerifyStack
+#   powershell -File scripts/release-gate.ps1 -BackendRoot <luban-backend>
 #
 # release hygiene 以 --mode release 运行：本地 waiver 全部忽略；缺
-# release-manifest.json / nativeProvenance / dist-backend 均判 FAIL。
+# release-manifest.json / nativeProvenance / dist-backend / release compose
+# profile（docker-compose.release.yml + deploy/release/release-profile.json）
+# 均判 FAIL。开发 compose（docker-compose.yml）与 dev-only 脚本不是 release
+# 配置，不参与 release 模式判定。可选 -BackendRoot 只读审计私有仓
+# build-ms-dist/build-images/publish 脚本（不修改私有仓）。
 # -ManifestPath 省略时默认 <repo>/release-manifest.json（不再 WARN 放行）。
 # -VerifyManifestFiles 额外核对清单声明的 nativeProvenance/artifacts[] 实际
 # 文件字节；hygiene 在 release 模式也会重算 artifact digest。镜像 registry
@@ -29,7 +34,8 @@ param(
     [string]$ManifestPath,
     [switch]$VerifyManifestFiles,
     [string]$ExpectedSourceCommit,
-    [string]$ExpectedTag
+    [string]$ExpectedTag,
+    [string]$BackendRoot
 )
 
 $ErrorActionPreference = 'Continue'
@@ -81,6 +87,9 @@ if (-not (Test-Path $hygieneScript)) {
     }
     if (-not [string]::IsNullOrWhiteSpace($ExpectedTag)) {
         $hygieneArgs += @('--expected-tag', $ExpectedTag)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($BackendRoot)) {
+        $hygieneArgs += @('--backend-root', $BackendRoot)
     }
     & node @hygieneArgs
     if ($LASTEXITCODE -eq 0) {
@@ -226,6 +235,25 @@ if (-not (Test-Path $manifestScript)) {
         }
     } else {
         Warn '未提供 -VerifyManifestFiles；release hygiene 已重算 artifact digest，但未运行 verify-files 的逐文件报告'
+    }
+}
+
+# --- 5b. release profile 镜像解析（manifest -> compose env） --------------
+# 独立于 hygiene 的显式预检：release compose 的每个 RELEASE_*_IMAGE 必须能
+# 从 manifest 解析出 <name>@sha256:<digest>；profile/compose 策略同时复核。
+$renderScript = Join-Path $PSScriptRoot 'render-release-images.mjs'
+if (-not (Test-Path $renderScript)) {
+    Fail "render-release-images.mjs 缺失: $renderScript"
+} elseif (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Fail '未找到 node（release profile 预检需要 Node）'
+} elseif (-not (Test-Path $manifestFile)) {
+    Fail "release manifest 缺失: $manifestFile（无法解析 release profile 镜像）"
+} else {
+    & node $renderScript --manifest $manifestFile --check
+    if ($LASTEXITCODE -eq 0) {
+        Pass 'release profile 镜像解析通过'
+    } else {
+        Fail "release profile 镜像解析失败（exit $LASTEXITCODE）"
     }
 }
 

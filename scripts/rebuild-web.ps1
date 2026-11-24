@@ -51,7 +51,9 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
 # --- 前置检查（防呆优先于半路炸）---
-$env:PATH = "C:\Program Files\Docker\Docker\resources\bin;$env:PATH"  # Docker Desktop 装后需重启终端才入 PATH；同 fetch-backend.ps1 防呆
+# Docker Desktop 装后需重启终端才入 PATH；从 ProgramFiles 派生，不硬编码宿主盘符
+$dockerBin = if ($env:ProgramFiles) { Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin' } else { $null }
+if ($dockerBin -and (Test-Path $dockerBin)) { $env:PATH = "$dockerBin;$env:PATH" }
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'docker 不在 PATH —— 先启动 Docker Desktop（或重开终端让 PATH 生效）'
 }

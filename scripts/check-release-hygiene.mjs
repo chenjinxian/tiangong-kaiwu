@@ -7,6 +7,12 @@
  *
  *   images.pinned       Docker/compose/GHCR references must not float on
  *                       `:latest` (or omit a tag entirely); a digest is best.
+ *   release.profile     docker-compose.release.yml must exist in release mode,
+ *                       use only required RELEASE_*_IMAGE variables mapped in
+ *                       deploy/release/release-profile.json, publish only the
+ *                       edge port, avoid local builds, and require every secret
+ *                       from a RELEASE_* variable with no default. The release
+ *                       manifest must carry a digest for every mapped image.
  *   build.scripts       Release/build scripts must not hardcode host absolute
  *                       paths, rely on the native pnpm store fallback, use
  *                       `tsc --noCheck`, or install dependencies without a
@@ -28,8 +34,14 @@
  *   ci       Public CI. Same waiver policy as local, intended for a clean
  *            checkout (no dist-backend/release manifest).
  *   release  Release gate. Local waivers are IGNORED. The shipped
- *            dist-backend tree and release manifest/native provenance are
- *            required, and manifest artifact digests are verified.
+ *            dist-backend tree, release compose/profile, and release
+ *            manifest/native provenance are required, and manifest artifact
+ *            digests are verified. The development compose (docker-compose.yml)
+ *            and dev-only scripts (quickstart/generate-env/.env.example) are
+ *            not release configs: they stay local/CI debt and cannot satisfy
+ *            the release profile. Release artifact scripts, workflows, the
+ *            release compose/profile, Dockerfiles, and the manifest remain in
+ *            scope.
  *
  * Waivers are recorded in scripts/release-hygiene-waivers.json (or --waiver).
  * They only cover local/CI debt; release mode never applies them. Expired
@@ -66,6 +78,13 @@ import { parseArgs } from 'node:util';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { validateManifest, canonicalizeDigest } from './release-manifest.mjs';
+import {
+  RELEASE_COMPOSE_PATHS,
+  RELEASE_PROFILE_PATH,
+  isReleaseComposePath,
+  loadReleaseProfile,
+  validateReleaseCompose,
+} from './release-profile-lib.mjs';
 
 export const SCHEMA_VERSION = 1;
 export const DEFAULT_WAIVER_PATH = 'scripts/release-hygiene-waivers.json';
@@ -75,6 +94,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export const CHECK_IDS = [
   'images.pinned',
+  'release.profile',
   'build.scripts',
   'contract.shipped',
   'provenance.public',
@@ -121,6 +141,20 @@ const DOCKERFILE_CANDIDATES = [
   'luban-cad/apps/web/Dockerfile',
   'services/bff/Dockerfile',
 ];
+
+// Developer convenience scripts. They are audited in local/CI (with waivers)
+// but are never part of the release artifact path: the release profile pulls
+// published images by digest instead of generating a dev .env or quickstart.
+const DEV_ONLY_SCRIPTS = new Set([
+  'scripts/quickstart.ps1',
+  'scripts/generate-env.ps1',
+]);
+
+function scriptCandidatesForMode(mode, candidates) {
+  return mode === 'release'
+    ? candidates.filter((rel) => !DEV_ONLY_SCRIPTS.has(rel))
+    : candidates;
+}
 
 // Read-only audit targets for the private backend checkout. They are never
 // present in public CI; a release owner can pass --backend-root locally to get
@@ -428,6 +462,11 @@ function scanComposeImages(ctx) {
     );
   };
 
+  const composeFiles = new Set(
+    discoverComposeFiles(ctx.root).map((file) =>
+      normalizeRelPath(ctx.root, file),
+    ),
+  );
   const imageFiles = [
     ...discoverComposeFiles(ctx.root),
     ...discoverWorkflowFiles(ctx.root),
@@ -436,6 +475,22 @@ function scanComposeImages(ctx) {
     const text = readText(file);
     if (text === undefined) continue;
     const rel = normalizeRelPath(ctx.root, file);
+    if (composeFiles.has(rel)) {
+      if (isReleaseComposePath(rel)) {
+        skipped.push({
+          check: 'images.pinned',
+          message: `${rel} is the release profile; pinned by release.profile plus the release manifest`,
+        });
+        continue;
+      }
+      if (ctx.mode === 'release') {
+        skipped.push({
+          check: 'images.pinned',
+          message: `${rel} is a development compose file and is not a release config`,
+        });
+        continue;
+      }
+    }
     text.split(/\r?\n/).forEach((rawLine, index) => {
       const match = /^\s*image:\s*(.+?)\s*(?:#.*)?$/.exec(rawLine);
       if (!match) return;
@@ -576,9 +631,122 @@ function scanComposeImages(ctx) {
   return { violations, skipped };
 }
 
-function collectGhcrImageNames(ctx) {
+function scanReleaseProfile(ctx) {
+  const violations = [];
+  const skipped = [];
+  const notes = [];
+  const seen = new Set();
+  const add = ({
+    file,
+    line,
+    subject,
+    message,
+    hint,
+    severity = 'error',
+  }) => {
+    const key = `${file}:${subject}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    violations.push(
+      makeViolation('release.profile', {
+        file,
+        line,
+        subject,
+        message,
+        severity,
+        hint,
+      }),
+    );
+  };
+
+  // Validate every compose file the images.pinned check classifies as a
+  // release profile, so a deploy/release/*compose*.yml cannot escape both
+  // checks.
+  const composeFiles = discoverComposeFiles(ctx.root)
+    .map((absolute) => ({
+      absolute,
+      rel: normalizeRelPath(ctx.root, absolute),
+    }))
+    .filter(({ rel }) => isReleaseComposePath(rel));
+  const profile = loadReleaseProfile(ctx.root);
+
+  if (!profile.exists) {
+    if (composeFiles.length > 0) {
+      add({
+        file: RELEASE_PROFILE_PATH,
+        subject: 'profile-missing',
+        message:
+          'release compose exists but deploy/release/release-profile.json is missing',
+        hint:
+          'Declare the image variables and required inputs; the profile is the release input contract.',
+      });
+    }
+  } else {
+    profile.errors.forEach((message, index) => {
+      add({
+        file: profile.path,
+        subject: `profile-invalid:${index}`,
+        message,
+        hint:
+          'Fix the profile; it contains names only and must never contain secret values.',
+      });
+    });
+  }
+
+  if (composeFiles.length === 0) {
+    if (ctx.mode === 'release') {
+      add({
+        file: RELEASE_COMPOSE_PATHS[0],
+        subject: 'release-compose-missing',
+        message:
+          'release mode requires the release compose profile (docker-compose.release.yml)',
+        hint:
+          'Do not deploy the development compose in release mode; add/fix the release profile and pin every image through the release manifest.',
+      });
+    } else {
+      skipped.push({
+        check: 'release.profile',
+        message:
+          'release compose is not present; release profile checks skipped',
+      });
+    }
+    return { violations, skipped, notes };
+  }
+
+  const profileValid = profile.exists && profile.errors.length === 0;
+  for (const { rel, absolute } of composeFiles) {
+    const text = readText(absolute);
+    if (text === undefined) {
+      add({
+        file: rel,
+        subject: 'release-compose-unreadable',
+        message: 'cannot read the release compose file',
+        hint: 'Check file permissions and encoding.',
+      });
+      continue;
+    }
+    const issues = validateReleaseCompose(text, profile.value, {
+      mode: ctx.mode,
+      profileValid,
+    });
+    for (const issue of issues) {
+      add({
+        file: rel,
+        line: issue.line,
+        subject: issue.subject,
+        message: issue.message,
+        hint: issue.hint,
+        severity: issue.severity,
+      });
+    }
+  }
+
+  return { violations, skipped, notes };
+}
+
+function collectManifestImageNames(ctx) {
   const names = new Set();
-  const addRef = (rawRef) => {
+  const addGhcrRef = (rawRef) => {
     const result = classifyImageRef(rawRef, { allowUntagged: false });
     if (result.kind === 'skip') return;
     const name = imageRefWithoutTag(result.ref);
@@ -591,19 +759,45 @@ function collectGhcrImageNames(ctx) {
     }
   };
 
+  // The release profile is the authoritative list of images the release stack
+  // consumes. It covers both GHCR and infrastructure registries (Docker Hub,
+  // MCR), so every one needs a manifest digest in release mode.
+  const profile = loadReleaseProfile(ctx.root);
+  if (isPlainObject(profile.value?.images)) {
+    for (const imageName of Object.values(profile.value.images)) {
+      const name = imageRefWithoutTag(String(imageName));
+      if (name.includes('/') && !name.endsWith('/')) names.add(name);
+    }
+  }
+
+  const composeFiles = new Set(
+    discoverComposeFiles(ctx.root).map((file) =>
+      normalizeRelPath(ctx.root, file),
+    ),
+  );
   const imageFiles = [
     ...discoverComposeFiles(ctx.root),
     ...discoverWorkflowFiles(ctx.root),
   ];
   for (const file of imageFiles) {
+    const rel = normalizeRelPath(ctx.root, file);
+    if (composeFiles.has(rel)) {
+      // Release compose images are required variables resolved from this
+      // manifest; dev compose is not a release config in release mode.
+      if (isReleaseComposePath(rel)) continue;
+      if (ctx.mode === 'release') continue;
+    }
     const text = readText(file);
     if (text === undefined) continue;
     for (const rawLine of text.split(/\r?\n/)) {
       const match = /^\s*image:\s*(.+?)\s*(?:#.*)?$/.exec(rawLine);
-      if (match) addRef(match[1].trim());
+      if (match) addGhcrRef(match[1].trim());
     }
   }
-  for (const { absolute } of existingPaths(ctx.root, RELEASE_SCRIPT_CANDIDATES)) {
+  for (const { absolute } of existingPaths(
+    ctx.root,
+    scriptCandidatesForMode(ctx.mode, RELEASE_SCRIPT_CANDIDATES),
+  )) {
     const text = readText(absolute);
     if (text === undefined) continue;
     const code = stripScriptComments(text);
@@ -611,7 +805,7 @@ function collectGhcrImageNames(ctx) {
       const ref = match[0].replace(/[),.;]+$/g, '');
       if (ref.includes('{') && !ref.includes('${')) continue;
       if (isRegistryApiRef(ref)) continue;
-      addRef(ref);
+      addGhcrRef(ref);
     }
   }
   return [...names].sort();
@@ -638,7 +832,7 @@ function scanBuildScripts(ctx) {
   };
 
   const candidates = [
-    ...BUILD_SCRIPT_CANDIDATES,
+    ...scriptCandidatesForMode(ctx.mode, BUILD_SCRIPT_CANDIDATES),
     ...discoverWorkflowFiles(ctx.root).map((file) =>
       normalizeRelPath(ctx.root, file),
     ),
@@ -1258,8 +1452,8 @@ function scanManifestFile(ctx) {
       }
     }
   }
-  const referencedGhcr = collectGhcrImageNames(ctx);
-  for (const name of referencedGhcr) {
+  const referencedImages = collectManifestImageNames(ctx);
+  for (const name of referencedImages) {
     if (!manifestImageNames.has(name)) {
       violations.push(
         makeViolation('manifest.release', {
@@ -1268,18 +1462,18 @@ function scanManifestFile(ctx) {
           message: `release config references ${name} but the manifest has no digest for it`,
           severity: ctx.mode === 'release' ? 'error' : 'warning',
           hint:
-            'Collect the registry digest for every GHCR image used by the release and add it to images[].',
+            'Collect the registry digest for every image used by the release profile and add it to images[].',
         }),
       );
     }
   }
   for (const name of manifestImageNames) {
-    if (name.startsWith('ghcr.io/') && !referencedGhcr.includes(name)) {
+    if (!referencedImages.includes(name)) {
       violations.push(
         makeViolation('manifest.release', {
           file: manifestRel,
           subject: `image-not-referenced:${name}`,
-          message: `manifest lists ${name} but no compose/release script references it`,
+          message: `manifest lists ${name} but no release profile/script references it`,
           severity: 'warning',
           hint:
             'Check for a typo or a removed service; an unreferenced digest is usually a stale manifest.',
@@ -1331,13 +1525,20 @@ function scanSecrets(ctx) {
     );
   };
 
+  const composeFiles = discoverComposeFiles(ctx.root).filter((file) => {
+    if (ctx.mode !== 'release') return true;
+    // In release mode only the release profile is a release config; the dev
+    // stack's local secrets/defaults stay a local/CI waiver concern.
+    return isReleaseComposePath(normalizeRelPath(ctx.root, file));
+  });
   const files = [
-    ...discoverComposeFiles(ctx.root),
+    ...composeFiles,
     ...discoverDeployConfigFiles(ctx.root),
     ...discoverWorkflowFiles(ctx.root),
-    ...existingPaths(ctx.root, RELEASE_SCRIPT_CANDIDATES).map(
-      ({ absolute }) => absolute,
-    ),
+    ...existingPaths(
+      ctx.root,
+      scriptCandidatesForMode(ctx.mode, RELEASE_SCRIPT_CANDIDATES),
+    ).map(({ absolute }) => absolute),
     ...existingPaths(ctx.root, DOCKERFILE_CANDIDATES).map(
       ({ absolute }) => absolute,
     ),
@@ -1349,8 +1550,10 @@ function scanSecrets(ctx) {
       ),
     );
   }
-  const envExample = join(ctx.root, '.env.example');
-  if (existsSync(envExample)) files.push(envExample);
+  if (ctx.mode !== 'release') {
+    const envExample = join(ctx.root, '.env.example');
+    if (existsSync(envExample)) files.push(envExample);
+  }
 
   for (const absolute of [...new Set(files)]) {
     const text = readText(absolute);
@@ -1661,6 +1864,7 @@ export function runChecks(options = {}) {
   };
 
   const images = scanComposeImages(ctx);
+  const releaseProfile = scanReleaseProfile(ctx);
   const build = scanBuildScripts(ctx);
   const contract = scanShippedContract(ctx);
   ctx.sourceVersion = contract.sourceVersion;
@@ -1670,6 +1874,7 @@ export function runChecks(options = {}) {
 
   const allViolations = [
     ...images.violations,
+    ...releaseProfile.violations,
     ...build.violations,
     ...contract.violations,
     ...provenance.violations,
@@ -1678,6 +1883,7 @@ export function runChecks(options = {}) {
   ];
   const skipped = [
     ...images.skipped,
+    ...releaseProfile.skipped,
     ...build.skipped,
     ...contract.skipped,
     ...provenance.skipped,
@@ -1884,15 +2090,19 @@ function printHelp() {
     [--no-verify-artifact-digests] [--fail-on-warnings]
     [--backend-root <private luban-backend checkout>]
 
-Checks Docker/compose/GHCR pinning, release/build script reproducibility,
-source vs shipped dist-backend Feature RPC contract, release manifest/provenance
-consistency, and default/well-known secrets. --backend-root additionally scans
-the private backend build/publish scripts read-only (never present in public CI).
+Checks Docker/compose/GHCR pinning, the release compose/profile
+(docker-compose.release.yml + deploy/release/release-profile.json), release/build
+script reproducibility, source vs shipped dist-backend Feature RPC contract,
+release manifest/provenance consistency, and default/well-known secrets.
+--backend-root additionally scans the private backend build/publish scripts
+read-only (never present in public CI).
 
 Modes: local/ci apply scope=local waivers from
-scripts/release-hygiene-waivers.json; release mode ignores all waivers and
-requires an unpacked dist-backend plus release-manifest.json with native
-provenance. Artifact digests are re-hashed in release mode by default.
+scripts/release-hygiene-waivers.json and audit the development compose/dev
+scripts. Release mode ignores all waivers, requires an unpacked dist-backend
+plus release-manifest.json with native provenance, and requires the release
+compose/profile; it does not treat the development compose or dev-only scripts
+as release configs. Artifact digests are re-hashed in release mode by default.
 
 Exit codes: 0 = pass, 1 = violations, 2 = usage/config error.`);
 }

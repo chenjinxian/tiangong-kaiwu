@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "kind": "tiangong-kaiwu-drill-report",
+  "tool": "scripts/dr/drill-runner.mjs",
+  "generatedAtUtc": "2026-11-24T12:30:00.000Z",
+  "drillId": "drill-20261124-120000",
+  "sourceCommit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "isolation": {
+    "projectName": "tiangong-kaiwu-drill",
+    "mainProjectName": "tiangong-kaiwu",
+    "portOffset": 0,
+    "ports": {
+      "hub": 15400,
+      "ms": 15401,
+      "wa": 15402,
+      "azuriteBlob": 20500,
+      "azuriteQueue": 20501,
+      "azuriteTable": 20502
+    },
+    "volumes": [
+      "tiangong-kaiwu-drill-pgdata",
+      "tiangong-kaiwu-drill-redis-data",
+      "tiangong-kaiwu-drill-azurite-data"
+    ],
+    "network": "tiangong-kaiwu-drill-net",
+    "workspace": "D:\\repo\\.drill\\drill-20261124-120000",
+    "verified": true,
+    "checks": [],
+    "mainProjectUntouched": null,
+    "mainProjectSnapshot": null
+  },
+  "phases": [
+    {
+      "name": "backup",
+      "status": "passed",
+      "startedAtUtc": "2026-11-24T12:05:00.000Z",
+      "finishedAtUtc": "2026-11-24T12:05:10.000Z",
+      "durationMs": 10000,
+      "details": {}
+    }
+  ],
+  "backup": {
+    "backupId": "backup-20261124-120500",
+    "backupDir": "D:\\repo\\.drill\\drill-20261124-120000\\backups\\backup-20261124-120500",
+    "createdAtUtc": "2026-11-24T12:05:00.000Z",
+    "consistencyMode": "quiesced",
+    "manifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "manifestVerified": true,
+    "artifacts": []
+  },
+  "restore": null,
+  "verification": null,
+  "timings": {
+    "createMs": null,
+    "upMs": null,
+    "seedMs": null,
+    "backupMs": 10000,
+    "verifyBackupMs": null,
+    "restoreMs": null,
+    "verifyMs": null,
+    "downMs": null,
+    "totalPhaseMs": 10000
+  },
+  "rpo": {
+    "measurement": "backup-age-at-restore-start",
+    "backupCreatedAtUtc": "2026-11-24T12:05:00.000Z",
+    "restoreStartedAtUtc": null,
+    "measuredSeconds": null,
+    "lastPushedEditAtUtc": null,
+    "trueRpoSeconds": null,
+    "targetSeconds": 300,
+    "withinTargetThisRun": null,
+    "targetAchievedClaim": false,
+    "note": "synthetic fixture; no RPO/RTO proof"
+  },
+  "rto": {
+    "measurement": "restore-start-to-drill-verification-pass",
+    "restoreStartedAtUtc": null,
+    "verificationFinishedAtUtc": null,
+    "measuredSeconds": null,
+    "targetSeconds": 3600,
+    "withinTargetThisRun": null,
+    "targetAchievedClaim": false,
+    "note": "synthetic fixture; no RPO/RTO proof"
+  },
+  "claims": {
+    "drillHarnessExecuted": true,
+    "backupManifestVerified": true,
+    "restoreIntoEmptyDrillCompleted": false,
+    "postRestoreHubApiVerified": false,
+    "postRestoreBlobSentinelVerified": false,
+    "integrityScanClean": false,
+    "destructiveFaultInjectionExercised": false,
+    "rpoTargetAchieved": false,
+    "rtoTargetAchieved": false,
+    "productionDisasterRecoveryProven": false,
+    "redisQueueRecoveryProven": false
+  },
+  "limitations": [
+    "synthetic fixture only"
+  ]
+}

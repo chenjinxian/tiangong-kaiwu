@@ -5,6 +5,129 @@ hash / 限流姿态 / web·hub 镜像标签，可选校验 release manifest（�
 字节），并可串联 `verify-stack.ps1`。发布记录仍写入 ADR 与
 `docs/RELEASE-backend-*.md`。
 
+## 0. Release profile 与必须输入（工业发布）
+
+开发栈 `docker-compose.yml` 仍是 quickstart/本地体验的权威，**不得作为工业
+发布配置**。发布使用独立的 `docker-compose.release.yml` + `deploy/release/
+release-profile.json`：镜像全部是必填 `RELEASE_*_IMAGE`，由 manifest digest
+解析；密钥全部是无默认值的 `RELEASE_*`；只有 nginx 发布宿主端口。release
+hygiene 的 `release` 模式要求该 profile 存在并把每个镜像对齐到 manifest。
+开发 compose 与 `quickstart.ps1`/`generate-env.ps1` 在 release 模式被明确
+排除（local/ci 仍以 waiver 审计），因此开发默认值既不会被误当发布输入，也
+不会让发布门被开发脚本永久卡红。
+
+### 0.1 必须输入（缺一即不得发布）
+
+| 输入 | 要求 | 记录/校验 |
+|---|---|---|
+| 发布 tag | 不可变、非 `latest`；与源 commit/产物 tag 一致 | manifest `tag` + `--expected-tag` |
+| 源码 commit | public/backend/hub 的可发布提交；三仓对齐 | manifest `sourceCommit` + `--expected-source-commit` |
+| 契约版本 | `LubanFeatureRpcInterface.interfaceVersion`，与 shared 源码、MS 产物、运行时 `/rpc/metadata` 一致 | manifest `contractVersion`；hygiene `contract.shipped`；`verify-runtime` |
+| 镜像 digest | 每个 release profile 镜像的 **registry 侧** `sha256`（不是本地 `docker inspect` 声明） | manifest `images[]`；`render-release-images.mjs` |
+| native provenance | 产物内 `native-provenance.json` 的实际文件 SHA-256；必须来自 pin 的 native 构建 | manifest `nativeProvenance`；`verify --require-native-provenance` / `verify-files` |
+| 产物 | MS tgz/deploy bundle 的实际文件 SHA-256 | manifest `artifacts[]`；`verify-files` |
+| SBOM | 每个发布镜像的 SBOM；记录 digest 并归档 | manifest `sbomDigest`（外部生成/签名） |
+| 签名/attestation | 镜像签名与 provenance attestation；密钥由 KMS/签名服务托管 | 外部发布记录；不得把私钥写入仓库 |
+| secrets | postgres/JWT/refresh/forgot/confirm/webhook/admin/hub API/storage key 等全部来自 secret store；不得复用开发 `.env` | release profile `requiredInputs`；compose `${RELEASE_*:?}` 启动前失败 |
+| SMTP / MS endpoint / origin / edge bind / 对象存储 endpoint+account | 显式输入；无 host.docker.internal/内部 Azurite 静默默认 | release profile `requiredInputs` |
+
+生成与校验顺序：
+
+```bash
+# 1) 用真实 registry digest/产物字节生成 manifest（禁止手写占位 digest）
+node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha> \
+  --contract-version <x.y.z> --image <name>=sha256:<digest> ... \
+  --artifact <release asset> --native-provenance <path> \
+  --native-provenance-sha256 <digest> --out release-manifest.json
+
+node scripts/release-manifest.mjs verify --file release-manifest.json \
+  --expected-source-commit <sha> --require-native-provenance
+# tag 对齐由 release-gate/hygiene 的 --expected-tag 负责（manifest verify 不接收该参数）
+node scripts/release-manifest.mjs verify-files --file release-manifest.json \
+  --root . --require-native-provenance
+
+# 2) 从 manifest 生成镜像 env（写入前会先做 profile/compose 预检；
+#    只想预检不写文件时用 --check）
+node scripts/render-release-images.mjs --manifest release-manifest.json \
+  --out deploy/release/release-images.env
+
+# 3) 提供运维 env（密钥等），渲染 compose（必须成功）
+docker compose -f docker-compose.release.yml \
+  --env-file deploy/release/release.env \
+  --env-file deploy/release/release-images.env config --quiet
+```
+
+- [ ] `release-manifest.json` 为真实输入生成，`verify`/`verify-files` 通过；
+      未创建真实清单前不得把“结构校验通过”写成发布就绪。
+- [ ] `render-release-images.mjs --check` 通过；每个镜像引用均为
+      `<name>@sha256:<64 hex>`，无 `latest`。
+- [ ] `docker compose ... config --quiet` 通过；`docker compose ... config`
+      中只有 nginx 有 published port。
+- [ ] `deploy/release/release.env` 由 secret store 注入；`RELEASE_ENV_FILE`
+      指向受控的运行时 env 文件，不是开发 `.env`。
+- [ ] SBOM/签名/attestation 的 digest 与签名身份已写入发布记录；镜像 OCI
+      revision label 与 `sourceCommit` 对账。
+- [ ] `powershell -File scripts/release-gate.ps1 -ManifestPath release-manifest.json
+      -VerifyManifestFiles -ExpectedSourceCommit <sha> -ExpectedTag <tag>`
+      通过（release gate 内含 release profile 镜像解析预检）；如需审计私有
+      构建脚本，另加 `-BackendRoot <luban-backend>`。
+
+### 0.2 人类决策（本仓不自动决定）
+
+- **registry 政策**：GHCR/Docker Hub/MCR 的可见性与保留策略、immutable tag
+  策略、匿名拉取、组织级权限与审计；`latest` 是否保留为移动别名（发布清单
+  仍必须使用 digest）。
+- **签名/KMS**：cosign keyless 还是 KMS/HSM 托管密钥；签名身份与审批人；
+  SBOM 生成器与签名格式；密钥轮换与吊销流程。
+- **secret store**：生产密钥托管、注入方式、轮换周期；Postgres/Redis/对象
+  存储/SMTP 使用托管服务还是随栈容器；TLS/证书与 edge 暴露面。
+- **modeling-server 形态**：当前仍是宿主进程（native/link: 依赖不能入
+  Linux 容器）。工业发布前需决定并实现可 pin 的 MS 发布产物（镜像或受控
+  宿主包），否则 `RELEASE_MS_UPSTREAM` 仍依赖宿主运维。
+- **回滚与灾备**：manifest/tag 保留窗口、数据库 PITR、对象存储恢复演练。
+
+### 0.3 私有仓待改（公开仓不修改私有构建脚本）
+
+- `luban-backend/scripts/build-ms-dist.ps1`：`npm install
+  --legacy-peer-deps` 改为锁文件 frozen 安装；`tsc --noCheck` 改为真实类型
+  门（或登记 release owner 例外）；移除默认 `D:\Github\...` 宿主路径与
+  `D:\Github\imodel-native`，改为必填参数；产物 provenance 拆分公开/私有，
+  公开产物不得含 `storePackagePath`/`imodelNativeHead` 等私有证据。
+- `luban-backend/scripts/build-images.ps1` / `publish.ps1`：发布构建不得以
+  `latest` 作为唯一可追溯引用；推送不可变 tag 并输出 registry digest；
+  生成 SBOM、签名与 attestation。
+- `luban-backend/.github/workflows/ci.yml`：发布相关安装使用
+  `--frozen-lockfile`，并让 public release hygiene 以 `-BackendRoot` 可审计。
+- 在私有仓完成前，public `check-release-hygiene.mjs --mode release
+  --backend-root <luban-backend>` 会把上述问题列为 FAIL；发布 owner 必须
+  修复或登记带 owner/expiry 的例外，不得静默放行。
+
+### 0.4 当前已知 release 债务（发布门仍会 FAIL）
+
+以下为本次接入后 `--mode release` 的诚实输出，未在本次 first slice 修复：
+
+- **契约 skew**：本机 `dist-backend` 的 `LubanFeatureRpcInterface` 为
+  `1.64.0`，公开源为 `1.85.0` → `contract.shipped` FAIL。必须用当前 shared
+  重建/重发 MS 产物，不得改清单掩盖。
+- **公开打包脚本**：`scripts/rebuild-web.ps1` 仍保留本地兼容
+  `tiangong-kaiwu-web:latest` 与 `latest` 发布提示；
+  `scripts/make-deploy-bundle.ps1` 生成的体验 README 仍写 4 个
+  `:latest`。release 模式把二者判 FAIL。发布路径本身走 release profile +
+  manifest digest，不依赖这些开发 bundle；后续要么改为不可变 tag/digest，
+  要么把它们明确归入 dev-only（需要单独评审，不能静默加 release waiver）。
+- **构建脚本宿主路径**：release 打包脚本已移除宿主盘符
+  （`fetch-backend.ps1`/`rebuild-web.ps1` 从 `ProgramFiles` 派生 Docker
+  PATH；`dedupe-artifact-deps.ps1` 默认值从脚本根派生）。`quickstart.ps1`
+  仍有 Docker Desktop 路径，但它是 dev-only，release 模式不审计。私有
+  `build-ms-dist.ps1` 仍硬编码 `D:\...`（见 0.3）。
+- **公开产物 provenance**：本机 `dist-backend` 的 native provenance 含
+  宿主路径与私有 native 证据；release 模式 FAIL。公开 Release 只能发布
+  脱敏 provenance，私有证据留在私有仓发布记录。
+- **无真实 release manifest**：必须由真实 registry digest 与产物字节生成，
+  不得手写占位 digest。
+- **CI 未推送/未跑绿**：本分支的 public CI 结果不能在本机冒充；推送后以
+  Actions 实际结果为准。
+
 ## 1. 源码与版本对齐
 
 - [ ] public / backend / hub 三仓工作区干净，main 已推送；发布用的 public 提交
@@ -96,6 +219,9 @@ hash / 限流姿态 / web·hub 镜像标签，可选校验 release manifest（�
 
 ## 6. 产物与发布
 
+- [ ] 第 0 节的 release profile 输入全部就位（manifest digest、source commit、
+      契约版本、native provenance、SBOM、签名、secret store env）；否则不得
+      进入本节。
 - [ ] 生成 release manifest 并做**实际文件字节**校验（J3.1g）：
       `node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha>
       --contract-version <shared interfaceVersion> --image <name>=<registry digest> ...
@@ -144,6 +270,14 @@ hash / 限流姿态 / web·hub 镜像标签，可选校验 release manifest（�
   `verify-files` 核对实际文件字节；`release-gate.ps1` 以
   `-ManifestPath`/`-VerifyManifestFiles` 可选接入。镜像 registry/label/SBOM/
   attestation 仍为外部发布职责。
+- **release profile**（J3.3 扩展）：`docker-compose.release.yml` +
+  `deploy/release/release-profile.json`；`scripts/render-release-images.mjs`
+  从 manifest 解析 `<name>@sha256`，并在 `--check` 时校验 profile/compose
+  策略（必填镜像变量、无默认密钥、仅 edge 端口、禁止本地 build、必填输入
+  登记）。`check-release-hygiene.mjs --mode release` 要求 profile 存在并
+  对齐 manifest；本地/CI 模式仍用 waiver 审计开发 compose。测试：
+  `scripts/test/check-release-hygiene.test.mjs`、
+  `scripts/test/release-images.test.mjs`。
 
 ```powershell
 # 快速检查（不跑 verify-stack；当前产物使用后备来源时显式放行）

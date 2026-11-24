@@ -1,0 +1,268 @@
+# ============================================================
+# 天工开物 release profile（工业发布路径）—— 不会被 `docker compose` 自动加载
+#
+# 开发栈仍是根 docker-compose.yml（浮 tag、well-known 开发密钥、基础设施回环
+# 发布）；本文件是 release 的替代配置，刻意不继承开发默认值：
+#   - 每个 image 都是必填的 RELEASE_*_IMAGE 变量，由
+#     scripts/render-release-images.mjs 从 release-manifest.json 解析为
+#     <name>@sha256:<digest>；compose 中不出现可静默回落到 :latest 的默认值。
+#   - 每个密钥都是必填的 RELEASE_* 变量（无默认值），开发 .env 无法满足；
+#     缺失时 compose 在启动前直接失败（${VAR:?message}）。
+#   - 只有 nginx（edge）发布宿主端口；postgres/redis/azurite/imodelhub/
+#     webhook-agent/bff/web 只在内部网络可达。
+#
+# 使用（发布 owner，见 docs/RELEASE-CHECKLIST.md）：
+#   node scripts/render-release-images.mjs \
+#     --manifest release-manifest.json \
+#     --out deploy/release/release-images.env
+#   docker compose -f docker-compose.release.yml \
+#     --env-file deploy/release/release.env \
+#     --env-file deploy/release/release-images.env config   # 必须能渲染
+#   docker compose -f docker-compose.release.yml \
+#     --env-file deploy/release/release.env \
+#     --env-file deploy/release/release-images.env up -d
+#
+# 必填输入由 deploy/release/release-profile.json 登记；镜像 digest 只能来自
+# release-manifest.json。不要在本文件或 .env 中写镜像 tag/digest。
+#
+# 边界说明：modeling-server 仍是宿主进程（native/link: 依赖不能入 Linux
+# 容器），所以 RELEASE_MS_UPSTREAM 必须显式提供，不再默认
+# host.docker.internal:5401。把 MS 变为可 pin 的发布产物是私有仓待办。
+# ============================================================
+name: tiangong-kaiwu-release
+
+services:
+  # ------------------------------------------------------------
+  # 基础设施（仅内部网络；生产托管服务替换列为发布人类决策）
+  # ------------------------------------------------------------
+  postgres:
+    image: "${RELEASE_POSTGRES_IMAGE:?set RELEASE_POSTGRES_IMAGE to postgres@sha256:<64 hex> via render-release-images.mjs}"
+    pull_policy: always
+    environment:
+      POSTGRES_USER: "${RELEASE_POSTGRES_USER:-luban}"
+      POSTGRES_PASSWORD: "${RELEASE_POSTGRES_PASSWORD:?set RELEASE_POSTGRES_PASSWORD from the release secret store}"
+      POSTGRES_DB: "${RELEASE_POSTGRES_DB:-luban}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RELEASE_POSTGRES_USER:-luban} -d ${RELEASE_POSTGRES_DB:-luban}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks: [stack]
+
+  redis:
+    image: "${RELEASE_REDIS_IMAGE:?set RELEASE_REDIS_IMAGE to redis@sha256:<64 hex> via render-release-images.mjs}"
+    pull_policy: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks: [stack]
+
+  azurite:
+    image: "${RELEASE_AZURITE_IMAGE:?set RELEASE_AZURITE_IMAGE to the pinned object-store image via render-release-images.mjs}"
+    pull_policy: always
+    command: azurite --location /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    environment:
+      AZURITE_ACCOUNT_NAME: "${RELEASE_AZURITE_ACCOUNT_NAME:?set RELEASE_AZURITE_ACCOUNT_NAME explicitly (devstoreaccount1 only for the internal emulator)}"
+      AZURITE_ACCOUNT_KEY: "${RELEASE_AZURITE_ACCOUNT_KEY:?set RELEASE_AZURITE_ACCOUNT_KEY from the release secret store}"
+      AZURITE_CORS_ALLOWED_ORIGINS: "${RELEASE_ALLOWED_ORIGINS:?set RELEASE_ALLOWED_ORIGINS to the release origin(s)}"
+      AZURITE_CORS_ALLOWED_METHODS: "GET,PUT,POST,DELETE,OPTIONS,HEAD"
+      AZURITE_CORS_ALLOWED_HEADERS: "*"
+      AZURITE_CORS_MAX_AGE_SECONDS: "86400"
+    volumes:
+      - azurite-data:/data
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "nc -z 127.0.0.1 10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # imodelhub（容器内 :4000，不发布宿主端口）
+  # ------------------------------------------------------------
+  imodelhub:
+    image: "${RELEASE_IMODELHUB_IMAGE:?set RELEASE_IMODELHUB_IMAGE to imodelhub-public@sha256:<64 hex> via render-release-images.mjs}"
+    pull_policy: always
+    environment:
+      NODE_ENV: production
+      THROTTLER_SHORT_LIMIT: "${RELEASE_THROTTLER_SHORT_LIMIT:-200}"
+      THROTTLER_LONG_LIMIT: "${RELEASE_THROTTLER_LONG_LIMIT:-2000}"
+      APP_PORT: "4000"
+      TRUST_PROXY: "${RELEASE_TRUST_PROXY:-1}"
+      ALLOWED_ORIGINS: "${RELEASE_ALLOWED_ORIGINS:?set RELEASE_ALLOWED_ORIGINS to the release origin(s)}"
+      TRACING_ENABLED: "false"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USERNAME: "${RELEASE_POSTGRES_USER:-luban}"
+      DATABASE_PASSWORD: "${RELEASE_POSTGRES_PASSWORD:?set RELEASE_POSTGRES_PASSWORD from the release secret store}"
+      DATABASE_NAME: "${RELEASE_POSTGRES_DB:-luban}"
+      REDIS_HOST: redis
+      MAIL_HOST: "${RELEASE_SMTP_HOST:?set RELEASE_SMTP_HOST to the release SMTP relay}"
+      MAIL_PORT: "${RELEASE_SMTP_PORT:?set RELEASE_SMTP_PORT to the release SMTP relay port}"
+      AZURE_BLOB_ENDPOINT: "${RELEASE_AZURE_BLOB_ENDPOINT:?set RELEASE_AZURE_BLOB_ENDPOINT explicitly (http://azurite:10000/devstoreaccount1 only for the internal emulator)}"
+      AZURITE_BLOB_ENDPOINT: "${RELEASE_AZURE_BLOB_ENDPOINT:?set RELEASE_AZURE_BLOB_ENDPOINT explicitly (http://azurite:10000/devstoreaccount1 only for the internal emulator)}"
+      AZURITE_ACCOUNT_NAME: "${RELEASE_AZURITE_ACCOUNT_NAME:?set RELEASE_AZURITE_ACCOUNT_NAME explicitly (devstoreaccount1 only for the internal emulator)}"
+      AZURITE_ACCOUNT_KEY: "${RELEASE_AZURITE_ACCOUNT_KEY:?set RELEASE_AZURITE_ACCOUNT_KEY from the release secret store}"
+      AZURE_ACCOUNT_NAME: "${RELEASE_AZURITE_ACCOUNT_NAME:?set RELEASE_AZURITE_ACCOUNT_NAME explicitly (devstoreaccount1 only for the internal emulator)}"
+      AZURE_ACCOUNT_KEY: "${RELEASE_AZURITE_ACCOUNT_KEY:?set RELEASE_AZURITE_ACCOUNT_KEY from the release secret store}"
+      AZURE_CONTAINER_NAME: "${RELEASE_AZURE_CONTAINER_NAME:-imodelhub}"
+      AGENT_API_KEY: "${RELEASE_HUB_API_KEY:?set RELEASE_HUB_API_KEY from the release secret store}"
+      INTERNAL_API_KEY: "${RELEASE_HUB_API_KEY:?set RELEASE_HUB_API_KEY from the release secret store}"
+      AUTH_JWT_SECRET: "${RELEASE_AUTH_JWT_SECRET:?set RELEASE_AUTH_JWT_SECRET from the release secret store}"
+      AUTH_REFRESH_SECRET: "${RELEASE_AUTH_REFRESH_SECRET:?set RELEASE_AUTH_REFRESH_SECRET from the release secret store}"
+      AUTH_FORGOT_SECRET: "${RELEASE_AUTH_FORGOT_SECRET:?set RELEASE_AUTH_FORGOT_SECRET from the release secret store}"
+      AUTH_CONFIRM_EMAIL_SECRET: "${RELEASE_AUTH_CONFIRM_EMAIL_SECRET:?set RELEASE_AUTH_CONFIRM_EMAIL_SECRET from the release secret store}"
+      AUTH_REFRESH_TOKEN_EXPIRES_IN: "${RELEASE_AUTH_REFRESH_EXPIRES_IN:-30d}"
+      WEBHOOK_SIGNING_SECRET: "${RELEASE_WEBHOOK_SECRET:?set RELEASE_WEBHOOK_SECRET from the release secret store}"
+      WEB_AGENT_URL: http://webhook-agent:4002
+      WEBHOOK_SEED_CALLBACK_URL: http://webhook-agent:4002/webhook/events
+      SEED_ADMIN_PASSWORD: "${RELEASE_ADMIN_PASSWORD:?set RELEASE_ADMIN_PASSWORD from the release secret store}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # webhook-agent（容器内 :4002，不发布宿主端口）
+  # ------------------------------------------------------------
+  webhook-agent:
+    image: "${RELEASE_WEBHOOK_AGENT_IMAGE:?set RELEASE_WEBHOOK_AGENT_IMAGE to luban-webhook-agent-public@sha256:<64 hex> via render-release-images.mjs}"
+    pull_policy: always
+    env_file:
+      - "${RELEASE_ENV_FILE:?set RELEASE_ENV_FILE to the release runtime env file supplied by the secret store}"
+    environment:
+      NODE_ENV: production
+      PORT: "4002"
+      IMODELHUB_URL: http://imodelhub:4000
+      MODELING_SERVER_URL: "http://${RELEASE_MS_UPSTREAM:?set RELEASE_MS_UPSTREAM to the modeling-server host:port}"
+      RECOVERY_CHECK_INTERVAL_MINUTES: "${RELEASE_RECOVERY_INTERVAL_MINUTES:-1}"
+      AZURITE_HOST: azurite:10000
+      IMODELHUB_API_KEY: "${RELEASE_HUB_API_KEY:?set RELEASE_HUB_API_KEY from the release secret store}"
+      WEBHOOK_SECRET: "${RELEASE_WEBHOOK_SECRET:?set RELEASE_WEBHOOK_SECRET from the release secret store}"
+      AZURITE_ACCOUNT_KEY: "${RELEASE_AZURITE_ACCOUNT_KEY:?set RELEASE_AZURITE_ACCOUNT_KEY from the release secret store}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      imodelhub:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # BFF（容器内 :5403，不发布宿主端口；/api 经 nginx -> BFF）
+  # ------------------------------------------------------------
+  bff:
+    image: "${RELEASE_BFF_IMAGE:?set RELEASE_BFF_IMAGE to luban-bff-public@sha256:<64 hex> via render-release-images.mjs}"
+    pull_policy: always
+    environment:
+      NODE_ENV: production
+      PORT: "5403"
+      MS_UPSTREAM: "http://${RELEASE_MS_UPSTREAM:?set RELEASE_MS_UPSTREAM to the modeling-server host:port}"
+      HUB_UPSTREAM: http://imodelhub:4000
+      ALLOWED_ORIGINS: "${RELEASE_ALLOWED_ORIGINS:?set RELEASE_ALLOWED_ORIGINS to the release origin(s)}"
+      RATE_LIMIT_MAX: "${RELEASE_BFF_RATE_LIMIT_MAX:-100}"
+      RATE_LIMIT_WINDOW_MS: "${RELEASE_BFF_RATE_LIMIT_WINDOW_MS:-900000}"
+      AUTH_TOKEN_CACHE_TTL_MS: "${RELEASE_BFF_AUTH_TOKEN_CACHE_TTL_MS:-0}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      imodelhub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5403/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # web（静态前端，容器内 :3000，不发布宿主端口）
+  # ------------------------------------------------------------
+  web:
+    image: "${RELEASE_WEB_IMAGE:?set RELEASE_WEB_IMAGE to luban-web-public@sha256:<64 hex> via render-release-images.mjs}"
+    pull_policy: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks: [stack]
+
+  # ------------------------------------------------------------
+  # nginx —— 唯一允许发布宿主端口的服务（edge）
+  # ------------------------------------------------------------
+  nginx:
+    image: "${RELEASE_NGINX_IMAGE:?set RELEASE_NGINX_IMAGE to nginx@sha256:<64 hex> via render-release-images.mjs}"
+    pull_policy: always
+    ports:
+      - "${RELEASE_EDGE_BIND:-127.0.0.1}:${RELEASE_EDGE_PORT:-5301}:80"
+    environment:
+      MS_UPSTREAM: "${RELEASE_MS_UPSTREAM:?set RELEASE_MS_UPSTREAM to the modeling-server host:port}"
+      BFF_UPSTREAM: bff:5403
+      HUB_UPSTREAM: imodelhub:4000
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      web:
+        condition: service_healthy
+      imodelhub:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
+      bff:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks: [stack]
+
+volumes:
+  pgdata:
+  redis-data:
+  azurite-data:
+
+networks:
+  stack:
+    driver: bridge

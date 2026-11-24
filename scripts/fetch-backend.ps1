@@ -208,8 +208,10 @@ if ($LocalArtifact) {
   $tgz = Save-ReleaseAsset -Asset $asset -Dest $dest
 
   Write-Host "==> 拉取 GHCR 镜像（compose pull；公开镜像，无需 docker login）..."
-  # Docker Desktop 安装后需重启终端才入 PATH；脚本内显式补 PATH 防呆
-  $env:PATH = "C:\Program Files\Docker\Docker\resources\bin;$env:PATH"
+  # Docker Desktop 安装后需重启终端才入 PATH；脚本内显式补 PATH 防呆。
+  # 从 ProgramFiles 派生，不硬编码宿主盘符；未安装时保持原 PATH。
+  $dockerBin = if ($env:ProgramFiles) { Join-Path $env:ProgramFiles 'Docker\Docker\resources\bin' } else { $null }
+  if ($dockerBin -and (Test-Path $dockerBin)) { $env:PATH = "$dockerBin;$env:PATH" }
   Push-Location $RepoRoot
   try {
     docker compose pull

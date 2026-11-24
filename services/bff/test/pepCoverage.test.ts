@@ -23,9 +23,9 @@ function entry(name: string) {
   return found;
 }
 
-describe('B3.1a BFF PEP coverage manifest', () => {
-  it('is version 1, validated and uses the closed status set', () => {
-    expect(BFF_PEP_COVERAGE_VERSION).toBe(1);
+describe('B3.1a/B3.1f-a BFF PEP coverage manifest', () => {
+  it('is version 2, validated and uses the closed status set', () => {
+    expect(BFF_PEP_COVERAGE_VERSION).toBe(2);
     expect(validateBffPepCoverage()).toEqual([]);
     for (const coverage of BFF_PEP_COVERAGE) {
       expect(BFF_PEP_STATUSES).toContain(coverage.status);

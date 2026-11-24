@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "kind": "tiangong-kaiwu-baseline-backup",
+  "tool": "scripts/backup-stack.ps1",
+  "backupId": "backup-20261124-120000",
+  "createdAtUtc": "2026-11-24T12:00:00.000Z",
+  "source": {
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "branch": "drill",
+    "describe": "drill-fixture",
+    "dirtyTracked": false
+  },
+  "stack": {
+    "composeProject": "tiangong-kaiwu-drill",
+    "composeFile": "docker-compose.yml",
+    "postgresContainer": "tiangong-kaiwu-drill-postgres-1",
+    "azuriteContainer": "tiangong-kaiwu-drill-azurite-1",
+    "azuriteVolume": "tiangong-kaiwu-drill-azurite-data",
+    "database": "api",
+    "databaseUser": "drill"
+  },
+  "artifacts": [
+    {
+      "path": "postgres.dump",
+      "bytes": 24,
+      "sha256": "1d8f634255672e1e4eef57530d768355013589ab7197bd86864ed3008114ed19",
+      "description": "synthetic pg_dump fixture"
+    },
+    {
+      "path": "azurite-data.tar.gz",
+      "bytes": 25,
+      "sha256": "700932249d6ba07f0488873296f864a1572105cacd9a93ce5106d7843801e737",
+      "description": "synthetic Azurite volume fixture"
+    }
+  ],
+  "consistency": {
+    "mode": "quiesced",
+    "note": "synthetic fixture; no real backup was taken"
+  },
+  "restoreOrder": [
+    "postgres.dump",
+    "azurite-data.tar.gz"
+  ],
+  "limitations": [
+    "synthetic test fixture only"
+  ]
+}
