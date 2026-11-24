@@ -171,7 +171,7 @@ guard/controller、不跑真栈**：
 - **边界**：不是 ACL 强制，不声称任何入口已受 per-doc ACL 保护；B3.1b–g、B6/X-21、B10、
   storage/tile 例外仍 open；G1 Gate 不勾选。
 
-## 11. B3.1b Hub resolver 对等（2026-11-24，工作树未提交）
+## 11. B3.1b Hub resolver 对等（2026-11-24，已本地提交）
 
 `AIRR-2026-11-24-B3-HUB-RESOLVER-ALIGN.md` 把 Hub 的 effective-permission 解析收口到单一
 `AuthorizationService`，**不改路由守卫/控制器行为，不新增拒绝路径，不跑 live DB**：
@@ -200,7 +200,7 @@ guard/controller、不跑真栈**：
   progress/retry 未覆盖；share deny 未作用于 iTwin 级管理路由；显式 deny 表/link share/
   IMS/嵌套组/tenant 未做。B3/X-21 仍 open，G1 Gate 不勾选。
 
-## 12. B3.1c MS 读强制（2026-11-24，工作树未提交，默认 off）
+## 12. B3.1c MS 读强制（2026-11-24，已本地提交，默认 off）
 
 `AIRR-2026-11-24-B3.1c-MS-READ-ENFORCE.md` 落地**首个行为变化的强制切片**，复用既有
 OBO shadow 传输与 Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/WA/BFF**：
@@ -226,13 +226,14 @@ OBO shadow 传输与 Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shar
   新文件 eslint 0 error（触及文件仅剩既有弃用基线）。**隔离 Hub+MS gate/OBO canary 通过**：
   真实 admin/View-share/outsider、unsecured/secured、rw/read-only、version/feature、真实
   delegation/OBO/decision、真实 `LubanIpcHandler.downloadBriefcase` 拒绝路径；Hub 日志
-  agent key/admin password/x-service-token 命中 0。**未跑 native briefcase 下载/打开/读树**，
-  不宣称完整读链路真栈通过；同 session 在 isSecured 后受 30s 读决策缓存影响（fresh session
+  agent key/admin password/x-service-token 命中 0。**读强制+native 组合未验证**；B3.1d native
+  canary 在 read off 下已证明 native 下载/打开与 FeatureOp 读回，但不得宣称完整读链路真栈通过；
+  同 session 在 isSecured 后受 30s 读决策缓存影响（fresh session
   立即 deny）；handle 15m 到期后 enforce 读为 503，WS ticket/续期属 P2 前置；
   B6/X-21/B4/B10/B7 未关闭；B3.1d 写强制已在本轮后续切片实现（默认 off，见 §13），Hub 路由级
   强制仍 future。G1 Gate 不勾选。
 
-## 13. B3.1d MS 写强制（2026-11-24，d1–d4 实现，默认 off，工作树未提交）
+## 13. B3.1d MS 写强制（2026-11-24，d1–d5 实现，默认 off，已本地提交）
 
 `AIRR-2026-11-24-B3.1d-MS-WRITE-ENFORCE.md` 落地写强制实现，复用既有 OBO shadow 传输与
 Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/BFF/WA/worker**：
@@ -262,7 +263,33 @@ Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/
   `AppFunctionIpcHandler.ts` 上游 save/abandon 弃用为既有基线）。**隔离 Hub+MS 写 gate/OBO
   canary 通过**：真实 admin/View-share/outsider、secured fresh session、push 双动作、真实
   `saveChanges` 拒绝、真实直改 hook 拒绝；Hub 日志 key/admin password/x-service-token 命中 0。
-  **未跑 native briefcase save/push、FeatureOp 几何写、直改 native 变更**；exchange/decision
-  计数、p95、撤销窗口、Hub audit 未观测，native 写一律 unproven。B4 Write（Manage-only）、
-  handle 15m/16 uses、push 服务账号（B6/X-21）、直改保存边界、读路径 init 写均未关闭；
-  B3/X-21 open，G1 Gate 不勾选。
+  **隔离 Hub+MS native 写 canary 通过**（`AUTH_B3_READ_MODE=off`）：真实 CloudSqlite
+  baseline 经 Hub 注册 → native briefcase 下载/打开；FeatureOp 10×10×5 产生体积 **500**
+  的 ACIS 实体；save/push 生成 Hub changeset **2**（1=partstudio init）；native 直改 mirror
+  体积 **1000** 并 push changeset **3**；第二次 briefcase 下载在 changeset 3 成功打开；
+  outsider 的 FeatureOp/save/直改均在 native 变更前 `AuthorizationDenied`；Hub changesets
+  1/2/3 均 `fileUploaded`（8256/2734/3267B），日志 key/admin password/service-token 命中 0。
+  **未证明**：读强制+native 写组合、exchange/decision 计数、p95、撤销窗口、直改 `endEdits`
+  保存点二次授权、push 用户归因。B4 Write（Manage-only）、handle 15m/16 uses、push 服务
+  账号（B6/X-21）、直改保存边界、读路径 init 写均未关闭；B3/X-21 open，G1 Gate 不勾选。
+
+## 14. B3.1e Hub 内容路由强制（2026-11-24，默认 off，工作树未提交）
+
+`AIRR-2026-11-24-B3.1e-HUB-ROUTE-ENFORCE.md` 启用既有 `AUTHZ_ENFORCE` 的
+`read|write`，在 Hub 内容路由上把共享 key 从授权旁路降为传输因子：
+
+- **模式**：`off`（默认）保持 legacy；`read` 对带 `@RequirePermission` 的 GET/HEAD
+  内容路由执行用户 RBAC；`write` 覆盖全部方法；`full` 仍启动失败。
+- **行为**：有效 `X-API-Key` + 用户 JWT 在 enforce 下继续走既有 RBAC；仅 key 无用户
+  401 `Legacy service key is not an authorization channel`；签名 service principal 仍只按
+  data-plane scope 判定；无 `@RequirePermission` 的 46 条 B3.1a 例外保持 legacy（X-27）。
+- **门禁**：B3.1a 的路由元数据测试升级为“有元数据且挂载 ACL guard”，并保留
+  “新路由未分类即失败”的门禁；不新增 controller，不改路由。
+- **证据**：全量 **172 suites / 1570 tests passed**（新增 10 个 guard/门禁用例）；tsc/eslint
+  绿。**隔离 Hub canary**：`off` 下 outsider + key 的 GET 为 200（旁路存在）；
+  `read` 下同一请求 403、admin 200、POST 仍 legacy（422 校验）；`write` 下 POST 也 403、
+  admin 422；Hub 日志 key/admin password/service-token 命中 0，`content_route_enforced=4`。
+- **边界**：46 条例外、access-control 子资源 IDOR、iTwin favorites/recents、files、
+  baseline failed/requeue、`/imodels/admin/*`、storage/tile、BFF/MS/WA 均未改；服务
+  scope 仍是服务级、不绑定单 iModel；不得宣称 Hub 数据面 PEP 完整。B3/X-21/X-27 open，
+  G1 Gate 不勾选。

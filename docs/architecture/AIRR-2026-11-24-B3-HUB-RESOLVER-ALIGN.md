@@ -6,7 +6,7 @@
 - 关联需求：`B3-ENTRY-PEP-AUDIT-2026-11-24.md` §4 B3.1b；`IDENTITY-ACL-DESIGN.md` §4.1–4.5
 - 预计影响仓：Hub（`imodelhub-services`）与公共文档；**不改** shared/editor/viewer/web、modeling-server、webhook-agent、checkpoint-worker
 - 是否需要 ADR：否（复用既有 `AuthorizationService`/`Permission`/`imodel_user_permissions`；新增字段与动作均为 additive，未引入新令牌/渲染/native 契约；ACL schema 增量已在 `IDENTITY-ACL-DESIGN.md` §6.4 登记）
-- 状态：**实现完成，未 commit/push**；B3/X-21 仍 open，不勾任何 Gate
+- 状态：**实现完成，已本地提交（未 push）**；B3/X-21 仍 open，不勾任何 Gate
 
 ---
 
@@ -262,7 +262,7 @@ B3.1c–g 评估。
 - 数据回滚：两个 down 均 fail-closed（组 roleIds 非空 / 新动作 token 存在时
   拒绝）；按 §5.6 runbook 清理后再回滚。
 - 兼容窗口：旧 OBO scope 继续合法；新动作只在迁移后签发。
-- 发布门：本切片未发布、未 commit/push；未来发布必须先跑完整 Hub unit +
+- 发布门：本切片已本地提交、未发布/未 push；未来发布必须先跑完整 Hub unit +
   隔离 relational e2e，并由 release owner 执行。
 - 产物/镜像 provenance：本切片未构建/发布镜像。
 
