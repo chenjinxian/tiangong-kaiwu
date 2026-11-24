@@ -130,10 +130,10 @@ J1 ── J2/J3 ── J4
 |---|---|---|
 | D3 clone/fork | Duplicate/Fork with history 双语义；mid-history checkpoint 不 FK 失败 | clone 内容正确；History 语义可验证 |
 | D4 checkpoint worker | 每 N（100–500）/Version 异步生成；manifest/readback/per-iModel 串行 | 200/1000 changeset 冷开基线 |
-| D5 version open | openCheckpoint/version 参数；按 changesetId/versionId 只读打开 | 版本几何/树正确，head 不变 |
+| D5 version open | openCheckpoint/version 参数；按 changesetId/versionId 只读打开 | 版本几何/树正确，head 不变。**2026-11-24 部分落地**：`LubanIpcInterface` 1.1.0 additive `downloadVersionBriefcase`（changesetId/index/NamedVersion）；baseline/index/NV 只读打开、几何/树、head 字节不变、写 403 已隔离 canary 验证；X-25 仍 open（native loader dev-build 路径、B3 ACL、200/1000 性能） |
 | B5 token 全生命周期 | URL/console/log 零 token；登出/撤权/改密即时生效 | 旧 token/旧 WS 下一次请求 403。**2026-11-23 部分落地（B5a）**：MS/BFF 默认拒绝 `?token=`，MS 401/429/安全/RPC 日志只记 method+pathname；登出/撤权/改密与旧 WS 关闭仍阻塞于 Hub B1.2 |
 | B6 secrets/KMS | 移除 well-known 密钥；DB/对象存储 TLS；按服务拆权 | 扫描无泄露；轮换演练 |
-| B7 审计 v1 | append-only/WORM/hash chain；高风险操作阻断 | 按 user/doc/time 可查；篡改可检测 |
+| B7 审计 v1 | append-only/WORM/hash chain；高风险操作阻断 | 按 user/doc/time 可查；篡改可检测。**2026-11-24 部分落地**：audit_events seq/prevHash/entryHash、事务串行追加、DB UPDATE/DELETE/TRUNCATE 拒绝、service-only 查询与链校验；高风险操作审计/阻断、offsite WORM/retention/legal hold、B6/B10 仍延期（X-26） |
 | C5 外部 lease/fencing | 写租约外置；session router/tie-break | 双实例不双写 |
 | C6 路径/所有权 | openBriefcase 白名单/规范化；close/save/undo owner | 越权路径/key 403 |
 | E1/E2 DR 基线 | Postgres PITR + 对象存储版本化/跨区 | 恢复演练通过；RPO/RTO 记录 |
