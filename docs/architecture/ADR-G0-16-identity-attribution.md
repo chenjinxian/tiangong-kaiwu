@@ -5,7 +5,7 @@
 - 关联：`G0-DECISION-REGISTER.md` D0-16、`G1-EXECUTION-PLAN.md` WS-B、`IDENTITY-ACL-DESIGN.md`、`AIRR-2026-11-23-B5-TOKEN-TRANSPORT.md`
 - 影响面：Hub 数据面、modeling-server（MS）、webhook-agent（WA）、storage/tile、审计与账本归因
 
-> 本 ADR 只记录决策方向与迁移约束，**不表示已实现**。当前已落地的切片：B5a“查询串 token 默认拒绝 + 日志脱敏”；B1.2a“Hub access token 绑定 session 并在 logout/轮换/改密/重置/停用后下一请求 401”；B1.2b“MS WS 周期 session-status 复验/关闭”（unit + Hub 隔离 relational e2e 绿，MS WS 真栈待部署）。OBO、service token 与真实归因仍未实现。签字状态以 `G0-DECISION-REGISTER.md` 为准。
+> 本 ADR 只记录决策方向与迁移约束，**不表示已实现**。当前已落地的切片：B5a“查询串 token 默认拒绝 + 日志脱敏”；B1.2a“Hub access token 绑定 session 并在 logout/轮换/改密/重置/停用后下一请求 401”；B1.2b“MS WS 周期 session-status 复验/关闭”（unit + Hub 隔离 relational e2e 绿，MS WS 真栈待部署）；B6 P0“Hub service client credentials 签发/校验 + 选定内部端点双模服务鉴权”（附录 A）；B6 P1/P2 已 code-only 迁移 checkpoint-worker 内部 agent 路由与 MS session-status/OBO 内部调用（MS/WA/worker **数据面**、用户数据面强制与共享 key 退役仍未实现）。OBO shadow 与真实归因仍未全量实现。签字状态以 `G0-DECISION-REGISTER.md` 为准。
 
 ---
 
@@ -94,3 +94,38 @@
 - **B1.2c（BFF/MS 缓存）**：正 token 缓存默认 `AUTH_TOKEN_CACHE_TTL_MS=0`，新 WS 升级/HTTP RPC/BFF `/api` 每请求回源；仅显式 >0 才缓存且只缓存成功结果，负结果永不缓存。既有 WS socket 仍是 30s 周期复验（X-20），不宣称“下一请求”。
 - OBO 令牌格式（不透明 vs RS256/JWKS）、TTL/续期、groups/shares/link 执行或删除、storage PEP 档位等待签字决策。
 - 在 ARB 签字前，不得把本 ADR 作为“已接受”引用；实施状态以各 AIRR/证据为准。
+
+---
+
+## 7. 附录 A（2026-11-24，Proposed）：B6 service client credentials（P0 Hub / P1 worker / P2 MS）
+
+> 本附录只记录已实现切片的选择与边界，**不表示 B6 完成**。证据见
+> `AIRR-2026-11-23-B6-SERVICE-IDENTITY-P0.md`。
+
+### 7.1 选择
+
+1. **凭据形态**：注册服务客户端持有不透明随机 secret；Hub 只存 salted scrypt 编码（`scrypt$v1$N$r$p$salt$hash`），比较使用 `timingSafeEqual`。P0 不引入 RS256/JWKS、外部 IdP 或 mTLS。
+2. **令牌**：client credentials 换取 **300–900s（默认 600s）Hub 签名 HS256 JWT**，claims 为 `typ=service`、`ver=1`、`iss`、`aud`、`sub=service:<name>`、`scopes`、`jti`、`secretVersion`、`iat/exp`。无 refresh token、无 session 行、无服务端 token 行。
+3. **撤销**：禁用客户端、轮换 secret（`secretVersion+1`）或自然过期；P0 不做全局撤销列表/一次性 `jti` 表。
+4. **scope allowlist**：`authz.decide`、`auth.delegation`、`auth.obo`、`audit.read`、`checkpoint.agent`、`session.status`（P2 additive）；**无用户数据 scope**，service token 不得访问用户数据 API。
+5. **传输**：`Authorization` 未被占用的内部路由（audit/checkpoint agent/session-status）接受 Bearer 或 `X-Service-Token`；`Authorization` 已承载 OBO/delegation/user token 的 authz/delegation 路由只接受 `X-Service-Token`，避免两种凭据互相覆盖。
+6. **身份权威**：校验成功后服务名只取签名 `sub`；`X-Service-Name` 仅在显式 legacy 分支使用，且不再作为 service token 的身份来源。
+7. **双模/回滚**：`AUTH_SERVICE_CLIENTS_ENABLED=off|shadow`（P0 不接受 `on`；默认 off）。`shadow` 下 legacy `X-API-Key` 仅当 `AUTH_SERVICE_LEGACY_API_KEY=allow` 时接受；默认 deny。出现但无效的 service token 绝不回退到共享 key。
+8. **注册面**：无公共创建端点；运维 CLI 从 stdin/env 读取 secret，输出不含 secret/hash。
+9. **调用方迁移（P1/P2，code-only）**：checkpoint-worker 内部 agent 路由与 MS 的 session-status + OBO shadow 内部调用使用 `X-Service-Token`；MS 由进程内 provider 缓存 token 至 `exp-skew`、并发合并、401/403 清除且**无 legacy 回落**。MS 数据面（官方 IModelsClient + 服务账号 JWT + `X-API-Key`）与 WA 未迁移，service token 不进入数据面。
+
+### 7.2 为什么暂不选 RS256/JWKS
+
+P0 的目标是内部服务身份的可撤销签发/校验，不是对外 OAuth 授权服务器。HS256 复用 Hub 现有签名密钥与 `@nestjs/jwt`，无需新增密钥分发/缓存/轮换基础设施；代价是无法让第三方离线验签、签名密钥轮换会同时影响用户 token。RS256/JWKS、KMS、双密钥 `kid` 轮换仍属 B6 后续，需要新的 ADR/密钥管理设计。
+
+### 7.3 与 OIDC client_credentials 的区别
+
+仓内 `/oauth/token` 的 OIDC client_credentials 是静态配置的 OAuth/OIDC 流程（面向浏览器/API 产品），不是本附录的 Hub 内部服务身份注册表。两者不得混用：OIDC client 不自动获得 `service_clients` scope，service token 也不进入用户/OIDC 授权路径。
+
+### 7.4 未决/延期
+
+- WA 与 MS/WA/worker **数据面**迁移、共享 `AGENT_API_KEY` 退役（X-21）；MS/worker 内部调用面的真栈 canary。
+- 用户数据面拒绝 service/API-key 主体；人类 admin 服务账号移除。
+- baseline 等剩余内部路由接入（`session-status` 已接入）。
+- token 撤销列表、审计表写入、服务客户端级限流、KMS/双密钥、RS256/JWKS。
+- 本附录与 ADR 其余部分一样：ARB 签字前不得作为“已接受”引用。

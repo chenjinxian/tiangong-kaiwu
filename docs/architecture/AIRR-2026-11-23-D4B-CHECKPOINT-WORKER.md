@@ -8,6 +8,11 @@
 - 是否需要 ADR：**需要但本切片不产生新 ADR**。D4/D3 的账本、checkpoint 绑定与 clone/fork 语义归 `ADR-G0-04`（Proposed，未签字）。本切片新增的凭据/接口边界缺口登记为 X-23/X-24，退出条件与 ADR 同步复核。
 - 状态：**Proposed under owner directive（2026-11-23）**。无 ARB 签字，不构成 G1 Gate 通过证据；`CHECKPOINT_GENERATION_ENABLED` 默认值不变（仍为 OFF）。2026-11-23 后续切片：worker 已切换到 Hub claim 元数据/chain evidence/storage-token 契约（X-23/X-24 code exit，见 §7.4）；native/真栈/真实 checkpoint 仍未验证。同日隔离 native canary 后续修复：容器探测改为受限 List Blobs + 真实 `manifest.bcv` HEAD（兼容 Azurite），补齐 BullMQ 必需 `ioredis` 依赖并增加队列接线/探针单测（见 §7.5）；shim-free canary 又暴露 BullMQ 锁在事件循环阻塞期间过期，已增加可配置的有界锁窗口（默认 30 min）并记录残留风险（见 §7.6）。X-23/X-24 仍 open，未勾选任何 G1 Gate。
 
+> **2026-11-24 B6 P1 supersession**：worker 内部 Hub 路由鉴权已切换到 Hub client_credentials 签发的
+> `X-Service-Token`；共享 `X-API-Key` 仅在显式 legacy 模式保留。本文以下关于
+> `X-API-Key` 的表格/测试矩阵文字是早期 D4b 切片记录，当前契约以 B6 AIRR §5.1/§7.5
+> 和 worker README 为准。
+
 ---
 
 ## 1. 目标与验收
