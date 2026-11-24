@@ -319,8 +319,10 @@ Hub `POST /internal/v1/authz/decisions`，**不改 Hub/shared/web/Viewer/editor/
   `latest`、宿主路径、默认密钥和缺 manifest 失败（预期），发布未执行。
 - **G2 预冻结**：新增 G2 计划 + 6 个 Not run Spike + 4 份 ADR（Manifest、输出/拓扑/选择、
   typed tab、session/command/undo）；G1 未通过前不冻结、不铺特征。
-- **B2.2/B6 P4b/B4**：仅完成 AIRR/ADR 设计包，未实现；真实归因、共享 key 退役、
-  Write/Share/Link 仍需 owner 决策与实现。
+- **B2.2/B6 P4b/B4**：截至该波仅完成 AIRR/ADR 设计包；后续第四波已落地 B2.2
+  两半默认 off 切片（MS 仅 changeset OBO；Hub actor/审计/守卫；无真栈 canary，
+  Hub enforce 仍阻塞 B6 P4b），见 `INDUSTRIAL-READINESS-PROGRAM-2026-11-24.md`
+  §6.4。共享 key 退役、真实归因、Write/Share/Link 仍需 owner 决策与实现。
 - **Gate**：上述均为工作树或隔离证据，G0 仍 NO-GO，G1 Gate 仍 0/15；不勾选任何项。
 
 ## 16. 2026-11-24 第三波：Gate 证据与写语义（工作树未提交）

@@ -28,8 +28,11 @@ hygiene 的 `release` 模式要求该 profile 存在并把每个镜像对齐到 
 | 产物 | MS tgz/deploy bundle 的实际文件 SHA-256 | manifest `artifacts[]`；`verify-files` |
 | SBOM | 每个发布镜像的 SBOM；记录 digest 并归档 | manifest `sbomDigest`（外部生成/签名） |
 | 签名/attestation | 镜像签名与 provenance attestation；密钥由 KMS/签名服务托管 | 外部发布记录；不得把私钥写入仓库 |
-| secrets | postgres/JWT/refresh/forgot/confirm/webhook/admin/hub API/storage key 等全部来自 secret store；不得复用开发 `.env` | release profile `requiredInputs`；compose `${RELEASE_*:?}` 启动前失败 |
+| secrets | postgres/JWT/refresh/forgot/confirm/webhook/admin/hub API/storage key、signed tile 密钥等全部来自 secret store；不得复用开发 `.env` | release profile `requiredInputs`；compose `${RELEASE_*:?}` 启动前失败 |
 | SMTP / MS endpoint / origin / edge bind / 对象存储 endpoint+account | 显式输入；无 host.docker.internal/内部 Azurite 静默默认 | release profile `requiredInputs` |
+| TLS 证书/私钥/规范域名 | `RELEASE_DOMAIN`、`RELEASE_TLS_CERT_FILE`（完整链 PEM）、`RELEASE_TLS_KEY_FILE`（无口令 PEM）显式提供；仓库内不得出现任何 PEM | release profile `requiredInputs`；compose 只读挂载；`docs/operations/RELEASE-EDGE.md` |
+| signed tile 密钥 | `RELEASE_TILE_SIGNING_SECRET`（32–128 位 `[A-Za-z0-9_-]`）来自 secret store；与 tile URL 签名方同源轮换 | release profile `requiredInputs`；`docs/operations/RELEASE-EDGE.md` §4 |
+| edge 暴露面 | `RELEASE_EDGE_BIND` 默认仅回环；对外发布必须显式设置并完成防火墙/WAF/限流评审 | compose 端口默认值；发布记录 |
 
 生成与校验顺序：
 
@@ -81,6 +84,15 @@ docker compose -f docker-compose.release.yml \
   SBOM 生成器与签名格式；密钥轮换与吊销流程。
 - **secret store**：生产密钥托管、注入方式、轮换周期；Postgres/Redis/对象
   存储/SMTP 使用托管服务还是随栈容器；TLS/证书与 edge 暴露面。
+- **TLS/域名/证书**：CA 选择、证书链与私钥托管、续期/轮换、OCSP/CRL；
+  `RELEASE_DOMAIN` 与证书 SAN 对齐；`RELEASE_ALLOWED_ORIGINS` 使用
+  `https://<domain>`。不得用自签名证书发布。
+- **HSTS/preload 与公开绑定**：是否加入 HSTS preload（默认不加）、哪些
+  子域支持 HTTPS、`RELEASE_EDGE_BIND` 是否对外（默认仅回环）、外部 LB/WAF/
+  DDoS/限流是否前置（edge 本身未内置 `limit_req`）。
+- **tile 签名方**：由私有 modeling-server/BFF 生成 `edge_exp`/`edge_sig`
+  并轮换 `RELEASE_TILE_SIGNING_SECRET`；在签名方接入前 release tile 读取
+  fail-closed。替代方案（mTLS/JWT 认证网关）由发布 owner 决策。
 - **modeling-server 形态**：当前仍是宿主进程（native/link: 依赖不能入
   Linux 容器）。工业发布前需决定并实现可 pin 的 MS 发布产物（镜像或受控
   宿主包），否则 `RELEASE_MS_UPSTREAM` 仍依赖宿主运维。
@@ -127,6 +139,38 @@ docker compose -f docker-compose.release.yml \
   不得手写占位 digest。
 - **CI 未推送/未跑绿**：本分支的 public CI 结果不能在本机冒充；推送后以
   Actions 实际结果为准。
+
+### 0.5 Release edge（TLS/安全头/存储门禁）
+
+操作真源：`docs/operations/RELEASE-EDGE.md`。配置：
+`deploy/release/nginx.conf` + `deploy/release/nginx-tls.conf.template`；
+静态门禁：`node --test scripts/test/release-edge.test.mjs`。
+
+- [ ] `RELEASE_DOMAIN`、`RELEASE_TLS_CERT_FILE`、`RELEASE_TLS_KEY_FILE`、
+      `RELEASE_TILE_SIGNING_SECRET` 由 secret store/证书管理系统提供；仓库与
+      镜像内无任何 PEM/私钥；证书链完整（含中间证书），私钥无口令且权限受限。
+- [ ] `docker compose ... config --quiet` 渲染成功；`config` 中 **只有
+      nginx** 有 published port；HTTP `:80` 仅 308 跳到
+      `https://<RELEASE_DOMAIN>`，业务只在 `:443`。
+- [ ] 用真实证书执行 `nginx -t` 通过；镜像内置
+      `/etc/nginx/conf.d/default.conf` 未被 include（无额外明文站点）。
+- [ ] 实测响应头：HSTS、CSP、X-Frame-Options `DENY`、Referrer-Policy、
+      `X-Content-Type-Options: nosniff`、`Permissions-Policy`；认证/API/存储面
+      与 `.html`/`.json` 为 `Cache-Control: no-store`；SPA/静态缓存头已实测；
+      `X-Request-ID` 透传上游并在响应回显。
+- [ ] `/azurite` 非匿名：未签名 tile `403`、过期 `410`、非 tile 存储路径
+      `404`、`/tiles|/storage|/blob` `404`；有效 `edge_exp`/`edge_sig` 才可
+      代理到内部存储。
+- [ ] tile 签名方已接入：私有 modeling-server/BFF 对规范化路径生成
+      `edge_sig`，TTL 短且密钥可轮换；若尚未接入，发布记录必须明确写
+      “release tile 读取 fail-closed”，不得恢复匿名 `/azurite` 直通。
+- [ ] WA baseline/debug 残余已复核并写入发布记录：release compose 固定
+      `BASELINE_TRIGGER_AUTH=service`、WA 无宿主端口；signed service
+      identity 与 job binding 仍在私有仓 backlog（见 RELEASE-EDGE.md §5）。
+- [ ] 开发栈回归：`docker-compose.yml` 未引入证书/TLS 输入，`quickstart`
+      仍走 HTTP `:5301`；dev 的匿名 `/azurite` 回环代理保持不变。
+- [ ] edge 暴露面决策已记录：`RELEASE_EDGE_BIND`（默认 `127.0.0.1`）、
+      外部 LB/WAF/限流、HSTS preload（默认不加）。
 
 ## 1. 源码与版本对齐
 
@@ -278,6 +322,13 @@ docker compose -f docker-compose.release.yml \
   对齐 manifest；本地/CI 模式仍用 waiver 审计开发 compose。测试：
   `scripts/test/check-release-hygiene.test.mjs`、
   `scripts/test/release-images.test.mjs`。
+- **release edge**（TLS/存储门禁）：`deploy/release/nginx.conf` +
+  `deploy/release/nginx-tls.conf.template`，由
+  `scripts/test/release-edge.test.mjs` 静态验证必填证书/私钥/域名/tile 密钥、
+  仅 edge 端口、HSTS/CSP/XFO/Referrer-Policy/no-store、request-id 透传、
+  `/azurite` 非匿名及 dev compose 无证书回归。说明见
+  `docs/operations/RELEASE-EDGE.md`。真实证书、`nginx -t` 与运行时
+  308/403/410/404 探针仍由发布环境执行。
 
 ```powershell
 # 快速检查（不跑 verify-stack；当前产物使用后备来源时显式放行）
@@ -292,4 +343,6 @@ powershell -File scripts/release-gate.ps1 -ExpectedSha256 <release-asset-sha256>
 
 > 诚实状态：本清单是操作真源，不代表当前分支已满足。G1 分支的 public CI 尚未
 > 运行、真栈 `verify-stack` 未复跑（审计基线 15/17，且存在陈旧 hub/web 镜像与
-> 宿主 MS 来源），不得把本地脚本结果或历史数字写成发布绿。
+> 宿主 MS 来源），不得把本地脚本结果或历史数字写成发布绿。release edge 的
+> 配置与静态测试（RELEASE-EDGE.md）不证明真实证书、真实 `nginx -t`、真实栈
+> 或 signed tile 签名方已就绪；这些必须在发布环境复核并记录。

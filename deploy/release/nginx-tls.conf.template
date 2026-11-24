@@ -1,0 +1,300 @@
+# ============================================================
+# 天工开物 release edge 路由表（TLS + 安全头 + 存储门禁）—— envsubst 模板
+#
+# 渲染：nginx 官方镜像入口把 /etc/nginx/templates/nginx-tls.conf.template
+#       渲染为 /etc/nginx/conf.d/nginx-tls.conf；deploy/release/nginx.conf
+#       只 include 该文件。
+#
+# 变量（由 docker-compose.release.yml 必填注入，缺失时 compose 启动前失败）：
+#   RELEASE_DOMAIN                 规范 HTTPS 主机名（不带 scheme/port）
+#   RELEASE_TILE_SIGNING_SECRET    signed tile URL 的 MD5 密钥（[A-Za-z0-9_-]{32,128}）
+#   MS_UPSTREAM                    modeling-server host:port
+#   BFF_UPSTREAM                   bff:5403
+#   HUB_UPSTREAM                   imodelhub:4000
+#
+# 与开发模板 deploy/default.conf.template 的差异是**安全门禁**，不是风格：
+#   1) 仅 :443 提供业务面；:80 只做 308 跳转到规范域名（无 ACME 例外）。
+#   2) /azurite 在 release 永不匿名：非 tile 路径 404；tile blob 必须携带
+#      有效 edge_exp/edge_sig 过期签名（nginx secure_link），否则 403；过期 410。
+#   3) /tiles、/storage、/blob 等直存路径显式 404，禁止绕过 tile 签名面。
+#   4) 所有上游请求带 X-Request-ID；安全头/缓存策略集中在 server 级。
+#
+# 证书/私钥只以只读挂载进入容器（/etc/nginx/tls/tls.crt|tls.key），不得写入
+# 本仓。证书链必须包含完整中间证书；私钥为无口令 PEM。
+# ============================================================
+
+# 具名 upstream：signed tile 的 proxy_pass 使用变量 URI，具名 upstream 避免
+# 依赖 resolver 指令，同时让 nginx 在启动时校验 azurite 容器名可解析。
+upstream luban_azurite {
+    server azurite:10000;
+}
+
+# ---------- HTTP → HTTPS ----------
+server {
+    listen 80 default_server;
+    server_name ${RELEASE_DOMAIN};
+
+    # 固定跳到规范域名，不反射客户端 Host（避免开放重定向）。release 只
+    # 在标准 443 上提供 TLS；非标准映射由运维在证书/域名输入中决策。
+    return 308 https://${RELEASE_DOMAIN}$request_uri;
+}
+
+# ---------- 容器内健康检查（仅 loopback，不发布） ----------
+# nginx:alpine 的 BusyBox wget 不支持 --no-check-certificate；健康检查走
+# 容器内 127.0.0.1 的明文端口，不依赖证书 SAN/链验证，也不在宿主发布。
+server {
+    listen 127.0.0.1:8081;
+    server_name _;
+    access_log off;
+
+    location = /healthz {
+        default_type text/plain;
+        return 204;
+    }
+
+    location / {
+        return 444;
+    }
+}
+
+# ---------- HTTPS 业务面 ----------
+server {
+    listen 443 ssl default_server;
+    http2 on;
+
+    server_name ${RELEASE_DOMAIN};
+
+    ssl_certificate     /etc/nginx/tls/tls.crt;
+    ssl_certificate_key /etc/nginx/tls/tls.key;
+
+    # ---- 安全响应头（server 级；location 不得再写 add_header，否则不会继承）----
+    # HSTS：一年 + includeSubDomains。preload 需发布 owner 单独决策（见
+    # docs/operations/RELEASE-EDGE.md），不得在未确认域名清单前加入。
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options    "nosniff" always;
+    add_header X-Frame-Options           "DENY" always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy        "camera=(), microphone=(), geolocation=()" always;
+    # CSP 基线覆盖 iTwin viewer 的 WASM/worker 需求；仍保留 'unsafe-eval'
+    # 以兼容 viewer 运行时，发布候选须在真栈回归后再收紧（见 RELEASE-EDGE.md）。
+    add_header Content-Security-Policy   "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header X-Request-ID              $luban_request_id always;
+    # 认证/API/HTML/存储面 no-store；静态哈希资源不添加（map 为空）。
+    add_header Cache-Control             $luban_cache_control always;
+
+    # 幂等健康检查（TLS 面供外部 LB/探针；容器 healthcheck 走 loopback
+    # 8081，公网 :80 仍无放行例外）。
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 204;
+    }
+
+    # ---------- /api 面（BFF：JWT 终结 + 限流 + CORS） ----------
+    location /api {
+        proxy_pass http://${BFF_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    # ---------- modeling-server（WebSocket / IPC——不经 BFF） ----------
+    location /ws {
+        proxy_pass http://${MS_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+        proxy_buffering off;
+    }
+
+    location /ipc {
+        proxy_pass http://${MS_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+        proxy_buffering off;
+    }
+
+    # ---------- imodelhub-services 前缀集 ----------
+    # Host 用 $http_host 保留浏览器端口（分页 _links.next 为绝对 URL），与
+    # 开发模板一致。
+    location /itwins {
+        if ($http_accept ~* "text/html") {
+            rewrite ^ /__spa last;
+        }
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $http_host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $http_host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /imodels {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $http_host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $http_host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /auth {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /accesscontrol {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /webhooks {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /users {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /files {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /oauth {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    location /.well-known {
+        proxy_pass http://${HUB_UPSTREAM};
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    # ---------- 对象存储门禁（release 永不匿名） ----------
+    # 精确容器/索引路径直接拒绝。
+    location = /azurite {
+        return 404;
+    }
+    location = /azurite/ {
+        return 404;
+    }
+
+    # Tile blob：唯一放行路径。除 Azurite SAS（?sv=...&sig=...）外，客户端
+    # 必须携带 edge_exp（unix 秒）与 edge_sig：
+    #   edge_sig = base64url(md5(edge_exp + uri + ":" + RELEASE_TILE_SIGNING_SECRET))
+    # 其中 uri 为不含查询串的规范化路径。冒号分隔符是必需的：否则 nginx 会把
+    # secret 首字符并入 $uri 变量名。缺失/伪造 → 403；过期 → 410。
+    # 注意：正则 location 按文件顺序匹配，本块必须位于 ^/azurite/ 兜底之前。
+    location ~ ^/azurite/(?<tile_account>[A-Za-z0-9][A-Za-z0-9._-]*)/(?<tile_imodel>[A-Za-z0-9][A-Za-z0-9._-]*)/tiles/(?<tile_blob>.+)$ {
+        secure_link $arg_edge_sig,$arg_edge_exp;
+        secure_link_md5 "$secure_link_expires$uri:${RELEASE_TILE_SIGNING_SECRET}";
+        if ($secure_link = "") {
+            return 403;
+        }
+        if ($secure_link = "0") {
+            return 410;
+        }
+
+        proxy_pass http://luban_azurite/$tile_account/$tile_imodel/tiles/$tile_blob$is_args$args;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Request-ID      $luban_request_id;
+        proxy_buffering off;
+        # 冷 miss 的 404 → 204 哨兵（与开发模板同语义，仅对已签名请求生效）。
+        proxy_intercept_errors on;
+        error_page 404 = @tile_miss;
+    }
+
+    location @tile_miss {
+        return 204;
+    }
+
+    # 其余 /azurite/*（baseline blob、容器/虚拟目录列举、SAS 探测）一律 404。
+    # 严禁改回 location /azurite/ { proxy_pass http://azurite:10000/; }。
+    location ~ ^/azurite/ {
+        return 404;
+    }
+
+    # 直存/tile 语义路径显式拒绝，避免未来引入绕过签名面的别名。
+    location ~ ^/(?:tiles|storage|blob)(?:/|$) {
+        return 404;
+    }
+
+    # ---------- SPA 回退（/itwins HTML 导航专用内部跳转） ----------
+    location = /__spa {
+        internal;
+        proxy_pass http://web:3000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+
+    # ---------- 前端静态（兜底） ----------
+    location / {
+        proxy_pass http://web:3000;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Request-ID      $luban_request_id;
+    }
+}

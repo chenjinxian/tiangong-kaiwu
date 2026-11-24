@@ -47,16 +47,29 @@ GET 外不访问网络，也不替代 `scripts/release-gate.ps1` 或
   `<name>@sha256:<digest>`；compose 中没有可静默回落到 `:latest` 的默认值。
 - 每个密钥必须是无默认值的 `${RELEASE_*:?message}`；开发 `.env` 的
   `HUB_DATABASE_PASSWORD` 等名字无法满足 release profile（变量名刻意隔离）。
-- 只有 `nginx` 发布宿主端口（默认 `127.0.0.1:5301`，可用
-  `RELEASE_EDGE_BIND`/`RELEASE_EDGE_PORT` 显式覆盖）；postgres/redis/azurite/
-  imodelhub/webhook-agent/bff/web 只在内部网络可达。
+- 只有 `nginx`（edge）发布宿主端口：HTTP `:80` 只做 308 跳转、HTTPS `:443`
+  承载业务（默认仅绑 `127.0.0.1`，可用 `RELEASE_EDGE_BIND`/
+  `RELEASE_EDGE_HTTP_PORT`/`RELEASE_EDGE_HTTPS_PORT` 显式覆盖）；
+  postgres/redis/azurite/imodelhub/webhook-agent/bff/web 只在内部网络可达。
+- edge 使用 release 专用 `deploy/release/nginx.conf` +
+  `deploy/release/nginx-tls.conf.template`，不使用开发的 HTTP
+  `deploy/default.conf.template`。`RELEASE_DOMAIN`、
+  `RELEASE_TLS_CERT_FILE`、`RELEASE_TLS_KEY_FILE`、
+  `RELEASE_TILE_SIGNING_SECRET` 是必填输入；证书/私钥只读挂载，仓库不得含
+  PEM。安全头、request-id、signed tile 与 WA 残余暴露见
+  `docs/operations/RELEASE-EDGE.md`。
+- `/azurite` 在 release 永不匿名：非 tile 存储路径 404，tile blob 必须携带
+  `edge_exp`/`edge_sig`（nginx `secure_link`），否则 403/410。签名方接入前
+  release tile 读取 fail-closed，不得恢复匿名直通。
 - 禁止 `build:`；发布只消费已发布镜像与 release manifest 中的 digest。
 - `RELEASE_MS_UPSTREAM` 必须显式提供；不再默认 `host.docker.internal:5401`。
   modeling-server 仍是宿主进程（native/link: 依赖不能入 Linux 容器），将其
   变为可 pin 的发布产物是私有仓待办。
 
 必填输入清单在 `deploy/release/release-profile.json`（只有变量名，不含密钥
-值）。镜像变量与必填输入的对应关系是：
+值），其中 edge 相关输入为 `RELEASE_DOMAIN`、`RELEASE_TLS_CERT_FILE`、
+`RELEASE_TLS_KEY_FILE`、`RELEASE_TILE_SIGNING_SECRET`。镜像变量与必填输入的
+对应关系是：
 
 ```bash
 # 1) 从真实 manifest 生成镜像 env（digest 只能来自 registry 侧/构建输出）
@@ -107,8 +120,10 @@ waiver，因此任何 release 违规都必须真正修复，不能以 waiver 放
 `release-gate.ps1` 已把 hygiene 作为第 0 步接入，并在第 5b 步执行
 `render-release-images.mjs --check`（manifest digest -> release compose 镜像
 解析）；public CI 以 `--mode ci` 运行 checker 并执行
-`node --test scripts/test/check-release-hygiene.test.mjs` 与
-`node --test scripts/test/release-images.test.mjs`。
+`node --test scripts/test/check-release-hygiene.test.mjs`、
+`node --test scripts/test/release-images.test.mjs` 与
+`node --test scripts/test/release-edge.test.mjs`（TLS 证书/私钥/域名/tile
+密钥必填、仅 edge 端口、`/azurite` 非匿名、dev compose 无证书回归）。
 
 
 J3.1g 起支持**实际文件字节校验**（`verify-files`）：清单声明的

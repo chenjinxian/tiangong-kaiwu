@@ -8,10 +8,17 @@
 #     <name>@sha256:<digest>；compose 中不出现可静默回落到 :latest 的默认值。
 #   - 每个密钥都是必填的 RELEASE_* 变量（无默认值），开发 .env 无法满足；
 #     缺失时 compose 在启动前直接失败（${VAR:?message}）。
-#   - 只有 nginx（edge）发布宿主端口；postgres/redis/azurite/imodelhub/
-#     webhook-agent/bff/web 只在内部网络可达。
+#   - 只有 nginx（edge）发布宿主端口（HTTP :80 仅 308 跳转，HTTPS :443
+#     承载业务）；postgres/redis/azurite/imodelhub/webhook-agent/bff/web
+#     只在内部网络可达。
+#   - edge 使用 deploy/release/nginx.conf + nginx-tls.conf.template：
+#     TLS 证书/私钥、规范域名、signed tile 密钥全部是必填输入；开发栈的
+#     HTTP :5301 / deploy/default.conf.template 不参与 release。
+#   - /azurite 在 release 永不匿名：非 tile blob 路径 404，tile blob 只接受
+#     带 edge_exp/edge_sig 的过期签名 URL（nginx secure_link），否则 403/410。
 #
-# 使用（发布 owner，见 docs/RELEASE-CHECKLIST.md）：
+# 使用（发布 owner，见 docs/RELEASE-CHECKLIST.md 与
+# docs/operations/RELEASE-EDGE.md）：
 #   node scripts/render-release-images.mjs \
 #     --manifest release-manifest.json \
 #     --out deploy/release/release-images.env
@@ -24,6 +31,7 @@
 #
 # 必填输入由 deploy/release/release-profile.json 登记；镜像 digest 只能来自
 # release-manifest.json。不要在本文件或 .env 中写镜像 tag/digest。
+# TLS 证书/私钥只以宿主只读挂载进入容器；不得把 PEM 或私钥写入本仓。
 #
 # 边界说明：modeling-server 仍是宿主进程（native/link: 依赖不能入 Linux
 # 容器），所以 RELEASE_MS_UPSTREAM 必须显式提供，不再默认
@@ -163,6 +171,11 @@ services:
       IMODELHUB_API_KEY: "${RELEASE_HUB_API_KEY:?set RELEASE_HUB_API_KEY from the release secret store}"
       WEBHOOK_SECRET: "${RELEASE_WEBHOOK_SECRET:?set RELEASE_WEBHOOK_SECRET from the release secret store}"
       AZURITE_ACCOUNT_KEY: "${RELEASE_AZURITE_ACCOUNT_KEY:?set RELEASE_AZURITE_ACCOUNT_KEY from the release secret store}"
+      # Pin the baseline trigger guard to `service`; the WA's `off` value is a
+      # migration escape hatch and must never be reachable from a release env
+      # file. Signed service identity + job binding on these routes is still a
+      # private WA/Hub residual, documented in docs/operations/RELEASE-EDGE.md.
+      BASELINE_TRIGGER_AUTH: "service"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -224,20 +237,55 @@ services:
     networks: [stack]
 
   # ------------------------------------------------------------
-  # nginx —— 唯一允许发布宿主端口的服务（edge）
+  # nginx —— 唯一允许发布宿主端口的服务（edge，TLS）
+  #
+  # 开发栈仍用 deploy/nginx.conf + deploy/default.conf.template（HTTP :5301，
+  # 无证书）；release 用独立的 deploy/release/nginx.conf +
+  # deploy/release/nginx-tls.conf.template。两套配置不共享 TLS/存储门禁，
+  # 避免 release 的证书要求渗入本地开发。
+  #
+  # 必填输入：
+  #   RELEASE_DOMAIN                 规范 HTTPS 主机名（无 scheme/port）
+  #   RELEASE_TLS_CERT_FILE          完整证书链 PEM 的宿主路径（只读挂载）
+  #   RELEASE_TLS_KEY_FILE           无口令私钥 PEM 的宿主路径（只读挂载）
+  #   RELEASE_TILE_SIGNING_SECRET    signed tile URL 密钥（[A-Za-z0-9_-]{32,128}）
+  #
+  # 端口：:80 只做 308 → https://RELEASE_DOMAIN；:443 承载全部业务面。
+  # 默认只绑 127.0.0.1；对外发布必须显式设置 RELEASE_EDGE_BIND（人类决策）。
   # ------------------------------------------------------------
   nginx:
     image: "${RELEASE_NGINX_IMAGE:?set RELEASE_NGINX_IMAGE to nginx@sha256:<64 hex> via render-release-images.mjs}"
     pull_policy: always
     ports:
-      - "${RELEASE_EDGE_BIND:-127.0.0.1}:${RELEASE_EDGE_PORT:-5301}:80"
+      - "${RELEASE_EDGE_BIND:-127.0.0.1}:${RELEASE_EDGE_HTTP_PORT:-80}:80"
+      - "${RELEASE_EDGE_BIND:-127.0.0.1}:${RELEASE_EDGE_HTTPS_PORT:-443}:443"
     environment:
+      RELEASE_DOMAIN: "${RELEASE_DOMAIN:?set RELEASE_DOMAIN to the canonical HTTPS hostname (no scheme or port)}"
+      RELEASE_TILE_SIGNING_SECRET: "${RELEASE_TILE_SIGNING_SECRET:?set RELEASE_TILE_SIGNING_SECRET (base64url/hex, >=32 chars) from the release secret store}"
       MS_UPSTREAM: "${RELEASE_MS_UPSTREAM:?set RELEASE_MS_UPSTREAM to the modeling-server host:port}"
       BFF_UPSTREAM: bff:5403
       HUB_UPSTREAM: imodelhub:4000
+    # 长语法 bind mount：证书/私钥的宿主路径可能是 Windows 盘符路径，
+    # short syntax 的冒号分隔会与 `C:\...` 冲突。read_only 由 long syntax 明示。
     volumes:
-      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./deploy/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - type: bind
+        source: ./deploy/release/nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+      - type: bind
+        source: ./deploy/release/nginx-tls.conf.template
+        target: /etc/nginx/templates/nginx-tls.conf.template
+        read_only: true
+      # 证书/私钥只读挂载；容器内固定路径被模板引用。宿主文件由 secret
+      # store/证书管理系统提供，仓库内不得存在任何 PEM。
+      - type: bind
+        source: "${RELEASE_TLS_CERT_FILE:?set RELEASE_TLS_CERT_FILE to the PEM certificate chain host path}"
+        target: /etc/nginx/tls/tls.crt
+        read_only: true
+      - type: bind
+        source: "${RELEASE_TLS_KEY_FILE:?set RELEASE_TLS_KEY_FILE to the PEM private key host path}"
+        target: /etc/nginx/tls/tls.key
+        read_only: true
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -250,7 +298,9 @@ services:
       bff:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      # 容器内 loopback 明文健康端点（:8081 不发布）。nginx:alpine 的
+      # BusyBox wget 不支持 --no-check-certificate，不能依赖 TLS 自检。
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8081/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5

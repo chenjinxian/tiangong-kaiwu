@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Release profile contract for docker-compose.release.yml. Image variables are resolved to <name>@sha256:<digest> from release-manifest.json by scripts/render-release-images.mjs. Required inputs must be supplied at boot from the release secret store; none has a default and none can be satisfied by the development .env. This file contains names only, never secret values.",
+  "description": "Release profile contract for docker-compose.release.yml. Image variables are resolved to <name>@sha256:<digest> from release-manifest.json by scripts/render-release-images.mjs. Required inputs must be supplied at boot from the release secret store; none has a default and none can be satisfied by the development .env. The edge requires an explicit TLS certificate/key, canonical domain and signed-tile secret; only nginx publishes host ports. This file contains names only, never secret values.",
   "images": {
     "RELEASE_POSTGRES_IMAGE": "docker.io/library/postgres",
     "RELEASE_REDIS_IMAGE": "docker.io/library/redis",
@@ -27,6 +27,10 @@
     "RELEASE_WEBHOOK_SECRET",
     "RELEASE_ADMIN_PASSWORD",
     "RELEASE_MS_UPSTREAM",
-    "RELEASE_ENV_FILE"
+    "RELEASE_ENV_FILE",
+    "RELEASE_DOMAIN",
+    "RELEASE_TLS_CERT_FILE",
+    "RELEASE_TLS_KEY_FILE",
+    "RELEASE_TILE_SIGNING_SECRET"
   ]
 }

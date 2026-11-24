@@ -18,10 +18,10 @@
 2. **G0 未签字**：16 项决策全部 Proposed；审计前仅 2/20 ADR 存在；16 个 Spike 中
    只有 S0-4 有真栈 PASS 证据，S0-2 部分，S0-5/S0-13 fail-closed，S0-12 blocked，
    其余未跑或只有单元证据。G0 不能通过。
-3. **G1 实施约一半、验收 0/15**：会话隔离、账本不可变、D5 版本打开、B3.1c/d/e
-   和 native 写 canary 有实质进展；但真实归因、B3.1f/g、B4、B6 P4b、B7 enforcement、
-   B8/B10、D3/D6/D7/D8、read purity、checkpoint 生产化、200/1000 基线、E1/E2/E8、
-   J2/J4 均未闭环。
+3. **G1 实施约一半、验收 0/15**：会话隔离、账本不可变、D5 版本打开、B3.1c/d/e/f/g、
+   D6、read purity/undo 隔离、B2.2 默认 off 切片和 native 写 canary 有实质进展；
+   但真实归因/真栈 ACL、B4、B6 P4b、B7 enforcement、B8/B10、D3/D7/D8、checkpoint
+   生产化、200/1000 基线、E1/E2/E8、J2/J4 均未闭环。
 4. **G2 目前不可冻结**：Feature Manifest、显式输出端口/DAG、持久拓扑引用、typed tab、
    selection/workspace/command 契约都还没有成为单一事实源。当前单输出/线性链是应用层
    实现限制，不是可冻结的平台 API。
@@ -49,7 +49,7 @@ G1 收尾 + G2 冻结 + G3 生产化；多租户/专业 CAD 更远。
 | 规模 | 200/1000 changeset 冷开 p50/p95；queue/worker/配额/缓存上限 | 未测 |
 | 灾备 | Postgres HA+PITR、对象版本化/跨区、恢复演练、RPO≤5m/RTO≤1h | 未达标（手动 dump） |
 | 发布 | 可复现构建、digest 钉版、manifest/SBOM/签名、staging 同形态、N-2 回滚 | 未达标（CI 红/未 push/latest/契约漂移） |
-| 安全 | TLS/HSTS/CSP、无默认密钥、KMS、WA/DB/Redis/对象存储不公网、WAF/限流 | 未达标（匿名 /azurite、无 TLS） |
+| 安全 | TLS/HSTS/CSP、无默认密钥、KMS、WA/DB/Redis/对象存储不公网、WAF/限流 | 未达标（release TLS/edge 配置已落地但未执行/无 tile 签名方；dev 仍匿名 /azurite） |
 | 可观测 | requestId/session/user/tenant 全链、metrics/traces、readiness、SLO/告警/on-call | 部分/未达标 |
 | 架构 | Feature Manifest、输出端口/DAG、拓扑引用、typed tab、selection/command 统一 | 未达标（G2 未开始） |
 | 许可 | ACIS 仅 Modeler+Polyhedra；STEP/InterOp 未授权不接线；libslvs 仅纯 SaaS | 有边界，分发未裁决 |
@@ -87,15 +87,19 @@ G1 收尾 + G2 冻结 + G3 生产化；多租户/专业 CAD 更远。
 
 ### W2 身份、ACL、归因、审计、租户
 
-- **已落地**：B1/B1.2、B2 OBO shadow、B3.1a–e、B5a、B6 P0–P4a、B7 v1；
-  B3.1d native 写 canary；B3.1e Hub 路由强制（默认 off）。
+- **已落地**：B1/B1.2、B2 OBO shadow、B3.1a–g、B5a、B6 P0–P4a、B7 v1；
+  B3.1d native 写 canary；B3.1e Hub 路由强制（默认 off）；B2.2 两半默认 off
+  （MS 仅 changeset OBO；Hub actor/审计/守卫）；B7 写审计 create/acquire 切片。
 - **关键缺口**：
   1. B3.1f：MS export/progress/retry/undo/close/assembly/saved views 仍无完整 ACL；
      BFF `/api/*` 仅终止 JWT；WA baseline/debug 共享 key；`/azurite` 匿名；tile/SAS。
   2. B4：Write 仍 Manage-only；Share UI/API/link 是假分享/无 capability；IMS groups fail closed。
-  3. B2.2：changeset/briefcase 仍服务账号；push 无真实用户归因；OpLog 仅 IPC 路径正确。
+  3. B2.2：Hub/MS 两半已落地但默认全 off；MS 仅 changeset 写可带 OBO，briefcase/NV
+     仍是 legacy 数据面；Hub enforce 不能与当前 MS 一起启用；写审计仅覆盖
+     changeset/briefcase create/acquire；无真栈双用户 canary；OpLog 仅 IPC 路径正确。
   4. B6 P4b：owner 依赖路由、baseline/admin、共享 key、人类 admin 登录、KMS/撤销未收口。
-  5. B7 enforcement：高风险操作未审计/未阻断；无异地 WORM/保留/legal hold。
+  5. B7 enforcement：新增的 `write_audit_events` 是应用级哈希链，仅 create/acquire，
+     非法定 WORM；高风险操作仍未阻断；无异地 WORM/保留/legal hold/链头锚定。
   6. B8/B10：TLS/HSTS/CSP、WA/DB/Redis/Azurite 暴露、tenantId/RLS/配额未做。
 - **出口**：全入口 401/403 负例；真实用户 changeset/briefcase/OpLog/audit；共享 key
   和 admin 服务登录退役；高风险审计可阻断；跨租户全拒；TLS/网络最小暴露。
@@ -290,7 +294,7 @@ S0-2 补 audit/lease/endEdits。S0-6/7/8/9/10/11 明确 DEFERRED 到 G2/G5，
 | DR Phase A | 隔离 drill harness + 一次非破坏性 backup→empty restore→verify | RPO/RTO 字段非达标；integrity partial；容器/卷/工作区已清理；不证明生产 HA/PITR |
 | Release profile | pinned digest compose + required secrets + renderer/gate | release 模式仍因 contract skew/latest/宿主路径/默认密钥/缺 manifest 失败；未发布 |
 | G2 预冻结 | 计划 + 6 个 Not run Spike + 4 ADR | G1 未过前不冻结；当前单输出/线性链/UserLabel tab 仍是现实 |
-| B2.2/B6 P4b/B4 | 设计包（AIRR） | 未实现；需 owner 决策与跨仓 canary |
+| B2.2/B6 P4b/B4 | 设计包（AIRR） | 当时未实现；第四波已落地 B2.2 默认 off 切片（见 6.4），B6 P4b/B4 仍未完成；跨仓 canary 缺失 |
 
 **结论**：架构路线比第一波更明确，但 G1 验收未增加；仍不能宣称 G0/G1 通过、生产可用或
 Hub 数据面 PEP 完整。
@@ -305,6 +309,20 @@ Hub 数据面 PEP 完整。
 | B4 Write | flag 默认 manage_compat；write 模式只影响 action resolver/OBO/projection | 公共 REST 路由未迁移，不可生产启用 |
 | 200 cold-open | 200 baseline 3 冷样本完成；checkpoint arm blocked、1000 未跑 | native download p95 ~63.6s（本地 Docker Desktop）；非 SLO |
 | MS build | release lock、`npm ci`、真 tsc、native delivery 必填、provenance 分离、contract fail | 未发布；旧 dist-backend 仍 1.64 |
+
+---
+
+## 6.4 2026-11-24 第四波（工作树，未提交）
+
+| 切片 | 结果 | 边界 |
+|---|---|---|
+| B2.2 写归因（Hub） | `AUTH_WRITE_ATTRIBUTION_MODE=off|shadow|enforce` 默认 off；actor 列（changesets/briefcases/named_versions）+ `write_audit_events`（仅 changeset/briefcase create/acquire，同事务）；enforce 校验签名服务身份 + OBO iModel/scope，并派生官方 creator/owner/createdBy | 迁移仅 SQL-shape 单测；无真 Postgres/旧库 fixture；enforce 与当前 MS 不兼容（briefcase/NV 403），阻塞 B6 P4b；非 WORM |
+| B2.2 客户端（MS） | `IMODELHUB_ATTRIBUTION_MODE=off|shadow|enforce` 默认 off；仅 changeset create/file/complete 且已附加签名 `X-Service-Token` 时附 OBO；启动强制 OBO transport + service-token；MS 全量 **175 files/1832 passed、1 expected fail、8 skipped** | 无真栈双用户 canary；briefcase/NV 不附 OBO；ALS/多请求 push 未实证；未 commit |
+| B7 写审计切片 | 独立 `write-audit.v1` 应用级哈希链；shadow savepoint、enforce 回滚；迁移 down 非空 fail closed | 仅 create/acquire；无 DB trigger/WORM/离站/锚定/校验作业；不宣称 B7 完成 |
+| Release edge | release-only nginx TLS/HSTS/CSP/request-id/安全头；仅 nginx 发布 80/443；signed tile `secure_link` + 非 tile `/azurite` 404；WA `BASELINE_TRIGGER_AUTH=service`；9 个 release-edge 静态测试（相关四文件合计 71 pass）与一次临时自签证书容器探针 | 无真实证书/域名/CA；tile 签名方未实现 → release tile fail-closed；无 WAF/限流；未发布、未执行真实 release |
+
+**结论**：B2.2/B7 有默认 off 的实现与单测，但**不构成真实归因/B7 完成**；release edge
+配置不等于 TLS/网络最小暴露达标。G1 Gate 仍 0/15。
 
 ---
 

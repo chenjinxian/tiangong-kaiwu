@@ -187,6 +187,7 @@
 | 文档 | 说明 |
 |------|------|
 | [operations/RELEASE-MANIFEST.md](./operations/RELEASE-MANIFEST.md) | **release manifest + hygiene 门（J3.1/J3.1g/J3.3）**：产物 digest/源 commit/契约版本/SBOM 指纹的生成与校验；`verify-files` 重算 nativeProvenance/artifacts 实际文件字节；release hygiene 检查镜像 pin、构建脚本、源码/产物契约、manifest/provenance 与默认密钥，release 模式忽略本地 waiver；`latest` 不可部署；不替代 `release-gate.ps1`/签名 |
+| [operations/RELEASE-EDGE.md](./operations/RELEASE-EDGE.md) | **release edge TLS/安全头/存储门禁**：独立 nginx TLS 配置、HSTS/CSP/request-id、仅 edge 发布 80/443、signed tile `secure_link`、非 tile `/azurite` 404、WA baseline/debug 残余；真实证书/域名/secret、tile 签名方与 WAF/限流仍需发布 owner 完成；不证明发布通过 |
 | [RELEASE-web-20261110b.md](./RELEASE-web-20261110b.md) | **最新 web-only 发布（2026-11-10b）**：公开 `/examples` 18 示例目录 + 页面级 IPC host + MS 重启 8s 存活探针 + 登出整页导航；web 镜像 digest `6ac74b99…`，后端/hub/WA/bff 与 `backend-20261110` 完全一致 |
 | [RELEASE-backend-20261110.md](./RELEASE-backend-20261110.md) | 后端发布说明（**shared 1.64.0 / MS 精确 faceExtrude A1/A2/A3/A4 + S3**；Bumper strict 16/16、+0.000024%；公开 strict 19 / 私有索引 18；A1/A2 backend 随发布可复现） |
 | [RELEASE-backend-20261109.md](./RELEASE-backend-20261109.md) | 历史发布说明（草图/特征能力检查点：4 个公开镜像 + MS **1.63.0** 产物；匿名冷拉/17 项全栈验收） |

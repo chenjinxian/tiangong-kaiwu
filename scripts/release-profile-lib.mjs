@@ -539,7 +539,7 @@ export function validateReleaseCompose(
           message:
             'release publish entry must state an explicit host address (host:container:container)',
           hint:
-            'Avoid an implicit 0.0.0.0 bind; use ${RELEASE_EDGE_BIND:-127.0.0.1}:${RELEASE_EDGE_PORT:-5301}:80 or another explicit address.',
+            'Avoid an implicit 0.0.0.0 bind; use ${RELEASE_EDGE_BIND:-127.0.0.1}:${RELEASE_EDGE_HTTP_PORT:-80}:80 or another explicit address.',
         });
       }
     }

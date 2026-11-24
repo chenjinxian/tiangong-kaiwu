@@ -92,6 +92,7 @@ jobs:
           node --test scripts/e2e-baseline.test.mjs
           node --test scripts/test/check-release-hygiene.test.mjs
           node --test scripts/test/release-images.test.mjs
+          node --test scripts/test/release-edge.test.mjs
 
       - name: Release hygiene (J3.3)
         # local/ci mode applies the recorded dev waivers; release-gate.ps1
