@@ -146,3 +146,27 @@
 FeatureOp/直改/export 无 per-doc ACL，Hub `X-API-Key` 旁路仍在，groups/shares 未进入授权解析，
 nginx `/azurite/` 与 tile 可匿名读取；给出 B3.1a–g 依赖顺序。该审计未改代码、未强制，B3 仍
 未完成，G1 Gate 不勾选。
+
+## 10. B3.1a PEP 覆盖分类（2026-11-24，仅分类）
+
+`AIRR-2026-11-24-B3-PEP-COVERAGE.md` 落地覆盖/分类切片，**不新增拒绝路径、不改 Hub
+guard/controller、不跑真栈**：
+
+- **MS**：`pepCoverage` v2 枚举 30 个真实入口（download/version open/open/save/abandon/close/
+  pull/push/FeatureOp 读/写/PartStudio/写租约/直改/export/saved views/progress/retry/tile/
+  storage/NV-checkpoint/Hub 数据面/BFF/WA），状态集闭合为
+  `covered-shadow|covered-enforce|fail-closed|registered-exception|p0-not-covered`；
+  仅 download/open 为 `covered-shadow`，`covered-enforce`/`fail-closed` 均为 0，其余
+  `p0-not-covered` + BFF `registered-exception`（X-27）。启动断言 manifest 内部有效并保留
+  原 shadow 告警语义（点名未覆盖项），无请求行为变化。
+- **Hub**：新增 unit 反射门禁，覆盖 27 个内容 controller（>100 路由）；每个 handler 必须有
+  `@RequirePermission`/`@RequireServiceAuth` 或命中 46 条 `PEP_ROUTE_EXCEPTIONS`
+  （route/method/reason/owner/X-27/2027-03-31）。新增内容路由未登记即失败；已有元数据的路由
+  不允许被例外遮蔽。未改任何 guard/controller。
+- **BFF**：`/api` 仅 JWT 终止后透传；progress/retry 以 `registered-exception`（X-27）记录，
+  HUB 九前缀为 `p0-not-covered`；storage/tile/WA baseline 在 AIRR 矩阵保持未覆盖。
+- **证据**：MS 全量 158 files / 1629 passed + 1 expected fail + 8 skipped，tsc 通过；Hub 全量 unit
+  168 suites / 1510 tests（含 coverage）通过，新增 spec 6/6、tsc 通过；BFF 2 files/33 passed、
+  tsc 通过。`EXCEPTIONS.md` 新增 X-27（owner 平台/安全，2027-03-31）。
+- **边界**：不是 ACL 强制，不声称任何入口已受 per-doc ACL 保护；B3.1b–g、B6/X-21、B10、
+  storage/tile 例外仍 open；G1 Gate 不勾选。
