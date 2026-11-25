@@ -13,6 +13,10 @@
 > `docs/architecture/INTERFACE-FREEZE-MATRIX.md`，规范来源见
 > `docs/architecture/CANONICAL-SOURCES.md`，例外必须登记到
 > `docs/architecture/EXCEPTIONS.md`。本文件与各仓 `CLAUDE.md` 只做领域补充，冲突以总册为准。
+>
+> **团队执行方案：`docs/architecture/TEAM-EXECUTION-PLAN-2026-11-25.md`（2026-11-25 owner directive）。**
+> P1 架构/平台全速；P2 AI 建模（MCP + 内嵌 agent harness）预研先行；P3 Onshape 建模能力/示例；
+> P2/P3 先研究后开工。该方案不改变 Gate 结论，也不替代 AIRR/ADR 与外部评审。
 
 ## 架构基线（先读）
 
@@ -188,6 +192,7 @@ npx playwright test e2e/documents.spec.ts
 ## 文档锚点
 
 - 文档总索引：`docs/README.md`；历史删除索引：`docs/HISTORY.md`
+- **团队执行方案：`docs/architecture/TEAM-EXECUTION-PLAN-2026-11-25.md`（P1/P2/P3 分工与节奏；不改变 Gate）**
 - 开发规则：`docs/DEVELOPMENT-RULES.md`；AIRR/冻结/规范/例外：`docs/architecture/{AIRR-TEMPLATE,INTERFACE-FREEZE-MATRIX,CANONICAL-SOURCES,EXCEPTIONS}.md`
 - 产品目标：`docs/architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md`
 - 架构评估与工业级计划：`docs/research/lubancad-architecture-assessment/{README,08-ARCHITECTURE-EXTENSIBILITY,09-INDUSTRIAL-TARGET-ARCHITECTURE,10-ARCHITECTURE-HARDENING-PLAN}.md`

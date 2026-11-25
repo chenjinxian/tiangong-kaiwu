@@ -5,6 +5,8 @@
 - 关联：`docs/architecture/AIRR-TEMPLATE.md`、`INTERFACE-FREEZE-MATRIX.md`、
   `docs/superpowers/plans/2026-11-06-example-coverage-continuous.md`、
   真形几何内核（私有仓 `D:\Github\trueform`）、imodel-native（私有仓）。
+- 团队执行方案：`docs/architecture/TEAM-EXECUTION-PLAN-2026-11-25.md`（P1/P2/P3 分工与节奏；
+  不改变本文件的目标优先级与 Gate 顺序）。
 
 ## 四条总目标
 

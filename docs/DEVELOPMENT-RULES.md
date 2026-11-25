@@ -224,6 +224,7 @@
 | CI 门禁 | typecheck/lint/unit/contract/native ctest/真栈/视觉 | 每次 PR/发布 |
 | 例外登记 | P0/P1 例外与债务 | 持续，季度审计 |
 | 架构审计 | fork diff、canonical 版本、许可/SBOM、文档/基线漂移 | 季度 |
+| 团队执行方案 | P1/P2/P3 分工、先研究后开工、契约变更板；不替代 Gate/AIRR/ADR | 持续（[TEAM-EXECUTION-PLAN-2026-11-25.md](./architecture/TEAM-EXECUTION-PLAN-2026-11-25.md)） |
 
 ---
 

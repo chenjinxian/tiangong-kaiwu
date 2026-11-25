@@ -7,6 +7,8 @@
 > [`G0-GATE-REPORT-2026-11-24.md`](./G0-GATE-REPORT-2026-11-24.md) 与
 > [`INDUSTRIAL-READINESS-PROGRAM-2026-11-24.md`](./INDUSTRIAL-READINESS-PROGRAM-2026-11-24.md)。
 > 本册 16 项仍全部 Proposed，不得据此宣称 G0 通过。
+> 团队执行方案见 [`TEAM-EXECUTION-PLAN-2026-11-25.md`](./TEAM-EXECUTION-PLAN-2026-11-25.md)；
+> 该方案不改变本册的 Proposed 状态或签字要求。
 > 规则：本册中的“建议”不是自动裁决；只有 ARB/指定 owner 明确签字后才生效。未签字项不得作为对外功能承诺依据；实现只能按显式 owner 指令作为工作假设，并登记回滚。
 >
 > **2026-11-22 owner 指令**：按建议继续执行 G0/G1；本册所有条目仍标记 **Proposed**，不视为正式签字。已开始的 C1（IPC 按连接路由）、D1（账本不可变）等实现按建议默认值作为工作假设，若后续签字否决，按各工作包回滚方案撤销。

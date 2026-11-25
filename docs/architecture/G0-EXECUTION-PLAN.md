@@ -4,6 +4,8 @@
 > 输入：`docs/research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md`、`10-ARCHITECTURE-HARDENING-PLAN.md`、`docs/DEVELOPMENT-RULES.md`、`docs/architecture/EXCEPTIONS.md`
 > 输出：16 项决策记录、16 个 Spike 结论、20 个 ADR 草案/批准、G1 backlog、G0 Gate 报告
 > 本阶段**不写功能代码、不改 schema/native、不发布**；只做决策、验证、冻结。
+> 团队执行方案见 [`TEAM-EXECUTION-PLAN-2026-11-25.md`](./TEAM-EXECUTION-PLAN-2026-11-25.md)；
+> 该方案不改变本阶段的“不写功能代码”边界或 G0 验收。
 
 ## 0. 目的与边界
 

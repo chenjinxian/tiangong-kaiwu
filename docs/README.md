@@ -18,6 +18,8 @@
 |------|------|
 | [DEVELOPMENT-RULES.md](./DEVELOPMENT-RULES.md) | **开发规则唯一权威（v1.0，2026-11-04 生效）**：P0 平台宪法 10 条 + P1 架构/工程规则 12 条 + AIRR/例外/执行机制 |
 | [architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md](./architecture/PRODUCT-GOALS-AND-ENGINEERING-PRINCIPLES.md) | **产品目标与工程原则（2026-11-09 用户裁决）**：全量 Onshape 草图/约束/特征 → AI+CAD；大规模示例验证真形内核/绳墨；每个功能点检查架构合理性与闭环；持续审计 imodel-native BRepCore |
+| [architecture/TEAM-EXECUTION-PLAN-2026-11-25.md](./architecture/TEAM-EXECUTION-PLAN-2026-11-25.md) | **现行团队执行方案（2026-11-25 owner directive）**：P1 架构/平台全速；P2 AI 建模（MCP + 内嵌 agent harness）预研先行；P3 Onshape 建模能力/示例；P2/P3 先研究后开工；预研不阻塞 P1，生产启用须过 P1 契约/安全评审；不改变 Gate 结论 |
+| [architecture/TEAM-BOARD-2026-11-25.md](./architecture/TEAM-BOARD-2026-11-25.md) | **团队任务看板（活文档）**：P1 10 日、P2/P3 各 20 日任务、检查点、状态与证据；完成需可复现证据，预研/试点不勾 Gate |
 | [architecture/G0-EXECUTION-PLAN.md](./architecture/G0-EXECUTION-PLAN.md) | **G0 执行计划（架构冻结第 0 阶段）**：16 项决策、16 个 Spike、20 个 ADR、两周日历、证据模板、G1 初始 backlog 与 Gate 验收；本阶段不写功能代码/不改 schema/native/不发布 |
 | [architecture/G0-DECISION-REGISTER.md](./architecture/G0-DECISION-REGISTER.md) | **G0 决策登记册**：16 项决策的选项/建议/失败判据/影响/owner/签字区；未签字项不得作为开发依据 |
 | [architecture/G0-SPIKE-REGISTER.md](./architecture/G0-SPIKE-REGISTER.md) | **G0 Spike 登记册**：16 个 Spike 的环境/步骤/证据/通过判据/失败动作/结果汇总；不得伪造 PASS |
@@ -137,7 +139,6 @@
 | [superpowers/plans/2026-11-10-onshape-all-parts-master.md](./superpowers/plans/2026-11-10-onshape-all-parts-master.md) | ⛔ **已被 2026-11-19 全量计划取代**（历史全量总计划 2026-11-10）：526 文档 / 1685 API PS 全量分类与复刻；阶段成果与证据仍有效 |
 | [superpowers/plans/2026-11-09-ps-blocker-driven.md](./superpowers/plans/2026-11-09-ps-blocker-driven.md) | **历史优先级计划**（2026-11-09）：按真实 PS blocker 排名转绿——imprint 精确语义 → selector → CONCENTRIC/converter → 多体 → 外部草图引用 → 数据/长尾；并行 BRepCore 审计 |
 | [superpowers/plans/2026-11-11-live-onshape-ui-replication.md](./superpowers/plans/2026-11-11-live-onshape-ui-replication.md) | ⛔ **已被 2026-11-19 全量计划取代**：live 副本采集保留为证据手段；历史计划为公开文档创建副本 + UI 特征树/对话框/草图/体面属性采集 |
-| [superpowers/plans/2026-11-10-blocked-examples-capability.md](./superpowers/plans/2026-11-10-blocked-examples-capability.md) | 阻塞示例能力切片（2026-11-10）：切片 A/C 已完成（2026-11-11，Part 5/6 单线 imprintFace → face split + no-op，两例 strict 绿）；CONNECTING_ROD 仍需 FULL_ROUND fillet + 边/region 证据；三个 0 mm³ 空占位已删除，不伪造 iModel |
 | [superpowers/plans/2026-11-09-ps-blocker-next.md](./superpowers/plans/2026-11-09-ps-blocker-next.md) | ⛔ **已被 2026-11-19 全量计划取代**（历史下一阶段实施计划，2026-11-09，已执行）：以 14 个严格绿为基线，bbox 位置证据 → regionRisk/同面积面集 → CENTERLINE/capFace 数据批次 → Bumper native probe → PROJECTED/多体 AIRR；阶段目标 ≥18。**2026-11-10 发布闭口口径**：目标 18 达成——私有 `replicable-now` **18**（Bumper 为第 18 例，带 `strictPath=rb3-oracle-16/16`、`requiresBackend=backend-20261110`、`genericResolver=12-edge blocked`；iOS First Part 已由 `EXAMPLE_RESET=1` 真栈 2 passed 验证 push+冷重开）；公开 strict spec **19**（含 A2 face-extrude、Bumper S10 严格轨与 iOS）。A1/A2 已随 `backend-20261110`（shared 1.64.0）发布，私有 converter/oracle/scenario 已固化；发布产物 Bumper strict 2 passed。Bumper 的 generic resolver 仍为 12 边 blocked-kernel，不得说成已修复。此前严格绿 16（Intro Part 3 + Alignment 精确化）；2026-11-09 审计的干净私有检出重索引为 **15**（当时私有索引生成器/converter/scenario 未提交，Part 3 strict 依赖私有 scenario）；Alignment 的 `Cut 2 more holes` 保留一条已审计人工面域覆盖，纯证据驱动计数 **15**（`Cut 2 holes` 面积证据精确） |
 | [superpowers/plans/2026-11-06-example-coverage-continuous.md](./superpowers/plans/2026-11-06-example-coverage-continuous.md) | 历史连续执行台账（活文档）：P0.6 冷开持久化已关闭；T2 边选择器 / T3 抽壳 / T4 第二方向 / T5 mirror / cPlane / splitPart / transform / featurePattern 已完成；后续优先级以 2026-11-09 PS blocker 计划为准 |
 | [superpowers/plans/2026-11-06-capability-coverage-examples.md](./superpowers/plans/2026-11-06-capability-coverage-examples.md) | 公开示例能力覆盖轨道（2026-11-06）：创建副本→UI 取证→近似重建；与严格数据保真口径分离 |
@@ -149,8 +150,7 @@
 | [superpowers/specs/2026-11-05-cplane-airr.md](./superpowers/specs/2026-11-05-cplane-airr.md) | AIRR（批准，2026-11-05 已实施，shared 1.29.0）：cPlane 基准面（Top/Front/Right + 偏移 + 反转法线）+ 草图落在自定义平面；CPlaneDialog（按 live 可编辑副本证据）、SketchDialog 平面列表、树标签与编辑回显；被引用时改参/删除诚实拒收；Intro to CAD 真栈 2 passed、体积 85157.341 mm³；B1b 视口渲染 / B2 改参传播待后续 |
 | [superpowers/specs/2026-11-05-ui-polish-airr.md](./superpowers/specs/2026-11-05-ui-polish-airr.md) | AIRR（批准，2026-11-05 已实施）：工具栏下拉 180px/父行+快捷键、ViewCube 二轮逐像素复核 + 三轮交互对齐（面边 58px/屏幕直立标签/三色轴/隐藏面轮廓带/角点蓝点/罗盘弧 hover/180ms 相机动画/无拖拽/trigger tooltip）、左侧「图形首选项」对话框、右侧「外观」面板（零件/草图 tab + 逐 body 颜色覆盖）；live 证据 `ui-polish-20261105` + `viewcube-exact-20261105` + `viewcube-interactions-20261105`；官方 iTwin ViewCube **默认**（`?viewcube=onshape` 回退自研；相机/渲染菜单抽成唯一 `ViewCubeCameraMenu` 挂官方 cube；lazy、事件桥、宿主命中/箭头/1.5×/target 修复）；图形首选项默认 AO 20%/线宽 2px；web 1382/1382 |
 | [superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md](./superpowers/specs/2026-11-04-onshape-batch1-gap-matrix.md) | Batch 1 能力/数据缺口矩阵（construction/DIAMETER/endBound 等契约缺口；ADR-0004/0005 批次） |
-| [superpowers/plans/2026-11-04-onshape-parity-batch1-gate.md](./superpowers/plans/2026-11-04-onshape-parity-batch1-gate.md) | 执行计划：Tutorial 2 X-14 关闭 + 面域拾取安全化 + Batch 1 缺口登记（已完成并留证） |
-| [ROADMAP.md](./ROADMAP.md) | 路线图索引（指向全程序路线图） |
+| [ROADMAP.md](./ROADMAP.md) | 路线图索引（现行指向 [团队执行方案](./architecture/TEAM-EXECUTION-PLAN-2026-11-25.md)，旧全程序路线图为历史口径） |
 | [SKETCH-CONSTRAINT-WORKFLOW.md](./SKETCH-CONSTRAINT-WORKFLOW.md) | 草图约束工作流程（设计稿） |
 | [CONSTRAINT-SOLVER-COMPARISON.md](./CONSTRAINT-SOLVER-COMPARISON.md) | 约束求解器对比分析（历史选型输入） |
 | [baseline-reliability-design.md](./baseline-reliability-design.md) | Baseline 可靠性设计 |
@@ -205,8 +205,8 @@
 |------|------|
 | [adr/](./adr/) | 架构决策记录（ADR） |
 | [parity/](./parity/) | Parity 状态定义、能力账本、内核边界与示例目录生成规则 |
-| [superpowers/specs/](./superpowers/specs/) | 保留的设计记录（架构裁决/全程序路线图/parity 设计/清理设计） |
-| [superpowers/plans/](./superpowers/plans/) | 保留的执行计划（item4 组合/hub backlog/M-A5.2 计划/本轮清理计划） |
+| [superpowers/specs/](./superpowers/specs/) | 保留的设计记录（架构裁决/AIRR/能力实现证据；被 ADR/AIRR 引用的历史设计保留，状态以文件头为准） |
+| [superpowers/plans/](./superpowers/plans/) | 保留的执行计划（当前 parity 计划 + 被 ADR/AIRR 引用的历史证据；无入链的过期纯执行计划已清理，见 HISTORY.md） |
 | [tool-integrations/](./tool-integrations/) | 工具集成方案与状态 |
 | [research/](./research/) | 研究分析（当前：Onshape Help 全量文档分析 527 主题；LubanCAD 全栈架构评估） |
 | [api-specs/](./api-specs/) | 官方 iTwin Platform REST 规格（契约对照基准） |
@@ -215,6 +215,11 @@
 
 ## 状态注记（2026-11-25）
 
+- **现行团队执行方案**：[`architecture/TEAM-EXECUTION-PLAN-2026-11-25.md`](./architecture/TEAM-EXECUTION-PLAN-2026-11-25.md)
+  （P1 架构/平台全速；P2 AI 建模预研；P3 Onshape 建模/示例；P2/P3 先研究后开工）。
+  **不改变 Gate 结论**：G0 仍 NO-GO、G1 仍 0/15；预研/默认 off 切片不勾 Gate。
+- **文档清理（2026-11-25）**：删除无现行入链、已被取代的纯执行计划/草稿；被 ADR/AIRR/现行方案
+  引用的历史证据保留。删除清单与恢复方式见 [`HISTORY.md`](./HISTORY.md)。
 - **DR 与 G1 E1/E2/E8 未完成、未勾 Gate**。隔离 Phase A harness（`.drill` + Azurite + `pg_dump`/卷 `tar`）
   只在开发基线内做过一次非破坏性 roundtrip；它不是生产 HA/PITR，也不是对象存储版本化。
 - **生产 PITR / 对象存储版本化演练只有定义与 runbook**（[operations/PRODUCTION-DR-DRILL.md](./operations/PRODUCTION-DR-DRILL.md)），
@@ -228,10 +233,11 @@
 
 ## 文档维护指南
 
-- 所有新文档应添加到本文档目录
-- 文档更新时请同步更新此索引
-- 临时分析文档请在文件名中注明日期
-- 已删除文档：见 [HISTORY.md](./HISTORY.md)
+- 所有新文档应添加到本文档目录；文档更新时同步更新本索引。
+- 临时分析文档请在文件名中注明日期；现行方案/规则/ADR/AIRR 优先于历史执行计划。
+- **清理前先查引用**：候选删除文档必须确认无 ADR/AIRR/现行方案/索引之外的入链；被引用的历史证据保留并在索引标注状态。
+- **删除记录**：任何删除写入 [`HISTORY.md`](./HISTORY.md)，正文从 Git 历史恢复；禁止无记录删除。
+- **不记录进度**：`CLAUDE.md` 只放规范/参考；进度、测试基线、发布证据写入能力账本、ADR/AIRR、专题文档与发布记录。
 
 ---
 

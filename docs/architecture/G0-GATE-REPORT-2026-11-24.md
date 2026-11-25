@@ -4,6 +4,8 @@
 > 本报告不是签字记录，不替代 ARB/owner 裁决。证据截止 2026-11-24。
 > 关联：`G0-EXECUTION-PLAN.md`、`G0-DECISION-REGISTER.md`、`G0-SPIKE-REGISTER.md`、
 > `INDUSTRIAL-READINESS-PROGRAM-2026-11-24.md`、20 份 `ADR-G0-*.md`。
+> 团队执行方案见 [`TEAM-EXECUTION-PLAN-2026-11-25.md`](./TEAM-EXECUTION-PLAN-2026-11-25.md)；
+> 该方案不改变本报告的 NO-GO / CONDITIONAL GO 结论。
 
 ---
 

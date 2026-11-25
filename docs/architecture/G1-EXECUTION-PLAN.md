@@ -6,6 +6,8 @@
 > 入口：`G0-EXECUTION-PLAN.md` 通过 G0 Gate（GO 或 CONDITIONAL GO 且无 blocking 单行道）
 > 目标：把会话、身份/ACL、账本/版本、灾备、CI/契约基线做到可验证，再进入 G2 契约冻结。
 > 原则：**G1 期间不铺 Part Studio 新功能、不对外分享、不做多用户生产承诺。**
+> 团队分工与近期节奏见 [`TEAM-EXECUTION-PLAN-2026-11-25.md`](./TEAM-EXECUTION-PLAN-2026-11-25.md)；
+> 该方案不替代本计划的 G1 范围、DoD 或 Gate 验收。
 >
 > 实施级设计：会话隔离见 `SESSION-ISOLATION-DESIGN.md`；身份/ACL 见 `IDENTITY-ACL-DESIGN.md`；checkpoint/clone-fork 见 `CHECKPOINT-GENERATOR-DESIGN.md`。设计不等于 AIRR/ADR，开工切片仍按 P0-04 走审批。
 

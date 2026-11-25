@@ -182,7 +182,7 @@ corepack pnpm@10 exec playwright test e2e/documents.spec.ts e2e/part-studio.spec
 ## 文档与参与
 
 - [产品介绍页实现与 UI 对齐记录](docs/UI-ONSHAPE-PARITY-2026-11-02.md)
-- [架构](docs/Architecture.md) · [路线图](docs/ROADMAP.md) · [开发规则](docs/DEVELOPMENT-RULES.md)
+- [架构](docs/Architecture.md) · [路线图](docs/ROADMAP.md) · [团队执行方案](docs/architecture/TEAM-EXECUTION-PLAN-2026-11-25.md) · [开发规则](docs/DEVELOPMENT-RULES.md)
 - [文档总索引](docs/README.md) · [已删除文档历史](docs/HISTORY.md)
 - 相关公开项目：[DanQing](https://github.com/chenjinxian/DanQing)（纯客户端图形引擎）、[DanQing-Data](https://github.com/chenjinxian/DanQing-Data)（演示数据）、[Releases](https://github.com/chenjinxian/tiangong-kaiwu/releases)
 - 欢迎 Issue / PR；界面变化请附截图或录屏。私有后端、真形内核、绳墨求解器不在本仓展开。

@@ -170,6 +170,7 @@ Get-Content "$env:TEMP\luban-cad-modeling-server.log" -Tail 100 -Wait
 | `../docs/ROADMAP.md` | 演进路线 |
 | `../docs/ITWINJS_CORE_MODIFICATIONS.md` | 上游修改记录 |
 | `../docs/README.md` | 文档总索引 |
+| `../docs/architecture/TEAM-EXECUTION-PLAN-2026-11-25.md` | 团队执行方案（P1/P2/P3 分工与节奏；不替代 Gate/AIRR/ADR） |
 | `../docs/research/lubancad-architecture-assessment/08-ARCHITECTURE-EXTENSIBILITY.md` | 可演进性接缝 |
 | `../docs/research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md` | 工业级目标架构 |
 | `../docs/research/lubancad-architecture-assessment/10-ARCHITECTURE-HARDENING-PLAN.md` | 架构冻结/开发 Gate |

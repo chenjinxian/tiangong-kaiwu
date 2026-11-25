@@ -11,6 +11,8 @@
 > **2026-11-24 隔离真栈复测（§7）**：S0-3 仍 PARTIAL（HTTP fail-closed；DB 边界有
 > 可绕过缺口）；S0-5 仍 FAIL→fail-closed；S0-13 为 PARTIAL→fail-closed；S0-16 未跑。
 > 本轮不把任何 Spike 标为 PASS，G0 仍 NO-GO。
+> 团队执行方案见 [`TEAM-EXECUTION-PLAN-2026-11-25.md`](./TEAM-EXECUTION-PLAN-2026-11-25.md)；
+> 该方案不改变本册任何 Spike 结论。
 
 ## 1. 使用规则
 

@@ -4,6 +4,9 @@
 > 不是 Gate 通过记录。所有默认仍未部署、未对外承诺生产；任何 Gate 勾选以
 > `G0-DECISION-REGISTER.md`、`G0-SPIKE-REGISTER.md` 和独立证据为准。
 >
+> 团队分工与近期节奏见 [`TEAM-EXECUTION-PLAN-2026-11-25.md`](./TEAM-EXECUTION-PLAN-2026-11-25.md)；
+> 该方案不改变本文的工业级 DoD、Gate 顺序或 Stop-ship 口径。
+>
 > 输入：`09-INDUSTRIAL-TARGET-ARCHITECTURE.md`、`10-ARCHITECTURE-HARDENING-PLAN.md`、
 > `G0-EXECUTION-PLAN.md`、`G1-EXECUTION-PLAN.md`、`G1-WAVE2-STATUS-2026-11-23.md`、
 > 近期 7 个领域审计（身份/ACL、账本/版本/规模、DR、发布/CI/安全、G2 契约、
