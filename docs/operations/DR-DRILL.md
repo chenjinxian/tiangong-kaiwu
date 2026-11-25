@@ -7,6 +7,10 @@
 >
 > 关联：`docs/operations/BACKUP-RESTORE.md`、`docs/operations/INTEGRITY-SCAN.md`、
 > `docs/architecture/G1-EXECUTION-PLAN.md` E1/E2/E8、`docs/architecture/G0-DECISION-REGISTER.md` D0-14。
+>
+> **2026-11-25 增量**：生产级 PostgreSQL PITR / 对象存储版本化恢复的 provider-neutral 定义与 runbook
+> 已登记在 `docs/operations/PRODUCTION-DR-DRILL.md`，但**未执行**；本文件的 Phase A harness 仍只覆盖
+> 开发基线（Azurite + `pg_dump` 卷 tar），`scenarios`/`plan` 只打印定义，不能替代生产演练证据。
 
 ## 0. 一句话原则
 
@@ -22,10 +26,12 @@ Docker 调用之前被拒绝。破坏性故障注入默认关闭，且需要三�
 | 文件 | 作用 |
 |---|---|
 | `scripts/dr/docker-compose.drill.yml` | 独立 drill compose（**不与根 compose 合并**）：postgres/redis/maildev/azurite/imodelhub/webhook-agent，显式 drill 卷、网络、高位端口 |
-| `scripts/dr/drill-core.mjs` | 纯逻辑：参数校验、项目/端口/路径隔离、manifest 校验、主栈快照比较、报告 schema、Azurite SharedKey 签名 |
-| `scripts/dr/drill-runner.mjs` | 执行器：create/preflight/up/seed/backup/verify-backup/restore/verify/report/down；破坏性命令仅以闸门形式存在 |
-| `scripts/dr/drill-core.test.mjs` | 35 个 `node:test`：拒绝主项目、隔离检查、manifest/哈希、报告 schema、签名等 |
-| `scripts/dr/fixtures/*.json` | 合成 manifest / drill report 夹具（无真实数据） |
+| `scripts/dr/drill-core.mjs` | 纯逻辑：参数校验、项目/端口/路径隔离、manifest 校验、主栈快照比较、报告 schema、Azurite SharedKey 签名、隔离场景目录 |
+| `scripts/dr/drill-runner.mjs` | 执行器：create/preflight/up/seed/backup/verify-backup/restore/verify/report/down；`scenarios`/`plan` 只读打印定义；破坏性命令仅以闸门形式存在 |
+| `scripts/dr/drill-core.test.mjs` | `node:test`：拒绝主项目、隔离检查、manifest/哈希、报告 schema、签名、场景目录等 |
+| `scripts/dr/production-drills.mjs` | 生产 DR provider-neutral 定义、预检、恢复评估、RPO/RTO 计算与证据校验（纯逻辑，不执行） |
+| `scripts/dr/production-drills.test.mjs` | 生产定义/失败用例单测：缺失 PITR 目标、未版本化对象存储、校验和不符、恢复不完整、声明膨胀（无 Docker/云） |
+| `scripts/dr/fixtures/*.json` | 合成 manifest / drill report / 生产 not-run 证据夹具（无真实数据） |
 | `scripts/dr/New-DrillEnvironment.ps1` | 创建演练工作区的 PowerShell 包装器 |
 | `scripts/dr/Seed-DrillEnvironment.ps1` | 启动最小演练栈并播种的 PowerShell 包装器 |
 | `scripts/dr/Remove-DrillEnvironment.ps1` | 停止（默认保卷）/ HITL 删除演练项目的包装器 |
@@ -93,6 +99,9 @@ project + 不同 offset，可以同时运行，互不共享卷/网络/端口。
 - `restore` 前重新校验备份 manifest/SHA-256，并检查目标 DB 用户表数=0、Azurite 卷为空、
   无写者运行；非空目标直接拒绝（**不会自动 `-Force`**）。
 
+`scenarios` / `plan` 是**只读定义输出**：它们列出 S0–S4 与生产 PITR/对象版本化场景，但生产场景
+固定 `runnableHere=false` / `executableByIsolatedHarness=false`，本 harness 永不执行。
+
 ---
 
 ## 3. 安全闸门（HITL）
@@ -117,6 +126,7 @@ project + 不同 offset，可以同时运行，互不共享卷/网络/端口。
 
 ```powershell
 node --test scripts/dr/drill-core.test.mjs
+node --test scripts/dr/production-drills.test.mjs
 node --test scripts/integrity/integrity-scan.test.mjs
 ```
 
@@ -215,9 +225,13 @@ powershell -File scripts/dr/Remove-DrillEnvironment.ps1 -Workspace ".drill/$Dril
 | S2 恢复后完整性/一致性 | `verify`（integrity scan）+ `report`/`report-roundtrip` | 是；扫描 exit 1，原因见 §7 |
 | S3 故障注入/破坏性 | `fault-inject`（三重闸门） | **否** |
 | S4 调度/重复演练 | 季度重复 S0–S2 | 未调度 |
+| S5 生产 PostgreSQL PITR | `PRODUCTION-DR-DRILL.md` §4；`plan --scenario postgres-pitr` 只打印定义 | **否；未执行** |
+| S6 生产对象存储版本化恢复 | `PRODUCTION-DR-DRILL.md` §5；`plan --scenario object-storage-versioning` 只打印定义 | **否；未执行** |
 
 S3 只能在一次性 drill 项目内、书面批准后、由演练负责人现场执行；本切片未执行，因此
-“扫描能检测漂移”的结论仍未演练，不得用 S0–S2 结果替代。
+“扫描能检测漂移”的结论仍未演练，不得用 S0–S2 结果替代。S5/S6 不属于本 harness 的可执行范围：
+它们需要真实生产级 PostgreSQL/对象存储与生产级隔离环境，必须在 `PRODUCTION-DR-DRILL.md` 下由
+Data/SRE owner 执行并签字。
 
 ---
 
@@ -278,7 +292,10 @@ S3 只能在一次性 drill 项目内、书面批准后、由演练负责人现�
 - 不能证明生产 RPO/RTO 达标；193.82s / 38.78s 只是这次空库、小对象 drill 的测量。
 - 不能证明 ledger 完整性 clean；最小 seed 没有 baseline/checkpoint 内容，扫描 3 error/7 unverified。
 - 不能证明 Redis/队列、briefcase 缓存、宿主文件/镜像可恢复（不在备份范围）。
-- 不能证明对象存储版本化/对象锁/跨区复制、KMS/ACL/审计。
+- 不能证明生产 PITR：无 WAL 归档、base backup/WAL replay 或恢复目标时间；Azurite 卷 tar 与
+  `pg_dump` 不等价于 PITR。
+- 不能证明对象存储版本化/版本级读取/SHA-256 对账/对象锁/跨区复制/KMS/ACL/审计；这些只在
+  `PRODUCTION-DR-DRILL.md` 中定义，且**未执行**。
 - 不能证明故障检测（S3 未执行）、HA/PITR、生产规模、跨主机网络时延。
 - 不能用 drill 版 verify 替代根 `verify-stack.ps1` 的全栈（web/nginx/BFF/宿主 MS）验收。
 
@@ -342,3 +359,4 @@ docker volume ls --filter name=tiangong-kaiwu_
 |---|---|
 | 2026-11-24 | Skeleton v1：隔离项目模型、S0–S4 场景、人工 runner 骨架、验收/清理/证据模板；未执行破坏性演练 |
 | 2026-11-24 | Phase A harness v1：独立 drill compose + `.drill` 工作区 + 自动 seed/backup/verify-backup/空目标 restore/verify/report；35+24 单测；隔离 drill 实测非破坏性 roundtrip（无故障注入、无主栈触碰）；未宣称 RPO/RTO 达标；附带修复 integrity 工具的 Azurite SharedKey 与 SQL 终止符缺陷 |
+| 2026-11-25 | 增加 `scenarios`/`plan` 只读定义命令与隔离场景目录；新增 `PRODUCTION-DR-DRILL.md`（PITR/对象版本化定义，未执行）；明确 S5/S6 不由本 harness 执行，RPO/RTO 与 G1/DR Gate 仍未完成 |

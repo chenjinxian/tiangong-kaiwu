@@ -21,6 +21,7 @@ import {
   DRILL_CHECK_NAMES,
   DrillRefusedError,
   DrillUsageError,
+  ISOLATED_DRILL_SCENARIOS,
   assessEmptyTarget,
   buildDrillEnvValues,
   buildDrillReport,
@@ -38,8 +39,10 @@ import {
   signAzureRequest,
   validateBackupManifest,
   validateDrillReport,
+  validateIsolatedScenarioCatalog,
   verifyIsolation,
 } from './drill-core.mjs';
+import { PRODUCTION_SCENARIO_IDS } from './production-drills.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
@@ -140,6 +143,29 @@ test('reserved-port detector catches main-stack collisions', () => {
   assert.equal(conflicts[0].name, 'hub');
   assert.equal(conflicts[0].reason, 'reserved-main-port');
 });
+
+test('isolated scenario catalog keeps S3/S4 honest and excludes production scenarios', () => {
+  const validation = validateIsolatedScenarioCatalog();
+  assert.equal(validation.ok, true, validation.errors.join('; '));
+  assert.deepEqual(ISOLATED_DRILL_SCENARIOS.map((scenario) => scenario.id),
+    ['S0', 'S1', 'S2', 'S3', 'S4']);
+  const s3 = ISOLATED_DRILL_SCENARIOS.find((scenario) => scenario.id === 'S3');
+  const s4 = ISOLATED_DRILL_SCENARIOS.find((scenario) => scenario.id === 'S4');
+  assert.equal(s3.destructive, true);
+  assert.equal(s3.executedInPhaseA, false);
+  assert.equal(s4.executedInPhaseA, false);
+  assert.ok(!ISOLATED_DRILL_SCENARIOS.some(
+    (scenario) => PRODUCTION_SCENARIO_IDS.includes(scenario.id),
+  ));
+  assert.equal(validateIsolatedScenarioCatalog([]).ok, false);
+
+  const mutated = structuredClone(ISOLATED_DRILL_SCENARIOS);
+  mutated[0].commands = ['drop-main'];
+  const badCommand = validateIsolatedScenarioCatalog(mutated);
+  assert.equal(badCommand.ok, false);
+  assert.ok(badCommand.errors.some((error) => error.includes('unknown command')));
+});
+
 
 test('workspace path must stay under .drill', () => {
   assert.equal(drillWorkspaceFor(REPO_ROOT, 'drill-test-001'),
@@ -283,6 +309,25 @@ test('parse: fault-inject is opt-in, confirmed, acked and drill-only', () => {
   );
   assert.equal(parsed.command, 'fault-inject');
   assert.equal(parsed.options.scenario, 'delete-sentinel-blob');
+});
+
+test('parse: scenarios and production plan commands need no workspace or Docker', () => {
+  const scenarios = parseDrillArgs(['scenarios'], { repoRoot: REPO_ROOT });
+  assert.equal(scenarios.command, 'scenarios');
+  assert.equal(scenarios.options.workspace, null);
+
+  const plan = parseDrillArgs(['plan', '--scenario', 'postgres-pitr', '--format', 'json'],
+    { repoRoot: REPO_ROOT });
+  assert.equal(plan.command, 'plan');
+  assert.equal(plan.options.scenario, 'postgres-pitr');
+  assert.equal(plan.options.workspace, null);
+  assert.equal(plan.options.format, 'json');
+
+  assert.throws(() => parseDrillArgs(['plan'], { repoRoot: REPO_ROOT }), DrillUsageError);
+  assert.throws(
+    () => parseDrillArgs(['plan', '--scenario', 'delete-sentinel-blob'], { repoRoot: REPO_ROOT }),
+    DrillUsageError,
+  );
 });
 
 test('parse: strict-integrity and report-roundtrip options', () => {

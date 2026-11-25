@@ -259,13 +259,13 @@ describe('PartStudioTopBar 集成（汉堡 + 分享钮）', () => {
     renderTopBar();
     await user.click(screen.getByRole('button', { name: '分享' }));
     const dialog = await screen.findByRole('dialog');
-    // ShareDocumentDialog 三页签（成员/邀请/链接）锚点——成员页签带计数后缀
-    //（jsdom 零请求 → 0），邀请页签全称为「邀请成员」，链接页签「分享链接」。
+    // ShareDocumentDialog 两页签（成员/邀请）锚点——成员页签带计数后缀
+    //（jsdom 零请求 → 0），邀请页签全称为「邀请成员」；假链接页签已删除。
     const tabs = within(dialog).getAllByRole('tab');
-    expect(tabs).toHaveLength(3);
+    expect(tabs).toHaveLength(2);
     expect(tabs[0]?.textContent).toMatch(/^成员/);
     expect(within(dialog).getByRole('tab', { name: '邀请成员' })).toBeDefined();
-    expect(within(dialog).getByRole('tab', { name: '分享链接' })).toBeDefined();
+    expect(within(dialog).queryByRole('tab', { name: '分享链接' })).toBeNull();
   });
 });
 

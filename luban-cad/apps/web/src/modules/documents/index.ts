@@ -21,7 +21,8 @@ export type {
 } from './types.js';
 export { DocumentsPage } from './DocumentsPage.js';
 // M2 Task 6：ShareDocumentDialog 经 barrel 透出——document-details 模块
-// hero「分享」复用三页签对话框（跨模块只准 import 模块入口，spec 规则 4）。
+// hero「分享」复用分享对话框（成员/邀请；无链接分享）（跨模块只准 import
+// 模块入口，spec 规则 4）。
 export { ShareDocumentDialog } from './components/ShareDocumentDialog.js';
 // M3 Task 7：RenameDocumentDialog 经 barrel 透出——part-studio 模块汉堡
 // 文档菜单「重命名文档」复用（编辑器内重命名当前文档，同跨模块 barrel 口径）。

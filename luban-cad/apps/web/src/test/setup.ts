@@ -25,7 +25,7 @@ beforeAll(async () => {
 afterEach(cleanup);
 
 // M2 Task 5：jsdom 未实现 Element.scrollTo；iTwinUI Tabs 在 layout effect
-// 里调用（share 对话框三页签），不补形即 TypeError（移植自旧应用
+// 里调用（分享对话框页签），不补形即 TypeError（移植自旧应用
 // apps/web test/setup.ts 同口径）。
 if (typeof HTMLElement.prototype.scrollTo !== 'function') {
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', {

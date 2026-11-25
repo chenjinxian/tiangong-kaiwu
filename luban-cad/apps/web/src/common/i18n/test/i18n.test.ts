@@ -85,7 +85,7 @@ const REQUIRED_DOCUMENT_KEYS = [
   'rename.title', 'rename.nameLabel', 'rename.submit', 'rename.cancel',
   'sort.label', 'sort.name', 'sort.modifiedAt', 'sort.createdAt', 'sort.ascending', 'sort.descending',
   'shareDialog.title', 'shareDialog.close',
-  'shareDialog.tabs.members', 'shareDialog.tabs.invite', 'shareDialog.tabs.link',
+  'shareDialog.tabs.members', 'shareDialog.tabs.invite',
 ] as const;
 
 /** DocumentDetailsPage（Task 6）实际取用的 documents.detail.* 键集——与

@@ -485,26 +485,6 @@
   color: var(--iui-color-text-muted);
 }
 
-.share-link-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--iui-size-2xs);
-}
-
-.share-link-input-group {
-  display: flex;
-  align-items: center;
-  gap: var(--iui-size-2xs);
-}
-
-.share-link-input {
-  flex: 1;
-}
-
-.share-link-hint {
-  color: var(--iui-color-text-muted);
-}
-
 .share-danger-button {
   color: var(--iui-color-text-negative);
 }

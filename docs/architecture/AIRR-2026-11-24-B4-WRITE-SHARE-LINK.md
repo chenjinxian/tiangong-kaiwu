@@ -7,8 +7,8 @@
 - 预计影响仓：私有 `imodelhub-services`（authorization/action/route metadata/access-control/permissions/migrations/tests）；公共仓 `luban-cad/apps/web`（ShareDocumentDialog/usePermissions/i18n/tests）与本文档。**不改** MS/BFF/WA/native/共享 IPC；**不新增**公共 REST DTO，除非另立 ADR。
 - 是否需要 ADR：**是（Proposed）**。Write 等级激活会改变公开路由的授权语义（显式 Write/Edit 从“不可写”变为“可写”），并决定 iTwin share/link 的取舍；这属于跨仓授权契约变更。建议在 `ADR-G0-16` 下新增附录（编号由 ARB 分配，Proposed）并 ARB 签字。若只做“Manage-only 保持 + 删除假 link”，可不改授权契约，但仍需 owner 确认。
 
-> **状态：Partially implemented（B4 第一切片，2026-11-24）；全量 B4 未完成。**
-> 已实现（私有 `imodelhub-services`）：`AUTHZ_WRITE_SEMANTICS=manage_compat|write` 启动校验与默认 `manage_compat`；action resolver 在 `write` 下将 `doc.write`/`briefcase.write`/`changeset.push` 映射为 Write；route-level `version.write` 映射；unsecured share `Edit` → Write 分支修复（含 denyList/secured 规则保持）；permissions projection 随 flag 输出 `imodels_write`；OBO exchange/decision 使用同一语义并在响应报告实际值。**未实现**：公开 mutation 路由的 `@RequireAction` 元数据迁移、UI Write 档、link 删除、shares UI、MS B3.1d 对齐、真栈 canary。实现证据与残余见 §10。
+> **状态：Partially implemented（B4 第一切片 2026-11-24；公共仓 UI 切片 2026-11-25）；全量 B4 未完成。**
+> 已实现（私有 `imodelhub-services`）：`AUTHZ_WRITE_SEMANTICS=manage_compat|write` 启动校验与默认 `manage_compat`；action resolver 在 `write` 下将 `doc.write`/`briefcase.write`/`changeset.push` 映射为 Write；route-level `version.write` 映射；unsecured share `Edit` → Write 分支修复（含 denyList/secured 规则保持）；permissions projection 随 flag 输出 `imodels_write`；OBO exchange/decision 使用同一语义并在响应报告实际值。**未实现**：公开 mutation 路由的 `@RequireAction` 元数据迁移、UI Write 档、shares UI、MS B3.1d 对齐、真栈 canary。fake link UI 已于 2026-11-25 在公共仓删除（仅有 UI/i18n/测试，见 §10.5）。实现证据与残余见 §10。
 > 当前 B3.1b 已把 groups/local roleIds、iTwin shares、share denyList、secured 显式 grant 接入单一 resolver；B3.1d/MS 与 Hub 公开路由仍是 **Manage-only**（`@RequirePermission(IMODELS_MANAGE)`）。本切片的 `write` 模式只作用于 action resolver/OBO/decision/projection，不等于公开路由端到端 Write 强制。
 > 本文中的“当前”只表示 2026-11-24 对公开/私有仓源码的只读走查；“Proposed”表示尚未落地的设计。
 > 不勾选任何 G1 Gate 项；不宣称 B4、B3 或“无假分享”已完成。
@@ -535,11 +535,41 @@ doc.manage      -> [ { permission: IMODELS_MANAGE } ]  // 任一维度；iTwin m
 1. **公开 mutation 路由仍未迁移**：所有写路由仍是 `@RequirePermission(IMODELS_MANAGE)`；`@RequireAction`/双写元数据（§3.3）未实现。因此 `AUTHZ_WRITE_SEMANTICS=write` 目前只影响 action resolver/OBO/decision/projection，**不保证公开 REST 写路由接受 Edit/Write 用户**。在路由迁移完成前不得在生产开启 `write`（projection 可能显示可编辑而路由仍 403）。
 2. **OBO closed scope 仍为四动作**：`version.write` 已加入 resolver 翻译表但不在 `P0_AUTHZ_ACTIONS`；Named Version 路由仍 Manage，OBO 仍不能换发 `version.write`。D-2 未决。
 3. **`doc.manage` 未新增**：删除 iModel、secured 开关、grant/revoke、角色模板、share 管理继续 `checkITwinManageForIModel` + `@RequirePermission(IMODELS_MANAGE)`，未被 Write 激活放宽（符合 D-4/§3.6）。
-4. **UI 未改**：B 文档分享对话框仍 Read/Manage（无 Write 档）；A 文档/项目容器仍显示 link 页签；二者是产品决策，按本切片要求保持不动。link 不是 capability，能力账本不得宣传。
+4. **UI 只完成 fake link 删除与管理控件可见性收口**：A 文档/项目容器已移除 link 页签、复制链接与相关文案；B 文档分享在 `canManageShare=false` 时不再渲染邀请页签/撤销/安全开关，只保留只读权限列表和 `manageRequired` 说明；B 文档仍只有 Read/Manage 两档（无 Write）。A 分支/DocumentsPage 行分享入口没有逐文档能力门，残余见 §10.5。link 不是 capability，能力账本不得宣传。
 5. **iTwin shares 仍 API-only**：resolver 执行 email/domain/allow/deny/expiry，但无前端创建/列出入口；未新增 shares UI。
 6. **deny 审计/独立 deny 表未做**：仍只有 `access_control_shares.denyList`；无 `audit_events` 变更审计（B7）。
 7. **MS/B3.1d 未对齐**：MS 本地写门禁仍 Manage-only；`AUTH_B3_WRITE_MODE` 未接本 flag。
 8. **真栈双用户 canary 未跑**：无 live DB/stack；隔离 relational e2e、MS canary、UI e2e 均未执行（§7.2）。
 9. **无 schema 迁移**：历史显式 Write 行与 share Edit 行保留；开启 `write` 后开始生效，回滚只需 `AUTHZ_WRITE_SEMANTICS=manage_compat`。发布说明必须列出“此前被 Manage 兼容吞掉的 Write/Edit 用户将获得 action-level 写判定”。
 10. **缓存窗口仍 60s**：iTwin RBAC/组角色缓存未改；shares/deny/explicit 仍直查立即生效。真栈验证未做。
-11. **明确不发布/不提交**：本切片未 commit/push；未更新 README/索引/例外表；ADR 仍为 Proposed，生产激活需 ARB/owner 签字。
+11. **明确不发布/不提交**：第一切片（2026-11-24）未 commit/push、未更新 README/索引/例外表；2026-11-25 UI 切片同样未 commit/push，只更新本 AIRR 与 `docs/README.md` 索引行，未改例外表；ADR 仍为 Proposed，生产激活需 ARB/owner 签字。
+
+### 10.5 公共仓 UI 切片（2026-11-25）
+
+**范围**：删除 fake link、收口 B 文档分享控件可见性、不新增 Write 档。未改 Hub/backend、MS/BFF/WA/native/shared、schema、路由、鉴权语义。
+
+| 变更 | 位置 | 行为 |
+|---|---|---|
+| U-1 | `luban-cad/apps/web/src/modules/documents/components/ShareDocumentDialog.tsx` | A 旧文档/B 项目容器移除 `link` 页签、只读链接输入框、复制按钮、`shareLink`/`handleCopyLink`/`copied` 状态；只保留成员/邀请两页签。平台没有 link share（无 token/兑换/guest 访问），不再把普通导航 URL 装扮成分享能力。 |
+| U-2 | 同上（`BShareDialog`） | `canManageShare=false` 时不渲染邀请页签、撤销按钮、secured 开关，只保留只读权限列表与 `manageRequired` 说明；`canManageShare=true` 时 Read/Manage 授权、撤销、secured 切换行为不变。分享管理仍只由既有 iTwin 权限投影派生，不由 `imodels_write`/editable 派生。 |
+| U-3 | 同上（`AccessLevel` 注释） | B 文档仍只有 `read`/`manage` 两档；代码注释明确：Hub 公开写路由仍 Manage-only，且前端无服务端写能力响应，不接受“先做惰性 Write UI”。 |
+| U-4 | `src/common/i18n/locales/{zh-CN,en}/documents.json`、`DocumentsPage.css` | 删除 `shareDialog.tabs.link`、`shareDialog.link.*` 与 `share-link-*` 死样式；中英键集保持奇偶。 |
+| U-5 | `DocumentsPage.tsx`、`PartStudioTopBar.tsx`、`useDocumentFilters.ts` 注释 | 去除“三页签/分享链接”表述，避免文档与代码继续暗示 link share。 |
+| U-6 | 单元测试（documents/part-studio/i18n） | A 分支断言两页签、无链接页签/复制链接/链接提示；B 分支新断言 `canManageShare=false` 不显示邀请页签/撤销/安全开关；行菜单与顶栏分享入口测试同步为两页签。 |
+
+**已执行测试（2026-11-25，Windows 11；无 live stack）**：
+
+| 命令 | 结果 |
+|---|---|
+| `corepack pnpm@10 exec vitest run src/modules/documents/test/ShareDocumentDialog.test.tsx src/modules/documents/test/DocumentsPage.test.tsx src/modules/documents/test/documents-structure.test.tsx src/modules/part-studio/test/DocumentMenuBar.test.tsx src/common/i18n/test/i18n.test.ts` | **5 files / 75 tests 通过** |
+| `corepack pnpm@10 exec vitest run src/modules/document-details/test/DocumentDetailsPage.test.tsx src/modules/document-details/test/document-details-structure.test.tsx src/modules/part-studio/test/PartStudioTopBar.test.tsx src/modules/part-studio/test/PartStudioPage.test.tsx` | **4 files / 124 tests 通过** |
+| `corepack pnpm@10 exec tsc --noEmit -p tsconfig.json`（`luban-cad/apps/web`） | 通过 |
+| `corepack pnpm@10 exec eslint <本次变更的 11 个 TS/TSX 文件>` | 通过 |
+
+**残余（不得写成 B4/无假分享完成）**：
+
+1. **A 分支与 DocumentsPage 行分享入口没有逐文档能力门**：A/B 项目容器分享走 iTwin 成员面（变更要求 iTwin manage，即 `itwins_modify`），但 `DocumentsPage` 列表只有 `DocumentSummary`，没有权限投影；`PartStudio` A 分支现有 `canManageShare` 是 B 文档分享门（`imodels_manage`），不是 iTwin 成员变更门。本切片不新增逐行权限查询，也不把 `imodels_manage` 冒充 `itwins_modify`；无权限用户点击后仍会在成员 API 上收到 403，由对话框内联错误/重试如实呈现。需要产品确认后再决定是否加 `itwins_modify` 门或隐藏入口。
+2. **iTwin shares 仍 API-only**：email/domain/allow/deny/expiry 由后端 resolver 执行，但前端没有创建/列出/撤销 shares 的入口；本切片不新增 shares UI。
+3. **B 文档 Write 档未提供**：仍等待公开写路由迁移与可观测能力响应；在此之前 Read/Manage 两档是诚实上限。
+4. **未执行真栈/浏览器 e2e**：本次仅有 jsdom 单测、tsc、eslint；A/B 分享对话框与 iTwin 成员 API 的真实 403/成功路径未在 live 栈验证。
+5. **未 commit/push**：工作树变更保留待评审。

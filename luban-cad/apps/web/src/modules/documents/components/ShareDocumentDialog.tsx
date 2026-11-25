@@ -3,13 +3,20 @@
  * Licensed under the MIT License.
  *
  * ShareDocumentDialog（Task 5 / P2.3）：分享对话框——按目标类型分流：
- * - A 旧文档 / B 项目容器（无 `imodelId`）→ iTwin access-control 三页签
- *   （成员/邀请/链接；移植自旧应用 ShareITwinDialog，行为原样保留）；
+ * - A 旧文档 / B 项目容器（无 `imodelId`）→ iTwin access-control 两页签
+ *   （成员/邀请；移植自旧应用 ShareITwinDialog）；**不渲染链接页签**——
+ *   本平台没有 link share 能力（无 token/兑换/guest 访问），旧的
+ *   “Share link”只是指向 `/documents/:iTwinId` 的普通导航 URL，已删除，
+ *   不得以任何文案暗示“复制链接即可访问”；
  * - B 文档（`mode='B'` 且给定 `imodelId`）→ iModel 显式权限通道：
  *   读 `isSecured` + `GET /imodels/:id/permissions/users`，授权 Read/Manage
  *   （`POST .../permissions/grant`）、撤销（`DELETE .../permissions/users/:userId`）；
- *   邮箱邀请先经 access-control 加入项目成员，再 grant；**不声称链接分享**
- *   （hub 无 iModel 链接分享通道，B 分支不渲染链接页签）。
+ *   邮箱邀请先经 access-control 加入项目成员，再 grant。**不提供 Write 档**：
+ *   hub 公开写路由仍按 Manage 兼容（`AUTHZ_WRITE_SEMANTICS=manage_compat`
+ *   默认），且前端没有“Write 已生效”的能力响应可依据，先做惰性 Write UI
+ *   会误导用户（见 `AIRR-2026-11-24-B4-WRITE-SHARE-LINK.md` §6.1/§10.4）。
+ *   管理控件只由 `canManageShare`（既有 iTwin 权限投影）决定，绝不由
+ *   `imodels_write`/editable 派生。
  *
  * 身份展示：iModel 权限行只有 userId；与 iTwin 成员面按 `member.id`（成员行）
  * 或 `member.email`（hub REST 加入成员时的 userId 回退）关联，关联不到时
@@ -27,7 +34,6 @@ import {
   Button,
   Dialog,
   IconButton,
-  Input,
   LabeledInput,
   Label,
   ProgressRadial,
@@ -35,7 +41,7 @@ import {
   Tabs,
   Text,
 } from '@itwin/itwinui-react';
-import { SvgAdd, SvgCheckmark, SvgCopy, SvgDelete } from '@itwin/itwinui-icons-react';
+import { SvgAdd, SvgDelete } from '@itwin/itwinui-icons-react';
 import type { IModel } from '@itwin/imodels-client-management';
 import { ImodelsClient } from '@clients/imodels/ImodelsClient.js';
 import type {
@@ -64,14 +70,15 @@ export interface ShareDocumentDialogProps {
    */
   imodelId?: string | null;
   /**
-   * 当前用户是否可管理该文档访问（iTwin `imodels_manage`，fail-closed）。
-   * 仅 B 文档分支消费；A / 项目容器分享保持既有 iTwin 行为。
-   * 默认 false（未显式授权的调用方不得看到可写分享控件）。
+   * 当前用户是否可管理该文档访问（既有 iTwin 权限投影 `imodels_manage`，
+   * fail-closed）。**不是**编辑器 Write/Edit 能力（`imodels_write`）——分享
+   * 管理不得由写权限派生。仅 B 文档分支消费；A / 项目容器分享保持既有
+   * iTwin 成员行为。默认 false：未显式授权的调用方看不到可写分享控件。
    */
   canManageShare?: boolean;
 }
 
-type ShareTab = 'members' | 'invite' | 'link';
+type ShareTab = 'members' | 'invite';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -94,7 +101,7 @@ export function ShareDocumentDialog(props: ShareDocumentDialogProps): React.JSX.
 }
 
 // ---------------------------------------------------------------------------
-// A 旧文档 / B 项目容器：既有 iTwin 三页签通道（行为不变）
+// A 旧文档 / B 项目容器：既有 iTwin 两页签（成员/邀请）通道；无链接分享
 // ---------------------------------------------------------------------------
 
 function ITwinShareDialog({
@@ -116,7 +123,6 @@ function ITwinShareDialog({
   const [inviteError, setInviteError] = React.useState('');
   // 成员页内联状态条（toast 的等价替代，见模块头注）。
   const [statusMessage, setStatusMessage] = React.useState<{ kind: 'positive' | 'negative'; text: string } | null>(null);
-  const [copied, setCopied] = React.useState(false);
   const [removeTarget, setRemoveTarget] = React.useState<ITwinMember | null>(null);
 
   const membersQuery = useQuery({
@@ -173,15 +179,12 @@ function ITwinShareDialog({
 
   const members = membersQuery.data ?? [];
 
-  const shareLink = iTwinId ? `${window.location.origin}/documents/${iTwinId}` : '';
-
   const handleClose = React.useCallback(() => {
     setActiveTab('members');
     setEmail('');
     setSelectedRoleId('');
     setInviteError('');
     setStatusMessage(null);
-    setCopied(false);
     setRemoveTarget(null);
     onClose();
   }, [onClose]);
@@ -228,16 +231,6 @@ function ITwinShareDialog({
     }
   }, [removeTarget, removeMemberMutation]);
 
-  const handleCopyLink = React.useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(shareLink);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // 剪贴板不可用（权限/非安全上下文）——保持静默，输入框可手动复制
-    }
-  }, [shareLink]);
-
   const membersTabLabel = t('documents.shareDialog.tabs.members', { count: members.length });
 
   return (
@@ -273,7 +266,6 @@ function ITwinShareDialog({
               <Tabs.TabList>
                 <Tabs.Tab value="members" label={membersTabLabel} />
                 <Tabs.Tab value="invite" label={t('documents.shareDialog.tabs.invite')} />
-                <Tabs.Tab value="link" label={t('documents.shareDialog.tabs.link')} />
               </Tabs.TabList>
 
               {/* 成员 */}
@@ -402,31 +394,6 @@ function ITwinShareDialog({
                   {t('documents.shareDialog.invite.submit')}
                 </Button>
               </Tabs.Panel>
-
-              {/* 链接 */}
-              <Tabs.Panel value="link" className="share-tab-panel">
-                <div className="share-link-section">
-                  <Label htmlFor="share-link-input">{t('documents.shareDialog.link.label')}</Label>
-                  <div className="share-link-input-group">
-                    <Input
-                      id="share-link-input"
-                      value={shareLink}
-                      readOnly
-                      className="share-link-input"
-                    />
-                    <IconButton
-                      styleType="default"
-                      onClick={() => void handleCopyLink()}
-                      label={copied ? t('documents.shareDialog.link.copied') : t('documents.shareDialog.link.copy')}
-                    >
-                      {copied ? <SvgCheckmark /> : <SvgCopy />}
-                    </IconButton>
-                  </div>
-                  <Text variant="small" className="share-link-hint">
-                    {t('documents.shareDialog.link.hint')}
-                  </Text>
-                </div>
-              </Tabs.Panel>
             </Tabs.Wrapper>
           </Dialog.Content>
           <Dialog.ButtonBar>
@@ -485,6 +452,14 @@ function ITwinShareDialog({
 // B 文档：iModel 显式权限通道
 // ---------------------------------------------------------------------------
 
+/**
+ * 授权等级只保留 Read/Manage（B4 边界）。**不增加 Write**：hub 公开 mutation
+ * 路由仍按 `AUTHZ_WRITE_SEMANTICS=manage_compat` 默认执行，显式 Write 只在
+ * action resolver/OBO/projection 层激活；在路由端到端接受 Write、且前端有
+ * 服务端能力响应可证之前，Write 选项会是“看起来能授权、实际仍 403”的惰性
+ * 控件。等这两个前提成立后，再以能力响应（而非前端写权限猜测）决定是否
+ * 呈现 Write 档。
+ */
 type AccessLevel = 'read' | 'manage';
 
 /** Read/Manage 映射到 hub 四维 level（Brief：grant Read/Manage）。 */
@@ -666,6 +641,12 @@ function BShareDialog({
     setSecuredTarget(null);
   }, [imodelId]);
 
+  // 权限投影落定后若管理权被收回，邀请页签会从 DOM 移除——把页签状态同步
+  // 回成员页，避免停在已不存在的可写面板。
+  React.useEffect(() => {
+    if (!canManageShare) setActiveTab('members');
+  }, [canManageShare]);
+
   const memberFor = React.useCallback(
     (key: string): ITwinMember | undefined =>
       members.find(
@@ -759,7 +740,11 @@ function BShareDialog({
             >
               <Tabs.TabList>
                 <Tabs.Tab value="members" label={membersTabLabel} />
-                <Tabs.Tab value="invite" label={t('documents.shareDialog.tabs.invite')} />
+                {/* 没有分享管理权（既有 iTwin 权限投影）时不渲染可写页签；
+                    只保留显式权限的只读列表 + 上方 manageRequired 说明。 */}
+                {canManageShare && (
+                  <Tabs.Tab value="invite" label={t('documents.shareDialog.tabs.invite')} />
+                )}
               </Tabs.TabList>
 
               <Tabs.Panel value="members" className="share-tab-panel">
@@ -847,23 +832,28 @@ function BShareDialog({
                             </Text>
                           </div>
                         </div>
-                        <IconButton
-                          size="small"
-                          styleType="borderless"
-                          disabled={!canManageAccess || revokeMutation.isPending}
-                          onClick={() => setRevokeTarget(permission)}
-                          label={t('documents.shareDialog.b.revoke')}
-                        >
-                          <SvgDelete />
-                        </IconButton>
+                        {/* 撤销属于管理动作：无管理权时不显示（不是灰化后仍
+                            暗示可操作）；secured 未生效时保留禁用态并由上方说明。 */}
+                        {canManageShare && (
+                          <IconButton
+                            size="small"
+                            styleType="borderless"
+                            disabled={!canManageAccess || revokeMutation.isPending}
+                            onClick={() => setRevokeTarget(permission)}
+                            label={t('documents.shareDialog.b.revoke')}
+                          >
+                            <SvgDelete />
+                          </IconButton>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </Tabs.Panel>
 
-              <Tabs.Panel value="invite" className="share-tab-panel">
-                {inviteError && <Alert type="negative" className="share-alert">{inviteError}</Alert>}
+              {canManageShare && (
+                <Tabs.Panel value="invite" className="share-tab-panel">
+                  {inviteError && <Alert type="negative" className="share-alert">{inviteError}</Alert>}
 
                 {membersQuery.isError ? (
                   <div className="share-members-empty">
@@ -959,6 +949,7 @@ function BShareDialog({
                   {t('documents.shareDialog.b.inviteAndGrant')}
                 </Button>
               </Tabs.Panel>
+              )}
             </Tabs.Wrapper>
           </Dialog.Content>
           <Dialog.ButtonBar>

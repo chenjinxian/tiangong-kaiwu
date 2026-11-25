@@ -300,7 +300,7 @@ export function PartStudioTopBar({
       </header>
       {/* 共享对话框（T7；P2.4 B/A 分流）：B 文档 = iModel 级权限（成员/邀请，
           无链接分享；canManageShare=imodels_manage fail-closed）；A = iTwin
-          成员/邀请/链接三页签（旧行为不变）。 */}
+          成员/邀请两页签（无链接分享，旧成员行为不变）。 */}
       <ShareDocumentDialog
         doc={shareDoc}
         imodelId={mode === 'B' ? iModelId : undefined}

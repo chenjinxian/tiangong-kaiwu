@@ -166,8 +166,7 @@
     },
     "tabs": {
       "members": "Members ({{count}})",
-      "invite": "Invite",
-      "link": "Share link"
+      "invite": "Invite"
     },
     "members": {
       "loading": "Loading members…",
@@ -199,12 +198,6 @@
       "failed": "Failed to add member. Please retry.",
       "hint": "The member gains document access immediately (this hub does not send email notifications).",
       "rolesLoadFailed": "Failed to load roles"
-    },
-    "link": {
-      "label": "Share link",
-      "copy": "Copy link",
-      "copied": "Copied",
-      "hint": "Only users with document access can open this link"
     },
     "b": {
       "secured": "This document has access control enabled: only the granted users below can access it (iTwin owner/Admin/Editor still bypass).",

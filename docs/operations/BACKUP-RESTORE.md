@@ -6,6 +6,11 @@
 > 关联：`docs/architecture/G0-DECISION-REGISTER.md`（D0-14 灾备等级）、
 > `docs/architecture/G1-EXECUTION-PLAN.md`（E1/E2、E3/E5、E8）、
 > `docs/research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md` §4.4。
+>
+> **2026-11-25 增量注记**：生产级 PITR / 对象版本化恢复的 provider-neutral 定义与 runbook 已登记在
+> `docs/operations/PRODUCTION-DR-DRILL.md`，但**未执行**。本文件仍是开发/内网基线：
+> `pg_dump` + Azurite 卷 `tar` **不是** HA/PITR，也**不是**对象版本化；**RPO≤5m / RTO≤1h 未达成**，
+> G1 E1/E2/E8 与 DR Gate **未勾选**。两者是不同能力层，不能互相替代。
 
 ## 0. 一句话结论
 
@@ -143,6 +148,11 @@ docker run --rm -v tiangong-kaiwu_azurite-data:/src:ro `
 **结论：本基线不满足 D0-14 的生产灾备等级。** 要满足 RPO≤5m/RTO≤1h，需要：
 PostgreSQL HA + WAL 归档/PITR + 自动备份；对象存储版本化/跨区复制；Redis HA/持久队列；
 外部调度、监控、加密/KMS、异机/异地副本。本脚本是这些能力的“可演练起点”，不是替代品。
+
+**2026-11-25 状态**：生产级 PITR 与对象版本化恢复演练只在 `PRODUCTION-DR-DRILL.md` 中有定义，
+**没有执行**；因此本仓库**没有任何通过的生产级演练**可支撑 RPO≤5m/RTO≤1h。本文件的
+`pg_dump` + Azurite 卷快照、以及 `DR-DRILL.md` 的 Phase A roundtrip，都只是开发/隔离环境证据，
+不得对外表述为生产灾备达标。
 
 ---
 
@@ -454,9 +464,11 @@ powershell -File scripts/verify-stack.ps1
 ## 10. 生产化差距（必须显式承认）
 
 1. **非 HA**：单 PostgreSQL、单 Azurite 卷、单宿主；无副本/故障切换。
-2. **非 PITR**：无 WAL 归档/连续归档；RPO = 备份间隔，不是 5 分钟。
+2. **非 PITR**：无 WAL 归档/连续归档；RPO = 备份间隔，不是 5 分钟。生产 PITR 演练定义见
+   `PRODUCTION-DR-DRILL.md` §4，**未执行**，无恢复目标时间/WAL replay 证据。
 3. **对象存储**：Azurite 是开发模拟器（well-known 密钥、无版本化/对象锁/跨区复制）。
-   生产必须使用 S3/Azure Blob 等；本脚本的卷 tar 方法不适用于生产对象存储。
+   生产必须使用具备版本化能力的持久对象存储；本脚本的卷 tar 方法不适用于生产对象存储。
+   生产版本化恢复演练定义见 `PRODUCTION-DR-DRILL.md` §5，**未执行**，无版本 ID/SHA-256 对账证据。
 4. **Redis/队列**：未备份；WA forward queue、cron、锁/限流状态可能在恢复后丢失或需重建。
 5. **briefcase/本地缓存**：未备份；恢复后应重启宿主 MS 并清理陈旧缓存，避免旧本地状态覆盖服务端。
 6. **应用一致性**：没有全局写屏障；在线备份最多 crash-consistent，可能包含跨存储时序偏差。
@@ -497,6 +509,8 @@ powershell -File scripts/verify-stack.ps1
 - 每次演练后更新本文件：日期、环境、RPO/RTO 实测、问题、脚本版本、改进项。
 - 任何对备份脚本/恢复顺序/存储拓扑的改动，都应同步更新本 runbook，并在 G1 证据中登记。
 - 相关接口/状态变更遵循 `docs/DEVELOPMENT-RULES.md` 与 G1 的 DoD；本基线不新增 Part Studio 功能。
+- 2026-11-25：新增 `PRODUCTION-DR-DRILL.md`（PITR/对象版本化定义）但**未执行**；本文件中的
+  `pg_dump`/Azurite 结果不能迁移为生产 RPO/RTO 证据；G1/DR Gate 仍未完成。
 
 ---
 
@@ -507,6 +521,7 @@ powershell -File scripts/verify-stack.ps1
 - `docs/research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md` §4.4
 - `docs/operations/BACKUP-RESTORE.md`（本文件）
 - `docs/operations/INTEGRITY-SCAN.md`（E8 只读完整性扫描 v1）
-- `docs/operations/DR-DRILL.md`（非破坏性演练规范 skeleton）
+- `docs/operations/DR-DRILL.md`（隔离非破坏性演练规范）
+- `docs/operations/PRODUCTION-DR-DRILL.md`（生产 PITR/对象版本化演练定义；未执行）
 - `scripts/backup-stack.ps1`、`scripts/restore-stack.ps1`
 - `scripts/integrity/Invoke-IntegrityScan.mjs`、`scripts/integrity/scan-core.mjs`

@@ -158,6 +158,8 @@
 | 生产对象存储 | **未接入** | 仅 Azurite；`docker-compose.yml` 单命名卷；well-known 密钥 |
 | 对象版本化/对象锁/CRR/校验和 | **未实现** | `../operations/BACKUP-RESTORE.md` §10 明确列为差距 |
 | PostgreSQL HA/PITR | **未实现** | 单 PostgreSQL；无 WAL 归档/PITR；迁移无生产门 |
+| 生产 PostgreSQL PITR 演练 | **定义已登记，未执行** | `../operations/PRODUCTION-DR-DRILL.md` §4（2026-11-25）；无 base backup/WAL replay/恢复点证据 |
+| 生产对象版本化恢复演练 | **定义已登记，未执行** | `../operations/PRODUCTION-DR-DRILL.md` §5；无真实版本 ID/SHA-256/跨存储对账证据 |
 | Redis/队列 HA | **未实现** | 单 Redis；`noeviction`；队列/缓存未分离 |
 | WA forward queue 持久化 | **未实现** | 队列在容器 cwd；容器重建丢 pending forwards |
 | Azurite 数据迁移 | **未执行** | 仅有卷 tar/本地卷克隆；无生产对象存储搬迁与对账 |
@@ -165,6 +167,10 @@
 | 真实对象存储验证 | **未执行** | D4 canary 仅 Azurite（`--skipApiVersionCheck`）；真实 Azure/生产存储、长上传续签未验 |
 | 队列/worker 生产形态 | **未验证** | checkpoint worker canary 仅隔离环境；BullMQ 锁续期在长 native 作业中出现失败并有界缓解，native 仍阻塞事件循环，未迁移到 worker thread/child process |
 | G1 数据/DR 工作包 | **未完成** | `G1-WAVE2-STATUS-2026-11-23.md` §1/§2：E1/E2/E8 全部未完成；无 HA/版本化/演练证据 |
+
+**2026-11-25 注记**：生产 PITR / 对象版本化恢复演练已有 provider-neutral 定义与 runbook
+（`../operations/PRODUCTION-DR-DRILL.md`），但**未执行**；未选择/接入任何 provider，也未产生
+版本化/恢复证据。定义与计划不改变本 ADR 的证据状态。
 
 **明确不宣称**：生产对象存储已接入、HA/PITR 已上线、队列已持久化、数据迁移门已生效、Azurite 迁移已完成、真实 Azure/对象存储已验证。Azurite 单卷只能作为开发环境。
 
@@ -202,6 +208,7 @@
 - `ADR-G0-14-dr-rpo-rto.md`（灾备等级/RPO/RTO/恢复顺序）
 - `ADR-G0-04-ledger-version-checkpoint.md`（不可变账本/checkpoint）
 - `../operations/BACKUP-RESTORE.md`（当前数据、备份限制与恢复顺序）
+- `../operations/PRODUCTION-DR-DRILL.md`（生产 PITR/对象版本化演练定义；未执行）
 - `../research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md` §4、§6.3、§12
 - `../research/lubancad-architecture-assessment/10-ARCHITECTURE-HARDENING-PLAN.md` WS-E、WS-J、G1/G3 验收
 - `EXCEPTIONS.md`（X-16/X-17 账本/checkpoint、X-22 租户键、X-23/X-24 checkpoint 凭据/链证据）

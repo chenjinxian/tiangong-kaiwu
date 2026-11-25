@@ -5,7 +5,7 @@
  * useDocumentFilters（Task 4）：侧栏筛选状态——读写 URL search param `?filter=`。
  * - 读：合法档位直读；缺席/非法值收敛为 DEFAULT_DOCUMENT_FILTER（不透传坏值）；
  * - 写：setFilter 只动 filter 键，其余 search params 原样保留；
- * - URL 为唯一事实源：刷新/分享链接可还原筛选态。
+ * - URL 为唯一事实源：刷新/手动复制 URL 可还原筛选态（没有平台级分享链接）。
  */
 
 import { useSearchParams } from 'react-router-dom';

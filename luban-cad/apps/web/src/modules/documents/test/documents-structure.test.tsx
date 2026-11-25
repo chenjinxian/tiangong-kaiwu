@@ -9,7 +9,7 @@
 //  5) 表格视图（列表切换后）：名称/所有者/角色/创建时间/更新时间 五列 + 行；
 //  6) 网格视图（默认态）：文档卡片渲染（Onshape 卡片密度）；
 //  7) 行选择 → 详情侧栏（InformationPanel，os-01 右栏详情）；
-//  8) 行菜单 → 共享对话框（成员/邀请成员/分享链接 三页签）。
+//  8) 行菜单 → 共享对话框（成员/邀请成员 两页签，无链接分享）。
 //
 // 定位：Task 5 DocumentsPage.test.tsx 行为深测之外的「关键区域存在性」
 // 验收层（M2 DoD 6 结构断言落档）；mock 口径与其一致——P2.1 useDocuments
@@ -156,7 +156,7 @@ describe('DocumentsPage 结构断言（M2 Task 8，关键区域存在性）', ()
     expect(screen.getByText('暂无描述')).toBeDefined();
   });
 
-  it('行菜单 → 共享对话框三页签（成员/邀请成员/分享链接）', async () => {
+  it('行菜单 → 共享对话框两页签（成员/邀请成员，无链接分享）', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getAllByRole('button', { name: '更多操作' })[0]!);
@@ -165,6 +165,6 @@ describe('DocumentsPage 结构断言（M2 Task 8，关键区域存在性）', ()
     expect(await screen.findByText('分享文档')).toBeDefined();
     expect(screen.getByRole('tab', { name: '成员 (0)' })).toBeDefined();
     expect(screen.getByRole('tab', { name: '邀请成员' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: '分享链接' })).toBeDefined();
+    expect(screen.queryByRole('tab', { name: '分享链接' })).toBeNull();
   });
 });

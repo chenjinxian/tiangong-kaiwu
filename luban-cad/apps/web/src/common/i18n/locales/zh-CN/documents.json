@@ -166,8 +166,7 @@
     },
     "tabs": {
       "members": "成员 ({{count}})",
-      "invite": "邀请成员",
-      "link": "分享链接"
+      "invite": "邀请成员"
     },
     "members": {
       "loading": "加载成员中…",
@@ -199,12 +198,6 @@
       "failed": "添加成员失败，请重试",
       "hint": "该成员将立即获得文档访问权限（本 hub 不发送邮件通知）。",
       "rolesLoadFailed": "角色列表加载失败"
-    },
-    "link": {
-      "label": "分享链接",
-      "copy": "复制链接",
-      "copied": "已复制",
-      "hint": "仅拥有文档访问权限的用户可打开此链接"
     },
     "b": {
       "secured": "此文档已启用访问控制：仅下列授权用户可访问（iTwin owner/Admin/Editor 仍可绕过）。",

@@ -1,7 +1,8 @@
 // src/modules/documents/test/ShareDocumentDialog.test.tsx
 //
 // P2.3 分享对话框按模式分流——
-//  - A 旧文档 / B 项目容器（无 imodelId）走既有 iTwin 成员/邀请通道；
+//  - A 旧文档 / B 项目容器（无 imodelId）走既有 iTwin 成员/邀请通道
+//    （无链接页签/复制链接——平台没有 link share 能力）；
 //    B 项目容器明确标注「项目级（全部文档）」；
 //  - B 文档（mode='B' + imodelId）走 iModel 权限通道：
 //    读 isSecured + 权限用户；身份/授权一律用 **真实 userId**（不是成员行 id）；
@@ -206,13 +207,17 @@ describe('ShareDocumentDialog B 文档（iModel 权限通道）', () => {
     await waitFor(() => expect(mocks.setSecured).toHaveBeenCalledWith('im-1', false));
   });
 
-  it('无 imodels_manage：管理动作禁用 + 如实提示；不显示限制访问', async () => {
-    mocks.imodelsGet.mockResolvedValue({ id: 'im-1', displayName: 'B 文档', isSecured: false });
+  it('无 imodels_manage：不显示可写控件（邀请页签/撤销/限制访问）+ 如实提示', async () => {
+    // secured=true 也仍无管理权：可见性由既有权限投影决定，不由文档状态派生。
     renderDialog({ doc: B_DOC, imodelId: 'im-1', canManageShare: false });
 
     expect(await screen.findByText('需要 imodels_manage 权限才能管理文档访问。')).toBeDefined();
     expect(screen.queryByRole('button', { name: '限制访问' })).toBeNull();
-    expect(isDisabled(await screen.findByRole('button', { name: '撤销授权' }))).toBe(true);
+    expect(screen.queryByRole('button', { name: '恢复项目级访问' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: '邀请成员' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '撤销授权' })).toBeNull();
+    // 只读权限列表仍在（身份行照常展示）。
+    expect(await screen.findByText('alice@example.com')).toBeDefined();
   });
 
   it('撤销：DELETE 使用真实 userId（不是成员行 id）', async () => {
@@ -334,10 +339,15 @@ describe('ShareDocumentDialog B 文档（iModel 权限通道）', () => {
 });
 
 describe('ShareDocumentDialog A / B 项目容器（iTwin 通道不变）', () => {
-  it('A 旧文档：不触发 iModel 权限查询，仍为三页签 iTwin 成员通道', async () => {
+  it('A 旧文档：不触发 iModel 权限查询，保持两页签 iTwin 成员通道且无链接分享', async () => {
     renderDialog({ doc: A_DOC });
     expect(await screen.findByRole('tab', { name: '成员 (3)' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: '分享链接' })).toBeDefined();
+    expect(screen.getByRole('tab', { name: '邀请成员' })).toBeDefined();
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+    // 假 link 能力（导航 URL + 复制按钮）已删除，不得以任何文案回归。
+    expect(screen.queryByRole('tab', { name: '分享链接' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '复制链接' })).toBeNull();
+    expect(screen.queryByText('仅拥有文档访问权限的用户可打开此链接')).toBeNull();
     await waitFor(() => expect(mocks.listUserMembers).toHaveBeenCalledWith('a-doc-1'));
     expect(mocks.listUserPermissions).not.toHaveBeenCalled();
     expect(mocks.imodelsGet).not.toHaveBeenCalled();

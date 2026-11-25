@@ -34,6 +34,7 @@ import {
   DrillRefusedError,
   DrillUsageError,
   EXIT_CODES,
+  ISOLATED_DRILL_SCENARIOS,
   assessEmptyTarget,
   buildDrillEnvValues,
   buildDrillReport,
@@ -48,8 +49,14 @@ import {
   signAzureRequest,
   validateBackupManifest,
   validateDrillReport,
+  validateIsolatedScenarioCatalog,
   verifyIsolation,
 } from './drill-core.mjs';
+import {
+  buildProductionDrillPlan,
+  productionDrillSummary,
+  productionScenarioCatalog,
+} from './production-drills.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const DRILL_ROOT = join(REPO_ROOT, '.drill');
@@ -716,6 +723,73 @@ async function commandPreflight(options) {
   log(`preflight OK: ${meta.projectName} ports ${JSON.stringify(meta.ports)}`);
   log(`main project '${MAIN_PROJECT_NAME}' containers=${main.containers.length} volumes=${main.volumes.length}`);
   return detail;
+}
+
+function commandScenarios(options) {
+  const isolationValidation = validateIsolatedScenarioCatalog();
+  if (!isolationValidation.ok) {
+    throw new RunnerError(
+      `isolated scenario catalog is inconsistent: ${isolationValidation.errors.join('; ')}`,
+    );
+  }
+  const catalog = {
+    schemaVersion: 1,
+    kind: 'tiangong-kaiwu-drill-scenario-catalog',
+    isolated: {
+      harness: 'scripts/dr/drill-runner.mjs',
+      harnessExecutable: true,
+      scenarios: ISOLATED_DRILL_SCENARIOS,
+    },
+    production: {
+      harness: 'docs/operations/PRODUCTION-DR-DRILL.md',
+      harnessExecutable: false,
+      summary: productionDrillSummary(),
+      scenarios: productionScenarioCatalog(),
+    },
+    boundaries: [
+      'Isolated scenarios run only inside disposable tiangong-kaiwu-drill* projects.',
+      'Production PITR/object-versioning scenarios are provider-neutral definitions; this harness never executes them.',
+      'Listing scenarios does not provide any RPO/RTO evidence and does not tick any Gate.',
+    ],
+  };
+  if (options.format === 'json') {
+    process.stdout.write(`${JSON.stringify(catalog, null, 2)}\n`);
+  } else {
+    log('Isolated drill scenarios (this harness):');
+    for (const scenario of ISOLATED_DRILL_SCENARIOS) {
+      log(`  ${scenario.id} ${scenario.title} [destructive=${scenario.destructive}, ` +
+        `executedInPhaseA=${scenario.executedInPhaseA}]`);
+    }
+    log('Production drill scenarios (definitions only; this harness cannot execute them):');
+    for (const scenario of catalog.production.scenarios) {
+      log(`  ${scenario.id} ${scenario.title}`);
+    }
+    log('No production provider, endpoint, credential, or drill result is implied. See ' +
+      catalog.production.harness + '.');
+  }
+  return catalog;
+}
+
+function commandPlan(options) {
+  const plan = buildProductionDrillPlan(options.scenario);
+  if (options.format === 'json') {
+    process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+    return plan;
+  }
+  log(plan.title);
+  log(`scenario: ${plan.scenario}`);
+  log(`runnableHere=${plan.runnableHere}; executableByIsolatedHarness=${plan.executableByIsolatedHarness}; ` +
+    `HITL required=${plan.hitlRequired}`);
+  log('Inputs (placeholders; resolve in the private runbook, never in this repository):');
+  for (const input of plan.inputs) log(`  ${input.placeholder}  # ${input.description}`);
+  log('Preflight:');
+  for (const check of plan.preflight) log(`  - ${check.id}: ${check.description}`);
+  log('Steps:');
+  for (const step of plan.steps) log(`  - ${step.id}${step.destructive ? ' [destructive]' : ''}: ${step.description}`);
+  log('HITL gates:');
+  for (const gate of plan.hitlGates) log(`  - ${gate}`);
+  log('This is a definition only. It does not prove RPO<=5m/RTO<=1h or any production capability.');
+  return plan;
 }
 
 async function commandCreate(options) {
@@ -1625,6 +1699,9 @@ Non-destructive:
   verify-backup  Verify manifest.sha256 and every artifact size/SHA-256
   restore        Restore a verified backup into a proven-empty drill target (HITL)
   verify         Post-restore HUB row + blob sentinel + read-only integrity scan
+  scenarios      Print isolated + production DR scenario metadata (no Docker)
+  plan           Print a provider-neutral production drill definition (no Docker)
+                 --scenario postgres-pitr|object-storage-versioning
   report         Write evidence/drill-report.json (RPO/RTO measurements, no target claims)
   report-roundtrip  Combine source + target reports into one roundtrip report
   down           Stop drill containers; keep volumes
@@ -1653,6 +1730,8 @@ Common options:
   -h, --help
 
 Main project '${MAIN_PROJECT_NAME}' is always refused as a drill target.
+Production plans are definitions only; this harness never executes PITR or
+object-versioning drills and never claims RPO<=5m/RTO<=1h.
 `);
 }
 
@@ -1663,7 +1742,8 @@ async function main(argv) {
     return EXIT_CODES.OK;
   }
   const { command, options } = parsed;
-  logStep(`drill ${command}`);
+  const machineReadable = options.format === 'json' && ['scenarios', 'plan'].includes(command);
+  if (!machineReadable) logStep(`drill ${command}`);
   switch (command) {
     case 'preflight': await commandPreflight(options); break;
     case 'create': await commandCreate(options); break;
@@ -1673,6 +1753,8 @@ async function main(argv) {
     case 'verify-backup': await commandVerifyBackup(options); break;
     case 'restore': await commandRestore(options); break;
     case 'verify': await commandVerify(options); break;
+    case 'scenarios': commandScenarios(options); break;
+    case 'plan': commandPlan(options); break;
     case 'report': await commandReport(options); break;
     case 'report-roundtrip': await commandReportRoundtrip(options); break;
     case 'down': await commandDown(options); break;

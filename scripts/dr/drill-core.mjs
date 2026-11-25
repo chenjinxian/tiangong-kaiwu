@@ -15,6 +15,8 @@
 import { createHmac } from 'node:crypto';
 import { isAbsolute, resolve, relative, basename } from 'node:path';
 
+import { PRODUCTION_SCENARIO_IDS } from './production-drills.mjs';
+
 export const MAIN_PROJECT_NAME = 'tiangong-kaiwu';
 export const DRILL_PROJECT_PREFIX = 'tiangong-kaiwu-drill';
 export const REPORT_KIND = 'tiangong-kaiwu-drill-report';
@@ -55,9 +57,87 @@ export const DESTRUCTIVE_SCENARIOS = Object.freeze([
   'corrupt-sentinel-blob',
 ]);
 
+/**
+ * Isolated drill scenarios. These are the only scenarios this harness can
+ * execute; production PITR/object-versioning drills live in
+ * `production-drills.mjs` and are never listed here.
+ */
+export const ISOLATED_DRILL_SCENARIOS = Object.freeze([
+  Object.freeze({
+    id: 'S0',
+    title: 'Read-only preflight and backup manifest verification',
+    commands: Object.freeze(['preflight', 'verify-backup']),
+    destructive: false,
+    executedInPhaseA: true,
+  }),
+  Object.freeze({
+    id: 'S1',
+    title: 'Restore a verified backup into a proven-empty drill target',
+    commands: Object.freeze(['create', 'restore', 'verify']),
+    destructive: false,
+    executedInPhaseA: true,
+  }),
+  Object.freeze({
+    id: 'S2',
+    title: 'Post-restore DB/blob/integrity verification and roundtrip report',
+    commands: Object.freeze(['verify', 'report', 'report-roundtrip']),
+    destructive: false,
+    executedInPhaseA: true,
+  }),
+  Object.freeze({
+    id: 'S3',
+    title: 'Opt-in destructive fault injection (isolated drill project only)',
+    commands: Object.freeze(['fault-inject', 'reset-target', 'restore']),
+    destructive: true,
+    executedInPhaseA: false,
+  }),
+  Object.freeze({
+    id: 'S4',
+    title: 'Scheduled/periodic repetition of S0-S2',
+    commands: Object.freeze(['run', 'roundtrip', 'down']),
+    destructive: false,
+    executedInPhaseA: false,
+  }),
+]);
+
+export function validateIsolatedScenarioCatalog(catalog = ISOLATED_DRILL_SCENARIOS) {
+  const errors = [];
+  if (!Array.isArray(catalog) || catalog.length === 0) {
+    return { ok: false, errors: ['isolated scenario catalog must be a non-empty array'] };
+  }
+  const ids = new Set();
+  for (const scenario of catalog) {
+    const id = String(scenario?.id ?? '');
+    if (!/^S\d+$/.test(id)) errors.push(`invalid isolated scenario id: '${id}'`);
+    if (ids.has(id)) errors.push(`duplicate isolated scenario: ${id}`);
+    ids.add(id);
+    if (PRODUCTION_SCENARIO_IDS.includes(id)) {
+      errors.push(`production scenario '${id}' must not be listed in the isolated catalog`);
+    }
+    if (typeof scenario?.title !== 'string' || scenario.title.trim() === '') {
+      errors.push(`${id}: title is required`);
+    }
+    if (!Array.isArray(scenario?.commands) || scenario.commands.length === 0) {
+      errors.push(`${id}: commands must be a non-empty array`);
+    } else {
+      for (const command of scenario.commands) {
+        if (!COMMANDS.includes(command)) errors.push(`${id}: unknown command '${command}'`);
+      }
+    }
+    if (typeof scenario?.destructive !== 'boolean') errors.push(`${id}: destructive must be boolean`);
+    if (typeof scenario?.executedInPhaseA !== 'boolean') errors.push(`${id}: executedInPhaseA must be boolean`);
+    if (id === 'S3' && scenario.destructive !== true) errors.push('S3 must remain destructive');
+    if (id === 'S4' && scenario.executedInPhaseA !== false) errors.push('S4 must remain unexecuted');
+  }
+  for (const expected of ['S0', 'S1', 'S2', 'S3', 'S4']) {
+    if (!ids.has(expected)) errors.push(`missing isolated scenario: ${expected}`);
+  }
+  return { ok: errors.length === 0, errors };
+}
+
 export const NON_DESTRUCTIVE_COMMANDS = Object.freeze([
   'preflight', 'create', 'up', 'seed', 'backup', 'verify-backup',
-  'restore', 'verify', 'report', 'report-roundtrip', 'down', 'run', 'roundtrip', 'help',
+  'restore', 'verify', 'scenarios', 'plan', 'report', 'report-roundtrip', 'down', 'run', 'roundtrip', 'help',
 ]);
 
 export const COMMANDS = Object.freeze([
@@ -402,6 +482,18 @@ export function parseDrillArgs(argv, context = {}) {
       throw new DrillRefusedError(
         `reset-target requires --confirm-project ${options.project}`,
         'hitl-required',
+      );
+    }
+  }
+  if (command === 'plan') {
+    if (!options.scenario) {
+      throw new DrillUsageError(
+        `plan requires --scenario <production-scenario>; expected one of: ${PRODUCTION_SCENARIO_IDS.join(', ')}`,
+      );
+    }
+    if (!PRODUCTION_SCENARIO_IDS.includes(options.scenario)) {
+      throw new DrillUsageError(
+        `--scenario for plan must be one of: ${PRODUCTION_SCENARIO_IDS.join(', ')}`,
       );
     }
   }

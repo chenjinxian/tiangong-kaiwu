@@ -12,7 +12,7 @@
  *   排序菜单（与 Table 表头共用受控 sort 态）、网格/列表切换（localStorage 记忆）、
  *   刷新；行/卡操作 = 打开/详情/重命名/收藏/分享/删除（删除走 HITL 确认框）；
  * - 对话框：CreateDocumentDialog / RenameDocumentDialog / ShareDocumentDialog
- *   （成员/邀请/链接三页签，移植旧 ShareITwinDialog）/ CapabilityDialog
+ *   （成员/邀请两页签，无链接分享，移植旧 ShareITwinDialog）/ CapabilityDialog
  *   （创建菜单 🟠 gated 项的能力引导面，spec §0 铁律 1）。
  *
  * 数据面：useDocuments(filter)（Task 4）；收藏 add/remove 与分享成员/角色
@@ -766,7 +766,7 @@ export function DocumentsPage(): React.JSX.Element {
         onRenamed={refresh}
       />
 
-      {/* 分享（成员/邀请/链接三页签） */}
+      {/* 分享（成员/邀请两页签；无链接分享——不提供复制链接能力） */}
       <ShareDocumentDialog
         doc={shareTarget}
         isOpen={!!shareTarget}

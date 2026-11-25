@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "kind": "tiangong-kaiwu-production-dr-drill-evidence",
+  "scenario": "object-storage-versioning",
+  "title": "Object storage: versioned restore of a matched blob set with checksum verification",
+  "status": "not-run",
+  "drillId": null,
+  "operator": null,
+  "witness": null,
+  "startedAtUtc": null,
+  "finishedAtUtc": null,
+  "environment": {
+    "provider": "<PROVIDER>",
+    "region": "<REGION>",
+    "environmentClass": "<ENVIRONMENT_CLASS>",
+    "isolated": null,
+    "isMainStack": null
+  },
+  "hitl": {
+    "drillWindowApproved": false,
+    "restoreApproved": false,
+    "cleanupApproved": false,
+    "approvedBy": null,
+    "witness": null,
+    "approvedAtUtc": null
+  },
+  "preflight": [
+    { "id": "versioning-status-enabled", "ok": null, "detail": "not evaluated" },
+    { "id": "versioning-not-suspended", "ok": null, "detail": "not evaluated" },
+    { "id": "checksum-manifest-present", "ok": null, "detail": "not evaluated" },
+    { "id": "checksum-algorithm-sha256", "ok": null, "detail": "not evaluated" },
+    { "id": "target-isolated", "ok": null, "detail": "not evaluated" },
+    { "id": "target-not-main-stack", "ok": null, "detail": "not evaluated" },
+    { "id": "source-target-separated", "ok": null, "detail": "not evaluated" },
+    { "id": "writers-frozen", "ok": null, "detail": "not evaluated" },
+    { "id": "restore-set-declared", "ok": null, "detail": "not evaluated" },
+    { "id": "secret-source-declared", "ok": null, "detail": "not evaluated" },
+    { "id": "encryption-at-rest-enabled", "ok": null, "detail": "not evaluated" },
+    { "id": "capacity-verified", "ok": null, "detail": "not evaluated" }
+  ],
+  "restore": {
+    "sourceBucket": "<SOURCE_BUCKET>",
+    "restoreTargetBucket": "<RESTORE_TARGET_BUCKET>",
+    "restoreSetManifestRef": "<OBJECT_RESTORE_SET_MANIFEST_REF>",
+    "versioningStatus": "<OBJECT_VERSIONING_STATUS>",
+    "restoreCompleted": null,
+    "objectsExpected": null,
+    "objectsRestored": null,
+    "newestRestoredVersionUtc": null
+  },
+  "verification": {
+    "passed": null,
+    "schemaVersionObserved": null,
+    "schemaVersionExpected": null,
+    "ledgerVerificationPassed": null,
+    "crossStoreReconciliationPassed": null,
+    "pitrVerified": null,
+    "checksumsVerified": null,
+    "objectVersionIdsVerified": null,
+    "errors": []
+  },
+  "rpo": {
+    "scope": "object-store-component",
+    "targetSeconds": 300,
+    "requestedTargetUtc": null,
+    "lastAckedEditUtc": null,
+    "achievedRecoveryPointUtc": null,
+    "newestUsedObjectVersionUtc": null,
+    "measuredSeconds": null,
+    "withinTargetThisRun": null,
+    "evidenceComplete": false,
+    "targetAchieved": false,
+    "note": "The measured value is a component measurement from one drill, not an ongoing compliance statement."
+  },
+  "rto": {
+    "targetSeconds": 3600,
+    "announcedAtUtc": null,
+    "verifiedAtUtc": null,
+    "measuredSeconds": null,
+    "withinTargetThisRun": null,
+    "evidenceComplete": false,
+    "targetAchieved": false,
+    "note": "Includes object copy/restore, checksum verification, cross-store reconciliation, and HITL sign-off."
+  },
+  "claims": {
+    "pitrProven": false,
+    "objectVersioningProven": false,
+    "rpoTargetAchieved": false,
+    "rtoTargetAchieved": false,
+    "productionDisasterRecoveryProven": false
+  },
+  "cleanup": {
+    "performed": false,
+    "residualResources": [],
+    "evidenceRef": null
+  },
+  "rollback": {
+    "tested": false,
+    "notes": null
+  },
+  "evidenceRefs": [],
+  "limitations": [
+    "Definition/measurement logic only; no provider, environment, credential, or drill result is included.",
+    "Structural validation only; it does not authenticate operators, witness real-world actions, or prove that a drill occurred.",
+    "A single passing drill does not prove continuous RPO/RTO compliance or production readiness.",
+    "PostgreSQL and object storage must be restored as a matched set; one-sided recovery is not disaster recovery.",
+    "Dev Azurite volumes and pg_dump snapshots are not production PITR or object versioning."
+  ]
+}

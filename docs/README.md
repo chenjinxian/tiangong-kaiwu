@@ -53,7 +53,7 @@
 | [architecture/AIRR-2026-11-24-D6-NV-CHECKPOINT-BINDING.md](./architecture/AIRR-2026-11-24-D6-NV-CHECKPOINT-BINDING.md) | **AIRR：G1 D6 Named Version↔Checkpoint 绑定**：additive `checkpoint_named_versions` 多对多、成功即绑定、NV/checkpoint 删除护栏；Hub 全量 178 suites/1606 tests；仅 SQL-shape 迁移单测，无 fresh Postgres/live 栈，D3/D7/D8 仍缺 |
 | [architecture/AIRR-2026-11-24-B2.2-ATTRIBUTION.md](./architecture/AIRR-2026-11-24-B2.2-ATTRIBUTION.md) | **AIRR：B2.2 真实归因（设计，未实现）**：user/service/user_via_service 主体、OBO actor header、changeset/briefcase/NV actor 列、write_audit_events 同事务；替换服务账号 push，含迁移/回滚/官方 SDK 限制，待 ARB |
 | [architecture/AIRR-2026-11-24-B6-P4B-AND-RETIREMENT.md](./architecture/AIRR-2026-11-24-B6-P4B-AND-RETIREMENT.md) | **AIRR：B6 P4b + 共享 key/admin 退役（设计，未实现）**：owner 路由 OBO、baseline/admin 服务作用域、Bearer service JWT、KMS/RS256/JWKS/撤销、分阶段 canary 与退役顺序；X-21 仍 open |
-| [architecture/AIRR-2026-11-24-B4-WRITE-SHARE-LINK.md](./architecture/AIRR-2026-11-24-B4-WRITE-SHARE-LINK.md) | **AIRR：B4 Write/Share/Link（设计，未实现）**：`AUTHZ_WRITE_SEMANTICS=write`、action 元数据、Edit share 的 `IMODELS_WRITE` 缺口、fake link UI 删除或独立 ADR、denyList 边界；当前写仍 Manage-only |
+| [architecture/AIRR-2026-11-24-B4-WRITE-SHARE-LINK.md](./architecture/AIRR-2026-11-24-B4-WRITE-SHARE-LINK.md) | **AIRR：B4 Write/Share/Link（部分实现，全量未完成）**：`AUTHZ_WRITE_SEMANTICS=write`/resolver/projection 第一切片；2026-11-25 公共仓删除 fake link UI、收口 B 分享管理控件可见性；公开写路由仍 Manage-only、B 无 Write 档、shares UI 未做、denyList 边界未变 |
 | [architecture/AIRR-2026-11-23-B6-SERVICE-IDENTITY-P0.md](./architecture/AIRR-2026-11-23-B6-SERVICE-IDENTITY-P0.md) | **AIRR：G1 B6 服务身份（Hub P0 / worker P1 / MS P2）**：`service_clients` + scrypt 哈希、CLI provisioning、`POST /auth/token/service` 短时 JWT、双模 `ServiceAuthGuard` 接入 audit/authz/delegation/checkpoint/session-status（新 scope `session.status`）、legacy 回滚；worker 内部 agent 与 MS session-status/OBO 内部调用 code-only 迁移（缓存/skew/401 清除/无 legacy 回落）；单元 + 隔离 relational e2e 绿（P2 未跑真栈 canary）；MS/WA/worker 数据面、用户数据面与共享 key 退役未做（X-21 open），不勾 Gate |
 | [architecture/AIRR-2026-11-23-B6-DATA-PLANE-P3.md](./architecture/AIRR-2026-11-23-B6-DATA-PLANE-P3.md) | **AIRR：G1 B6 P3 Hub 数据面服务主体**：真实客户端端点清单（changesets/briefcases/checkpoints/locks/namedversions/baseline）、closed `data.*` scope 矩阵（additive 迁移 `20261124000004`）、`DataPlaneAuthGuard` 双模（有 `X-Service-Token` 才走服务主体；无 token 保持用户 JWT）、逐端点服务 pin 与 scope、owner 依赖路由显式 legacy-only、service 行为归因 `creatorName=service:<name>`；单元/tsc/eslint 绿，隔离 relational e2e 6/6（fresh Postgres 真实应用迁移；P2/P3 迁移 JSON 字面量缺陷已在评审中修复）；客户端未迁移、未跑部署 canary，B6/X-21 open，不勾 Gate |
 | [architecture/AIRR-2026-11-24-B6-P4-DATA-PLANE-CLIENTS.md](./architecture/AIRR-2026-11-24-B6-P4-DATA-PLANE-CLIENTS.md) | **AIRR：G1 B6 P4a 客户端数据面服务身份**：MS/worker/WA 各增显式数据面模式（默认 legacy），官方 IModelsClient 经公开 `restClient` 接缝装饰官方 `AxiosRestClient`、按 Hub P3 `(method,URL)` 矩阵只对 P3 且本服务 pinned 的路由注入 `X-Service-Token`；worker 只读 3 scope、WA baseline read/write、MS 不注入 baseline；provider 复用/新增（缓存/刷新/401 清除/无 legacy 回落），MS 仅要求 8 个非 baseline scope，注入前校验 Hub origin；owner 写与 failed/requeue/admin 仍 legacy（P4b）；单元/fake-Hub 绿，隔离 Hub + MS provider 跨仓 canary 通过（未跑部署形态三进程 canary），B6/X-21 open，不勾 Gate |
@@ -178,7 +178,8 @@
 | [PORTS.md](./PORTS.md) | 宿主端口登记（单一事实源） |
 | [operations/BACKUP-RESTORE.md](./operations/BACKUP-RESTORE.md) | **E1/E2 备份恢复基线**：Postgres `pg_dump` + Azurite 卷快照、SHA-256 manifest、恢复顺序/HITL 闸、RPO/RTO 目标与演练清单；明确非 HA/PITR、Azurite 仅开发 |
 | [operations/INTEGRITY-SCAN.md](./operations/INTEGRITY-SCAN.md) | **E8 只读完整性扫描（Skeleton v1）**：DB 只读事务 + 对象存储 LIST/GET，报告 changeset head/chain root、缺失 blob/行、大小/SHA-256 不符、缺失 baseline/checkpoint、孤儿 blob、悬挂行；JSON+Markdown；exit 0/1/2/3；不修复、不迁移 |
-| [operations/DR-DRILL.md](./operations/DR-DRILL.md) | **非破坏性 DR 演练规范（Skeleton v1）**：隔离 project/checkout、S0–S4 场景（备份校验、空栈恢复、完整性复检、可选仅演练栈故障注入）、HITL、RPO/RTO 记录、清理与证据模板；本切片未执行破坏性演练 |
+| [operations/DR-DRILL.md](./operations/DR-DRILL.md) | **隔离 DR 演练（Phase A harness，开发基线）**：隔离 project/checkout、S0–S6 场景（S5/S6 为生产定义，不由 harness 执行）、HITL、RPO/RTO 记录、清理与证据模板；2026-11-24 非破坏性 roundtrip 已跑，未执行破坏性/生产演练 |
+| [operations/PRODUCTION-DR-DRILL.md](./operations/PRODUCTION-DR-DRILL.md) | **生产级 DR 演练定义（v1，2026-11-25，未执行）**：provider-neutral PostgreSQL PITR（base backup + WAL replay）与对象存储版本化恢复的输入/预检/证据字段/RPO/RTO/HITL/清理/回滚；仅占位符，无 provider/端点/凭据/结果；RPO≤5m/RTO≤1h 未达成 |
 | [operations/COLD-OPEN-BENCHMARK.md](./operations/COLD-OPEN-BENCHMARK.md) | **200/1000 cold-open benchmark harness**：隔离 Hub/native driver、200/1000 fixture、fresh-process 采样、p50/p95、正确性/head 不变；200 baseline 已跑 3 冷样本，checkpoint arm 因 flag OFF blocked，1000 未跑；目标值待 Gate 0 决定 |
 | [UPSTREAM_SYNC.md](./UPSTREAM_SYNC.md) | 上游同步指南 |
 | [WEBHOOK_CONFIG.md](./WEBHOOK_CONFIG.md) | Webhook 密钥配置说明 |
@@ -208,6 +209,19 @@
 | [tool-integrations/](./tool-integrations/) | 工具集成方案与状态 |
 | [research/](./research/) | 研究分析（当前：Onshape Help 全量文档分析 527 主题；LubanCAD 全栈架构评估） |
 | [api-specs/](./api-specs/) | 官方 iTwin Platform REST 规格（契约对照基准） |
+
+---
+
+## 状态注记（2026-11-25）
+
+- **DR 与 G1 E1/E2/E8 未完成、未勾 Gate**。隔离 Phase A harness（`.drill` + Azurite + `pg_dump`/卷 `tar`）
+  只在开发基线内做过一次非破坏性 roundtrip；它不是生产 HA/PITR，也不是对象存储版本化。
+- **生产 PITR / 对象存储版本化演练只有定义与 runbook**（[operations/PRODUCTION-DR-DRILL.md](./operations/PRODUCTION-DR-DRILL.md)），
+  **未执行**；未选择/接入任何生产 provider，未产生任何真实环境演练证据。
+- **RPO≤5m / RTO≤1h 未达成**：在真实生产级隔离环境完成 PostgreSQL PITR + 对象版本化 +
+  跨存储对账演练并签字前，不得对外宣称；单次演练也不等于持续合规。
+- Azurite、单 PostgreSQL、单命名卷、`pg_dump` 全量快照均为开发/内网验证基线，不是生产方案；
+  生产对象存储版本化、WAL 归档/PITR、HA、CRR/对象锁仍属未实现/未验证（ADR-G0-14/17）。
 
 ---
 

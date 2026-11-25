@@ -7,7 +7,7 @@
 //  4) 工具条：分区标题计数 + 排序菜单 + 网格/列表切换 + 刷新；
 //  5) 表格视图列（名称/所有者/角色/创建时间/更新时间）与行；
 //  6) 行选择 → 详情侧栏锚点（InformationPanel）；
-//  7) 行菜单 → 共享对话框（成员/邀请成员/分享链接 三页签）+ 删除确认对话框；
+//  7) 行菜单 → 共享对话框（成员/邀请成员 两页签，无链接分享）+ 删除确认对话框；
 //  8) 行菜单「打开」→ /documents/:iTwinId 路由跳转。
 //
 // 数据面：mock useDocuments（P2.1 出口契约 {documents, projects,
@@ -278,7 +278,7 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(screen.getByText('暂无描述')).toBeDefined();
   });
 
-  it('行菜单 → 共享对话框（成员/邀请成员/分享链接 三页签）', async () => {
+  it('行菜单 → 共享对话框（成员/邀请成员 两页签，无链接分享）', async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getAllByRole('button', { name: '更多操作' })[0]!);
@@ -287,7 +287,8 @@ describe('DocumentsPage 结构（/documents 中心页）', () => {
     expect(await screen.findByText('分享文档')).toBeDefined();
     expect(screen.getByRole('tab', { name: '成员 (0)' })).toBeDefined();
     expect(screen.getByRole('tab', { name: '邀请成员' })).toBeDefined();
-    expect(screen.getByRole('tab', { name: '分享链接' })).toBeDefined();
+    expect(screen.queryByRole('tab', { name: '分享链接' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '复制链接' })).toBeNull();
   });
 
   it('行菜单 → 删除确认对话框（HITL 危险操作）', async () => {

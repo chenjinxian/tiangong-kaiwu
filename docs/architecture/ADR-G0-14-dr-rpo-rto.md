@@ -160,9 +160,15 @@
 | Redis/队列 HA | **未实现** | 单 Redis（AOF、256MB、noeviction）；队列与缓存未分离 |
 | WA pending forwards 持久化 | **未实现** | 队列数据在容器 cwd；容器重建丢事件 |
 | MS 优雅运行 | **未实现** | 宿主手工进程；PID 文件；`Stop-Process -Force` |
-| RPO/RTO 实测 | **无证据** | S0-15 无通过证据；G1-WAVE2 §1/§2：E1/E2/E8 全部未完成，无 RPO≤5m/RTO≤1h 证据 |
-| DR 演练 | **未执行** | 只有 runbook/脚本基线；无隔离环境完整演练记录 |
+| RPO/RTO 实测 | **无生产证据** | S0-15 无通过证据；G1-WAVE2 §1/§2：E1/E2/E8 全部未完成，无 RPO≤5m/RTO≤1h 证据 |
+| 隔离 Phase A 演练 | **已执行一次（开发基线）** | `../operations/DR-DRILL.md` §7：2026-11-24 非破坏性 roundtrip；Azurite + `pg_dump`/卷 tar；不能证明生产 |
+| 生产 PITR 演练 | **定义已登记，未执行** | `../operations/PRODUCTION-DR-DRILL.md` §4（2026-11-25）；无 provider/恢复点/WAL replay/RPO/RTO 证据 |
+| 生产对象版本化恢复演练 | **定义已登记，未执行** | `../operations/PRODUCTION-DR-DRILL.md` §5；无版本 ID/SHA-256/跨存储对账证据 |
 | D0-14 决策状态 | **Proposed / conditional** | 需 E1/E2 + 演练证据 + owner 签字后才可接受 |
+
+**2026-11-25 注记**：生产 PITR / 对象版本化恢复演练已登记 provider-neutral 定义与 runbook
+（`../operations/PRODUCTION-DR-DRILL.md`），但其状态为**未执行**；本 ADR 的决策状态、RPO/RTO
+目标与 G1/G3 证据门均不变。定义/计划/模板不构成演练结果。
 
 **明确不宣称**：灾备达标、RPO≤5m/RTO≤1h 已实现、生产可恢复、PITR/对象版本化已上线、WA/MS 已具备生产级故障恢复。上述结论必须有真实环境演练与测量证据。
 
@@ -200,6 +206,7 @@
 - `G0-EXECUTION-PLAN.md`（S0-15 DR spike）
 - `G1-EXECUTION-PLAN.md`（E1/E2/E3/E8；J8/J9）
 - `../operations/BACKUP-RESTORE.md`（备份/恢复基线、限制与演练清单）
+- `../operations/PRODUCTION-DR-DRILL.md`（生产 PITR/对象版本化演练定义；未执行）
 - `../research/lubancad-architecture-assessment/09-INDUSTRIAL-TARGET-ARCHITECTURE.md` §4.4、§6.3、§12
 - `../research/lubancad-architecture-assessment/10-ARCHITECTURE-HARDENING-PLAN.md` WS-E、WS-J、G1/G3 验收
 - `ADR-G0-17-data-platform-object-storage-queue.md`（数据平台/对象存储/队列支撑）

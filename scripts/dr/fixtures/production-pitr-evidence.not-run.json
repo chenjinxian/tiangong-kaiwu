@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "kind": "tiangong-kaiwu-production-dr-drill-evidence",
+  "scenario": "postgres-pitr",
+  "title": "PostgreSQL PITR: restore a base backup and replay WAL to a requested target time",
+  "status": "not-run",
+  "drillId": null,
+  "operator": null,
+  "witness": null,
+  "startedAtUtc": null,
+  "finishedAtUtc": null,
+  "environment": {
+    "provider": "<PROVIDER>",
+    "region": "<REGION>",
+    "environmentClass": "<ENVIRONMENT_CLASS>",
+    "isolated": null,
+    "isMainStack": null
+  },
+  "hitl": {
+    "drillWindowApproved": false,
+    "restoreApproved": false,
+    "cleanupApproved": false,
+    "approvedBy": null,
+    "witness": null,
+    "approvedAtUtc": null
+  },
+  "preflight": [
+    { "id": "wal-archiving-enabled", "ok": null, "detail": "not evaluated" },
+    { "id": "base-backup-available", "ok": null, "detail": "not evaluated" },
+    { "id": "pitr-target-present", "ok": null, "detail": "not evaluated" },
+    { "id": "pitr-target-within-retention", "ok": null, "detail": "not evaluated" },
+    { "id": "base-backup-before-target", "ok": null, "detail": "not evaluated" },
+    { "id": "target-isolated", "ok": null, "detail": "not evaluated" },
+    { "id": "target-not-main-stack", "ok": null, "detail": "not evaluated" },
+    { "id": "writers-frozen", "ok": null, "detail": "not evaluated" },
+    { "id": "secret-source-declared", "ok": null, "detail": "not evaluated" },
+    { "id": "paired-object-manifest-declared", "ok": null, "detail": "not evaluated" },
+    { "id": "expected-schema-declared", "ok": null, "detail": "not evaluated" },
+    { "id": "capacity-verified", "ok": null, "detail": "not evaluated" }
+  ],
+  "restore": {
+    "backupRepositoryRef": "<PG_BACKUP_REPOSITORY_REF>",
+    "baseBackupUtc": null,
+    "requestedTargetUtc": "<PITR_TARGET_UTC>",
+    "achievedRecoveryPointUtc": null,
+    "walReplayComplete": null,
+    "readOnly": null,
+    "pairedObjectManifestRef": "<PAIRED_OBJECT_MANIFEST_REF>"
+  },
+  "verification": {
+    "passed": null,
+    "schemaVersionObserved": null,
+    "schemaVersionExpected": null,
+    "ledgerVerificationPassed": null,
+    "crossStoreReconciliationPassed": null,
+    "pitrVerified": null,
+    "checksumsVerified": null,
+    "objectVersionIdsVerified": null,
+    "errors": []
+  },
+  "rpo": {
+    "scope": "postgres-pitr-component",
+    "targetSeconds": 300,
+    "requestedTargetUtc": null,
+    "lastAckedEditUtc": null,
+    "achievedRecoveryPointUtc": null,
+    "newestUsedObjectVersionUtc": null,
+    "measuredSeconds": null,
+    "withinTargetThisRun": null,
+    "evidenceComplete": false,
+    "targetAchieved": false,
+    "note": "The measured value is a component measurement from one drill, not an ongoing compliance statement."
+  },
+  "rto": {
+    "targetSeconds": 3600,
+    "announcedAtUtc": null,
+    "verifiedAtUtc": null,
+    "measuredSeconds": null,
+    "withinTargetThisRun": null,
+    "evidenceComplete": false,
+    "targetAchieved": false,
+    "note": "Includes restore, WAL replay, verification, and HITL sign-off; not just process start-up."
+  },
+  "claims": {
+    "pitrProven": false,
+    "objectVersioningProven": false,
+    "rpoTargetAchieved": false,
+    "rtoTargetAchieved": false,
+    "productionDisasterRecoveryProven": false
+  },
+  "cleanup": {
+    "performed": false,
+    "residualResources": [],
+    "evidenceRef": null
+  },
+  "rollback": {
+    "tested": false,
+    "notes": null
+  },
+  "evidenceRefs": [],
+  "limitations": [
+    "Definition/measurement logic only; no provider, environment, credential, or drill result is included.",
+    "Structural validation only; it does not authenticate operators, witness real-world actions, or prove that a drill occurred.",
+    "A single passing drill does not prove continuous RPO/RTO compliance or production readiness.",
+    "PostgreSQL and object storage must be restored as a matched set; one-sided recovery is not disaster recovery.",
+    "Dev Azurite volumes and pg_dump snapshots are not production PITR or object versioning."
+  ]
+}

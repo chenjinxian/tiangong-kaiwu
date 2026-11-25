@@ -341,6 +341,21 @@ Hub 数据面 PEP 完整。
 
 ---
 
+## 6.6 2026-11-25 第六波（工作树，未提交）
+
+| 切片 | 结果 | 边界 |
+|---|---|---|
+| B4 路由动作元数据 | `AUTHZ_ACTION_METADATA=legacy|dual|action` 默认 legacy；`@RequireAction` + `ActionAccessGuard` 走同一 `AuthorizationService`；标注 changeset/briefcase/lock/named-version 共 26 条写路由；`doc.manage` 加入 resolver 目录但不进入 OBO 闭集 | action 模式仅在有显式 Write/Edit 且 `AUTHZ_WRITE_SEMANTICS=write` 时放行；service-only/无 OBO 写仍按既有 guard 失败；扩展数据/组/删除/管理路由未迁移；Hub 全量 193/1755 |
+| B4 Share/Link UI | 删除分享对话框的假 link tab/copy-link/guest 语义；Read/Manage 授权行为不变；canManageShare=false 时不渲染邀请/撤销/secured 控件；未加 Write 选项（公共写路由仍 Manage-only，无 capability 佐证）；web 相关 9 文件/199 tests + tsc/eslint 通过 | A 文档/项目容器列表仍无 per-document Share gate；iTwin shares 仍 API-only；仅 jsdom，无真栈；不宣称 B4/无假分享完成 |
+| 生产 DR/PITR 规范 | 新增 provider-neutral `production-drills.mjs`、PITR/对象版本化证据模板和 runbook；isolated `scenarios`/`plan` 只打印定义，不执行 Docker/云；84 个 node:test 通过 | 未选择生产 provider/区域/KMS/证据库；PITR、对象版本化、CRR/object lock、RPO≤5m/RTO≤1h 未执行、未达标；RPO=0 需同步复制决策 |
+| B6 P4b 原语 | `AUTH_SERVICE_LEGACY_API_KEY` 显式 `deny` 对 AgentApiKey/ApiKey/ServiceAuth/SystemAgent 全部生效；deny + service-clients off 启动需 migration ack；`DataPlaneAuthGuard` 增加 route-opt-in Bearer service JWT（同一验证器/scope/pin，冲突拒绝，无路由启用）；Hub 全量 193/1777 | 无 route 启用 Bearer；baseline/admin 仍共享 key-only，deny 后会 401 直到迁移/退役；无 KMS/RS256/jti 撤销/三进程 canary；owner-route OBO 仍未实现 |
+
+**结论**：B4 有了默认 legacy 的路由动作骨架、并删除了假 link UI，但不等于 Write/Share
+能力上线；DR 只有规范/校验器，没有生产证据；B6 P4b 只有默认-safe 原语，不能启用
+deny/enforce。G1 仍 0/15。
+
+---
+
 ## 7. Stop-ship 与不得宣称
 
 - 未获书面法律结论前：ACIS 外部分发、STEP/IGES/Parasolid、healing/InterOp；
