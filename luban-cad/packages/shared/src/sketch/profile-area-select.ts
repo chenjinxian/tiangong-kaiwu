@@ -129,7 +129,7 @@ function weightedCentroid(regions: readonly AreaSelectableRegion[], mask: number
   let ySum = 0;
   for (let i = 0; i < regions.length; i++) {
     if ((mask & (1 << i)) === 0) continue;
-    const region = regions[i]!;
+    const region = regions[i];
     const centroid = region.centroid;
     if (!centroid || !Number.isFinite(centroid.x) || !Number.isFinite(centroid.y)) return undefined;
     if (!Number.isFinite(region.area) || region.area <= 0) return undefined;
@@ -188,8 +188,8 @@ function selectedComponents(
     let xSum = 0;
     let ySum = 0;
     while (queue.length > 0) {
-      const index = queue.pop()!;
-      const region = regions[index]!;
+      const index = queue.pop();
+      const region = regions[index];
       if (!region.centroid
         || !Number.isFinite(region.centroid.x) || !Number.isFinite(region.centroid.y)) return undefined;
       if (!Number.isFinite(region.area) || region.area <= 0) return undefined;
@@ -234,9 +234,9 @@ function faceComponentsMatch(
   };
   const assign = (index: number): boolean => {
     if (index === components.length) return true;
-    const component = components[index]!;
+    const component = components[index];
     for (let targetIndex = 0; targetIndex < targets.length; targetIndex++) {
-      if (used[targetIndex] || !matches(component, targets[targetIndex]!)) continue;
+      if (used[targetIndex] || !matches(component, targets[targetIndex])) continue;
       used[targetIndex] = true;
       if (assign(index + 1)) return true;
       used[targetIndex] = false;
@@ -288,7 +288,7 @@ export function selectProfileRegionsByArea(
     if (mask === 0) continue;
     let area = 0;
     for (let index = 0; index < count; index++) {
-      if ((mask & (1 << index)) !== 0) area += regions[index]!.area;
+      if ((mask & (1 << index)) !== 0) area += regions[index].area;
     }
     const delta = area - targetArea;
     const distance = Math.abs(delta);

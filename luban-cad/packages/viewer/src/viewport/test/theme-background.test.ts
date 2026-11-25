@@ -5,7 +5,7 @@
 //  data-theme 的 MutationObserver 接线在消费侧（apps/web），不在本模块。
 
 import { describe, expect, it, vi } from 'vitest';
-import { applyViewStateBackground, applyViewportBackground, type ViewportTheme } from '../theme-background.js';
+import { applyViewportBackground, applyViewStateBackground, type ViewportTheme } from '../theme-background.js';
 import type { ScreenViewport } from '@itwin/core-frontend';
 
 /** 构造假 viewport：只暴露 view.displayStyle.backgroundColor 写入位 + invalidateScene。 */

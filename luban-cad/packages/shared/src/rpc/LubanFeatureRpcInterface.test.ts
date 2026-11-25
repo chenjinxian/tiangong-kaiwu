@@ -411,6 +411,7 @@ describe("M6-b v1.7 契约（revolve 特征——T2 旋转通道）", () => {
     }>();
     // 旧单面域简写仍可构造（服务端与 regions 互斥拒收，契约层保留一版）
     const legacy: RevolveParams = { sketchId: "sk-1", regionIndex: 0, axis: { sketchEntityId: 11 }, fullRevolve: true };
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional legacy-contract assertion
     expect(legacy.regionIndex).toBe(0);
     // JSON 序列化往返保持（RPC 载荷形态）
     expect(JSON.parse(JSON.stringify(partial))).toEqual(partial);
@@ -1146,6 +1147,7 @@ describe("v1.30 契约（revolve 多面域）", () => {
     expect(op.kind).toBe("insertFeature");
     const params = op.kind === "insertFeature" ? op.params as RevolveParams : undefined;
     expect(params?.regions).toEqual([0, 2]);
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- asserts the legacy field stayed absent
     expect(params?.regionIndex).toBeUndefined();
     expect(JSON.parse(JSON.stringify(params))).toEqual(params);
   });
@@ -1828,7 +1830,7 @@ describe("v1.79 契约（ADR-0020 S9：阵列第二方向间距表达式）", ()
       kind: "linear", count: 3, spacing: 1, axis: "X", spacingExpression: "#width",
       secondDirection: { count: 2, spacing: 5, axis: "Y" },
     };
-    expect("spacingExpression" in firstOnly.secondDirection!).toBe(false);
+    expect("spacingExpression" in firstOnly.secondDirection).toBe(false);
     // 只有第二方向：顶层不出现表达式键。
     const secondOnly: PatternParams = {
       kind: "linear", count: 3, spacing: 5, axis: "X",

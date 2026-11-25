@@ -33,7 +33,7 @@ export function defaultHomeEyeDirection(): Vector3d {
     Math.sin(az) * cosEl,
     -Math.cos(az) * cosEl,
     Math.sin(el),
-  )!;
+  );
 }
 
 interface OrbitableView {

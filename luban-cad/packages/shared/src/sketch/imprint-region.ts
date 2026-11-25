@@ -60,7 +60,7 @@ export function resolveImprintEdgeGeometry(
   entityId: number,
 ): ImprintEdgeGeometry | undefined {
   const byId = new Map<number, SketchEntityDto>();
-  for (const entity of entities) byId.set(entity.id, entity);
+  for (const candidate of entities) byId.set(candidate.id, candidate);
   const entity = byId.get(entityId);
   if (!entity) return undefined;
   if ('construction' in entity && entity.construction) return undefined;
@@ -69,7 +69,7 @@ export function resolveImprintEdgeGeometry(
     const start = resolvePoint(entity.p1, byId);
     const end = resolvePoint(entity.p2, byId);
     if (!start || !end) return undefined;
-    if (Math.hypot(end.x - start.x, end.y - start.y) < 1e-9) return undefined;
+    if (Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2) < 1e-9) return undefined;
     return { start, end };
   }
 
@@ -108,8 +108,8 @@ export function resolveImprintEdgeGeometry(
 function pointInPolygon(points: readonly SketchPointDto[], x: number, y: number): boolean {
   let inside = false;
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-    const pi = points[i]!;
-    const pj = points[j]!;
+    const pi = points[i];
+    const pj = points[j];
     if ((pi.y > y) !== (pj.y > y)
       && x < ((pj.x - pi.x) * (y - pi.y)) / (pj.y - pi.y) + pi.x) {
       inside = !inside;
@@ -146,7 +146,7 @@ export function pickImprintRegionByEdgeSide(
   if (!regions || regions.length === 0) return undefined;
   const dx = edge.end.x - edge.start.x;
   const dy = edge.end.y - edge.start.y;
-  const length = Math.hypot(dx, dy);
+  const length = Math.sqrt(dx * dx + dy * dy);
   if (!(length > 1e-9)) return undefined;
   const nx = -dy / length;
   const ny = dx / length;

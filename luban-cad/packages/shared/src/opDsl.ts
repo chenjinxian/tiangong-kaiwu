@@ -330,6 +330,7 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
       }
       const params = "params" in p ? asObj(p.params, "params") : p;
       return {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- validated against the white-list above; ESLint type-info disagrees with tsc
         kind, featureType: featureType as LubanFeatureType, params: params as unknown as FeatureParams,
         ...(targetBodyId === undefined ? {} : { targetBodyId }),
         ...(targetBodyIds === undefined ? {} : { targetBodyIds }),
@@ -337,6 +338,7 @@ function buildOp(lineNo: number, kind: FeatureOp["kind"], featureType: string | 
     }
     case "updateParams":
       noFeatureType();
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- structurally validated payload
       return { kind, featureId: asStr(p.featureId, "featureId"), params: asObj(p.params, "params") as unknown as FeatureParams };
     case "deleteFeature": {
       noFeatureType();

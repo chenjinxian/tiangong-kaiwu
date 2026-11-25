@@ -54,6 +54,7 @@ describe("op DSL 白名单 × LubanFeatureType 全集", () => {
       const op: FeatureOp = {
         kind: "insertFeature",
         featureType,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- compile-time whitelist probe uses a minimal payload
         params: { profile: [], distance: 1 } as unknown as FeatureParams,
       };
       expect(dslToOps(opsToDsl([op])), featureType).toEqual([op]);

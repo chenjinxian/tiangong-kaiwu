@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { SketchEntityDto, SketchRegionDto } from '../rpc/LubanFeatureRpcInterface.js';
 import {
+  type ImprintEdgeGeometry,
   imprintEdgeSideFromSign,
   pickImprintRegionByEdgeSide,
   resolveImprintEdgeGeometry,
-  type ImprintEdgeGeometry,
 } from './imprint-region.js';
 
 const square = (x0: number, y0: number, x1: number, y1: number) => [
@@ -97,9 +97,9 @@ describe('resolveImprintEdgeGeometry', () => {
   it('arc/circle 返回中点附近、与参数方向一致的小弦', () => {
     const arc = resolveImprintEdgeGeometry(entities, 3);
     expect(arc).toBeDefined();
-    expect(Math.sqrt(arc!.start.x ** 2 + arc!.start.y ** 2)).toBeCloseTo(5, 6);
-    expect(Math.sqrt(arc!.end.x ** 2 + arc!.end.y ** 2)).toBeCloseTo(5, 6);
-    expect(arc!.end.y).toBeGreaterThan(arc!.start.y); // CCW（sweep +π/2 的中点切线）
+    expect(Math.sqrt(arc.start.x ** 2 + arc.start.y ** 2)).toBeCloseTo(5, 6);
+    expect(Math.sqrt(arc.end.x ** 2 + arc.end.y ** 2)).toBeCloseTo(5, 6);
+    expect(arc.end.y).toBeGreaterThan(arc.start.y); // CCW（sweep +π/2 的中点切线）
 
     const circleEntity: SketchEntityDto = {
       kind: 'circle', id: 4, center: { x: 10, y: 10 }, radius: 4,
@@ -107,9 +107,9 @@ describe('resolveImprintEdgeGeometry', () => {
     const circle = resolveImprintEdgeGeometry([circleEntity], 4);
     expect(circle).toBeDefined();
     const centerDistance = (p: { x: number; y: number }) => Math.sqrt((p.x - 10) ** 2 + (p.y - 10) ** 2);
-    expect(centerDistance(circle!.start)).toBeCloseTo(4, 6);
-    expect(centerDistance(circle!.end)).toBeCloseTo(4, 6);
-    expect(circle!.end.y).toBeGreaterThan(circle!.start.y); // 整圆按 CCW
+    expect(centerDistance(circle.start)).toBeCloseTo(4, 6);
+    expect(centerDistance(circle.end)).toBeCloseTo(4, 6);
+    expect(circle.end.y).toBeGreaterThan(circle.start.y); // 整圆按 CCW
   });
 });
 
@@ -133,7 +133,7 @@ describe('pickImprintRegionByEdgeSide（曲线边）', () => {
     const circleEntity: SketchEntityDto = {
       kind: 'circle', id: 4, center: { x: 10, y: 10 }, radius: 4,
     };
-    const circleEdge = resolveImprintEdgeGeometry([circleEntity], 4)!;
+    const circleEdge = resolveImprintEdgeGeometry([circleEntity], 4);
     expect(pickImprintRegionByEdgeSide([holed], 4, circleEdge, 'left')).toBeUndefined();
     expect(pickImprintRegionByEdgeSide([holed], 4, circleEdge, 'right')).toEqual({
       regionIndex: 0, basis: 'hole', area: 400 - Math.PI * 16,

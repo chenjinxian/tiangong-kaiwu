@@ -21,9 +21,9 @@ import {
   CONSTRAINT_GLYPH_SIZE,
   drawConstraintGlyphSymbol,
   layoutSketchConstraintGlyphs,
+  type SketchConstraintGlyphAnnotation,
   SketchConstraintGlyphsDecoration,
 } from '../decorations/sketch-constraint-glyphs-decoration.js';
-import type { SketchConstraintGlyphAnnotation } from '../decorations/sketch-constraint-glyphs-decoration.js';
 
 function makeViewport(spatial = true): { viewport: ScreenViewport; invalidate: ReturnType<typeof vi.fn> } {
   const invalidate = vi.fn();
@@ -106,8 +106,8 @@ describe('layoutSketchConstraintGlyphs', () => {
     const { viewport } = makeViewport();
     const layout = layoutSketchConstraintGlyphs([glyph('constraint-3', 'horizontal', 5, 10)], viewport);
     expect(layout).toHaveLength(1);
-    expect(layout[0]!.center).toEqual({ x: 50, y: 300 - 100 - 16 });
-    expect(layout[0]!.rect.right - layout[0]!.rect.left).toBeCloseTo(CONSTRAINT_GLYPH_SIZE, 9);
+    expect(layout[0].center).toEqual({ x: 50, y: 300 - 100 - 16 });
+    expect(layout[0].rect.right - layout[0].rect.left).toBeCloseTo(CONSTRAINT_GLYPH_SIZE, 9);
   });
 
   it('同一锚点重叠时向右平移一格（Onshape 成排）', () => {
@@ -117,7 +117,7 @@ describe('layoutSketchConstraintGlyphs', () => {
       glyph('constraint-2', 'vertical', 5, 10),
     ], viewport);
     expect(layout).toHaveLength(2);
-    expect(layout[1]!.center.x - layout[0]!.center.x).toBeGreaterThan(layout[0]!.rect.right - layout[0]!.rect.left);
+    expect(layout[1].center.x - layout[0].center.x).toBeGreaterThan(layout[0].rect.right - layout[0].rect.left);
   });
 
   it('非有限投影被跳过（不猜测）', () => {
@@ -135,7 +135,7 @@ describe('drawConstraintGlyphSymbol', () => {
     for (const kind of ['coincident', 'horizontal', 'vertical', 'parallel', 'perpendicular', 'equal', 'midpoint', 'mirror', 'tangent', 'concentric', 'fixed', 'offset'] as const) {
       const ctx = makeCtx();
       expect(() => drawConstraintGlyphSymbol(ctx as unknown as CanvasRenderingContext2D, kind, 20, 20)).not.toThrow();
-      expect(ctx.stroke!.mock.calls.length + ctx.fill!.mock.calls.length).toBeGreaterThan(0);
+      expect(ctx.stroke.mock.calls.length + ctx.fill.mock.calls.length).toBeGreaterThan(0);
     }
   });
 
@@ -183,7 +183,7 @@ describe('SketchConstraintGlyphsDecoration', () => {
     decoration.decorate(context);
     expect(addCanvasDecoration).toHaveBeenCalledTimes(1);
 
-    const { drawDecoration } = addCanvasDecoration.mock.calls[0]![0] as {
+    const { drawDecoration } = addCanvasDecoration.mock.calls[0][0] as {
       drawDecoration: (ctx: CanvasRenderingContext2D) => void;
     };
     const { ctx, mocks, fills, strokes } = makeRecordingCtx();
@@ -192,8 +192,8 @@ describe('SketchConstraintGlyphsDecoration', () => {
     const [expected] = layoutSketchConstraintGlyphs([annotation], viewport);
     expect(mocks.rect).toHaveBeenCalledTimes(1);
     expect(mocks.rect).toHaveBeenCalledWith(
-      expected!.rect.left,
-      expected!.rect.top,
+      expected.rect.left,
+      expected.rect.top,
       CONSTRAINT_GLYPH_SIZE,
       CONSTRAINT_GLYPH_SIZE,
     );

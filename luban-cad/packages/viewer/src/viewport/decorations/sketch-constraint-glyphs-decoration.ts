@@ -89,8 +89,8 @@ export function layoutSketchConstraintGlyphs(
       continue;
     let center = { x: view.x, y: view.y + GLYPH_OFFSET_Y };
     for (let attempt = 0; attempt < 24; attempt++) {
-      const rect = boxRect(center);
-      if (!occupied.some((other) => rectsOverlap(rect, other)))
+      const candidateRect = boxRect(center);
+      if (!occupied.some((other) => rectsOverlap(candidateRect, other)))
         break;
       center = { x: center.x + GLYPH_STEP_X, y: center.y };
     }

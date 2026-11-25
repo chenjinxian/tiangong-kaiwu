@@ -133,7 +133,7 @@ export class DatumPlanesDecoration {
     }
     // addShape 只填充不描边；Onshape 的每个基准面都有 1px 蓝灰边框，单独补线。
     builder.addShape(pts);
-    builder.addLineString([...pts, pts[0]!]);
+    builder.addLineString([...pts, pts[0]]);
     context.addDecorationFromBuilder(builder);
     // Onshape live（2026-11-12）：标签贴在平面**屏幕最上方的边**的左端、沿边书写
     // （随平面透视旋转，不是水平屏幕文字）。
@@ -141,16 +141,16 @@ export class DatumPlanesDecoration {
     let topEdge = 0;
     let topMidY = Number.POSITIVE_INFINITY;
     for (let i = 0; i < view.length; i++) {
-      const a = view[i]!;
-      const b = view[(i + 1) % view.length]!;
-      const midY = (a.y + b.y) / 2;
+      const edgeStart = view[i];
+      const edgeEnd = view[(i + 1) % view.length];
+      const midY = (edgeStart.y + edgeEnd.y) / 2;
       if (midY < topMidY) {
         topMidY = midY;
         topEdge = i;
       }
     }
-    let a = view[topEdge]!;
-    let b = view[(topEdge + 1) % view.length]!;
+    let a = view[topEdge];
+    let b = view[(topEdge + 1) % view.length];
     let angle = Math.atan2(b.y - a.y, b.x - a.x);
     if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
       // 文字保持可读方向（不倒置）：换边端点，角度转 180°。
@@ -159,7 +159,7 @@ export class DatumPlanesDecoration {
     }
     const cx = view.reduce((sum, point) => sum + point.x, 0) / view.length;
     const cy = view.reduce((sum, point) => sum + point.y, 0) / view.length;
-    const inward = Math.hypot(cx - a.x, cy - a.y) || 1;
+    const inward = Math.sqrt((cx - a.x) ** 2 + (cy - a.y) ** 2) || 1;
     const position = {
       x: a.x + ((cx - a.x) / inward) * 6,
       y: a.y + ((cy - a.y) / inward) * 6,
