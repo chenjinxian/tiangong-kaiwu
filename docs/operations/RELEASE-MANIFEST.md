@@ -17,7 +17,7 @@ GET 外不访问网络，也不替代 `scripts/release-gate.ps1` 或
 | `release.profile` | release 模式缺 `docker-compose.release.yml` 或 `deploy/release/release-profile.json`；release compose 使用字面 image/默认值/未在 profile 声明的 `RELEASE_*_IMAGE`；非 edge 服务发布宿主端口；edge 端口无显式 host bind；使用 `build:`；敏感环境变量不是无默认值的 `RELEASE_*` 必填变量；必填输入未在 profile 登记；release profile 引用的镜像在 manifest 中无 digest |
 | `build.scripts` | 发布/构建脚本硬编码宿主绝对路径、依赖 native pnpm store 回退、`tsc --noCheck`、或 `npm install` / 无 `--frozen-lockfile` 的 pnpm 安装 |
 | `contract.shipped` | `dist-backend` 产物内 `LubanFeatureRpcInterface.interfaceVersion` 与公开源不一致（例如 1.64.0 vs 1.85.0） |
-| `provenance.public` | 公开产物 `native-provenance.json` 泄漏宿主绝对路径/私有 native commit 等内部证据 |
+| `provenance.public` | 公开产物 provenance（优先 `dist-backend/modeling-server/provenance.public.json`，旧产物回退 `node_modules/@bentley/imodeljs-native/native-provenance.json`）任意层级泄漏宿主绝对路径/私有 native commit 等内部证据 |
 | `manifest.release` | release 模式缺 `release-manifest.json`/`nativeProvenance`/`dist-backend`；缺文件型 release evidence（至少一个 `sbom`、一个 `signature` 或 `attestation`、一个 `provenance`）；tag、sourceCommit、native/artifact/evidence digest 不一致；release profile 引用的镜像没有清单 digest |
 | `secrets.defaults` | release 配置出现弱默认密码/JWT、Azurite well-known key、或 provider token |
 
@@ -206,7 +206,7 @@ node scripts/release-manifest.mjs build \
   --evidence attestation=release/att/luban-web-public.intoto.jsonl \
   --evidence provenance=release/prov/backend.provenance.json \
   --sbom-digest <64 hex> \
-  --native-provenance dist-backend/modeling-server/node_modules/@bentley/imodeljs-native/native-provenance.json \
+  --native-provenance dist-backend/modeling-server/provenance.public.json \
   --native-provenance-sha256 <64 hex> \
   --out release-manifest.json
 ```
@@ -216,7 +216,10 @@ node scripts/release-manifest.mjs build \
 `kind` 只能是 `sbom`、`signature`、`attestation`、`provenance`。文件不可读或
 `kind` 非法为用法错误（exit `2`）。`--native-provenance` 仍要求与
 `--native-provenance-sha256` 成对提供（声明值由发布方从 provenance 生成记录
-取得；`verify-files` 稍后核对实际字节）。
+取得；`verify-files` 稍后核对实际字节）。新产物使用脱敏的
+`provenance.public.json`（不含宿主路径/私有仓 commit）；旧产物仍可用
+`node_modules/@bentley/imodeljs-native/native-provenance.json` 回退，但发布记录
+必须披露来源。
 
 不传 `--out` 时清单写到 stdout。`--input` 不能与其他字段参数混用。
 
@@ -253,7 +256,7 @@ node scripts/release-manifest.mjs verify-files \
   --root . \
   --require-native-provenance \
   --require-release-evidence
-# file OK: nativeProvenance dist-backend/.../native-provenance.json (sha256:...)
+# file OK: nativeProvenance dist-backend/modeling-server/provenance.public.json (sha256:...)
 # file OK: artifacts[0] dist-out/luban-cad-deploy-backend-20261122.zip (sha256:...)
 # file OK: evidence[0] (sbom) release/sbom/luban-web-public.spdx.json (sha256:...)
 # release manifest files OK: 3 file(s) match declared SHA-256

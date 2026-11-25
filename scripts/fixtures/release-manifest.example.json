@@ -24,7 +24,7 @@
   ],
   "sbomDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "nativeProvenance": {
-    "path": "dist-backend/modeling-server/node_modules/@bentley/imodeljs-native/native-provenance.json",
+    "path": "dist-backend/modeling-server/provenance.public.json",
     "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   }
 }

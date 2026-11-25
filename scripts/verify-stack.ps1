@@ -489,14 +489,26 @@ if (-not $msHealthy) {
         if ($line.Length -gt 120) { $line = $line.Substring(0, 120) + '...' }
         # P2.7 复审：横幅只证明“dev build”，不证明版本/来源。读取产物内 provenance，
         # 把版本/HEAD/fallback 一并报告（缺失只提示，不改变横幅门）。
-        $provPath = Join-Path $RepoRoot 'dist-backend\modeling-server\node_modules\@bentley\imodeljs-native\native-provenance.json'
+        $publicProvPath = Join-Path $RepoRoot 'dist-backend\modeling-server\provenance.public.json'
+        $legacyProvPath = Join-Path $RepoRoot 'dist-backend\modeling-server\node_modules\@bentley\imodeljs-native\native-provenance.json'
+        $provPath = if (Test-Path $publicProvPath) {
+            $publicProvPath
+        } elseif (Test-Path $legacyProvPath) {
+            $legacyProvPath
+        } else {
+            $null
+        }
         $provDetail = '；provenance 缺失（旧产物）'
-        if (Test-Path $provPath) {
+        if ($null -ne $provPath) {
             try {
                 $prov = Get-Content -Raw -LiteralPath $provPath | ConvertFrom-Json
-                $head = [string]$prov.imodelNativeHead
-                $headShort = if ($head.Length -ge 12) { $head.Substring(0, 12) } else { $head }
-                $provDetail = "；native=$($prov.nativeVersion) head=$headShort fallback=$($prov.fallbackRequired)"
+                if ($null -ne $prov.native) {
+                    $provDetail = "；native=$($prov.native.version) source=$($prov.native.source) devBuild=$($prov.native.devBuild) rpc=$($prov.rpc.version)"
+                } else {
+                    $head = [string]$prov.imodelNativeHead
+                    $headShort = if ($head.Length -ge 12) { $head.Substring(0, 12) } else { $head }
+                    $provDetail = "；native=$($prov.nativeVersion) head=$headShort fallback=$($prov.fallbackRequired)"
+                }
             } catch {
                 $provDetail = '；provenance 读取失败'
             }

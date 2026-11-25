@@ -127,20 +127,48 @@ if ($artifacts.Count -eq 0) {
 }
 
 # --- 2. 产物 provenance ---------------------------------------------------
-$provPath = Join-Path $Root 'dist-backend\modeling-server\node_modules\@bentley\imodeljs-native\native-provenance.json'
-if (-not (Test-Path $provPath)) {
-    Fail "产物 provenance 缺失: $provPath"
+# 新产物只含脱敏的 provenance.public.json（公开边界不得出现私有仓 commit/宿主
+# 路径）；旧产物仍回退到 node_modules 内的完整 native-provenance.json。
+$publicProvPath = Join-Path $Root 'dist-backend\modeling-server\provenance.public.json'
+$legacyProvPath = Join-Path $Root 'dist-backend\modeling-server\node_modules\@bentley\imodeljs-native\native-provenance.json'
+$provPath = if (Test-Path $publicProvPath) {
+    $publicProvPath
+} elseif (Test-Path $legacyProvPath) {
+    $legacyProvPath
+} else {
+    $null
+}
+if ($null -eq $provPath) {
+    Fail "产物 provenance 缺失: $publicProvPath"
 } else {
     $prov = Get-Content -Raw -Path $provPath | ConvertFrom-Json
-    Write-Host "provenance: version=$($prov.nativeVersion) head=$($prov.imodelNativeHead) fallback=$($prov.fallbackRequired) freshness=$($prov.freshness)"
-    if ($prov.fallbackRequired -eq $true) {
-        if ($AllowStoreFallback) {
-            Warn '产物使用后备来源（已显式放行；发布记录须写明 provenance）'
+    if ($null -ne $prov.native) {
+        $nativeVersion = [string]$prov.native.version
+        $source = [string]$prov.native.source
+        $devBuild = $prov.native.devBuild
+        $rpcVersion = [string]$prov.rpc.version
+        Write-Host "provenance: file=$([System.IO.Path]::GetFileName($provPath)) version=$nativeVersion source=$source devBuild=$devBuild rpc=$rpcVersion"
+        if ($source -eq 'explicit-delivery') {
+            Pass '产物 provenance 来自显式 native Delivery（非 pnpm store fallback）'
+        } elseif ($AllowStoreFallback) {
+            Warn "产物使用后备来源（已显式放行；发布记录须写明 provenance: source=$source）"
         } else {
-            Fail '产物使用后备来源；干净发布应从私有依赖源重建（或显式 -AllowStoreFallback）'
+            Fail "产物使用后备来源（source=$source）；干净发布应从私有依赖源重建（或显式 -AllowStoreFallback）"
+        }
+        if ($devBuild -eq $true) {
+            Warn '产物 native 为 dev build；发布记录必须披露并在正式 native 可用后替换'
         }
     } else {
-        Pass '产物 provenance 非 fallback'
+        Write-Host "provenance: file=native-provenance.json version=$($prov.nativeVersion) fallback=$($prov.fallbackRequired) freshness=$($prov.freshness)"
+        if ($prov.fallbackRequired -eq $true) {
+            if ($AllowStoreFallback) {
+                Warn '产物使用后备来源（已显式放行；发布记录须写明 provenance）'
+            } else {
+                Fail '产物使用后备来源；干净发布应从私有依赖源重建（或显式 -AllowStoreFallback）'
+            }
+        } else {
+            Pass '产物 provenance 非 fallback'
+        }
     }
 }
 

@@ -36,6 +36,8 @@ const SHIPPED_CONTRACT =
   'dist-backend/modeling-server/node_modules/@luban-cad/shared/dist/rpc/LubanFeatureRpcInterface.js';
 const SHIPPED_PROVENANCE =
   'dist-backend/modeling-server/node_modules/@bentley/imodeljs-native/native-provenance.json';
+const SHIPPED_PUBLIC_PROVENANCE =
+  'dist-backend/modeling-server/provenance.public.json';
 const RELEASE_COMPOSE = 'docker-compose.release.yml';
 const RELEASE_PROFILE = 'deploy/release/release-profile.json';
 const CLEAN_RELEASE_COMPOSE = [
@@ -228,6 +230,9 @@ function fixture(t, options = {}) {
       SHIPPED_PROVENANCE,
       options.shippedProvenanceText ?? PROVENANCE_TEXT,
     );
+  }
+  if (options.publicProvenanceText !== undefined) {
+    write(root, SHIPPED_PUBLIC_PROVENANCE, options.publicProvenanceText);
   }
   if (options.artifact !== 'omit') {
     write(root, 'dist-out/app.tgz', ARTIFACT_TEXT);
@@ -514,6 +519,54 @@ test('shipped native provenance must not leak host paths or private evidence', (
     releaseReport.violations.some(
       (v) => v.subject === 'native-provenance:private-evidence',
     ),
+    true,
+  );
+});
+
+test('sanitized provenance.public.json is accepted; nested host/private leaks are rejected', (t) => {
+  const sanitized = `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      artifact: { tag: 'backend-test' },
+      native: { version: '5.15.5', requiredTag: 'v5.15.5', devBuild: true },
+      rpc: { version: '1.85.0' },
+    },
+    null,
+    2,
+  )}\n`;
+  const cleanRoot = fixture(t, {
+    shippedProvenance: 'omit',
+    publicProvenanceText: sanitized,
+  });
+
+  const clean = run(['--root', cleanRoot, '--mode', 'release', '--format', 'json', ...RELEASE_EXPECTED]);
+  assert.equal(clean.status, 0, clean.stderr);
+  const cleanReport = parseJson(clean);
+  assert.equal(
+    cleanReport.violations.some((v) => v.check === 'provenance.public'),
+    false,
+  );
+
+  const leakedRoot = fixture(t, {
+    shippedProvenance: 'omit',
+    publicProvenanceText: JSON.stringify({
+      native: {
+        binaries: {
+          imodeljs: { buildPath: 'D:\\private\\imodel-native\\out' },
+          nested: { imodelNativeHead: 'f'.repeat(40) },
+        },
+      },
+    }),
+  });
+  const leaked = run(['--root', leakedRoot, '--mode', 'release', '--format', 'json', ...RELEASE_EXPECTED]);
+  assert.equal(leaked.status, 1);
+  const leakedReport = parseJson(leaked);
+  assert.equal(
+    leakedReport.violations.some((v) => v.subject === 'native-provenance:host-path'),
+    true,
+  );
+  assert.equal(
+    leakedReport.violations.some((v) => v.subject === 'native-provenance:private-evidence'),
     true,
   );
 });

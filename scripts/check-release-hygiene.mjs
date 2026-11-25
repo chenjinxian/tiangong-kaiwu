@@ -20,6 +20,11 @@
  *   contract.shipped    The shipped dist-backend Feature RPC interfaceVersion
  *                       must match the public source (for example 1.85.0 vs
  *                       1.64.0 is a failure).
+ *   provenance.public   The shipped public provenance (prefer
+ *                       modeling-server/provenance.public.json, fall back to
+ *                       the legacy embedded native-provenance.json) must not
+ *                       expose host absolute paths or private native evidence
+ *                       (private repo commits, store paths) at any depth.
  *   manifest.release    Release mode requires release-manifest.json with native
  *                       provenance and file-backed release evidence (at least
  *                       one sbom, one signature or attestation, and one
@@ -116,8 +121,24 @@ const SHIPPED_CONTRACT_CANDIDATES = [
   'dist-backend/modeling-server/node_modules/@luban-cad/shared/dist/rpc/LubanFeatureRpcInterface.ts',
   'dist-backend/modeling-server/node_modules/@luban-cad/shared/src/rpc/LubanFeatureRpcInterface.ts',
 ];
+const SHIPPED_PUBLIC_PROVENANCE =
+  'dist-backend/modeling-server/provenance.public.json';
 const SHIPPED_NATIVE_PROVENANCE =
   'dist-backend/modeling-server/node_modules/@bentley/imodeljs-native/native-provenance.json';
+/** Sanitized public provenance is preferred; the legacy embedded file is a fallback. */
+const SHIPPED_PROVENANCE_CANDIDATES = [
+  SHIPPED_PUBLIC_PROVENANCE,
+  SHIPPED_NATIVE_PROVENANCE,
+];
+const PRIVATE_PROVENANCE_KEYS = new Set([
+  'storePackagePath',
+  'imodelNativeHead',
+  'imodelNativeDescribe',
+  'requiredTagCommit',
+  'storeDevbuildMtime',
+  'deliveryPath',
+  'nativeRepo',
+]);
 
 // Files that participate in preparing or publishing release artifacts. Keep
 // this list explicit: broad recursive scans of itwinjs-core/node_modules are
@@ -1028,39 +1049,62 @@ function scanShippedContract(ctx) {
   return { violations, skipped, sourceVersion };
 }
 
+function collectPublicProvenanceIssues(value, path = [], out = { hostPaths: [], privateKeys: [] }) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => collectPublicProvenanceIssues(item, [...path, String(index)], out));
+    return out;
+  }
+  if (!isPlainObject(value)) {
+    if (typeof value === 'string' && HOST_PATH_TEST_RE.test(value)) {
+      out.hostPaths.push(path.join('.') || '<root>');
+    }
+    return out;
+  }
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = [...path, key];
+    if (PRIVATE_PROVENANCE_KEYS.has(key)) {
+      out.privateKeys.push(childPath.join('.'));
+    }
+    collectPublicProvenanceIssues(child, childPath, out);
+  }
+  return out;
+}
+
 function scanPublicProvenance(ctx) {
   const violations = [];
   const skipped = [];
-  const absolute = join(ctx.root, SHIPPED_NATIVE_PROVENANCE);
-  if (!existsSync(absolute)) {
+  const shipped = SHIPPED_PROVENANCE_CANDIDATES.find((candidate) =>
+    existsSync(join(ctx.root, candidate)),
+  );
+  if (!shipped) {
     if (ctx.mode === 'release' && existsSync(join(ctx.root, 'dist-backend'))) {
       violations.push(
         makeViolation('provenance.public', {
-          file: SHIPPED_NATIVE_PROVENANCE,
+          file: SHIPPED_PUBLIC_PROVENANCE,
           subject: 'shipped-provenance-missing',
           message:
-            'shipped dist-backend is missing native-provenance.json (release evidence cannot be audited)',
+            'shipped dist-backend is missing provenance.public.json (or the legacy native-provenance.json)',
           hint:
-            'Emit a provenance record for the shipped native binary; keep private build details in the private release record.',
+            'Emit a sanitized public provenance record for the shipped native binary and keep private build details in dist-out/private.',
         }),
       );
     } else {
       skipped.push({
         check: 'provenance.public',
         message:
-          'shipped native provenance is not present; public-boundary check skipped',
+          'shipped public provenance is not present; public-boundary check skipped',
       });
     }
     return { violations, skipped };
   }
 
-  const text = readText(absolute);
+  const text = readText(join(ctx.root, shipped));
   if (text === undefined) {
     violations.push(
       makeViolation('provenance.public', {
-        file: SHIPPED_NATIVE_PROVENANCE,
+        file: shipped,
         subject: 'shipped-provenance-unreadable',
-        message: 'cannot read shipped native-provenance.json',
+        message: 'cannot read shipped public provenance',
       }),
     );
     return { violations, skipped };
@@ -1071,50 +1115,36 @@ function scanPublicProvenance(ctx) {
   } catch {
     violations.push(
       makeViolation('provenance.public', {
-        file: SHIPPED_NATIVE_PROVENANCE,
+        file: shipped,
         subject: 'shipped-provenance-invalid-json',
-        message: 'shipped native-provenance.json is not valid JSON',
+        message: 'shipped public provenance is not valid JSON',
       }),
     );
     return { violations, skipped };
   }
 
   const severity = ctx.mode === 'release' ? 'error' : 'warning';
-  if (
-    isPlainObject(provenance) &&
-    typeof provenance.storePackagePath === 'string' &&
-    HOST_PATH_TEST_RE.test(provenance.storePackagePath)
-  ) {
+  const issues = collectPublicProvenanceIssues(provenance);
+  if (issues.hostPaths.length > 0) {
     violations.push(
       makeViolation('provenance.public', {
-        file: SHIPPED_NATIVE_PROVENANCE,
+        file: shipped,
         subject: 'native-provenance:host-path',
-        message:
-          'shipped native provenance exposes a host absolute store path',
+        message: `shipped public provenance exposes host absolute paths (${issues.hostPaths.join(', ')})`,
         severity,
         hint:
-          'Publish a sanitized provenance record (version/digest/tag); keep host paths and private build logs in the private release record.',
+          'Publish only version/digest/tag fields; keep host paths and build logs in the private release record.',
       }),
     );
   }
-
-  const privateEvidence = [
-    'storePackagePath',
-    'imodelNativeHead',
-    'imodelNativeDescribe',
-    'requiredTagCommit',
-    'storeDevbuildMtime',
-  ].filter(
-    (key) => isPlainObject(provenance) && provenance[key] !== undefined,
-  );
-  if (privateEvidence.length > 0) {
+  if (issues.privateKeys.length > 0) {
     violations.push(
       makeViolation('provenance.public', {
-        file: SHIPPED_NATIVE_PROVENANCE,
+        file: shipped,
         subject: 'native-provenance:private-evidence',
         message:
-          'shipped native provenance exposes private native build evidence ' +
-          `(${privateEvidence.join(', ')})`,
+          'shipped public provenance exposes private native build evidence ' +
+          `(${issues.privateKeys.join(', ')})`,
         severity,
         hint:
           'Split public artifact provenance from the private release record; the public boundary must not expose private repo commits or host paths.',

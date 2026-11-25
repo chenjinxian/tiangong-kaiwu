@@ -24,7 +24,7 @@ hygiene 的 `release` 模式要求该 profile 存在并把每个镜像对齐到 
 | 源码 commit | public/backend/hub 的可发布提交；三仓对齐 | manifest `sourceCommit` + `--expected-source-commit` |
 | 契约版本 | `LubanFeatureRpcInterface.interfaceVersion`，与 shared 源码、MS 产物、运行时 `/rpc/metadata` 一致 | manifest `contractVersion`；hygiene `contract.shipped`；`verify-runtime` |
 | 镜像 digest | 每个 release profile 镜像的 **registry 侧** `sha256`（不是本地 `docker inspect` 声明） | manifest `images[]`；`render-release-images.mjs` |
-| native provenance | 产物内 `native-provenance.json` 的实际文件 SHA-256；必须来自 pin 的 native 构建 | manifest `nativeProvenance`；`verify --require-native-provenance` / `verify-files` |
+| native provenance | 产物内 `provenance.public.json`（旧产物回退 `native-provenance.json`）的实际文件 SHA-256；必须来自 pin 的 native 构建，公开记录不得含宿主路径/私有仓 commit | manifest `nativeProvenance`；`verify --require-native-provenance` / `verify-files`；hygiene `provenance.public` |
 | 产物 | MS tgz/deploy bundle 的实际文件 SHA-256 | manifest `artifacts[]`；`verify-files` |
 | SBOM | 每个发布镜像的 SBOM；记录 digest 并归档 | manifest `evidence[]`（`kind: "sbom"`，本地文件 SHA-256，`verify-files` 重算）；`sbomDigest` 仅为旧版单值字段，不满足 release evidence 策略 |
 | 签名/attestation | 镜像签名与 provenance attestation；密钥由 KMS/签名服务托管 | manifest `evidence[]`（`kind: "signature"` 或 `"attestation"`，本地文件 SHA-256）；验签/证书身份/镜像绑定仍在发布环境核对；不得把私钥写入仓库 |
