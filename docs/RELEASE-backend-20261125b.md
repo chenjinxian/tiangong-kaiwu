@@ -23,6 +23,10 @@
 
 `scripts/fetch-backend.ps1` 会把 release tag 写入 `.env` 的
 `LUBAN_RELEASE_TAG`；compose 的四个公开镜像与 MS 产物使用同一 tag。
+`luban-web-public:latest` 也指向同一 web digest（`sha256:d2e4f462…`），
+因此仍按旧 compose 使用 `:latest` 的 `main` 分支 quickstart 也会拿到
+B-model 开启的新 web；Hub/WA/BFF 的 `latest` 与 `backend-20261110`
+为同一批镜像。
 
 ## modeling-server 产物
 
