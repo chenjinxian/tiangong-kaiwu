@@ -19,6 +19,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   utimesSync,
   writeFileSync,
@@ -155,6 +156,27 @@ function baseManifest({ artifact = true, evidence = true } = {}) {
       : {}),
     ...(evidence ? { evidence: evidenceEntries() } : {}),
   };
+}
+
+// The repository release/build scripts reference these GHCR repositories.
+// Release mode requires a manifest digest for every image a release config
+// references, so the fixture manifest must cover them.
+const RELEASE_SCRIPT_IMAGES = [
+  'ghcr.io/chenjinxian/luban-web-public',
+  'ghcr.io/chenjinxian/luban-bff-public',
+  'ghcr.io/chenjinxian/imodelhub-public',
+  'ghcr.io/chenjinxian/luban-webhook-agent-public',
+];
+
+function manifestWithScriptImages() {
+  const manifest = baseManifest();
+  manifest.images.push(
+    ...RELEASE_SCRIPT_IMAGES.map((name, index) => ({
+      name,
+      digest: `sha256:${String(index + 4).repeat(64)}`,
+    })),
+  );
+  return manifest;
 }
 
 /**
@@ -1331,6 +1353,39 @@ test('release mode ignores waivers on release artifact scripts', (t) => {
       (v) => v.subject === 'example.com/app:latest',
     ),
     true,
+  );
+});
+
+test('repository release/build scripts pass release image pinning', (t) => {
+  // Guard the real scripts, not a synthetic approximation: release mode scans
+  // rebuild-web.ps1 and make-deploy-bundle.ps1, and any literal floating tag
+  // (including one only printed to the release owner) blocks the gate.
+  const root = fixture(t, { manifest: manifestWithScriptImages() });
+  for (const rel of [
+    'scripts/rebuild-web.ps1',
+    'scripts/make-deploy-bundle.ps1',
+  ]) {
+    write(root, rel, readFileSync(join(REPO_ROOT, rel), 'utf8'));
+  }
+
+  const result = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const report = parseJson(result);
+  assert.equal(
+    report.violations.some((v) => v.check === 'images.pinned'),
+    false,
+  );
+  assert.equal(
+    report.warnings.some((v) => v.check === 'images.pinned'),
+    false,
   );
 });
 

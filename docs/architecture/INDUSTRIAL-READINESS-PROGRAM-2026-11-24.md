@@ -356,6 +356,33 @@ deny/enforce。G1 仍 0/15。
 
 ---
 
+## 6.7 2026-11-25 第七波（工作树，未提交）
+
+| 切片 | 结果 | 边界 |
+|---|---|---|
+| B4 剩余动作/能力真值 | 增补 changeset update/delete、extended-data、groups、briefcase delete/keep-alive、iModel name/description 与权限管理路由的动作元数据；`GET /itwins/.../permission` 改为 resolver 投影（canEdit 随 Write 语义，canShare/canDelete 仅 iTwin manage），`GET /permissions/users` 改为 iTwin-manage 门禁；Hub 全量 195/1795 | 默认 legacy/manage_compat；action 模式不降低 iTwin-manage 处理器检查；官方 `GET /imodels/:id/userpermissions` 仍 WebView（官方 Technology Preview，待产品/ADR）；无 live e2e |
+| Release tag 债务 | `rebuild-web.ps1`/`make-deploy-bundle.ps1` 支持显式不可变标签/digest，`latest` 仅 LocalDev 显式 opt-in；release hygiene 的 6 条 `:latest` 错误消除；8 个 CI node:test 合计 98 pass | 仍剩 contract 1.64 vs 1.85、公开 provenance 宿主路径/私有 native 证据、缺真实 manifest/SBOM/签名；未发布 |
+| B6 owner-route OBO | 由第八波子代理继续（briefcase/lock owner 路由 service/OBO 路径）；默认 legacy/off | 未完成前 B2.2 enforce 仍不能生产启用 |
+
+**结论**：B4 capability 更 truthful、release 脚本不再静默发 `latest`，但真实 ACL/UI、
+release 产物和 owner-route OBO 仍未闭环。G1 仍 0/15。
+
+---
+
+## 6.8 2026-11-25 第八波（工作树，未提交）
+
+| 切片 | 结果 | 边界 |
+|---|---|---|
+| B6 P4b owner routes | Hub briefcase create/acquire/update/release/keep-alive/delete 与全部 lock 写路由启用 `data.briefcases.write`/`data.locks.write` service metadata + OBO attribution；enforce 下 owner/requester 用 OBO 用户，service-only 无 OBO fail closed；新增迁移 `20261125000004` 扩展 service scope | 默认 legacy/off 不变；无 route 启用 Bearer；named-version/extended-data/baseline 仍 legacy；无 live DB/e2e；Hub 196/1833、MS 175 files/1883 pass+1 expected+8 skip |
+| Briefcase owner hardening | action/OBO 路径的 PATCH/keep-alive/delete 增加 owner 断言（legacy/dual 保持旧 Manage 行为）；阻止 OBO Write 用户修改他人 briefcase | 仍需产品决定 delete/keep-alive 的显式 owner 语义；无真栈负例 |
+| 客户端 P4b 路由 | MS 将 briefcase/lock 写路由纳入 service-token/OBO 分类，OBO 仅在签名 service token 已附加时发送；默认 legacy 请求头不变 | service-token 模式的 briefcase/lock owner 调用需要 Hub attribution enforce；未跑真栈 canary |
+
+**结论**：B6 owner-route 的 Hub/MS 代码路径已具备默认-off 的 service/OBO 通道，
+但未完成部署形态 canary、KMS/token 撤销、baseline/admin 退役和 B2.2 enforce。
+G1 仍 0/15。
+
+---
+
 ## 7. Stop-ship 与不得宣称
 
 - 未获书面法律结论前：ACIS 外部分发、STEP/IGES/Parasolid、healing/InterOp；

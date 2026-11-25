@@ -92,6 +92,7 @@ jobs:
           node --test scripts/test/release-evidence.test.mjs
           node --test scripts/e2e-baseline.test.mjs
           node --test scripts/test/check-release-hygiene.test.mjs
+          node --test scripts/test/release-script-tags.test.mjs
           node --test scripts/test/release-images.test.mjs
           node --test scripts/test/release-edge.test.mjs
 

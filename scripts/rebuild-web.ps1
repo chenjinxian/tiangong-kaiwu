@@ -14,6 +14,15 @@
 #   powershell -File scripts/rebuild-web.ps1 -BModelEnabled true          # P2 rollout：B 双区 UI 开
 #   powershell -File scripts/rebuild-web.ps1 -BModelEnabled false         # P2 rollback：回 A UI，B 数据保留
 #   powershell -File scripts/rebuild-web.ps1 -BModelEnabled true -E2EHooks true  # E2E 测试镜像（挂 window.__lubanE2E；发布镜像勿用）
+#   powershell -File scripts/rebuild-web.ps1 -ReleaseTag <不可变 tag|sha256:64hex>  # 本地构建 + 打发布 tag（不自动 push）
+#   powershell -File scripts/rebuild-web.ps1 -PlanOnly -ReleaseTag <...>  # 只校验参数/打印计划，不调用 docker
+#
+# 镜像引用口径:
+#   - `-LocalTag` 是**本地开发兼容别名**（tiangong-kaiwu-web:<LocalTag>），缺省
+#     latest，仅供 verify-stack/本地回滚 inspect；它不是发布引用。
+#   - 发布推送必须显式传 `-ReleaseTag`（不可变 tag 或 sha256:<64 hex> digest），
+#     `latest` 会被拒绝；tag/digest 必须由 release owner 决定并写入
+#     release-manifest.json。本脚本只准备本地 tag 并打印 push 命令，不自动 push。
 #
 # B-model 开关（P2 D9 / P2.7）：`VITE_B_MODEL_ENABLED` 是**构建期** Vite 变量，
 # 静态 web 无运行期 env——切换必须重建镜像，不存在「只重启容器换 flag」的路径。
@@ -45,10 +54,53 @@ param(
     [string]$BModelEnabled = '',
     # 构建期 E2E 观测面开关：'' = 产品缺省关；'true' = 挂 window.__lubanE2E 的测试镜像。
     [ValidateSet('', 'true', 'false')]
-    [string]$E2EHooks = ''
+    [string]$E2EHooks = '',
+    # 本地兼容 tag 组件（仅本地开发别名；不是发布引用）。缺省 latest 保持
+    # verify-stack/旧回滚流程按旧名 inspect 的能力。
+    [string]$LocalTag = 'latest',
+    # 发布引用：不可变 tag 或 sha256:<64 hex> digest；禁止 latest。留空则只做
+    # 本地构建，不生成发布推送命令。
+    [string]$ReleaseTag = '',
+    # 只校验参数并打印计划；不检查 docker/构建上下文，不做任何构建或打 tag。
+    [switch]$PlanOnly
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+$ReleaseRepo = 'ghcr.io/chenjinxian/luban-web-public'
+
+function Assert-TagComponent {
+    param([string]$Value, [string]$Name)
+    if ([string]::IsNullOrWhiteSpace($Value)) { throw "$Name 不能为空" }
+    if ($Value.Length -gt 128 -or $Value -notmatch '^[A-Za-z0-9_][A-Za-z0-9._-]*$') {
+        throw "$Name 只能是不含 ':'、'/'、'@' 的 tag 组件（1-128 位 [A-Za-z0-9._-]）: $Value"
+    }
+}
+
+function Resolve-ReleaseRef {
+    param([string]$Value, [string]$Repo)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+    if ($Value -match '^sha256:[0-9a-fA-F]{64}$') { return "$Repo@$Value" }
+    if ($Value -ieq 'latest') {
+        throw '-ReleaseTag 不允许 latest —— 发布必须使用不可变 tag 或 sha256:<64 hex> digest'
+    }
+    Assert-TagComponent -Value $Value -Name '-ReleaseTag'
+    return "${Repo}:$Value"
+}
+
+Assert-TagComponent -Value $LocalTag -Name '-LocalTag'
+$LocalImage = "tiangong-kaiwu-web:$LocalTag"
+$ReleaseRef = Resolve-ReleaseRef -Value $ReleaseTag -Repo $ReleaseRepo
+$ReleaseIsDigest = $ReleaseTag -match '^sha256:[0-9a-fA-F]{64}$'
+
+if ($PlanOnly) {
+    Write-Host "plan: local compat tag = $LocalImage"
+    if ($ReleaseRef) {
+        Write-Host "plan: release ref = $ReleaseRef（tag 形态会本地打 tag；digest 形态只打印引用）"
+    } else {
+        Write-Host 'plan: 未提供 -ReleaseTag；不会生成发布推送命令'
+    }
+    return
+}
 
 # --- 前置检查（防呆优先于半路炸）---
 # Docker Desktop 装后需重启终端才入 PATH；从 ProgramFiles 派生，不硬编码宿主盘符
@@ -115,17 +167,27 @@ try {
 } finally { Pop-Location }
 
 # 2026-11-06：compose 的 web 服务新增公开 image 名（ghcr.io/.../luban-web-public），
-# 本脚本 build 后由 compose 以该名打 tag；同步补旧本地名 tiangong-kaiwu-web:latest，
-# 供 verify-stack Step E 与既有回滚流程继续按旧名 inspect。
+# 本脚本 build 后由 compose 以该名打 tag；同步补本地兼容别名
+# tiangong-kaiwu-web:<LocalTag>（缺省 latest，仅本地开发/回滚 inspect 使用），
+# 供 verify-stack Step E 与既有回滚流程继续按旧名 inspect。发布引用由
+# -ReleaseTag 显式提供，见文件头。
 $composeImage = [string](@(& docker compose config --images web 2>$null)[0]).Trim()
-if ($composeImage -and $composeImage -ne 'tiangong-kaiwu-web:latest') {
-    docker tag $composeImage tiangong-kaiwu-web:latest
-    if ($LASTEXITCODE -ne 0) { throw "docker tag $composeImage → tiangong-kaiwu-web:latest 失败" }
-    Write-Host "==> 已补本地兼容 tag: tiangong-kaiwu-web:latest → $composeImage" -ForegroundColor DarkGray
+if ($composeImage -and $composeImage -ne $LocalImage) {
+    docker tag $composeImage $LocalImage
+    if ($LASTEXITCODE -ne 0) { throw "docker tag $composeImage → $LocalImage 失败" }
+    Write-Host "==> 已补本地兼容 tag: $LocalImage → $composeImage" -ForegroundColor DarkGray
+}
+
+# 发布 tag 准备：只有显式 -ReleaseTag 才打发布引用；digest 形态不能由 docker tag
+# 生成（digest 来自 registry push 结果），只打印待记录的引用。
+if ($ReleaseRef -and -not $ReleaseIsDigest -and $composeImage -and $composeImage -ne $ReleaseRef) {
+    docker tag $composeImage $ReleaseRef
+    if ($LASTEXITCODE -ne 0) { throw "docker tag $composeImage → $ReleaseRef 失败" }
+    Write-Host "==> 已打发布 tag: $ReleaseRef ← $composeImage" -ForegroundColor DarkGray
 }
 
 # 构建标签自证（P2.7）：镜像 LABEL 必须与请求的 flag 一致，否则发布记录/回滚会读错开关。
-$imgJson = (& docker image inspect tiangong-kaiwu-web:latest 2>$null) -join "`n"
+$imgJson = (& docker image inspect $LocalImage 2>$null) -join "`n"
 $actualFlag = $null
 $actualE2E = $null
 if ($imgJson) {
@@ -146,5 +208,12 @@ if ($null -ne $actualE2E -and $actualE2E -ne $E2EHooks) {
 Write-Host "==> 完成: web 镜像已重建（GIT_COMMIT=$shaShort；VITE_B_MODEL_ENABLED=$flagLabel；VITE_E2E_HOOKS=$e2eLabel$(if ($canBuildArg) { '' } else { '；compose 过旧未注入标签/开关' })）。" -ForegroundColor Green
 Write-Host '    在跑的 web 容器未动——新镜像生效: docker compose up -d web'
 Write-Host '    回滚: 以 -BModelEnabled false 重建并 docker compose up -d web（B 数据保留，A UI 不变）'
-Write-Host '    公开发布（release owner）: docker push ghcr.io/chenjinxian/luban-web-public:latest（首次需把包设为 Public）'
+if ($ReleaseRef) {
+    Write-Host "    公开发布（release owner）: docker push $ReleaseRef（首次需把包设为 Public；registry digest 必须写入 release-manifest.json）"
+    if ($ReleaseIsDigest) {
+        Write-Host '    注: -ReleaseTag 为 digest 形态，未在本地打 tag；digest 应来自 registry push 输出。'
+    }
+} else {
+    Write-Host '    公开发布（release owner）: 传 -ReleaseTag <不可变 tag 或 sha256:<64 hex>；本脚本不自动推送，也不生成浮动标签。'
+}
 Write-Host '    验收: powershell -File scripts/verify-stack.ps1（Step E 报告镜像陈旧态）'

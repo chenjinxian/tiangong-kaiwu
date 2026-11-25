@@ -126,17 +126,25 @@ docker compose -f docker-compose.release.yml \
 
 ### 0.4 当前已知 release 债务（发布门仍会 FAIL）
 
-以下为本次接入后 `--mode release` 的诚实输出，未在本次 first slice 修复：
+以下为当前 `--mode release` 的未修复阻断项；公开打包脚本的浮动 tag 债已
+修复（保留记录以说明发布口径），其余必须在真实发布前消除或登记带 owner/
+expiry 的例外：
 
 - **契约 skew**：本机 `dist-backend` 的 `LubanFeatureRpcInterface` 为
   `1.64.0`，公开源为 `1.85.0` → `contract.shipped` FAIL。必须用当前 shared
   重建/重发 MS 产物，不得改清单掩盖。
-- **公开打包脚本**：`scripts/rebuild-web.ps1` 仍保留本地兼容
-  `tiangong-kaiwu-web:latest` 与 `latest` 发布提示；
-  `scripts/make-deploy-bundle.ps1` 生成的体验 README 仍写 4 个
-  `:latest`。release 模式把二者判 FAIL。发布路径本身走 release profile +
-  manifest digest，不依赖这些开发 bundle；后续要么改为不可变 tag/digest，
-  要么把它们明确归入 dev-only（需要单独评审，不能静默加 release waiver）。
+- **公开打包脚本（已修复，保留记录）**：`scripts/rebuild-web.ps1` 的本地兼容
+  别名改为 `-LocalTag`（缺省 latest，仅本地 verify-stack/回滚使用）；发布推送
+  必须显式 `-ReleaseTag <不可变 tag|sha256:digest>`，latest 直接拒绝，脚本只
+  准备本地 tag 并打印 push 命令，不自动推送。`scripts/make-deploy-bundle.ps1`
+  要求显式 `-ImageTag`（无缺省，避免静默浮动标签）；缺省即发布口径，必须显式
+  `-Tag` 且拒绝 latest；只有显式 `-LocalDev` 才允许 latest 与日期缺省 Tag。
+  release hygiene 的 `images.pinned` 不再因这两个脚本失败；本地体验需显式传
+  `-ImageTag latest -LocalDev`，该路径已在脚本文档注明。
+  注意：这两个脚本仍会引用 GHCR 仓库名，release manifest 必须为
+  `luban-web-public`/`luban-bff-public`/`imodelhub-public`/
+  `luban-webhook-agent-public` 提供 digest，否则 `manifest.release` 仍会
+  fail closed。
 - **构建脚本宿主路径**：release 打包脚本已移除宿主盘符
   （`fetch-backend.ps1`/`rebuild-web.ps1` 从 `ProgramFiles` 派生 Docker
   PATH；`dedupe-artifact-deps.ps1` 默认值从脚本根派生）。`quickstart.ps1`
@@ -201,10 +209,14 @@ docker compose -f docker-compose.release.yml \
       产物或复用旧 tag。
 - [ ] web 生产镜像：`powershell -File scripts/rebuild-web.ps1 -BModelEnabled true`
       （**不带** `-E2EHooks`）；镜像 LABEL `b-model-enabled=true`。
-- [ ] web 公开镜像：`scripts/rebuild-web.ps1` 构建并打
-      `ghcr.io/chenjinxian/luban-web-public` tag，push `latest` + 本次 tag。
+- [ ] web 公开镜像：`scripts/rebuild-web.ps1 -BModelEnabled true
+      -ReleaseTag <不可变 tag|sha256:digest>` 构建并打
+      `ghcr.io/chenjinxian/luban-web-public` 发布引用；只 push 该不可变
+      引用并记录 registry digest（`latest` 是否保留为移动别名按 §0.2 的
+      registry 政策决定，release manifest 必须用 digest）。
 - [ ] bff 公开镜像：`docker compose build bff` 后推
-      `ghcr.io/chenjinxian/luban-bff-public`（`latest` + 本次 tag）。
+      `ghcr.io/chenjinxian/luban-bff-public` 的同一不可变 tag，并记录
+      registry digest。
 - [ ] hub / webhook-agent 镜像来自 GHCR 同 tag；hub 不得挂宿主 `dist`（verify-stack
       Step F 硬检查）。
 
@@ -292,8 +304,10 @@ docker compose -f docker-compose.release.yml \
       `evidence[]` 只覆盖本地文件存在与 SHA-256，不在本仓
       `release-manifest.mjs` 的离线能力内。
 - [ ] Release asset 大小/SHA256 与本地 tgz 相同；GitHub asset digest 核对。
-- [ ] `scripts/make-deploy-bundle.ps1 -Tag <tag>` 生成部署包并上传
-      `luban-cad-deploy-<tag>.zip` + 稳定名 `luban-cad-deploy.zip`（外部免 clone）；
+- [ ] `scripts/make-deploy-bundle.ps1 -Tag <tag> -ImageTag <不可变 tag>`
+      生成部署包并上传 `luban-cad-deploy-<tag>.zip` + 稳定名
+      `luban-cad-deploy.zip`（外部免 clone）；发布口径拒绝 latest 且要求
+      显式 `-Tag`，四个镜像变量必须有 manifest digest。
       `verify-public-deps.ps1` 含该资产检查。
 - [ ] GHCR tag/latest digest 记录（WA / hub）；`latest` 指向同 digest。
 - [ ] 发布记录：`docs/RELEASE-backend-<date>.md` + ADR §15 追加；docs/README
@@ -337,6 +351,7 @@ docker compose -f docker-compose.release.yml \
   登记）。`check-release-hygiene.mjs --mode release` 要求 profile 存在并
   对齐 manifest；本地/CI 模式仍用 waiver 审计开发 compose。测试：
   `scripts/test/check-release-hygiene.test.mjs`、
+  `scripts/test/release-script-tags.test.mjs`、
   `scripts/test/release-images.test.mjs`。
 - **release edge**（TLS/存储门禁）：`deploy/release/nginx.conf` +
   `deploy/release/nginx-tls.conf.template`，由

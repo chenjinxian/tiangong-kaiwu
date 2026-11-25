@@ -57,60 +57,6 @@
       "expires": "2027-03-31"
     },
     {
-      "id": "dev-rebuild-web-local-compat-tag",
-      "check": "images.pinned",
-      "file": "scripts/rebuild-web.ps1",
-      "subject": "tiangong-kaiwu-web:latest",
-      "scope": "local",
-      "reason": "Local compatibility tag consumed by verify-stack/rollback. Not a published release reference; the published image must be pinned separately.",
-      "expires": "2027-03-31"
-    },
-    {
-      "id": "dev-rebuild-web-publish-latest",
-      "check": "images.pinned",
-      "file": "scripts/rebuild-web.ps1",
-      "subject": "ghcr.io/chenjinxian/luban-web-public:latest",
-      "scope": "local",
-      "reason": "The script prints the current publish command using latest. A release must push an immutable tag and digest and update the manifest.",
-      "expires": "2027-03-31"
-    },
-    {
-      "id": "dev-deploy-bundle-web-latest",
-      "check": "images.pinned",
-      "file": "scripts/make-deploy-bundle.ps1",
-      "subject": "ghcr.io/chenjinxian/luban-web-public:latest",
-      "scope": "local",
-      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
-      "expires": "2027-03-31"
-    },
-    {
-      "id": "dev-deploy-bundle-bff-latest",
-      "check": "images.pinned",
-      "file": "scripts/make-deploy-bundle.ps1",
-      "subject": "ghcr.io/chenjinxian/luban-bff-public:latest",
-      "scope": "local",
-      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
-      "expires": "2027-03-31"
-    },
-    {
-      "id": "dev-deploy-bundle-imodelhub-latest",
-      "check": "images.pinned",
-      "file": "scripts/make-deploy-bundle.ps1",
-      "subject": "ghcr.io/chenjinxian/imodelhub-public:latest",
-      "scope": "local",
-      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
-      "expires": "2027-03-31"
-    },
-    {
-      "id": "dev-deploy-bundle-webhook-agent-latest",
-      "check": "images.pinned",
-      "file": "scripts/make-deploy-bundle.ps1",
-      "subject": "ghcr.io/chenjinxian/luban-webhook-agent-public:latest",
-      "scope": "local",
-      "reason": "Deploy-bundle README documents the public experience images. The release bundle should pin tags/digests before industrial release.",
-      "expires": "2027-03-31"
-    },
-    {
       "id": "dev-docker-desktop-path-quickstart",
       "check": "build.scripts",
       "file": "scripts/quickstart.ps1",

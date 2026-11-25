@@ -6,16 +6,61 @@
 # web/bff/imodelhub/webhook-agent 全部是公开镜像，modeling-server 走公开
 # Release 产物；因此部署包不需要任何仓库源码或本地构建。
 #
-# 用法: powershell -File scripts/make-deploy-bundle.ps1 [-Tag backend-YYYYMMDD]
+# 用法:
+#   powershell -File scripts/make-deploy-bundle.ps1 -Tag <tag> -ImageTag <不可变 tag>
+#   powershell -File scripts/make-deploy-bundle.ps1 -Tag <tag> -ImageTag latest -LocalDev   # 本地体验（显式 latest）
+#   powershell -File scripts/make-deploy-bundle.ps1 -Tag <tag> -ImageTag <...> -PlanOnly
 # 输出: dist-out/luban-cad-deploy-<Tag>.zip
 # 发布: gh release upload <Tag> dist-out/luban-cad-deploy-<Tag>.zip --repo <owner/repo> --clobber
+#
+# 镜像 tag 口径：本包四个公开镜像共用一个 tag，必须由调用方显式提供
+# `-ImageTag`（无缺省，避免静默生成浮动标签）。缺省是**发布口径**：必须显式
+# `-Tag` 且 `-ImageTag` 不可变（latest 被拒绝）；逐镜像 registry digest 记录在
+# release-manifest.json，不写进本体验 README。只有显式 `-LocalDev` 才允许
+# latest 和日期缺省 Tag；该路径仅用于本地体验，不得用于发布。
 # ============================================================
 [CmdletBinding()]
 param(
-  [string]$Tag = "backend-$(Get-Date -Format 'yyyyMMdd')"
+  [string]$Tag = "backend-$(Get-Date -Format 'yyyyMMdd')",
+  # 四个公开镜像共同使用的 tag（发布必须不可变；本地体验需 -LocalDev）。
+  [string]$ImageTag = '',
+  # 显式声明本地体验路径：允许 latest 与日期缺省 Tag；不是发布输入。
+  [switch]$LocalDev,
+  # 只校验参数并打印计划，不复制文件/打包。
+  [switch]$PlanOnly
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
+
+function Assert-TagComponent {
+  param([string]$Value, [string]$Name)
+  if ([string]::IsNullOrWhiteSpace($Value)) { throw "$Name 不能为空" }
+  if ($Value.Length -gt 128 -or $Value -notmatch '^[A-Za-z0-9_][A-Za-z0-9._-]*$') {
+    throw "$Name 只能是不含 ':'、'/'、'@' 的 tag 组件（1-128 位 [A-Za-z0-9._-]）：$Value"
+  }
+}
+
+Assert-TagComponent -Value $Tag -Name '-Tag'
+Assert-TagComponent -Value $ImageTag -Name '-ImageTag'
+if (-not $LocalDev) {
+  if (-not $PSBoundParameters.ContainsKey('Tag')) {
+    throw '发布口径必须显式传 -Tag（与 release manifest tag 一致）；本地体验请显式加 -LocalDev'
+  }
+  if ($ImageTag -ieq 'latest') {
+    throw '发布口径禁止 latest —— 必须传不可变 tag；逐镜像 digest 记录在 release-manifest.json；本地体验请显式加 -LocalDev'
+  }
+}
+$imagePolicyNote = if ($LocalDev) {
+  "本地体验包：镜像 tag 为 $ImageTag；latest 仅供本地体验，不得用于发布。"
+} else {
+  "发布包：镜像 tag 固定为 $ImageTag；逐镜像 registry digest 以 release-manifest.json 为准。"
+}
+if ($PlanOnly) {
+  Write-Host "plan: bundle tag = $Tag; image tag = $ImageTag; localDev = $($LocalDev.IsPresent)"
+  Write-Host "plan: $imagePolicyNote"
+  return
+}
+
 $stage = Join-Path $env:TEMP ("luban-cad-deploy-" + [guid]::NewGuid().ToString('N'))
 $bundle = Join-Path $stage 'luban-cad-deploy'
 $outDir = Join-Path $RepoRoot 'dist-out'
@@ -75,12 +120,14 @@ IMODELHUB_ADMIN_EMAIL / IMODELHUB_ADMIN_PASSWORD。
 
 | 服务 | 来源 | 认证 |
 |---|---|---|
-| web | GHCR ghcr.io/chenjinxian/luban-web-public:latest | 无 |
-| bff | GHCR ghcr.io/chenjinxian/luban-bff-public:latest | 无 |
-| imodelhub | GHCR ghcr.io/chenjinxian/imodelhub-public:latest | 无 |
-| webhook-agent | GHCR ghcr.io/chenjinxian/luban-webhook-agent-public:latest | 无 |
+| web | GHCR ghcr.io/chenjinxian/luban-web-public:$ImageTag | 无 |
+| bff | GHCR ghcr.io/chenjinxian/luban-bff-public:$ImageTag | 无 |
+| imodelhub | GHCR ghcr.io/chenjinxian/imodelhub-public:$ImageTag | 无 |
+| webhook-agent | GHCR ghcr.io/chenjinxian/luban-webhook-agent-public:$ImageTag | 无 |
 | modeling-server | GitHub Releases modeling-server-win-x64-*.tgz | 无 |
 | postgres / redis / maildev / azurite / nginx | Docker Hub / MCR 官方镜像 | 无 |
+
+$imagePolicyNote
 
 宿主只需 Node.js；native/slvs/ACIS 均随 modeling-server 产物分发。
 当前仅支持 Windows（modeling-server 是 Windows 原生宿主进程）。

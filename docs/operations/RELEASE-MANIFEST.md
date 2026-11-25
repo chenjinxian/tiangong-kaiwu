@@ -38,6 +38,16 @@ GET 外不访问网络，也不替代 `scripts/release-gate.ps1` 或
   `rebuild-web.ps1`、`make-deploy-bundle.ps1`）、workflow、Dockerfile、release
   compose/profile 与 manifest 仍在 release 审计范围内。
 
+发布打包脚本的镜像 tag 口径：`rebuild-web.ps1` 的本地兼容别名由 `-LocalTag`
+控制（缺省 latest，仅本地 verify-stack/回滚使用）；发布推送必须显式
+`-ReleaseTag <不可变 tag|sha256:digest>`，latest 被拒绝，脚本只准备本地 tag
+并打印 push 命令。`make-deploy-bundle.ps1` 要求显式 `-ImageTag`（无缺省），
+缺省即发布口径（要求显式 `-Tag` 且拒绝 latest），只有 `-LocalDev` 才允许
+latest 与日期缺省 Tag。两者仍会引用公开 GHCR 仓库名，
+release manifest 必须为 `luban-web-public`/`luban-bff-public`/
+`imodelhub-public`/`luban-webhook-agent-public` 提供 digest，否则
+`manifest.release` fail closed。
+
 ## Release profile（docker-compose.release.yml）
 
 工业发布不使用开发 compose。`docker-compose.release.yml` 是独立 profile
@@ -122,10 +132,14 @@ waiver，因此任何 release 违规都必须真正修复，不能以 waiver 放
 `render-release-images.mjs --check`（manifest digest -> release compose 镜像
 解析）；public CI 以 `--mode ci` 运行 checker 并执行
 `node --test scripts/test/check-release-hygiene.test.mjs`、
+`node --test scripts/test/release-script-tags.test.mjs`、
 `node --test scripts/test/release-evidence.test.mjs`、
 `node --test scripts/test/release-images.test.mjs` 与
 `node --test scripts/test/release-edge.test.mjs`（TLS 证书/私钥/域名/tile
 密钥必填、仅 edge 端口、`/azurite` 非匿名、dev compose 无证书回归）。
+`release-script-tags.test.mjs` 静态校验真实脚本无字面浮动 tag，并在有
+PowerShell 时用 `-PlanOnly` 执行参数校验（latest 拒绝、不可变 tag/digest
+接受），不调用 Docker/网络。
 
 
 J3.1g 起支持**实际文件字节校验**（`verify-files`）：清单声明的
