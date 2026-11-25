@@ -1,0 +1,93 @@
+/* G1 B1.1 邮箱确认页（与登录/忘记密码同壳、同版式）。 */
+.confirm {
+  width: min(380px, 100%);
+  margin: 0 auto;
+  padding: 56px 0;
+}
+
+.confirm__logo {
+  color: #0f62fe;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 28px;
+}
+
+.confirm__title {
+  margin: 0 0 8px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #161616;
+}
+
+.confirm__subtitle {
+  margin: 0 0 28px;
+  color: #525252;
+  font-size: 14px;
+}
+
+.confirm__status {
+  padding: 16px;
+  border-radius: 6px;
+  background: #f4f4f4;
+  color: #525252;
+}
+
+.confirm__success,
+.confirm__error {
+  padding: 16px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.confirm__success {
+  background: #defbe6;
+  color: #0e6027;
+}
+
+.confirm__error {
+  background: #fff1f1;
+  color: #a2191f;
+}
+
+.confirm__success-message {
+  margin-bottom: 12px;
+}
+
+.confirm__link {
+  color: #0f62fe;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.confirm__link:hover {
+  text-decoration: underline;
+}
+
+.confirm-hero {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: #f4f4f4;
+}
+
+.confirm-hero__panel {
+  width: min(420px, 100%);
+  padding: 40px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.confirm-hero__brand {
+  color: #0f62fe;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.confirm-hero__tagline {
+  color: #525252;
+  font-size: 14px;
+}

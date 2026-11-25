@@ -268,6 +268,31 @@ export class AuthSession {
     }
   }
 
+  /**
+   * 邮箱确认：`POST ${hubUrl}/auth/email/confirm`（换邮箱时
+   * `/auth/email/confirm/new`）`{hash}`。hash 来自注册/换邮箱邮件里的
+   * `/confirm-email?hash=...` 链接。成功 204 无体；失败保持 ApiClientError
+   * 语义（422 过期/非法 hash、404 用户不存在）。
+   */
+  public static async confirmEmail(hash: string, options?: { newEmail?: boolean }): Promise<void> {
+    const endpoint = options?.newEmail ? '/auth/email/confirm/new' : '/auth/email/confirm';
+    const response = await fetch(`${env.hubUrl}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hash }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as { message?: string };
+      throw new ApiClientError({
+        status: response.status,
+        code: 'AUTH_CONFIRM_EMAIL_FAILED',
+        i18nKey: 'common.errors.confirmEmailFailed',
+        message: body.message ?? `Email confirmation failed (status ${response.status})`,
+      });
+    }
+  }
+
   /** 429 限流头解析（login/register/forgotPassword 三处共用）：@nestjs/throttler
    * 命名桶经 Retry-After-auth 头返回剩余封锁秒数（Fetch Headers.get 大小写
    * 不敏感，'retry-after-auth' 同一命中）；头缺席或非有限数返回 undefined。 */

@@ -12,6 +12,7 @@ import type { RouteObject } from 'react-router-dom';
 import { RequireAuth } from '@app/guards/RequireAuth.js';
 import { DevTokensRoute } from '@routes/DevTokensRoute.js';
 import { DevViewerRoute } from '@routes/DevViewerRoute.js';
+import { ConfirmEmailRoute } from '@routes/ConfirmEmailRoute.js';
 import { DocumentDetailsRoute } from '@routes/DocumentDetailsRoute.js';
 import { DocumentsRoute } from '@routes/DocumentsRoute.js';
 import { ExamplesRoute } from '@routes/ExamplesRoute.js';
@@ -31,6 +32,8 @@ export const routes: RouteObject[] = [
   { path: '/login', element: <SignInRoute /> },
   { path: '/register', element: <SignUpRoute /> },
   { path: '/forgot-password', element: <ForgotPasswordRoute /> },
+  { path: '/confirm-email', element: <ConfirmEmailRoute /> },
+  { path: '/confirm-new-email', element: <ConfirmEmailRoute newEmail /> },
   {
     path: '/documents',
     element: <RequireAuth><DocumentsRoute /></RequireAuth>,
