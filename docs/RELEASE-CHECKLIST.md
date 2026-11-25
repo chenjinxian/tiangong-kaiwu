@@ -84,6 +84,14 @@ docker compose -f docker-compose.release.yml \
       -VerifyManifestFiles -ExpectedSourceCommit <sha> -ExpectedTag <tag>`
       通过（release gate 内含 release profile 镜像解析预检）；如需审计私有
       构建脚本，另加 `-BackendRoot <luban-backend>`。
+- [ ] **产物模式编辑器冒烟**（不是 `-Source`）：用 `dist-backend` 内的 tgz
+      解包树按默认产物模式启 MS，跑 login → 建文档 → 建 Part Studio →
+      草图+拉伸 → undo/redo（至少 `login.spec`、`keyboard.spec`、
+      `new-part-studio.spec`、`sketch-extrude.spec`）。2026-11-25 实测
+      `backend-20261125` 产物 native Delivery 在 briefcase 打开后挂起，而
+      同提交源码模式 3 秒通过——源码 e2e 不能证明 tgz 内 native 成套可运行。
+      冒烟通过前不得生成 manifest 或发布；记录 native Delivery 整包
+      （不只 `imodeljs.node`）的哈希与构建来源。
 
 ### 0.2 人类决策（本仓不自动决定）
 
@@ -115,8 +123,11 @@ docker compose -f docker-compose.release.yml \
   （`--noCheck` 已移除）；`-NativeDelivery` 必填、无宿主路径默认值、无
   store 兜底；产物只带脱敏 `provenance.public.json`，完整私有证据写到
   `dist-out/private/` 且不入 tgz。对应产物 `backend-20261125`（契约
-  1.85.0）已由 release hygiene 的 public provenance/契约/build-script
-  检查验证；仍未发布。
+  1.85.0）通过了 release hygiene 的 public provenance/契约/build-script
+  静态检查，但 **2026-11-25 真栈实测其 native Delivery 组合在打开
+  briefcase 时挂起**（源码模式与 workspace 固定 native 均正常）；该 tgz
+  不可发布，必须用冻结成套的 native Delivery 重建并过 §0.1 产物模式
+  编辑器冒烟。
 - `luban-backend/scripts/build-images.ps1` / `publish.ps1`：发布构建仍不得以
   `latest` 作为唯一可追溯引用；推送不可变 tag 并输出 registry digest；
   SBOM、镜像签名与 attestation 仍待发布 owner 用签名身份生成（本仓不得
