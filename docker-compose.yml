@@ -134,7 +134,7 @@ services:
   # imodelhub-services（HUB，宿主 :5400 / 容器内 :4000）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   imodelhub:
-    image: ghcr.io/chenjinxian/imodelhub-public:${LUBAN_RELEASE_TAG:-backend-20261110}
+    image: ghcr.io/chenjinxian/imodelhub-public:${LUBAN_RELEASE_TAG:-backend-20261125b}
     ports:
       # 仅回环发布（2026-10-27 审计 P2-02 配套）：宿主 MS/verify-stack 仍可
       # localhost:5400 直连；nginx 走容器网络 imodelhub:4000（见 HUB_UPSTREAM）。
@@ -230,7 +230,7 @@ services:
   # webhook-agent（宿主 :5402 / 容器内 :4002）—— GHCR 预构建镜像（构建在私有仓 luban-backend）
   # ------------------------------------------------------------
   webhook-agent:
-    image: ghcr.io/chenjinxian/luban-webhook-agent-public:${LUBAN_RELEASE_TAG:-backend-20261110}
+    image: ghcr.io/chenjinxian/luban-webhook-agent-public:${LUBAN_RELEASE_TAG:-backend-20261125b}
     ports:
       # 仅宿主回环；WA 管理/基线端点不得直接暴露到局域网/公网。
       - "127.0.0.1:5402:4002"
@@ -283,7 +283,7 @@ services:
     # scripts/rebuild-web.ps1（compose build 会覆盖本地同名 tag）。
     # tag 必须与 modeling-server 产物同代（LUBAN_RELEASE_TAG，fetch-backend 写入）；
     # verify-stack Step G 会核对 web/MS Feature RPC 契约。
-    image: ghcr.io/chenjinxian/luban-web-public:${LUBAN_RELEASE_TAG:-backend-20261110}
+    image: ghcr.io/chenjinxian/luban-web-public:${LUBAN_RELEASE_TAG:-backend-20261125b}
     pull_policy: missing
     build:
       context: .
@@ -319,7 +319,7 @@ services:
     # 公开 BFF 镜像（2026-11-25）：外部体验者零本地构建；开发者仍可用
     # docker compose build bff 覆盖本地同名 tag。与其它公开镜像共用
     # LUBAN_RELEASE_TAG，避免与后端产物代际漂移。
-    image: ghcr.io/chenjinxian/luban-bff-public:${LUBAN_RELEASE_TAG:-backend-20261110}
+    image: ghcr.io/chenjinxian/luban-bff-public:${LUBAN_RELEASE_TAG:-backend-20261125b}
     pull_policy: missing
     build: ./services/bff
     container_name: luban-bff

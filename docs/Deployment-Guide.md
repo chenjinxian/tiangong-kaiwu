@@ -38,12 +38,13 @@ powershell -NoProfile -File scripts/quickstart.ps1
 
 `quickstart.ps1` 会把根 `.env` 的 `FRONTEND_URL` 设为 **http://localhost:5301**（nginx 单入口），因为 Hub 确认邮件链接和 MS CORS 都读该值。若开发者改用 Vite dev `:5300`，先把 `FRONTEND_URL` 改回 `http://localhost:5300` 并重启 MS。
 
-> **已知发布阻断**：当前最新公开 release `backend-20261110` 的 web 镜像以
-> `VITE_B_MODEL_ENABLED` 关闭构建，因此新用户无法从空项目创建 iModel/
-> Part Studio；且该 release 早于注册确认 UI 与 B-model 流程。要满足“新用户
-> 从零创建并编辑模型”，必须发布新的 web + backend 同代产物（本仓已修复
-> `/confirm-email` 路由与 B 模式创建路径；backend 产物需用冻结 native
-> Delivery 重建并通过产物模式编辑器冒烟）。
+> **当前默认 release**：quickstart 通过 `fetch-backend.ps1` 获取
+> **`backend-20261125b`（本地体验预览）**。该 release 的 web 以
+> `VITE_B_MODEL_ENABLED=true` 构建，并含 `/confirm-email` 路由；已用隔离干净栈
+> 验证注册/登录 → 建文档 → 建 iModel → Part Studio → 草图/拉伸/撤销重做。
+> 它是**功能预览，不是工业发布**：未提供 SBOM、签名/attestation、manifest，
+> 未通过 G0/G1 Gate；Hub/WA/BFF 与 `backend-20261110` 为同一批镜像。
+> 证据与 digest 见 [`RELEASE-backend-20261125b.md`](RELEASE-backend-20261125b.md)。
 
 **需要获取的完整服务清单**（只有本仓公开；以下全部为公开可匿名获取，无第二私有仓依赖）：
 

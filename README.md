@@ -127,9 +127,11 @@ powershell -NoProfile -File scripts/quickstart.ps1
 
 首次使用：在登录页注册。若页面提示查收邮件，打开栈内邮件箱 **http://localhost:1080**（Maildev）点击确认链接，再回产品页登录；旧版公开镜像可能注册后直接登录。本地栈不会向真实邮箱发信，Maildev 只展示发给本机测试邮箱的邮件。
 
-> 当前公开 release（backend-20261110）的 web 镜像构建时 B-model 开关为关，
-> 新用户可登录/创建文档，但无法创建 iModel/Part Studio；本仓源码已修复该
-> 流程（需配套发布新的 backend + web 同代产物，见发布清单）。
+> 当前 quickstart 默认获取 **`backend-20261125b`（本地体验预览）**：web 以
+> B-model 开启构建，新用户可完成注册/登录 → 新建文档 → 新建 iModel →
+> Part Studio → 草图/拉伸/撤销重做。该预览未提供 SBOM/签名/attestation/
+> release-manifest，未宣称 G0/G1 工业 Gate 通过；详情与镜像 digest 见
+> [`docs/RELEASE-backend-20261125b.md`](docs/RELEASE-backend-20261125b.md)。
 
 等价的 5 步手动流程：
 

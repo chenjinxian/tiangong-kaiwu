@@ -122,12 +122,12 @@ docker compose -f docker-compose.release.yml \
   lock `npm ci --omit=dev` + pnpm frozen 锁检查；真实 `tsc` 类型检查
   （`--noCheck` 已移除）；`-NativeDelivery` 必填、无宿主路径默认值、无
   store 兜底；产物只带脱敏 `provenance.public.json`，完整私有证据写到
-  `dist-out/private/` 且不入 tgz。对应产物 `backend-20261125`（契约
-  1.85.0）通过了 release hygiene 的 public provenance/契约/build-script
-  静态检查，但 **2026-11-25 真栈实测其 native Delivery 组合在打开
-  briefcase 时挂起**（源码模式与 workspace 固定 native 均正常）；该 tgz
-  不可发布，必须用冻结成套的 native Delivery 重建并过 §0.1 产物模式
-  编辑器冒烟。
+  `dist-out/private/` 且不入 tgz。`backend-20261125` 的 native Delivery
+  组合在打开 briefcase 时挂起，已废弃；**`backend-20261125b`** 改用
+  pinned `v5.15.5` 的冻结 Delivery 重建，并通过 §0.1 产物模式编辑器
+  冒烟（注册 → 建 B 项目 → 建 iModel → Part Studio → 草图/拉伸/undo/redo），
+  作为**本地体验预览**发布（[`RELEASE-backend-20261125b.md`](RELEASE-backend-20261125b.md)）。
+  该预览仍缺 SBOM/签名/attestation/manifest，工业发布前必须补齐全部证据。
 - `luban-backend/scripts/build-images.ps1` / `publish.ps1`：发布构建仍不得以
   `latest` 作为唯一可追溯引用；推送不可变 tag 并输出 registry digest；
   SBOM、镜像签名与 attestation 仍待发布 owner 用签名身份生成（本仓不得
