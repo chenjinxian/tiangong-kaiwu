@@ -17,11 +17,18 @@
 # 字节数）；下载后可安全重跑（幂等，--clobber 覆盖旧 tgz）。
 #
 # 用法: powershell -File scripts/fetch-backend.ps1 [-RepoRoot <仓库根>] [-PublicRepo <owner/repo>]
-#       [-Tag backend-YYYYMMDD] [-LocalArtifact <本地产物 tgz>] [-RebuildWeb]
+#       [-Tag backend-YYYYMMDD] [-ImageTag <ghcr tag>] [-LocalArtifact <本地产物 tgz>]
+#       [-RebuildWeb [-AllowContractSkew]]
+#
+# 公开镜像与产物同代：默认把 Release tag 写入根 .env 的 LUBAN_RELEASE_TAG，
+# compose 的 web/imodelhub/webhook-agent/bff 全部使用同一 tag；不再各自浮动
+# 到 latest。发布流程必须为同一个 tag 推送四个镜像。
 # 依赖: docker（必需）、Windows 10+ 自带 curl/tar（必需）。
 #
-# 【web 镜像注记（2026-11-06 更新）】compose 的 web 默认消费公开镜像
+# 【web 镜像注记（2026-11-25 更新）】compose 的 web 默认消费公开镜像
 # ghcr.io/chenjinxian/luban-web-public（外部体验者无需本机 Rush/pnpm 构建）。
+# 外部 quickstart 的 web 与后端产物必须同代；源码 dev/RebuildWeb 会得到
+# 更新契约，若产物未同步会在契约检查处失败（-AllowContractSkew 仅开发者覆盖）。
 # 开发者改动 web/itwinjs-core 源后，本地镜像会旧于源码——用 -RebuildWeb
 # 联动 scripts/rebuild-web.ps1 重建（本地覆盖同名 tag；发布需另行 push）。
 # ============================================================
@@ -30,8 +37,10 @@ param(
   [string]$RepoRoot = '',
   [string]$PublicRepo = 'chenjinxian/tiangong-kaiwu',
   [string]$Tag = '',
+  [string]$ImageTag = '',       # 覆盖公开镜像 tag；缺省 = Release tag（保证产物与四镜像同代）
   [string]$LocalArtifact = '',  # 本地模式：直接指向本地产物 tgz（跳过 Release 下载与 compose pull）
-  [switch]$RebuildWeb           # 拉取成功后联动重建本仓 web 镜像（opt-in；默认只提示，外部验证者零新负担）
+  [switch]$RebuildWeb,          # 拉取成功后联动重建本仓 web 镜像（opt-in；默认只提示，外部验证者零新负担）
+  [switch]$AllowContractSkew    # 允许源码 web 与公开产物契约不同还重建（仅开发者显式覆盖）
 )
 $ErrorActionPreference = 'Stop'
 
@@ -40,6 +49,24 @@ if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent $PSScriptRoot }
 $RepoRoot = (Resolve-Path $RepoRoot).Path
 $dest = Join-Path $RepoRoot 'dist-backend'
 New-Item -ItemType Directory -Force $dest | Out-Null
+
+# 把公开镜像 tag 写回根 .env（compose 的所有 GHCR 镜像共用它）。只改这一行，
+# 保留其它键/注释与现有密钥；.env 不存在时跳过（compose 会使用 compose 默认值）。
+function Set-EnvValue {
+  param([string]$Path, [string]$Key, [string]$Value)
+  if (-not (Test-Path $Path)) { return $false }
+  $lines = @(Get-Content -LiteralPath $Path)
+  $matched = $false
+  $out = foreach ($line in $lines) {
+    if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$' -and $Matches[1] -eq $Key) {
+      $matched = $true
+      "$Key=$Value"
+    } else { $line }
+  }
+  if (-not $matched) { $out = @($out) + "$Key=$Value" }
+  Set-Content -LiteralPath $Path -Value ($out -join "`r`n") -Encoding utf8
+  return $true
+}
 
 # PS5.1 默认协议集可能不含 TLS1.2（GitHub API/Release 均要求）
 try {
@@ -175,6 +202,7 @@ function Save-ReleaseAsset {
 # 选定目标资产后再清理其它 tag 的旧 tgz。
 # ============================================================
 Remove-Item -Path (Join-Path $dest 'modeling-server') -Recurse -Force -ErrorAction SilentlyContinue
+$resolvedImageTag = ''
 
 if ($LocalArtifact) {
   # 本地模式：直接拷贝本地产物（开发/测试用，跳过 Release 下载与 compose pull）
@@ -206,6 +234,18 @@ if ($LocalArtifact) {
     Where-Object { $_.Name -ne $asset.name } | Remove-Item -Force -ErrorAction SilentlyContinue
   Write-Host "==> Release: $releaseTag，资产: $($asset.name)" -ForegroundColor Cyan
   $tgz = Save-ReleaseAsset -Asset $asset -Dest $dest
+
+  # 产物与四个公开镜像必须同代：GHCR 的 <releaseTag> 由发布流程同步推送。
+  # 写入根 .env 后，quickstart 后续的 compose pull/up 与手工重启都会继续使用
+  # 这一 tag，而不是把 web/hub/WA/bff 各自浮动到 latest。
+  $resolvedImageTag = if ($ImageTag) { $ImageTag } else { $releaseTag }
+  $env:LUBAN_RELEASE_TAG = $resolvedImageTag
+  $envFile = Join-Path $RepoRoot '.env'
+  if (Set-EnvValue -Path $envFile -Key 'LUBAN_RELEASE_TAG' -Value $resolvedImageTag) {
+    Write-Host "==> 公开镜像 tag: $resolvedImageTag（已写入 .env 的 LUBAN_RELEASE_TAG）" -ForegroundColor Cyan
+  } else {
+    Write-Host "==> 公开镜像 tag: $resolvedImageTag（.env 不存在；compose 使用 compose 默认 tag）" -ForegroundColor Yellow
+  }
 
   Write-Host "==> 拉取 GHCR 镜像（compose pull；公开镜像，无需 docker login）..."
   # Docker Desktop 安装后需重启终端才入 PATH；脚本内显式补 PATH 防呆。
@@ -249,13 +289,16 @@ function Get-ContractVersion([string]$File) {
 }
 $srcContract = Get-ContractVersion $srcContractFile
 $artContract = Get-ContractVersion $artContractFile
+$contractMismatch = ($srcContract -and $artContract -and $srcContract -ne $artContract)
 if ($srcContract -and $artContract) {
-  if ($srcContract -eq $artContract) {
+  if (-not $contractMismatch) {
     Write-Host "==> 契约版本一致：$artContract" -ForegroundColor Green
   } else {
-    Write-Host "==> 警告: 公共产物契约 $artContract 低于/不同于本仓源码 $srcContract" -ForegroundColor Yellow
-    Write-Host "    新特征可能不可用。需发布匹配源码的 modeling-server 产物（release owner 流程）。" -ForegroundColor Yellow
-    Write-Host "    Release: https://github.com/$PublicRepo/releases" -ForegroundColor Yellow
+    $tagNote = if ($resolvedImageTag) { "LUBAN_RELEASE_TAG=$resolvedImageTag" } else { 'compose 默认 tag' }
+    Write-Host "==> 说明: 本仓源码契约 $srcContract；公开产物契约 $artContract。" -ForegroundColor Yellow
+    Write-Host "    quickstart 使用与产物同代的公开 web 镜像（$tagNote），不受影响。" -ForegroundColor Yellow
+    Write-Host "    若用源码 dev server 或 -RebuildWeb，web 与当前 MS 契约不兼容；需匹配产物或发布新 release：" -ForegroundColor Yellow
+    Write-Host "    https://github.com/$PublicRepo/releases" -ForegroundColor Yellow
   }
 }
 
@@ -263,6 +306,14 @@ Write-Host "==> 完成: $dest\modeling-server\（start-ms-host.ps1 直接可跑�
 
 # web 镜像收尾（B2）：web 是本仓 build，compose pull 不覆盖——后端发布 ≠ web 镜像更新
 if ($RebuildWeb) {
+  if ($contractMismatch -and -not $AllowContractSkew) {
+    throw "源码 web 契约 $srcContract 与产物 $artContract 不兼容，拒绝 -RebuildWeb。`n" +
+      "  quickstart 请使用同代公开 web 镜像；开发者需先提供匹配产物的 backend（-LocalArtifact <tgz>），`n" +
+      "  或显式 -AllowContractSkew 接受前端请求不兼容的风险。"
+  }
+  if ($contractMismatch) {
+    Write-Host "==> 警告: -AllowContractSkew 已放行契约不一致（源码 $srcContract / 产物 $artContract）" -ForegroundColor Yellow
+  }
   Write-Host "==> 联动重建 web 镜像（-RebuildWeb）..." -ForegroundColor Cyan
   & (Join-Path $PSScriptRoot 'rebuild-web.ps1')
 } else {

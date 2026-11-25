@@ -30,16 +30,20 @@ cd tiangong-kaiwu
 powershell -NoProfile -File scripts/quickstart.ps1
 ```
 
-脚本会依次完成：环境检查 → 生成根 `.env`（随机密钥）→ 匿名下载 modeling-server 产物（Release，带 SHA256 校验）→ 拉取公开 GHCR 镜像 → `docker compose up -d` → 启动宿主 modeling-server → 全栈验收 → 打开 **http://localhost:5301**。注册任意邮箱即可体验（HUB 自带 seed 管理员，账号密码在仓库根 `.env` 的 `IMODELHUB_ADMIN_EMAIL` / `IMODELHUB_ADMIN_PASSWORD`）。
+脚本会依次完成：环境检查 → 生成根 `.env`（随机密钥）→ 匿名下载 modeling-server 产物（Release，带 SHA256 校验）→ 拉取**同代**公开 GHCR 镜像 → `docker compose up -d` → 启动宿主 modeling-server → 全栈验收 → 打开 **http://localhost:5301**。
+
+`fetch-backend.ps1` 将 Release tag 写入根 `.env` 的 `LUBAN_RELEASE_TAG`；web/bff/imodelhub/webhook-agent 四个镜像与 modeling-server 产物使用同一 tag，避免前端与后端契约漂移。
+
+**首次使用（新用户）**：在登录页注册 → 打开栈内邮件箱 **http://localhost:1080**（Maildev）→ 点击确认邮件中的链接 → 回产品页登录。本地栈不会向真实邮箱发信，未确认账号登录会被 422 拒绝。HUB 另自带 seed 管理员，账号密码在根 `.env` 的 `IMODELHUB_ADMIN_EMAIL` / `IMODELHUB_ADMIN_PASSWORD`，仅供本机运维/验收使用。
 
 **需要获取的完整服务清单**（只有本仓公开；以下全部为公开可匿名获取，无第二私有仓依赖）：
 
 | # | 服务/产物 | 来源 | 认证 | 说明 |
 |---|---|---|---|---|
-| 1 | **web** | GHCR `ghcr.io/chenjinxian/luban-web-public:latest` | 无 | React/Vite 前端静态镜像（含 viewer/editor 构建产物） |
-| 2 | **bff** | GHCR `ghcr.io/chenjinxian/luban-bff-public:latest` | 无 | 同源 API 网关（/api JWT/限流/CORS） |
-| 3 | **imodelhub** | GHCR `ghcr.io/chenjinxian/imodelhub-public:latest` | 无 | iModel/项目/changeset/权限 API |
-| 4 | **webhook-agent** | GHCR `ghcr.io/chenjinxian/luban-webhook-agent-public:latest` | 无 | Webhook + baseline 生成 |
+| 1 | **web** | GHCR `ghcr.io/chenjinxian/luban-web-public:<releaseTag>` | 无 | React/Vite 前端静态镜像（含 viewer/editor 构建产物） |
+| 2 | **bff** | GHCR `ghcr.io/chenjinxian/luban-bff-public:<releaseTag>` | 无 | 同源 API 网关（/api JWT/限流/CORS） |
+| 3 | **imodelhub** | GHCR `ghcr.io/chenjinxian/imodelhub-public:<releaseTag>` | 无 | iModel/项目/changeset/权限 API |
+| 4 | **webhook-agent** | GHCR `ghcr.io/chenjinxian/luban-webhook-agent-public:<releaseTag>` | 无 | Webhook + baseline 生成 |
 | 5 | **modeling-server** | GitHub Releases `modeling-server-win-x64-*.tgz` | 无 | Windows 宿主进程（含真形/ACIS 原生依赖、slvs.node；非容器） |
 | 6 | postgres | Docker Hub `postgres:17-alpine` | 无 | HUB 数据库 |
 | 7 | redis | Docker Hub `redis:7-alpine` | 无 | HUB 队列 |
@@ -281,10 +285,10 @@ compose 内 **9 个服务**，镜像来源如下；MS 不占 compose 服务位�
 | redis | 官方 `redis:7-alpine` | 栈内 6379；源码模式宿主发布 56379 |
 | maildev | 官方 `maildev/maildev` | 栈内 SMTP 1025 / UI 1080；源码模式宿主发布 11025 / 11080 |
 | azurite | 官方 `mcr.microsoft.com/azure-storage/azurite` | 宿主 10500-10502（容器内 10000-10002） |
-| imodelhub | **GHCR** `ghcr.io/chenjinxian/imodelhub-public:latest` | 宿主 5400（容器内 4000） |
-| webhook-agent | **GHCR** `ghcr.io/chenjinxian/luban-webhook-agent-public:latest` | 宿主 5402（容器内 4002） |
-| web | **GHCR** `ghcr.io/chenjinxian/luban-web-public:latest`（开发者可本地 build 覆盖） | 栈内 3000（仅经 nginx 5301 暴露） |
-| bff | **GHCR** `ghcr.io/chenjinxian/luban-bff-public:latest`（可选；未启用时 nginx 直连宿主 MS） | 容器内 5403 |
+| imodelhub | **GHCR** `ghcr.io/chenjinxian/imodelhub-public:${LUBAN_RELEASE_TAG}` | 宿主 5400（容器内 4000） |
+| webhook-agent | **GHCR** `ghcr.io/chenjinxian/luban-webhook-agent-public:${LUBAN_RELEASE_TAG}` | 宿主 5402（容器内 4002） |
+| web | **GHCR** `ghcr.io/chenjinxian/luban-web-public:${LUBAN_RELEASE_TAG}`（开发者可本地 build 覆盖） | 栈内 3000（仅经 nginx 5301 暴露） |
+| bff | **GHCR** `ghcr.io/chenjinxian/luban-bff-public:${LUBAN_RELEASE_TAG}`（可选；未启用时 nginx 直连宿主 MS） | 容器内 5403 |
 | nginx | 官方 `nginx:alpine`（单域名入口） | 宿主 5301（容器内 80） |
 | modeling-server | **非 compose 服务**：宿主进程，`scripts/start-ms-host.ps1` 跑 `dist-backend\` 产物 | 宿主 5401 |
 

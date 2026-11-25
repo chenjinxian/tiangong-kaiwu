@@ -2,7 +2,8 @@
 # verify-stack.ps1 — 天工开物统一栈（根 docker-compose.yml）验收脚本
 #
 # 全栈一键验收：health 探针 → 服务账号登录 → iTwin/iModel/baseline 数据链
-# → WS cookie 握手 → 原生库 dev-build 横幅 → web 镜像陈旧检测 → 汇总表 + 退出码。
+# → WS cookie 握手 → 原生库 dev-build 横幅 → web 镜像陈旧检测 → hub 挂载/陈旧
+# → web/MS Feature RPC 契约兼容 → 汇总表 + 退出码。
 #
 # 用法:
 #   powershell -File scripts/verify-stack.ps1                    # 全量（含 baseline 数据链，最慢 ~5min）
@@ -715,6 +716,65 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
             } else {
                 Add-Check 'F' 'hub 镜像陈旧检测' $true "镜像 $imgName 无可用 revision/时间信息——仅报告" -Warn
             }
+        }
+    }
+}
+
+# ============================================================
+# Step G —— web/MS Feature RPC 契约兼容（2026-11-25）
+#   新用户最容易踩的“假可用”：登录/文档正常，但 Part Studio 打不开——
+#   GHCR web 镜像与 modeling-server 产物不同代。取运行 web 容器静态 bundle
+#   的 LubanFeatureRpcInterface.interfaceVersion 与 MS /rpc/metadata 的
+#   LubanFeatureRpcInterface-<ver>- 路径比对。iTwin 语义：同 major 且
+#   backend minor >= frontend minor 才兼容；不兼容是功能阻断（FAIL），
+#   不是部署卫生 WARN。镜像/产物应统一由 LUBAN_RELEASE_TAG 选择。
+# ============================================================
+Write-Host ''
+Write-Host '== Step G: web/MS 契约兼容 ==' -ForegroundColor Cyan
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Add-Check 'G' 'web/MS Feature RPC 契约' $true 'docker 不在 PATH —— 跳过' -Warn
+} else {
+    $msContract = ''
+    try {
+        $meta = Invoke-RestMethod -Uri "http://${ProbeHost}:5401/rpc/metadata" -TimeoutSec 10
+        foreach ($p in @($meta.paths.PSObject.Properties.Name)) {
+            if ($p -match 'LubanFeatureRpcInterface-(\d+\.\d+\.\d+)-') {
+                $msContract = $Matches[1]
+                break
+            }
+        }
+    } catch { }
+
+    $webContract = ''
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        Push-Location $RepoRoot
+        try { $webCid = [string](@(& docker compose ps -q web 2>$null)[0]) } finally { Pop-Location }
+        if ($webCid) {
+            $block = (@(& docker exec $webCid sh -c "grep -rhoE 'LubanFeatureRpcInterface.{0,240}' /usr/share/nginx/html/assets 2>/dev/null | head -1" 2>$null) -join ' ')
+            if ($block -match 'LubanFeatureRpcInterface') {
+                $m = [regex]::Match($block, 'interfaceVersion[^0-9]{0,24}(\d+\.\d+\.\d+)')
+                if ($m.Success) { $webContract = $m.Groups[1].Value }
+            }
+        }
+    } catch { } finally { $ErrorActionPreference = $eap }
+
+    if (-not $msContract) {
+        Add-Check 'G' 'web/MS Feature RPC 契约' $true 'MS /rpc/metadata 未解析到 LubanFeatureRpcInterface 版本 —— 跳过（Step A 已判 MS health）' -Warn
+    } elseif (-not $webContract) {
+        Add-Check 'G' 'web/MS Feature RPC 契约' $true "web 镜像内未解析到契约版本（MS=$msContract）—— 跳过静态核对" -Warn
+    } else {
+        $compatible = $false
+        $b = $msContract.Split('.'); $f = $webContract.Split('.')
+        if ($b.Count -eq 3 -and $f.Count -eq 3) {
+            if ([int]$b[0] -eq [int]$f[0] -and [int]$b[1] -ge [int]$f[1]) { $compatible = $true }
+        }
+        if ($compatible) {
+            $note = if ($msContract -eq $webContract) { '同代' } else { '后端 minor 更高（iTwin 兼容旧前端）' }
+            Add-Check 'G' 'web/MS Feature RPC 契约' $true "web=$webContract MS=$msContract（$note）"
+        } else {
+            Add-Check 'G' 'web/MS Feature RPC 契约' $false "web=$webContract MS=$msContract 不兼容：检查 .env 的 LUBAN_RELEASE_TAG 是否同时用于四个镜像与 MS 产物（重跑 scripts/fetch-backend.ps1）"
         }
     }
 }

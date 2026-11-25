@@ -8,7 +8,7 @@
 #   1) 环境检查：Windows / Docker Desktop / Docker Compose v2 / Node.js
 #   2) 首次运行生成仓库根 .env（随机密钥）
 #   3) 首次运行拉取 modeling-server 产物（公开 Release，匿名下载）
-#      与公开 GHCR 镜像（imodelhub-public / luban-webhook-agent-public）
+#      与同代公开 GHCR 镜像（web/hub/WA/bff，同一 LUBAN_RELEASE_TAG）
 #   4) docker compose up -d（首次会本地构建 web / bff 镜像）
 #   5) 宿主 modeling-server :5401（已健康则跳过）
 #   6) verify-stack 全栈验收（-SkipVerify 可跳过）
@@ -112,7 +112,13 @@ if ($SkipVerify) {
 
 # ---------------- 7. 打开入口 ----------------
 Write-Step '7/7 打开产品入口'
-Write-Host '    地址: http://localhost:5301  （注册任意邮箱即可开始）' -ForegroundColor Green
-if (-not $NoOpen) { Start-Process 'http://localhost:5301' }
+Write-Host '    产品:   http://localhost:5301' -ForegroundColor Green
+Write-Host '    注册后需确认邮箱（本地邮件箱）: http://localhost:1080' -ForegroundColor Green
+Write-Host '    在 Maildev 打开确认邮件 → 点击确认链接 → 回 http://localhost:5301 登录。' -ForegroundColor Green
+Write-Host '    （本地栈不会向真实邮箱发信；Maildev 是栈内 SMTP，只展示发给本机测试邮箱的邮件。）' -ForegroundColor DarkGray
+if (-not $NoOpen) {
+  Start-Process 'http://localhost:5301'
+  Start-Process 'http://localhost:1080'
+}
 Write-Host ''
 Write-Host '完成。停止栈: docker compose down；停止宿主 MS: powershell -File scripts/stop-ms-host.ps1' -ForegroundColor DarkGray

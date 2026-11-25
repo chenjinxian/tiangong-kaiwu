@@ -123,17 +123,24 @@ cd tiangong-kaiwu
 powershell -NoProfile -File scripts/quickstart.ps1
 ```
 
-一键完成：生成 `.env`（随机密钥）→ 匿名下载 modeling-server 产物（SHA256 校验）+ 4 个 GHCR 公开镜像（web / bff / imodelhub / webhook-agent）→ 启动容器栈与宿主后端 → 全栈验收 → 打开 **http://localhost:5301**。
+一键完成：生成 `.env`（随机密钥）→ 匿名下载 modeling-server 产物（SHA256 校验）+ 4 个同代 GHCR 公开镜像（web / bff / imodelhub / webhook-agent，统一 `LUBAN_RELEASE_TAG`）→ 启动容器栈与宿主后端 → 全栈验收 → 打开 **http://localhost:5301**。
+
+首次使用：在登录页注册 → 打开栈内邮件箱 **http://localhost:1080**（Maildev）点击确认邮件 → 回产品页登录。
+本地栈不会向真实邮箱发信；未确认账号登录会被拒绝。注册/登录/创建文档/Part Studio/草图拉伸/撤销重做均可在本地完成。
 
 等价的 5 步手动流程：
 
 ```powershell
 powershell -File scripts/generate-env.ps1     # 生成根 .env（幂等）
-powershell -File scripts/fetch-backend.ps1    # 公开 Release 产物 + GHCR 公开镜像
+powershell -File scripts/fetch-backend.ps1    # 公开 Release 产物 + 同代 GHCR 镜像
 docker compose up -d                          # hub / web / nginx / 基础设施
 powershell -File scripts/start-ms-host.ps1 -Detach
-powershell -File scripts/verify-stack.ps1     # 全栈验收
+powershell -File scripts/verify-stack.ps1     # 全栈验收（含 web/MS 契约兼容）
 ```
+
+`fetch-backend.ps1` 会把 Release tag 写入 `.env` 的 `LUBAN_RELEASE_TAG`；compose 的
+四个公开镜像与 modeling-server 产物使用同一 tag，避免 web 镜像与后端契约各自
+浮动到 `latest`。发布新 backend 时必须用同一 tag 推送四个镜像（见发布清单）。
 
 停止：`docker compose down` + `powershell -File scripts/stop-ms-host.ps1`。首次下载约 5–30 分钟（支持断点续传）、磁盘约 6–8 GB。当前不支持 Linux/macOS/Apple Silicon（modeling-server 是 Windows 原生宿主进程）。完整说明、升级与故障排查见 [`docs/Deployment-Guide.md`](docs/Deployment-Guide.md) 与 [`docs/README.md`](docs/README.md)。
 
@@ -157,7 +164,13 @@ corepack pnpm@10 run lint
 corepack pnpm@10 exec playwright test e2e/documents.spec.ts e2e/part-studio.spec.ts
 ```
 
-- 当前基线：`apps/web` **1389/1389** 单测；tsc/lint 绿；viewer 127、shared 159。
+> **源码 dev 的契约约束**：本仓源码的 Feature RPC 契约可能新于最新公开
+> backend release。直接 `pnpm dev`/`rebuild-web.ps1` 得到的新前端不能与旧产物
+> 混用；`fetch-backend.ps1 -RebuildWeb` 会在契约不一致时拒绝执行（
+> `-AllowContractSkew` 仅用于显式开发者覆盖）。外部体验请走 quickstart 的
+> 同代公开镜像；需要新前端时必须同时提供匹配的 backend 产物。
+
+- 当前基线：`apps/web` **2781/2781** 单测；tsc/lint 绿；viewer 127、shared 159。
 - iTwin.js fork 改动须登记 `docs/ITWINJS_CORE_MODIFICATIONS.md`，并按 Rush 重建下游产物。
 - 后端源码在私有仓，本仓只消费 GHCR 镜像与 GitHub Releases 产物；不提交私有源码/密钥/native 证据。
 
