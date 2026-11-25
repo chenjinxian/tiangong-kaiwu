@@ -26,8 +26,9 @@ hygiene 的 `release` 模式要求该 profile 存在并把每个镜像对齐到 
 | 镜像 digest | 每个 release profile 镜像的 **registry 侧** `sha256`（不是本地 `docker inspect` 声明） | manifest `images[]`；`render-release-images.mjs` |
 | native provenance | 产物内 `native-provenance.json` 的实际文件 SHA-256；必须来自 pin 的 native 构建 | manifest `nativeProvenance`；`verify --require-native-provenance` / `verify-files` |
 | 产物 | MS tgz/deploy bundle 的实际文件 SHA-256 | manifest `artifacts[]`；`verify-files` |
-| SBOM | 每个发布镜像的 SBOM；记录 digest 并归档 | manifest `sbomDigest`（外部生成/签名） |
-| 签名/attestation | 镜像签名与 provenance attestation；密钥由 KMS/签名服务托管 | 外部发布记录；不得把私钥写入仓库 |
+| SBOM | 每个发布镜像的 SBOM；记录 digest 并归档 | manifest `evidence[]`（`kind: "sbom"`，本地文件 SHA-256，`verify-files` 重算）；`sbomDigest` 仅为旧版单值字段，不满足 release evidence 策略 |
+| 签名/attestation | 镜像签名与 provenance attestation；密钥由 KMS/签名服务托管 | manifest `evidence[]`（`kind: "signature"` 或 `"attestation"`，本地文件 SHA-256）；验签/证书身份/镜像绑定仍在发布环境核对；不得把私钥写入仓库 |
+| provenance 文件 | 构建 provenance / SLSA 声明归档 | manifest `evidence[]`（`kind: "provenance"`，本地文件 SHA-256）；语义与签名身份由发布环境核对 |
 | secrets | postgres/JWT/refresh/forgot/confirm/webhook/admin/hub API/storage key、signed tile 密钥等全部来自 secret store；不得复用开发 `.env` | release profile `requiredInputs`；compose `${RELEASE_*:?}` 启动前失败 |
 | SMTP / MS endpoint / origin / edge bind / 对象存储 endpoint+account | 显式输入；无 host.docker.internal/内部 Azurite 静默默认 | release profile `requiredInputs` |
 | TLS 证书/私钥/规范域名 | `RELEASE_DOMAIN`、`RELEASE_TLS_CERT_FILE`（完整链 PEM）、`RELEASE_TLS_KEY_FILE`（无口令 PEM）显式提供；仓库内不得出现任何 PEM | release profile `requiredInputs`；compose 只读挂载；`docs/operations/RELEASE-EDGE.md` |
@@ -37,17 +38,21 @@ hygiene 的 `release` 模式要求该 profile 存在并把每个镜像对齐到 
 生成与校验顺序：
 
 ```bash
-# 1) 用真实 registry digest/产物字节生成 manifest（禁止手写占位 digest）
+# 1) 用真实 registry digest/产物字节/evidence 文件生成 manifest（禁止手写占位 digest）
 node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha> \
   --contract-version <x.y.z> --image <name>=sha256:<digest> ... \
   --artifact <release asset> --native-provenance <path> \
-  --native-provenance-sha256 <digest> --out release-manifest.json
+  --native-provenance-sha256 <digest> \
+  --evidence sbom=<sbom file> --evidence signature=<signature bundle> \
+  --evidence provenance=<provenance file> ... \
+  --out release-manifest.json
 
 node scripts/release-manifest.mjs verify --file release-manifest.json \
-  --expected-source-commit <sha> --require-native-provenance
+  --expected-source-commit <sha> --require-native-provenance \
+  --require-release-evidence
 # tag 对齐由 release-gate/hygiene 的 --expected-tag 负责（manifest verify 不接收该参数）
 node scripts/release-manifest.mjs verify-files --file release-manifest.json \
-  --root . --require-native-provenance
+  --root . --require-native-provenance --require-release-evidence
 
 # 2) 从 manifest 生成镜像 env（写入前会先做 profile/compose 预检；
 #    只想预检不写文件时用 --check）
@@ -60,16 +65,21 @@ docker compose -f docker-compose.release.yml \
   --env-file deploy/release/release-images.env config --quiet
 ```
 
-- [ ] `release-manifest.json` 为真实输入生成，`verify`/`verify-files` 通过；
-      未创建真实清单前不得把“结构校验通过”写成发布就绪。
+- [ ] `release-manifest.json` 为真实输入生成，`verify`/`verify-files` 通过
+      （含 `--require-native-provenance --require-release-evidence`）；未创建
+      真实清单前不得把“结构校验通过”写成发布就绪。
+- [ ] `evidence[]` 至少包含一个 `sbom`、一个 `signature` 或 `attestation`、
+      一个 `provenance`，且 `verify-files` 对其逐文件重算 SHA-256 通过；工具
+      只证明本地文件存在/字节一致，不证明 SBOM 合法或签名有效。
 - [ ] `render-release-images.mjs --check` 通过；每个镜像引用均为
       `<name>@sha256:<64 hex>`，无 `latest`。
 - [ ] `docker compose ... config --quiet` 通过；`docker compose ... config`
       中只有 nginx 有 published port。
 - [ ] `deploy/release/release.env` 由 secret store 注入；`RELEASE_ENV_FILE`
       指向受控的运行时 env 文件，不是开发 `.env`。
-- [ ] SBOM/签名/attestation 的 digest 与签名身份已写入发布记录；镜像 OCI
-      revision label 与 `sourceCommit` 对账。
+- [ ] SBOM/签名/attestation/provenance 文件已归档，`evidence[]` 的本地 SHA-256
+      与 `verify-files` 结果已写入发布记录；签名验证、签名身份与镜像 OCI
+      revision label/`sourceCommit` 对账在发布环境完成。
 - [ ] `powershell -File scripts/release-gate.ps1 -ManifestPath release-manifest.json
       -VerifyManifestFiles -ExpectedSourceCommit <sha> -ExpectedTag <tag>`
       通过（release gate 内含 release profile 镜像解析预检）；如需审计私有
@@ -270,12 +280,16 @@ docker compose -f docker-compose.release.yml \
       `node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha>
       --contract-version <shared interfaceVersion> --image <name>=<registry digest> ...
       --artifact <release asset> ... --native-provenance <path>
-      --native-provenance-sha256 <digest> --out release-manifest.json`；
-      再执行 `verify --require-native-provenance` 与
-      `verify-files --root . --require-native-provenance`。清单作为 Release 资产归档。
-      工具不生成假 digest/假清单；缺文件必须失败。
+      --native-provenance-sha256 <digest> --evidence sbom=<file>
+      --evidence signature=<file> --evidence provenance=<file> ...
+      --out release-manifest.json`；再执行
+      `verify --require-native-provenance --require-release-evidence` 与
+      `verify-files --root . --require-native-provenance
+      --require-release-evidence`。清单作为 Release 资产归档。
+      工具不生成假 digest/假清单/假 evidence；缺文件必须失败。
 - [ ] 真实镜像 digest（registry 侧）/ OCI label / SBOM 生成与签名 /
-      provenance attestation 已在发布环境核对并写入发布记录；这些不在本仓
+      provenance attestation 的验签与身份绑定已在发布环境核对并写入发布记录；
+      `evidence[]` 只覆盖本地文件存在与 SHA-256，不在本仓
       `release-manifest.mjs` 的离线能力内。
 - [ ] Release asset 大小/SHA256 与本地 tgz 相同；GitHub asset digest 核对。
 - [ ] `scripts/make-deploy-bundle.ps1 -Tag <tag>` 生成部署包并上传
@@ -311,9 +325,11 @@ docker compose -f docker-compose.release.yml \
 - **e2e 基线**（J1.5）：`scripts/e2e-baseline.mjs` 把 Playwright JSON report 转为
   确定性摘要；全量 e2e 仍需发布候选在真栈执行（本清单第 4 节）。
 - **release manifest**（J3.1g）：`scripts/release-manifest.mjs` 的
-  `verify-files` 核对实际文件字节；`release-gate.ps1` 以
-  `-ManifestPath`/`-VerifyManifestFiles` 可选接入。镜像 registry/label/SBOM/
-  attestation 仍为外部发布职责。
+  `verify-files` 核对 `nativeProvenance`/`artifacts[]`/`evidence[]` 实际文件
+  字节；`release-gate.ps1` 以 `-ManifestPath`/`-VerifyManifestFiles` 可选接入，
+  并强制 `--require-native-provenance --require-release-evidence`。镜像
+  registry/label、SBOM 语义、签名验签与身份绑定仍为外部发布职责；测试见
+  `scripts/test/release-evidence.test.mjs`。
 - **release profile**（J3.3 扩展）：`docker-compose.release.yml` +
   `deploy/release/release-profile.json`；`scripts/render-release-images.mjs`
   从 manifest 解析 `<name>@sha256`，并在 `--check` 时校验 profile/compose

@@ -89,6 +89,7 @@ jobs:
         run: |
           node --test scripts/check-contract-freeze.test.mjs
           node --test scripts/release-manifest.test.mjs
+          node --test scripts/test/release-evidence.test.mjs
           node --test scripts/e2e-baseline.test.mjs
           node --test scripts/test/check-release-hygiene.test.mjs
           node --test scripts/test/release-images.test.mjs

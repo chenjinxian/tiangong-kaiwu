@@ -326,6 +326,21 @@ Hub 数据面 PEP 完整。
 
 ---
 
+## 6.5 2026-11-25 第五波（工作树，未提交）
+
+| 切片 | 结果 | 边界 |
+|---|---|---|
+| D3 changeset identity + clone/fork | changeset 行身份改为 `(iModelId, id)`；子引用/触发器按 iModel 收口；clone/fork K=0 baseline-only；K>0 历史复制仅 `CLONE_HISTORY_COPY_ENABLED=true`，显式 `changeset_copy_mappings`、重算 target chain、仅复用已验证 checkpoint；跨 iTwin 422；squash/Duplicate 501 | 迁移仅 SQL-shape/实体 metadata 测试，未在真实 Postgres/旧库执行；无 native open/readback/GC lease；同步复制、整个 checkpoint 容器复制；D3 未完成 |
+| D8 版本固定引用 | `imodel_version_refs` + `/imodels/:id/versionrefs`，默认 `VERSION_REFS_ENABLED=false`；创建时冻结 `(target iModel, changeset id/index, Named Version, exact-index checkpoint)`；读只重验冻结 tuple，不回退 head/邻近 checkpoint；删除护栏 409 | 内部扩展，非官方 iModels v2 合同；无 SDK/UI；同 iTwin 目标 ACL 仅 iTwin 级；D9 Where Used 仍缺 |
+| D7 版本比较/恢复 | compare 为 ledger/chain 级并显式 `contentDiff.supported=false`；restore 只返回 dry-run plan，非 dry-run 恒 501；默认 `VERSION_HISTORY_TOOLS_ENABLED=false` | 无 native ChangesetReader/恢复 materializer；不宣称生产 restore |
+| Release evidence | manifest `evidence[]`（sbom/signature/attestation/provenance）文件型 SHA-256；`--require-release-evidence` 与 release hygiene release 模式；94 个相关 node:test 通过 | 只证明本地文件存在/哈希一致，不验签/不解析 SBOM/不绑定镜像；真实 manifest/SBOM/签名仍缺；release 仍因 1.64 vs 1.85、`:latest`、宿主路径失败 |
+| B6 P4b/B4 审计 | 文件级路线图与阻塞清单（共享 key 全局 deny、Bearer service JWT、owner-route OBO、`doc.manage`/`version.write`、Share/Link UI） | 只读审计，无代码；需 ARB/产品决策；不改变 Gate |
+
+**结论**：D3/D7/D8 有了默认关闭的部分实现和单测，D3 身份迁移、D7 restore、D8 ACL/UI
+仍未达生产；release evidence 只加固验证面。G1 仍 0/15，不得宣称 D3/D7/D8 或发布完成。
+
+---
+
 ## 7. Stop-ship 与不得宣称
 
 - 未获书面法律结论前：ACIS 外部分发、STEP/IGES/Parasolid、healing/InterOp；

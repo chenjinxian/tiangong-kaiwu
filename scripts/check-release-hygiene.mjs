@@ -21,9 +21,12 @@
  *                       must match the public source (for example 1.85.0 vs
  *                       1.64.0 is a failure).
  *   manifest.release    Release mode requires release-manifest.json with native
- *                       provenance; tag/source-commit/native-artifact digests
- *                       must be consistent and GHCR images referenced by the
- *                       release configs must have a manifest digest.
+ *                       provenance and file-backed release evidence (at least
+ *                       one sbom, one signature or attestation, and one
+ *                       provenance entry); tag/source-commit/native-artifact
+ *                       digests must be consistent and GHCR images referenced
+ *                       by the release configs must have a manifest digest.
+ *                       Evidence file bytes are re-hashed in release mode.
  *   secrets.defaults    Release configs must not ship default/well-known
  *                       secrets (weak password/JWT defaults, the Azurite
  *                       well-known account key, provider tokens).
@@ -35,8 +38,9 @@
  *            checkout (no dist-backend/release manifest).
  *   release  Release gate. Local waivers are IGNORED. The shipped
  *            dist-backend tree, release compose/profile, and release
- *            manifest/native provenance are required, and manifest artifact
- *            digests are verified. The development compose (docker-compose.yml)
+ *            manifest/native provenance/release evidence are required, and
+ *            manifest artifact/evidence digests are verified. The development
+ *            compose (docker-compose.yml)
  *            and dev-only scripts (quickstart/generate-env/.env.example) are
  *            not release configs: they stay local/CI debt and cannot satisfy
  *            the release profile. Release artifact scripts, workflows, the
@@ -1192,6 +1196,57 @@ function resolveWithinRoot(root, relPath) {
   return absolute;
 }
 
+function verifyManifestFileEntry(
+  ctx,
+  manifestRel,
+  entry,
+  { label, subjectPrefix, index, violations },
+) {
+  const declaredDigest = canonicalizeDigest(entry.sha256);
+  if (!DIGEST_RE.test(String(entry.sha256 ?? ''))) return;
+  if (isAbsolute(entry.path)) {
+    violations.push(
+      makeViolation('manifest.release', {
+        file: manifestRel,
+        subject: `${subjectPrefix}-absolute-path:${index}`,
+        message: `${label}.path is an absolute host path`,
+      }),
+    );
+    return;
+  }
+  const absolute = resolveWithinRoot(ctx.root, entry.path);
+  if (absolute === undefined) {
+    violations.push(
+      makeViolation('manifest.release', {
+        file: manifestRel,
+        subject: `${subjectPrefix}-path-escape:${index}`,
+        message: `${label}.path escapes the repository root`,
+      }),
+    );
+    return;
+  }
+  if (!existsSync(absolute)) {
+    violations.push(
+      makeViolation('manifest.release', {
+        file: manifestRel,
+        subject: `${subjectPrefix}-missing:${index}`,
+        message: `${label} file is missing: ${entry.path}`,
+      }),
+    );
+    return;
+  }
+  const actual = sha256File(absolute);
+  if (actual !== declaredDigest) {
+    violations.push(
+      makeViolation('manifest.release', {
+        file: manifestRel,
+        subject: `${subjectPrefix}-digest-mismatch:${index}`,
+        message: `${label} digest mismatch (declared ${declaredDigest}, actual ${actual})`,
+      }),
+    );
+  }
+}
+
 function scanManifestFile(ctx) {
   const violations = [];
   const skipped = [];
@@ -1265,6 +1320,7 @@ function scanManifestFile(ctx) {
     expectedSourceCommit,
     expectedContractVersion: ctx.sourceVersion,
     requireNativeProvenance: ctx.mode === 'release',
+    requireReleaseEvidence: ctx.mode === 'release',
   });
   for (const error of errors) {
     violations.push(
@@ -1380,49 +1436,12 @@ function scanManifestFile(ctx) {
   if (ctx.verifyArtifactDigests && Array.isArray(manifest.artifacts)) {
     manifest.artifacts.forEach((artifact, index) => {
       if (!isPlainObject(artifact) || typeof artifact.path !== 'string') return;
-      const declaredDigest = canonicalizeDigest(artifact.sha256);
-      if (!DIGEST_RE.test(String(artifact.sha256 ?? ''))) return;
-      if (isAbsolute(artifact.path)) {
-        violations.push(
-          makeViolation('manifest.release', {
-            file: manifestRel,
-            subject: `artifact-absolute-path:${index}`,
-            message: `artifacts[${index}].path is an absolute host path`,
-          }),
-        );
-        return;
-      }
-      const absolute = resolveWithinRoot(ctx.root, artifact.path);
-      if (absolute === undefined) {
-        violations.push(
-          makeViolation('manifest.release', {
-            file: manifestRel,
-            subject: `artifact-path-escape:${index}`,
-            message: `artifacts[${index}].path escapes the repository root`,
-          }),
-        );
-        return;
-      }
-      if (!existsSync(absolute)) {
-        violations.push(
-          makeViolation('manifest.release', {
-            file: manifestRel,
-            subject: `artifact-missing:${index}`,
-            message: `artifacts[${index}] file is missing: ${artifact.path}`,
-          }),
-        );
-        return;
-      }
-      const actual = sha256File(absolute);
-      if (actual !== declaredDigest) {
-        violations.push(
-          makeViolation('manifest.release', {
-            file: manifestRel,
-            subject: `artifact-digest-mismatch:${index}`,
-            message: `artifacts[${index}] digest mismatch (declared ${declaredDigest}, actual ${actual})`,
-          }),
-        );
-      }
+      verifyManifestFileEntry(ctx, manifestRel, artifact, {
+        label: `artifacts[${index}]`,
+        subjectPrefix: 'artifact',
+        index,
+        violations,
+      });
     });
   } else if (ctx.mode === 'release') {
     if (Array.isArray(manifest.artifacts) && manifest.artifacts.length > 0) {
@@ -1442,6 +1461,24 @@ function scanManifestFile(ctx) {
         }),
       );
     }
+  }
+
+  if (ctx.verifyArtifactDigests && Array.isArray(manifest.evidence)) {
+    manifest.evidence.forEach((entry, index) => {
+      if (
+        !isPlainObject(entry) ||
+        typeof entry.path !== 'string' ||
+        typeof entry.kind !== 'string'
+      ) {
+        return;
+      }
+      verifyManifestFileEntry(ctx, manifestRel, entry, {
+        label: `evidence[${index}] (${entry.kind})`,
+        subjectPrefix: 'evidence',
+        index,
+        violations,
+      });
+    });
   }
 
   const manifestImageNames = new Set();

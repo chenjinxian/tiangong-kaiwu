@@ -18,21 +18,31 @@
  *   node scripts/release-manifest.mjs build --input <file> [--out <file>]
  *   node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha>
  *     --contract-version <x.y.z> --image <name>=<digest> [--image ...]
- *     [--artifact <path> ...] [--built-at <iso>] [--sbom-digest <digest>]
+ *     [--artifact <path> ...] [--evidence <kind>=<path> ...]
+ *     [--built-at <iso>] [--sbom-digest <digest>]
  *     [--native-provenance <path> --native-provenance-sha256 <digest>]
  *     [--out <file>]
  *   node scripts/release-manifest.mjs verify --file <manifest>
  *     [--expected-source-commit <sha>] [--expected-contract-version <x.y.z>]
- *     [--require-native-provenance]
+ *     [--require-native-provenance] [--require-release-evidence]
  *   node scripts/release-manifest.mjs verify-files --file <manifest>
  *     [--root <dir>] [--require-native-provenance]
+ *     [--require-release-evidence]
  *   node scripts/release-manifest.mjs verify-runtime --file <manifest>
  *     --base-url <http(s)://host[:port][/prefix]> [--timeout-ms <1..60000>]
  *     [--interface <rpcInterfaceName>]
  *
- * verify-files re-hashes the actual local bytes of `nativeProvenance` and every
- * `artifacts[]` entry and compares them with the declared SHA-256 values. It
- * never verifies registry image digests (that needs docker/registry access).
+ * verify-files re-hashes the actual local bytes of `nativeProvenance`, every
+ * `artifacts[]` entry, and every `evidence[]` entry and compares them with the
+ * declared SHA-256 values. It never verifies registry image digests (that needs
+ * docker/registry access), and it never validates SBOM/signature/attestation
+ * semantics (that needs format parsers and signing trust roots).
+ *
+ * `evidence[]` entries are local files: {kind, path, sha256} with kind one of
+ * sbom, signature, attestation, provenance. `--require-release-evidence`
+ * enforces the release policy (one sbom, one signature or attestation, and one
+ * provenance entry); it is never enforced by default so local/CI structural
+ * fixtures keep working.
  *
  * Exit codes: 0 = OK (manifest valid / runtime contract matches / files match),
  *   1 = invalid manifest schema, file missing or digest mismatch, or runtime
@@ -66,10 +76,16 @@ const MANIFEST_KEYS = [
   'sbomDigest',
   'nativeProvenance',
   'artifacts',
+  'evidence',
 ];
 const IMAGE_KEYS = ['name', 'digest'];
 const NATIVE_PROVENANCE_KEYS = ['path', 'sha256'];
 const ARTIFACT_KEYS = ['path', 'sha256'];
+const EVIDENCE_KEYS = ['kind', 'path', 'sha256'];
+// Local release evidence files. The tool only checks presence and file bytes;
+// signature trust roots, SBOM semantics, and image-to-evidence binding remain
+// external release-environment responsibilities.
+export const EVIDENCE_KINDS = ['sbom', 'signature', 'attestation', 'provenance'];
 
 const BUILD_ONLY_FLAGS = [
   'input',
@@ -79,6 +95,7 @@ const BUILD_ONLY_FLAGS = [
   'built-at',
   'image',
   'artifact',
+  'evidence',
   'contract-version',
   'sbom-digest',
   'native-provenance',
@@ -89,11 +106,13 @@ const VERIFY_ONLY_FLAGS = [
   'expected-source-commit',
   'expected-contract-version',
   'require-native-provenance',
+  'require-release-evidence',
 ];
 const VERIFY_FILES_ONLY_FLAGS = [
   'file',
   'root',
   'require-native-provenance',
+  'require-release-evidence',
 ];
 const VERIFY_RUNTIME_ONLY_FLAGS = ['file', 'base-url', 'timeout-ms', 'interface'];
 
@@ -258,11 +277,88 @@ function validateArtifacts(value, errors) {
   });
 }
 
+function validateEvidence(value, errors) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    errors.push('evidence: must be an array');
+    return;
+  }
+  if (value.length === 0) {
+    errors.push('evidence: must contain at least one entry when present');
+    return;
+  }
+
+  const seen = new Set();
+  value.forEach((entry, index) => {
+    const path = `evidence[${index}]`;
+    if (!isPlainObject(entry)) {
+      errors.push(`${path}: must be an object`);
+      return;
+    }
+    checkKeys(entry, EVIDENCE_KEYS, path, errors);
+
+    const kind = requireString(entry.kind, `${path}.kind`, errors);
+    if (kind !== undefined && !EVIDENCE_KINDS.includes(kind)) {
+      errors.push(`${path}.kind: must be one of ${EVIDENCE_KINDS.join(', ')}`);
+    }
+
+    const entryPath = requireString(entry.path, `${path}.path`, errors);
+    if (entryPath !== undefined) {
+      if (/[\r\n\0]/.test(entryPath)) {
+        errors.push(`${path}.path: must be a single-line path without NUL`);
+      }
+      if (entryPath.length > 1024) {
+        errors.push(`${path}.path: must be at most 1024 characters`);
+      }
+      if (seen.has(entryPath)) {
+        errors.push(`${path}.path: duplicate evidence path`);
+      }
+      seen.add(entryPath);
+    }
+
+    validateDigest(entry.sha256, `${path}.sha256`, errors);
+  });
+}
+
+/**
+ * Release evidence policy: at least one SBOM, one signature or attestation,
+ * and one provenance file. The files themselves are verified by verify-files;
+ * this only enforces that the release declares the required evidence classes.
+ */
+function validateReleaseEvidencePolicy(value, errors) {
+  const kinds = new Set();
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (isPlainObject(entry) && EVIDENCE_KINDS.includes(entry.kind)) {
+        kinds.add(entry.kind);
+      }
+    }
+  }
+  if (!kinds.has('sbom')) {
+    errors.push(
+      'evidence: release policy requires at least one "sbom" entry (--require-release-evidence)',
+    );
+  }
+  if (!kinds.has('signature') && !kinds.has('attestation')) {
+    errors.push(
+      'evidence: release policy requires at least one "signature" or "attestation" entry (--require-release-evidence)',
+    );
+  }
+  if (!kinds.has('provenance')) {
+    errors.push(
+      'evidence: release policy requires at least one "provenance" entry (--require-release-evidence)',
+    );
+  }
+}
+
 /**
  * Validate a manifest object against the v1 contract.
  * Returns an array of human-readable errors; empty means valid.
  * `requireNativeProvenance` enforces the release policy that a manifest
  * shipping native/backend artifacts must name its native provenance file.
+ * `requireReleaseEvidence` enforces the release policy that SBOM,
+ * signature/attestation, and provenance files are declared (and therefore can
+ * be re-hashed by verify-files).
  */
 export function validateManifest(
   value,
@@ -270,6 +366,7 @@ export function validateManifest(
     expectedSourceCommit,
     expectedContractVersion,
     requireNativeProvenance = false,
+    requireReleaseEvidence = false,
   } = {},
 ) {
   const errors = [];
@@ -342,6 +439,10 @@ export function validateManifest(
   }
 
   validateArtifacts(value.artifacts, errors);
+  validateEvidence(value.evidence, errors);
+  if (requireReleaseEvidence) {
+    validateReleaseEvidencePolicy(value.evidence, errors);
+  }
 
   if (expectedSourceCommit !== undefined) {
     if (!COMMIT_RE.test(expectedSourceCommit)) {
@@ -404,6 +505,20 @@ function canonicalizeArtifacts(value) {
     .sort((a, b) => compareField(a, b, 'path'));
 }
 
+function canonicalizeEvidence(value) {
+  if (!Array.isArray(value)) return value;
+  return value
+    .map((entry) =>
+      isPlainObject(entry)
+        ? { ...entry, sha256: canonicalizeDigest(entry.sha256) }
+        : entry,
+    )
+    .sort(
+      (a, b) =>
+        compareField(a, b, 'kind') || compareField(a, b, 'path'),
+    );
+}
+
 /**
  * Normalize a build input into a canonical manifest and validate it.
  * Input keys are the manifest keys; schemaVersion and builtAt are optional.
@@ -444,6 +559,9 @@ export function buildManifest(raw, { now = () => new Date().toISOString() } = {}
   }
   if (raw.artifacts !== undefined) {
     manifest.artifacts = canonicalizeArtifacts(raw.artifacts);
+  }
+  if (raw.evidence !== undefined) {
+    manifest.evidence = canonicalizeEvidence(raw.evidence);
   }
 
   const errors = validateManifest(manifest);
@@ -487,12 +605,28 @@ function parseImageSpec(spec) {
   return { name: spec.slice(0, separator), digest: spec.slice(separator + 1) };
 }
 
-function hashFileSync(path) {
+function parseEvidenceSpec(spec) {
+  const separator = spec.indexOf('=');
+  if (separator <= 0 || separator === spec.length - 1) {
+    throw new UsageError(
+      '--evidence must be <kind>=<path> (kind: sbom, signature, attestation, provenance)',
+    );
+  }
+  const kind = spec.slice(0, separator);
+  if (!EVIDENCE_KINDS.includes(kind)) {
+    throw new UsageError(
+      `--evidence kind must be one of ${EVIDENCE_KINDS.join(', ')}`,
+    );
+  }
+  return { kind, path: spec.slice(separator + 1) };
+}
+
+function hashFileSync(path, label = 'artifact file') {
   let bytes;
   try {
     bytes = readFileSync(path);
   } catch {
-    throw new UsageError(`cannot read artifact file: ${path}`);
+    throw new UsageError(`cannot read ${label}: ${path}`);
   }
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
@@ -523,12 +657,18 @@ function inputFromFlags(values) {
     );
   }
 
-  // --artifact hashes the actual local bytes; it never accepts a declared
-  // digest from the caller. This is the build-side source for verify-files.
+  // --artifact/--evidence hash the actual local bytes; they never accept a
+  // declared digest from the caller. This is the build-side source for
+  // verify-files.
   const artifacts = (values.artifact ?? []).map((path) => ({
     path,
     sha256: hashFileSync(path),
   }));
+
+  const evidence = (values.evidence ?? []).map((spec) => {
+    const { kind, path } = parseEvidenceSpec(spec);
+    return { kind, path, sha256: hashFileSync(path, 'evidence file') };
+  });
 
   return {
     tag: values.tag,
@@ -542,6 +682,7 @@ function inputFromFlags(values) {
         ? undefined
         : { path: nativePath, sha256: nativeSha },
     artifacts: artifacts.length === 0 ? undefined : artifacts,
+    evidence: evidence.length === 0 ? undefined : evidence,
   };
 }
 
@@ -560,6 +701,7 @@ function runBuild(values) {
     'built-at',
     'image',
     'artifact',
+    'evidence',
     'contract-version',
     'sbom-digest',
     'native-provenance',
@@ -612,6 +754,7 @@ function runVerify(values) {
     expectedSourceCommit: values['expected-source-commit'],
     expectedContractVersion: values['expected-contract-version'],
     requireNativeProvenance: values['require-native-provenance'] === true,
+    requireReleaseEvidence: values['require-release-evidence'] === true,
   });
 
   if (errors.length > 0) {
@@ -643,6 +786,14 @@ function fileEntries(manifest) {
       expected: canonicalizeDigest(artifact.sha256),
     });
   });
+  const evidence = Array.isArray(manifest.evidence) ? manifest.evidence : [];
+  evidence.forEach((entry, index) => {
+    entries.push({
+      label: `evidence[${index}] (${entry.kind})`,
+      declaredPath: entry.path,
+      expected: canonicalizeDigest(entry.sha256),
+    });
+  });
   return entries;
 }
 
@@ -656,6 +807,7 @@ async function runVerifyFiles(values) {
   const manifest = readJsonFile(values.file);
   const errors = validateManifest(manifest, {
     requireNativeProvenance: values['require-native-provenance'] === true,
+    requireReleaseEvidence: values['require-release-evidence'] === true,
   });
   if (errors.length > 0) {
     reportValidationErrors(errors);
@@ -666,7 +818,7 @@ async function runVerifyFiles(values) {
   if (entries.length === 0) {
     console.error('release manifest files FAILED:');
     console.error(
-      '  - no file digests declared (nativeProvenance/artifacts[]); refusing a no-op verification',
+      '  - no file digests declared (nativeProvenance/artifacts[]/evidence[]); refusing a no-op verification',
     );
     return 1;
   }
@@ -926,14 +1078,16 @@ function printHelp() {
   node scripts/release-manifest.mjs build --input <file> [--out <file>]
   node scripts/release-manifest.mjs build --tag <tag> --source-commit <sha>
     --contract-version <x.y.z> --image <name>=<digest> [--image ...]
-    [--artifact <path> ...] [--built-at <iso>] [--sbom-digest <digest>]
+    [--artifact <path> ...] [--evidence <kind>=<path> ...] [--built-at <iso>]
+    [--sbom-digest <digest>]
     [--native-provenance <path> --native-provenance-sha256 <digest>]
     [--out <file>]
   node scripts/release-manifest.mjs verify --file <manifest>
     [--expected-source-commit <sha>] [--expected-contract-version <x.y.z>]
-    [--require-native-provenance]
+    [--require-native-provenance] [--require-release-evidence]
   node scripts/release-manifest.mjs verify-files --file <manifest>
     [--root <dir>] [--require-native-provenance]
+    [--require-release-evidence]
   node scripts/release-manifest.mjs verify-runtime --file <manifest>
     --base-url <http(s)://host[:port][/prefix]> [--timeout-ms <1..60000>]
     [--interface <rpcInterfaceName>]
@@ -941,11 +1095,16 @@ function printHelp() {
 Manifest builder/validator plus runtime contract reconciliation (G1 J3.1/J3.2);
 not a release gate. Schema: docs/architecture/release-manifest.schema.json
 
---artifact hashes the actual local file bytes and records artifacts[].sha256.
-verify-files re-hashes nativeProvenance and artifacts[] and fails on missing
-files or digest mismatches. It does not verify registry image digests (those
-need docker/registry access). --require-native-provenance enforces the release
-policy that ships backend/native artifacts.
+--artifact and --evidence hash the actual local file bytes and record
+artifacts[].sha256 / evidence[].sha256. Evidence kinds: sbom, signature,
+attestation, provenance. verify-files re-hashes nativeProvenance, artifacts[],
+and evidence[] and fails on missing files or digest mismatches. It does not
+verify registry image digests or SBOM/signature semantics (those need
+docker/registry access, parsers, and signing trust roots).
+--require-native-provenance enforces the release policy that ships
+backend/native artifacts. --require-release-evidence enforces the release
+policy of at least one sbom, one signature or attestation, and one provenance
+entry; local/CI structural checks remain policy-free by default.
 verify-runtime issues one unauthenticated GET to <base-url>/rpc/metadata and
 compares the runtime interfaceVersion with the manifest contractVersion.
 No docker or gh calls are made.
@@ -965,6 +1124,7 @@ const OPTIONS = {
   'built-at': { type: 'string' },
   image: { type: 'string', multiple: true },
   artifact: { type: 'string', multiple: true },
+  evidence: { type: 'string', multiple: true },
   'contract-version': { type: 'string' },
   'sbom-digest': { type: 'string' },
   'native-provenance': { type: 'string' },
@@ -972,6 +1132,7 @@ const OPTIONS = {
   'expected-source-commit': { type: 'string' },
   'expected-contract-version': { type: 'string' },
   'require-native-provenance': { type: 'boolean' },
+  'require-release-evidence': { type: 'boolean' },
   root: { type: 'string' },
   'base-url': { type: 'string' },
   'timeout-ms': { type: 'string' },

@@ -19,9 +19,12 @@
 # 配置，不参与 release 模式判定。可选 -BackendRoot 只读审计私有仓
 # build-ms-dist/build-images/publish 脚本（不修改私有仓）。
 # -ManifestPath 省略时默认 <repo>/release-manifest.json（不再 WARN 放行）。
-# -VerifyManifestFiles 额外核对清单声明的 nativeProvenance/artifacts[] 实际
-# 文件字节；hygiene 在 release 模式也会重算 artifact digest。镜像 registry
-# digest / OCI label 仍需发布方在 registry 侧核对（本脚本不联网）。
+# manifest 校验强制 --require-native-provenance 与 --require-release-evidence
+# （至少一个 sbom、一个 signature/attestation、一个 provenance 文件条目）；
+# -VerifyManifestFiles 额外核对清单声明的 nativeProvenance/artifacts[]/
+# evidence[] 实际文件字节；hygiene 在 release 模式也会重算 artifact/evidence
+# digest。镜像 registry digest / OCI label、SBOM 语义与签名验签仍需发布方在
+# 发布环境核对（本脚本不联网）。
 #
 # 退出码：0=通过；1=存在 FAIL。WARN 不阻断，但必须写入发布记录。
 
@@ -214,7 +217,7 @@ if (-not (Test-Path $manifestScript)) {
 } else {
     $verifyArgs = @(
         $manifestScript, 'verify', '--file', $manifestFile,
-        '--require-native-provenance'
+        '--require-native-provenance', '--require-release-evidence'
     )
     if (-not [string]::IsNullOrWhiteSpace($ExpectedSourceCommit)) {
         $verifyArgs += @('--expected-source-commit', $ExpectedSourceCommit)
@@ -227,7 +230,7 @@ if (-not (Test-Path $manifestScript)) {
     }
 
     if ($VerifyManifestFiles) {
-        & node $manifestScript verify-files --file $manifestFile --root $Root --require-native-provenance
+        & node $manifestScript verify-files --file $manifestFile --root $Root --require-native-provenance --require-release-evidence
         if ($LASTEXITCODE -eq 0) {
             Pass 'release manifest 文件字节校验通过'
         } else {

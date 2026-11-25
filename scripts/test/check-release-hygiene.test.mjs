@@ -93,8 +93,36 @@ const SHIPPED_TEXT = `export class LubanFeatureRpcInterface {
 `;
 const PROVENANCE_TEXT = '{"nativeVersion":"5.15.5","fallbackRequired":false}\n';
 const ARTIFACT_TEXT = 'synthetic-release-artifact\n';
+const SBOM_EVIDENCE_TEXT = '{"spdxVersion":"SPDX-2.3","name":"synthetic"}\n';
+const SIGNATURE_EVIDENCE_TEXT = 'synthetic-signature-bundle\n';
+const PROVENANCE_EVIDENCE_TEXT = '{"_type":"synthetic-provenance"}\n';
+const EVIDENCE_PATHS = {
+  sbom: 'release/sbom/app.spdx.json',
+  signature: 'release/sig/app.sig',
+  provenance: 'release/prov/app.provenance.json',
+};
 
-function baseManifest({ artifact = true } = {}) {
+function evidenceEntries() {
+  return [
+    {
+      kind: 'sbom',
+      path: EVIDENCE_PATHS.sbom,
+      sha256: sha256(SBOM_EVIDENCE_TEXT),
+    },
+    {
+      kind: 'signature',
+      path: EVIDENCE_PATHS.signature,
+      sha256: sha256(SIGNATURE_EVIDENCE_TEXT),
+    },
+    {
+      kind: 'provenance',
+      path: EVIDENCE_PATHS.provenance,
+      sha256: sha256(PROVENANCE_EVIDENCE_TEXT),
+    },
+  ];
+}
+
+function baseManifest({ artifact = true, evidence = true } = {}) {
   return {
     schemaVersion: 1,
     tag: 'backend-20261124',
@@ -125,6 +153,7 @@ function baseManifest({ artifact = true } = {}) {
           ],
         }
       : {}),
+    ...(evidence ? { evidence: evidenceEntries() } : {}),
   };
 }
 
@@ -180,6 +209,19 @@ function fixture(t, options = {}) {
   }
   if (options.artifact !== 'omit') {
     write(root, 'dist-out/app.tgz', ARTIFACT_TEXT);
+  }
+  if (options.evidenceFiles !== 'omit') {
+    write(root, EVIDENCE_PATHS.sbom, options.sbomEvidence ?? SBOM_EVIDENCE_TEXT);
+    write(
+      root,
+      EVIDENCE_PATHS.signature,
+      options.signatureEvidence ?? SIGNATURE_EVIDENCE_TEXT,
+    );
+    write(
+      root,
+      EVIDENCE_PATHS.provenance,
+      options.provenanceEvidence ?? PROVENANCE_EVIDENCE_TEXT,
+    );
   }
   if (options.manifest !== 'omit') {
     write(
@@ -545,6 +587,117 @@ test('manifest native provenance is required and its digest is verified', (t) =>
   assert.equal(
     tamperedReport.violations.some(
       (v) => v.subject === 'provenance-digest-mismatch',
+    ),
+    true,
+  );
+});
+
+test('release mode requires file-backed SBOM/signature/provenance evidence; local and CI stay policy-free', (t) => {
+  const withoutEvidence = baseManifest({ evidence: false });
+  const root = fixture(t, { manifest: withoutEvidence, evidenceFiles: 'omit' });
+
+  // Backward compatibility: structural manifests without evidence[] remain
+  // testable in local/CI mode (the release policy is not applied there).
+  const local = run(['--root', root, '--mode', 'local', '--format', 'json']);
+  assert.equal(local.status, 0, local.stderr);
+  assert.equal(parseJson(local).summary.errors, 0);
+
+  const ci = run(['--root', root, '--mode', 'ci', '--format', 'json']);
+  assert.equal(ci.status, 0, ci.stderr);
+
+  const release = run([
+    '--root',
+    root,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(release.status, 1);
+  const messages = parseJson(release)
+    .violations.map((violation) => violation.message)
+    .join('\n');
+  assert.match(messages, /requires at least one "sbom" entry/);
+  assert.match(
+    messages,
+    /requires at least one "signature" or "attestation" entry/,
+  );
+  assert.match(messages, /requires at least one "provenance" entry/);
+});
+
+test('release mode re-hashes evidence files and fails closed on tampering or missing files', (t) => {
+  const tamperedRoot = fixture(t, { sbomEvidence: 'tampered-sbom-bytes' });
+  const tampered = run([
+    '--root',
+    tamperedRoot,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(tampered.status, 1);
+  const tamperedReport = parseJson(tampered);
+  assert.equal(
+    tamperedReport.violations.some(
+      (violation) => violation.subject === 'evidence-digest-mismatch:0',
+    ),
+    true,
+  );
+  assert.equal(
+    tamperedReport.violations.some((violation) =>
+      /evidence\[0\] \(sbom\) digest mismatch/.test(violation.message),
+    ),
+    true,
+  );
+
+  const missingRoot = fixture(t, { evidenceFiles: 'omit' });
+  const missing = run([
+    '--root',
+    missingRoot,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(missing.status, 1);
+  assert.equal(
+    parseJson(missing).violations.some(
+      (violation) => violation.subject === 'evidence-missing:0',
+    ),
+    true,
+  );
+
+  // Local mode does not re-hash artifact/evidence bytes by default, so the
+  // same fixture remains usable for development-time structural checks.
+  const local = run([
+    '--root',
+    missingRoot,
+    '--mode',
+    'local',
+    '--format',
+    'json',
+  ]);
+  assert.equal(local.status, 0, local.stderr);
+
+  const escaped = baseManifest();
+  escaped.evidence[0].path = '../outside-repo.spdx.json';
+  const escapedRoot = fixture(t, { manifest: escaped });
+  const escapedResult = run([
+    '--root',
+    escapedRoot,
+    '--mode',
+    'release',
+    '--format',
+    'json',
+    ...RELEASE_EXPECTED,
+  ]);
+  assert.equal(escapedResult.status, 1);
+  assert.equal(
+    parseJson(escapedResult).violations.some(
+      (violation) => violation.subject === 'evidence-path-escape:0',
     ),
     true,
   );
