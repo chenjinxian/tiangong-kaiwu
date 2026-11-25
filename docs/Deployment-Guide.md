@@ -34,7 +34,16 @@ powershell -NoProfile -File scripts/quickstart.ps1
 
 `fetch-backend.ps1` 将 Release tag 写入根 `.env` 的 `LUBAN_RELEASE_TAG`；web/bff/imodelhub/webhook-agent 四个镜像与 modeling-server 产物使用同一 tag，避免前端与后端契约漂移。
 
-**首次使用（新用户）**：在登录页注册 → 打开栈内邮件箱 **http://localhost:1080**（Maildev）→ 点击确认邮件中的链接 → 回产品页登录。本地栈不会向真实邮箱发信，未确认账号登录会被 422 拒绝。HUB 另自带 seed 管理员，账号密码在根 `.env` 的 `IMODELHUB_ADMIN_EMAIL` / `IMODELHUB_ADMIN_PASSWORD`，仅供本机运维/验收使用。
+**首次使用（新用户）**：在登录页注册。若页面提示查收邮件 → 打开栈内邮件箱 **http://localhost:1080**（Maildev）→ 点击确认链接 → 回产品页登录；旧版公开镜像可能注册后直接登录。本地栈不会向真实邮箱发信。HUB 另自带 seed 管理员，账号密码在根 `.env` 的 `IMODELHUB_ADMIN_EMAIL` / `IMODELHUB_ADMIN_PASSWORD`，仅供本机运维/验收使用。
+
+`quickstart.ps1` 会把根 `.env` 的 `FRONTEND_URL` 设为 **http://localhost:5301**（nginx 单入口），因为 Hub 确认邮件链接和 MS CORS 都读该值。若开发者改用 Vite dev `:5300`，先把 `FRONTEND_URL` 改回 `http://localhost:5300` 并重启 MS。
+
+> **已知发布阻断**：当前最新公开 release `backend-20261110` 的 web 镜像以
+> `VITE_B_MODEL_ENABLED` 关闭构建，因此新用户无法从空项目创建 iModel/
+> Part Studio；且该 release 早于注册确认 UI 与 B-model 流程。要满足“新用户
+> 从零创建并编辑模型”，必须发布新的 web + backend 同代产物（本仓已修复
+> `/confirm-email` 路由与 B 模式创建路径；backend 产物需用冻结 native
+> Delivery 重建并通过产物模式编辑器冒烟）。
 
 **需要获取的完整服务清单**（只有本仓公开；以下全部为公开可匿名获取，无第二私有仓依赖）：
 

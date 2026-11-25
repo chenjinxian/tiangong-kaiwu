@@ -125,8 +125,11 @@ powershell -NoProfile -File scripts/quickstart.ps1
 
 一键完成：生成 `.env`（随机密钥）→ 匿名下载 modeling-server 产物（SHA256 校验）+ 4 个同代 GHCR 公开镜像（web / bff / imodelhub / webhook-agent，统一 `LUBAN_RELEASE_TAG`）→ 启动容器栈与宿主后端 → 全栈验收 → 打开 **http://localhost:5301**。
 
-首次使用：在登录页注册 → 打开栈内邮件箱 **http://localhost:1080**（Maildev）点击确认邮件 → 回产品页登录。
-本地栈不会向真实邮箱发信；未确认账号登录会被拒绝。注册/登录/创建文档/Part Studio/草图拉伸/撤销重做均可在本地完成。
+首次使用：在登录页注册。若页面提示查收邮件，打开栈内邮件箱 **http://localhost:1080**（Maildev）点击确认链接，再回产品页登录；旧版公开镜像可能注册后直接登录。本地栈不会向真实邮箱发信，Maildev 只展示发给本机测试邮箱的邮件。
+
+> 当前公开 release（backend-20261110）的 web 镜像构建时 B-model 开关为关，
+> 新用户可登录/创建文档，但无法创建 iModel/Part Studio；本仓源码已修复该
+> 流程（需配套发布新的 backend + web 同代产物，见发布清单）。
 
 等价的 5 步手动流程：
 

@@ -67,6 +67,22 @@ Write-Host "    Docker $dockerInfo / Compose $composeVer / Node $nodeVer" -Foreg
 Write-Step '2/7 生成仓库根 .env（幂等）'
 & (Join-Path $PSScriptRoot 'generate-env.ps1')
 
+# 对外入口是 nginx :5301。Hub 的确认邮件链接与 MS 的 CORS 都读
+# FRONTEND_URL；部署形态必须指向 5301（不是 Vite dev 的 5300）。
+# 开发者若要用 :5300 dev server，改成 http://localhost:5300 后重启 MS。
+$envFile = Join-Path $RepoRoot '.env'
+if (Test-Path $envFile) {
+  $lines = @(Get-Content -LiteralPath $envFile)
+  $seen = $false
+  $out = foreach ($line in $lines) {
+    if ($line -match '^\s*FRONTEND_URL\s*=') { $seen = $true; 'FRONTEND_URL=http://localhost:5301' } else { $line }
+  }
+  if (-not $seen) { $out = @($out) + 'FRONTEND_URL=http://localhost:5301' }
+  Set-Content -LiteralPath $envFile -Value (@($out) -join "`r`n") -Encoding utf8
+  $env:FRONTEND_URL = 'http://localhost:5301'
+  Write-Host '    FRONTEND_URL=http://localhost:5301（nginx 单入口）' -ForegroundColor Green
+}
+
 # ---------------- 3. 产物 + 公开镜像 ----------------
 Write-Step '3/7 检查后端产物与公开镜像'
 $msReady = Test-Path (Join-Path $RepoRoot 'dist-backend\modeling-server\dist\main.js')
@@ -113,9 +129,10 @@ if ($SkipVerify) {
 # ---------------- 7. 打开入口 ----------------
 Write-Step '7/7 打开产品入口'
 Write-Host '    产品:   http://localhost:5301' -ForegroundColor Green
-Write-Host '    注册后需确认邮箱（本地邮件箱）: http://localhost:1080' -ForegroundColor Green
+Write-Host '    注册后若页面提示查收邮件: http://localhost:1080（Maildev）确认' -ForegroundColor Green
 Write-Host '    在 Maildev 打开确认邮件 → 点击确认链接 → 回 http://localhost:5301 登录。' -ForegroundColor Green
-Write-Host '    （本地栈不会向真实邮箱发信；Maildev 是栈内 SMTP，只展示发给本机测试邮箱的邮件。）' -ForegroundColor DarkGray
+Write-Host '    （新版后端要求确认；旧版公开镜像可能注册后直接登录。' -ForegroundColor DarkGray
+Write-Host '      本地栈不会向真实邮箱发信，Maildev 只展示发给本机测试邮箱的邮件。）' -ForegroundColor DarkGray
 if (-not $NoOpen) {
   Start-Process 'http://localhost:5301'
   Start-Process 'http://localhost:1080'
