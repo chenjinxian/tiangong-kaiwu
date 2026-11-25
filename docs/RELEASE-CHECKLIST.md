@@ -108,16 +108,19 @@ docker compose -f docker-compose.release.yml \
   宿主包），否则 `RELEASE_MS_UPSTREAM` 仍依赖宿主运维。
 - **回滚与灾备**：manifest/tag 保留窗口、数据库 PITR、对象存储恢复演练。
 
-### 0.3 私有仓待改（公开仓不修改私有构建脚本）
+### 0.3 私有仓构建状态（公开仓不修改私有构建脚本）
 
-- `luban-backend/scripts/build-ms-dist.ps1`：`npm install
-  --legacy-peer-deps` 改为锁文件 frozen 安装；`tsc --noCheck` 改为真实类型
-  门（或登记 release owner 例外）；移除默认 `D:\Github\...` 宿主路径与
-  `D:\Github\imodel-native`，改为必填参数；产物 provenance 拆分公开/私有，
-  公开产物不得含 `storePackagePath`/`imodelNativeHead` 等私有证据。
-- `luban-backend/scripts/build-images.ps1` / `publish.ps1`：发布构建不得以
+- `luban-backend/scripts/build-ms-dist.ps1`（2026-11-25 已收口）：release
+  lock `npm ci --omit=dev` + pnpm frozen 锁检查；真实 `tsc` 类型检查
+  （`--noCheck` 已移除）；`-NativeDelivery` 必填、无宿主路径默认值、无
+  store 兜底；产物只带脱敏 `provenance.public.json`，完整私有证据写到
+  `dist-out/private/` 且不入 tgz。对应产物 `backend-20261125`（契约
+  1.85.0）已由 release hygiene 的 public provenance/契约/build-script
+  检查验证；仍未发布。
+- `luban-backend/scripts/build-images.ps1` / `publish.ps1`：发布构建仍不得以
   `latest` 作为唯一可追溯引用；推送不可变 tag 并输出 registry digest；
-  生成 SBOM、签名与 attestation。
+  SBOM、镜像签名与 attestation 仍待发布 owner 用签名身份生成（本仓不得
+  伪造或自签）。
 - `luban-backend/.github/workflows/ci.yml`：发布相关安装使用
   `--frozen-lockfile`，并让 public release hygiene 以 `-BackendRoot` 可审计。
 - 在私有仓完成前，public `check-release-hygiene.mjs --mode release

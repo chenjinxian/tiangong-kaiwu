@@ -905,14 +905,31 @@ describe('M4-T6 提交接线（new 模式 → applyOp）', () => {
     const applyOp = makeApplyOp();
     const { user } = await renderReadyDialog(applyOp, { variables: [DEPTH_VARIABLE] });
     const input = screen.getByRole('textbox', { name: '深度' }) as HTMLInputElement;
-    await user.click(input);
-    await user.clear(input);
-    await user.type(input, '#d');
-    const menu = await screen.findByTestId('sketch-expression-autocomplete');
-    await user.click(within(menu).getByText('#depth'));
-    expect(input.value).toBe('#depth');
-    await user.tab();
-    expect(input.value).toBe('5');
+    // 选中补全项会排队一个 rAF 恢复光标；测试捕获该帧，在 Tab 之后手动执行，
+    // 以确定性复现「延迟回调不得把已离开的焦点抢回」。
+    const pendingFrames: FrameRequestCallback[] = [];
+    const rafSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        pendingFrames.push(callback);
+        return pendingFrames.length;
+      });
+    try {
+      await user.click(input);
+      await user.clear(input);
+      await user.type(input, '#d');
+      const menu = await screen.findByTestId('sketch-expression-autocomplete');
+      await user.click(within(menu).getByText('#depth'));
+      expect(input.value).toBe('#depth');
+      await user.tab();
+      act(() => {
+        pendingFrames.splice(0).forEach((callback) => callback(performance.now()));
+      });
+      expect(document.activeElement).not.toBe(input);
+      expect(input.value).toBe('5');
+    } finally {
+      rafSpy.mockRestore();
+    }
   });
 
   it('S4b 未知 #name + Enter → 内联创建（name=token、值=当前深度）；变量刷新后回填并提交', async () => {

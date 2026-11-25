@@ -287,11 +287,14 @@ export function SketchDimensionDialog({
     setAutocomplete(null);
     if (!applied) return false;
     onValueChangeRef.current(applied.text);
-    // 受控输入重渲染后把光标放到插入片段末尾（下一帧执行）。
+    // 受控输入重渲染后把光标放到插入片段末尾（下一帧执行）。用户若已 Tab/
+    // 点击离开，延迟帧不得把焦点抢回来。
     window.requestAnimationFrame(() => {
       const element = inputRef.current;
-      element?.focus();
-      element?.setSelectionRange(applied.caret, applied.caret);
+      if (element === null || element.ownerDocument.activeElement !== element)
+        return;
+      element.focus();
+      element.setSelectionRange(applied.caret, applied.caret);
     });
     return true;
   }, [value]);

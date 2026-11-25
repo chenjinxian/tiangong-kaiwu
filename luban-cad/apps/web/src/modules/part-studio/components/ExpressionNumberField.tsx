@@ -447,8 +447,12 @@ export function ExpressionNumberField({
     handleChange(applied.text, { caret: applied.caret, syncAutocomplete: false });
     window.requestAnimationFrame(() => {
       const element = inputRef.current;
-      element?.focus();
-      element?.setSelectionRange(applied.caret, applied.caret);
+      // 用户可能已在选中后立即 Tab/点击离开：延迟帧只恢复仍在字段上的光标，
+      // 不得把焦点抢回来——否则失焦求值结果会被表达式原文覆盖。
+      if (element === null || element.ownerDocument.activeElement !== element)
+        return;
+      element.focus();
+      element.setSelectionRange(applied.caret, applied.caret);
     });
     return true;
   }, [handleChange]);
